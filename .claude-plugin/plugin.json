@@ -7,5 +7,15 @@
   "keywords": ["claude-code", "sdlc", "multi-agent", "orchestrator"],
   "homepage": "https://github.com/hunghlh98/orchestra",
   "hooks": "hooks/hooks.json",
-  "mcpServers": ".claude-plugin/.mcp.json"
+  "mcpServers": ".claude-plugin/.mcp.json",
+  "agents": [
+    "agents/product.md",
+    "agents/lead.md",
+    "agents/backend.md",
+    "agents/frontend.md",
+    "agents/test.md",
+    "agents/evaluator.md",
+    "agents/reviewer.md",
+    "agents/ship.md"
+  ]
 }

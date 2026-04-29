@@ -105,6 +105,62 @@
       "path": "skills/java-source-intel/SKILL.md",
       "defaultEnabled": true,
       "stability": "stable"
+    },
+    {
+      "name": "agent.product",
+      "kind": "agent",
+      "path": "agents/product.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.lead",
+      "kind": "agent",
+      "path": "agents/lead.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.backend",
+      "kind": "agent",
+      "path": "agents/backend.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.frontend",
+      "kind": "agent",
+      "path": "agents/frontend.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.test",
+      "kind": "agent",
+      "path": "agents/test.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.evaluator",
+      "kind": "agent",
+      "path": "agents/evaluator.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.reviewer",
+      "kind": "agent",
+      "path": "agents/reviewer.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.ship",
+      "kind": "agent",
+      "path": "agents/ship.md",
+      "defaultEnabled": true,
+      "stability": "stable"
     }
   ]
 }
