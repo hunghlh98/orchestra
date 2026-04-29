@@ -285,10 +285,161 @@ console.log("env-var opt-out:");
     encoding: "utf8",
     env: { ...process.env, ORCHESTRA_HOOK_HASH_STAMPER: "off" },
   });
-  check(r.status === 0, `opt-out: exits 0`);
+  check(r.status === 0, `hash-stamper opt-out: exits 0`);
   const out = JSON.parse(r.stdout || "{}");
-  check(out.hookSpecificOutput?.permissionDecision === "allow", `opt-out: emits allow`);
-  check(!out.hookSpecificOutput?.updatedInput, `opt-out: no updatedInput`);
+  check(out.hookSpecificOutput?.permissionDecision === "allow", `hash-stamper opt-out: emits allow`);
+  check(!out.hookSpecificOutput?.updatedInput, `hash-stamper opt-out: no updatedInput`);
+}
+
+// ---------- pre-write-check (Blocker) ----------
+console.log("pre-write-check:");
+{
+  const script = resolve(root, "hooks/scripts/pre-write-check.js");
+
+  // Block on AWS key. NOTE: secret-shaped string deliberately avoids the substring
+  // "example" so the skip-pattern doesn't fire on this fixture line.
+  const blockR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: { file_path: "/tmp/x.js", content: "const KEY = 'AKIAQWERTYUIOPASDFGH';" },
+    }),
+    encoding: "utf8",
+  });
+  check(blockR.status === 2, `block on AWS-key fixture: exit 2 (got ${blockR.status})`);
+  check(/aws-access-key/.test(blockR.stderr), `block: stderr names the secret kind`);
+
+  // Inverse sanity: an AWS-key-shaped value tagged with "example" SHOULD pass
+  // (the skip pattern is part of the spec — see PRD §9.9).
+  const skipR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: { file_path: "/tmp/x.md", content: "// example AWS key: AKIAQWERTYUIOPASDFGH" },
+    }),
+    encoding: "utf8",
+  });
+  check(skipR.status === 0, `'example' marker on AWS-key-shaped line is skipped (allow)`);
+
+  // Allow when behind process.env
+  const allowR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: { file_path: "/tmp/x.js", content: "const KEY = process.env.AWS_KEY;" },
+    }),
+    encoding: "utf8",
+  });
+  check(allowR.status === 0, `allow when process.env reference present`);
+
+  // Allow JWT-shaped value tagged "example"
+  const exR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: { file_path: "/tmp/x.md", content: "// example: eyJabc.eyJdef.ghi (skipped)" },
+    }),
+    encoding: "utf8",
+  });
+  check(exR.status === 0, `allow when 'example' marker present (skip pattern)`);
+
+  // Edit tool: scan new_string
+  const editR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Edit",
+      tool_input: { file_path: "/tmp/x.js", old_string: "old", new_string: "ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
+    }),
+    encoding: "utf8",
+  });
+  check(editR.status === 2, `Edit: blocks on github PAT in new_string (got ${editR.status})`);
+
+  // Opt-out
+  const offR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: { file_path: "/tmp/x.js", content: "AKIAIOSFODNN7EXAMPLE_X" },
+    }),
+    encoding: "utf8",
+    env: { ...process.env, ORCHESTRA_HOOK_PRE_WRITE_CHECK: "off" },
+  });
+  check(offR.status === 0, `pre-write-check opt-out: exits 0 even with secret-shaped content`);
+}
+
+// ---------- post-bash-lint (Observer) ----------
+console.log("post-bash-lint:");
+{
+  const script = resolve(root, "hooks/scripts/post-bash-lint.js");
+
+  const npmR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PostToolUse", tool_name: "Bash",
+      tool_input: { command: "npm install lodash" },
+    }),
+    encoding: "utf8",
+  });
+  check(npmR.status === 0, `post-bash-lint: exits 0 on npm install`);
+  check(/source-modifying/.test(npmR.stderr), `post-bash-lint: emits stderr finding for npm install`);
+
+  const benignR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PostToolUse", tool_name: "Bash",
+      tool_input: { command: "ls -la" },
+    }),
+    encoding: "utf8",
+  });
+  check(benignR.status === 0, `post-bash-lint: exits 0 on benign command`);
+  check(benignR.stderr === "", `post-bash-lint: no stderr on benign command`);
+
+  const offR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PostToolUse", tool_name: "Bash",
+      tool_input: { command: "npm install" },
+    }),
+    encoding: "utf8",
+    env: { ...process.env, ORCHESTRA_HOOK_POST_BASH_LINT: "off" },
+  });
+  check(offR.status === 0 && offR.stderr === "", `post-bash-lint opt-out: exits 0, no stderr`);
+}
+
+// ---------- val-calibration (Rewriter) ----------
+console.log("val-calibration:");
+{
+  const script = resolve(root, "hooks/scripts/val-calibration.js");
+
+  // Triggered with evaluator subagent — calibration file does not exist in PR #3,
+  // so graceful no-op (passthrough allow with no updatedInput).
+  const evalR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Task",
+      tool_input: { subagent_type: "evaluator", prompt: "evaluate fixture" },
+    }),
+    encoding: "utf8",
+  });
+  check(evalR.status === 0, `val-calibration: exits 0 (got ${evalR.status})`);
+  const evalOut = JSON.parse(evalR.stdout || "{}");
+  check(evalOut.hookSpecificOutput?.permissionDecision === "allow", `val-calibration: emits allow`);
+  check(!evalOut.hookSpecificOutput?.updatedInput, `val-calibration: no updatedInput when calibration file missing (PR #5 gap)`);
+
+  // Non-evaluator subagent: passthrough
+  const otherR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Task",
+      tool_input: { subagent_type: "general-purpose", prompt: "research" },
+    }),
+    encoding: "utf8",
+  });
+  check(otherR.status === 0, `val-calibration: exits 0 for non-evaluator`);
+  const otherOut = JSON.parse(otherR.stdout || "{}");
+  check(!otherOut.hookSpecificOutput?.updatedInput, `val-calibration: no updatedInput for non-evaluator`);
+
+  // Opt-out
+  const offR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Task",
+      tool_input: { subagent_type: "evaluator", prompt: "x" },
+    }),
+    encoding: "utf8",
+    env: { ...process.env, ORCHESTRA_HOOK_VAL_CALIBRATION: "off" },
+  });
+  check(offR.status === 0, `val-calibration opt-out: exits 0`);
+  const offOut = JSON.parse(offR.stdout || "{}");
+  check(offOut.hookSpecificOutput?.permissionDecision === "allow", `val-calibration opt-out: emits allow`);
 }
 
 if (failures > 0) {

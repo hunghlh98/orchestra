@@ -2,10 +2,34 @@
   "$schema": "../schemas/runtime-toggles.schema.json",
   "toggles": [
     {
+      "module": "hook.pre-write-check",
+      "envVar": "ORCHESTRA_HOOK_PRE_WRITE_CHECK",
+      "default": "on",
+      "description": "Blocks Write/Edit/MultiEdit containing detectable secrets. Disable for fixtures that must contain secret-shaped values (rare)."
+    },
+    {
       "module": "hook.hash-stamper",
       "envVar": "ORCHESTRA_HOOK_HASH_STAMPER",
       "default": "on",
       "description": "Section-hash stamper for .claude/.orchestra/ artifacts. Disabling breaks drift detection."
+    },
+    {
+      "module": "hook.post-bash-lint",
+      "envVar": "ORCHESTRA_HOOK_POST_BASH_LINT",
+      "default": "on",
+      "description": "Surfaces source-modifying Bash commands (npm install, sed -i, etc.) to stderr. Observer; never blocks."
+    },
+    {
+      "module": "hook.val-calibration",
+      "envVar": "ORCHESTRA_HOOK_VAL_CALIBRATION",
+      "default": "on",
+      "description": "Injects calibration anchor into @evaluator Task prompts. No-op until evaluator-tuning skill ships in PR #5."
+    },
+    {
+      "module": "hook.metrics-collector",
+      "envVar": "ORCHESTRA_HOOK_METRICS_COLLECTOR",
+      "default": "on",
+      "description": "Local-only JSONL telemetry to <project>/.claude/.orchestra/metrics/events.jsonl. Disable for fully air-gapped runs."
     }
   ]
 }

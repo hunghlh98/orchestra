@@ -2,9 +2,37 @@
   "$schema": "../schemas/install-modules.schema.json",
   "modules": [
     {
+      "name": "hook.pre-write-check",
+      "kind": "hook",
+      "path": "hooks/scripts/pre-write-check.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
       "name": "hook.hash-stamper",
       "kind": "hook",
       "path": "hooks/scripts/hash-stamper.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "hook.post-bash-lint",
+      "kind": "hook",
+      "path": "hooks/scripts/post-bash-lint.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "hook.val-calibration",
+      "kind": "hook",
+      "path": "hooks/scripts/val-calibration.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "hook.metrics-collector",
+      "kind": "hook",
+      "path": "hooks/scripts/metrics-collector.js",
       "defaultEnabled": true,
       "stability": "stable"
     }
