@@ -42,6 +42,54 @@
       "envVar": "ORCHESTRA_MCP_ORCHESTRA_PROBE",
       "default": "on",
       "description": "Runtime probes MCP (http_probe + db_state). Disable when network/database access is undesirable."
+    },
+    {
+      "module": "skill.task-breakdown",
+      "envVar": "ORCHESTRA_SKILL_TASK_BREAKDOWN",
+      "default": "on",
+      "description": "Decomposition + SP estimation for @lead's task graph generation."
+    },
+    {
+      "module": "skill.project-discovery",
+      "envVar": "ORCHESTRA_SKILL_PROJECT_DISCOVERY",
+      "default": "on",
+      "description": "Pre-/orchestra discovery (language, framework, brownfield/greenfield mode)."
+    },
+    {
+      "module": "skill.code-review",
+      "envVar": "ORCHESTRA_SKILL_CODE_REVIEW",
+      "default": "on",
+      "description": "Severity-graded review checklist consumed by @reviewer."
+    },
+    {
+      "module": "skill.qa-test-planner",
+      "envVar": "ORCHESTRA_SKILL_QA_TEST_PLANNER",
+      "default": "on",
+      "description": "Test plan + coverage + adversarial fuzz inputs consumed by @test."
+    },
+    {
+      "module": "skill.commit-work",
+      "envVar": "ORCHESTRA_SKILL_COMMIT_WORK",
+      "default": "on",
+      "description": "Conventional Commits formatter for /orchestra commit and @ship."
+    },
+    {
+      "module": "skill.write-contract",
+      "envVar": "ORCHESTRA_SKILL_WRITE_CONTRACT",
+      "default": "on",
+      "description": "CONTRACT schema + Probe DSL authoring guide consumed by @lead."
+    },
+    {
+      "module": "skill.evaluator-tuning",
+      "envVar": "ORCHESTRA_SKILL_EVALUATOR_TUNING",
+      "default": "on",
+      "description": "Calibration examples for @evaluator (consumed by val-calibration hook)."
+    },
+    {
+      "module": "skill.java-source-intel",
+      "envVar": "ORCHESTRA_SKILL_JAVA_SOURCE_INTEL",
+      "default": "on",
+      "description": "Java ripgrep + impact patterns consumed by @backend on Java/Spring projects."
     }
   ]
 }

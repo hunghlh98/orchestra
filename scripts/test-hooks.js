@@ -401,9 +401,11 @@ console.log("post-bash-lint:");
 console.log("val-calibration:");
 {
   const script = resolve(root, "hooks/scripts/val-calibration.js");
+  const calibrationPath = resolve(root, "skills/evaluator-tuning/references/calibration-examples.md");
 
-  // Triggered with evaluator subagent — calibration file does not exist in PR #3,
-  // so graceful no-op (passthrough allow with no updatedInput).
+  // Triggered with evaluator subagent — PR #5 ships the calibration source,
+  // so val-calibration MUST inject <calibration-anchor> into the prompt.
+  // (PR #3 asserted graceful no-op; this assertion replaces that.)
   const evalR = spawnSync("node", [script], {
     input: JSON.stringify({
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Task",
@@ -414,7 +416,15 @@ console.log("val-calibration:");
   check(evalR.status === 0, `val-calibration: exits 0 (got ${evalR.status})`);
   const evalOut = JSON.parse(evalR.stdout || "{}");
   check(evalOut.hookSpecificOutput?.permissionDecision === "allow", `val-calibration: emits allow`);
-  check(!evalOut.hookSpecificOutput?.updatedInput, `val-calibration: no updatedInput when calibration file missing (PR #5 gap)`);
+  check(existsSync(calibrationPath), `val-calibration: calibration source ships in PR #5`);
+  const evalUpdated = evalOut.hookSpecificOutput?.updatedInput;
+  check(!!evalUpdated, `val-calibration: emits updatedInput when calibration file present`);
+  check(typeof evalUpdated?.prompt === "string" && evalUpdated.prompt.includes("<calibration-anchor>"),
+    `val-calibration: prompt contains <calibration-anchor> block`);
+  check(typeof evalUpdated?.prompt === "string" && evalUpdated.prompt.includes("</calibration-anchor>"),
+    `val-calibration: prompt contains </calibration-anchor> close tag`);
+  check(typeof evalUpdated?.prompt === "string" && evalUpdated.prompt.endsWith("evaluate fixture"),
+    `val-calibration: original prompt preserved at end`);
 
   // Non-evaluator subagent: passthrough
   const otherR = spawnSync("node", [script], {

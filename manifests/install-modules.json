@@ -49,6 +49,62 @@
       "path": "scripts/mcp-servers/orchestra-probe.js",
       "defaultEnabled": true,
       "stability": "stable"
+    },
+    {
+      "name": "skill.task-breakdown",
+      "kind": "skill",
+      "path": "skills/task-breakdown/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.project-discovery",
+      "kind": "skill",
+      "path": "skills/project-discovery/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.code-review",
+      "kind": "skill",
+      "path": "skills/code-review/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.qa-test-planner",
+      "kind": "skill",
+      "path": "skills/qa-test-planner/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.commit-work",
+      "kind": "skill",
+      "path": "skills/commit-work/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.write-contract",
+      "kind": "skill",
+      "path": "skills/write-contract/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.evaluator-tuning",
+      "kind": "skill",
+      "path": "skills/evaluator-tuning/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.java-source-intel",
+      "kind": "skill",
+      "path": "skills/java-source-intel/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
     }
   ]
 }
