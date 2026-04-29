@@ -5,5 +5,7 @@
   "author": "hunghlh98",
   "license": "MIT",
   "keywords": ["claude-code", "sdlc", "multi-agent", "orchestrator"],
-  "homepage": "https://github.com/hunghlh98/orchestra"
+  "homepage": "https://github.com/hunghlh98/orchestra",
+  "hooks": "hooks/hooks.json",
+  "mcpServers": ".claude-plugin/.mcp.json"
 }

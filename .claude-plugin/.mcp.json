@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "orchestra-fs": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-servers/orchestra-fs.js"]
+    },
+    "orchestra-probe": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-servers/orchestra-probe.js"]
+    }
+  }
+}

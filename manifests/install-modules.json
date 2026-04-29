@@ -35,6 +35,20 @@
       "path": "hooks/scripts/metrics-collector.js",
       "defaultEnabled": true,
       "stability": "stable"
+    },
+    {
+      "name": "mcp.orchestra-fs",
+      "kind": "mcp",
+      "path": "scripts/mcp-servers/orchestra-fs.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "mcp.orchestra-probe",
+      "kind": "mcp",
+      "path": "scripts/mcp-servers/orchestra-probe.js",
+      "defaultEnabled": true,
+      "stability": "stable"
     }
   ]
 }

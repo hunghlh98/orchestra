@@ -30,6 +30,18 @@
       "envVar": "ORCHESTRA_HOOK_METRICS_COLLECTOR",
       "default": "on",
       "description": "Local-only JSONL telemetry to <project>/.claude/.orchestra/metrics/events.jsonl. Disable for fully air-gapped runs."
+    },
+    {
+      "module": "mcp.orchestra-fs",
+      "envVar": "ORCHESTRA_MCP_ORCHESTRA_FS",
+      "default": "on",
+      "description": "Filesystem MCP exposing the `tree` tool. Disable in air-gapped or filesystem-restricted environments."
+    },
+    {
+      "module": "mcp.orchestra-probe",
+      "envVar": "ORCHESTRA_MCP_ORCHESTRA_PROBE",
+      "default": "on",
+      "description": "Runtime probes MCP (http_probe + db_state). Disable when network/database access is undesirable."
     }
   ]
 }

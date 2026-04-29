@@ -19,3 +19,10 @@ __pycache__/
 # under .claude/.orchestra/ (covers local.yaml, metrics/, sessions/,
 # DRIFT-REPORT.md, SUMMARY-*.md, and any other generated outputs).
 .claude/.orchestra/
+
+# scripts/mcp-servers/ allow-list per PRD §11.3.
+# Only the two shipped MCP servers are tracked; everything else under
+# scripts/mcp-servers/ is dev-only or accidental and must not be packaged.
+scripts/mcp-servers/*
+!scripts/mcp-servers/orchestra-fs.js
+!scripts/mcp-servers/orchestra-probe.js
