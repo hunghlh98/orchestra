@@ -3,7 +3,7 @@ id: WORKFLOW-001-infra
 title: orchestra v1.0.0 — Infrastructure Implementation Workflow
 created: 2026-04-29
 status: draft
-revision: 1
+revision: 2
 scope: load-bearing infra rollout (PR #0–#4); leaf components (PR #5+) deferred to future workflow
 references:
   prd:
@@ -62,16 +62,16 @@ All P/E tasks run **in parallel** unless noted. Tags show which PR they gate.
 
 | ID | Task | Gates |
 |---|---|---|
-| **P-09** | **R1 spike** — write a no-op PreToolUse rewriter; observe whether Claude Code honors `hookSpecificOutput.modifiedToolInput` (or equivalent). 30-minute experiment | **PR #2 merge** |
+| ~~P-09~~ | **R1 spike — resolved 2026-04-29.** Claude Code's PreToolUse protocol supports `hookSpecificOutput.updatedInput` (not `modifiedToolInput`). DESIGN-001-infra §3.3 step 7 updated. Source: code.claude.com/docs/en/hooks.md | done |
 
-**Spike protocol:**
-1. Create a throwaway hook that returns JSON like `{ "hookSpecificOutput": { "hookEventName": "PreToolUse", "modifiedToolInput": { "file_path": "<path>", "content": "<altered>" } } }` for `Write`.
-2. Trigger a Write to a fixture file.
-3. Inspect the resulting file: did Claude Code use the altered content?
-4. If **yes** → DESIGN-001-infra §3.3 step 7 holds; PR #2 proceeds as designed.
-5. If **no** → revise §3.3 step 7 to PostToolUse-Write fallback (re-stamp after the fact); document in PR #2 description; recompute exit criteria.
+**Spike result — 2026-04-29:**
 
-**Parallelization:** P-09 starts the same day as PR #0 review and finishes during PR #1 development. It does **not** block PR #1 (PR #1 ships no hooks).
+- Resolved via authoritative docs lookup; no live experiment needed (docs unambiguous).
+- Field name: `hookSpecificOutput.updatedInput` (NOT `modifiedToolInput` as the initial design assumed).
+- Required envelope: `hookEventName: "PreToolUse"`, `permissionDecision: "allow"`, `updatedInput: { ...all original tool_input fields... }`.
+- Critical gotcha: `updatedInput` must include EVERY field of the original `tool_input`, not just modified ones. For `Write`: both `file_path` and `content`. For `Edit`: `file_path`, `old_string`, `new_string`, `replace_all` (if present).
+- Source: <https://code.claude.com/docs/en/hooks.md>.
+- Outcome: DESIGN-001-infra §3.3 step 7 updated. PR #2 proceeds with the in-design algorithm; no fallback to PostToolUse double-write needed.
 
 ### 1.4 Pre-flight dependency graph
 
@@ -157,7 +157,7 @@ Streams labeled A–D show parallelization opportunity within the PR.
 | T-208 | runtime-toggles.json += `ORCHESTRA_HOOK_HASH_STAMPER` toggle | `manifests/runtime-toggles.json` | 1:1 correspondence with T-207 |
 | T-209 | Pipeline schema doc — type-specific frontmatter fields per artifact | `docs/pipeline-schema.md` | Documents PRD, FRS, TDD, CONTRACT, SAD, TEST, CODE-REVIEW, DOC, RELEASE, RUNBOOK frontmatter shapes |
 
-**PR #2 merge-gate G-R1:** P-09 (R1 spike) result resolved. If rewrite path unsupported, T-203 algorithm reworked to PostToolUse double-write before merge.
+**PR #2 merge-gate G-R1 — resolved 2026-04-29.** Spike confirmed `hookSpecificOutput.updatedInput` is the canonical field; T-203 algorithm proceeds as designed. No fallback needed.
 
 **PR #2 exit:** all PR #1 tests still pass; new hash-equality test passes; fixture artifact round-trips through hash-stamper and validate-drift agrees.
 
@@ -229,7 +229,7 @@ PR #0 (PRD edits) ──► PR #1 (manifests + CI)
 
 | Risk | Attached to | Type | Action |
 |---|---|---|---|
-| **R1** Hook rewrite protocol | PR #2 merge-gate | **Blocking** | P-09 spike must complete; revise §3.3 step 7 if needed |
+| ~~R1~~ Hook rewrite protocol | ~~PR #2 merge-gate~~ | **Resolved 2026-04-29** | P-09 spike done; field is `updatedInput`; DESIGN-001-infra §3.3 step 7 updated |
 | **R2** validate-drift performance | post-v1.0.0 runtime | Informational | Profile after first brownfield real-run; cache if measured slow |
 | **R3** YAML edge cases | PR #2 review + PR #3 informational | Informational | Confirm no real artifact requires forbidden grammar; reject as `frontmatter-grammar-violation` if found |
 | **R4** SELECT-only + CTEs | PR #4 merge-gate | **Blocking** | Decide CTE policy; document; implement |

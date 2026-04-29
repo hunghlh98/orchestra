@@ -3,7 +3,7 @@ id: DESIGN-001-infra
 title: orchestra v1.0.0 — Infrastructure Architecture Design
 created: 2026-04-29
 status: draft
-revision: 1
+revision: 2
 scope: load-bearing infra only (5 hooks, 2 MCPs, 4 manifests, 1 drift validator)
 references:
   prd:
@@ -307,8 +307,14 @@ Implementation note: regex set is a const array; iterating once over content is 
    - If not found → set "TBD-UNRESOLVED"; emit hook.hash-stamper.upstream-unresolved
 6. Re-emit frontmatter (preserving key order via sequential-write parser); reassemble file
 7. Stdout JSON: { hookSpecificOutput: { hookEventName: "PreToolUse",
-     modifiedToolInput: { file_path, content: <rewritten> } } }
+     permissionDecision: "allow",
+     updatedInput: { file_path, content: <rewritten> } } }
    exit 0
+   NOTE: updatedInput must include EVERY field of the original tool_input,
+   not just modified ones. For Write that means both file_path and content;
+   for Edit that means file_path, old_string, new_string, and replace_all
+   if present in the input. Hash-stamper's read of tool_input in step 1
+   already captures the full input, so re-emitting all fields is mechanical.
 ```
 
 **Hand-rolled YAML grammar (the "frozen frontmatter shape" promise):**
@@ -334,7 +340,7 @@ unquoted    := [^\n]+ (no leading/trailing whitespace)
 
 This grammar covers every PRD example in §8.13 and §10. It is parser-implementable in ~150 lines of stdlib-only Node.
 
-**⚠ Open design risk R1 — Claude Code hook rewrite protocol:** the `modifiedToolInput` field name and JSON shape used in step 7 must match what Claude Code's PreToolUse contract supports. **Verify against the live hook spec before PR #2 lands.** If Claude Code does not support PreToolUse rewrite of `tool_input`, fallback is PostToolUse-Write that re-runs hash-stamper and re-saves the file (introduces a double-write pattern, recoverable but ugly). A 30-minute spike against the actual Claude Code version is the next-step gate.
+**✓ R1 resolved — 2026-04-29.** Claude Code's PreToolUse hook protocol supports `tool_input` modification via the `hookSpecificOutput.updatedInput` field (not `modifiedToolInput` as initially assumed). Step 7 above is updated. The contract requires every field of the original `tool_input` to appear in `updatedInput`, not just modified ones. Source: <https://code.claude.com/docs/en/hooks.md>. PR #2 proceeds with the in-design algorithm; no fallback to PostToolUse double-write needed.
 
 ### 3.4 `post-bash-lint` (Observer)
 
@@ -568,7 +574,7 @@ Each PR ships green CI. No PR merges with red CI.
 
 **Exit criteria:** create a fixture artifact under a test `.orchestra/`, write it through the hook, validate-drift runs clean. Both consumers produce identical hashes.
 
-**Pre-merge gate:** verify Claude Code's PreToolUse rewrite protocol matches §3.3 step 7. If not, switch to PostToolUse-Write fallback before merging.
+**Pre-merge gate (R1, resolved 2026-04-29):** Claude Code's PreToolUse protocol supports the `updatedInput` field for tool_input rewrite. PR #2 proceeds with the in-design algorithm.
 
 ### PR #3 — Remaining 4 hooks
 
@@ -607,7 +613,7 @@ Each must be resolved before the named PR merges.
 
 | # | Risk | Surfaces at | Resolution |
 |---|---|---|---|
-| **R1** | Claude Code's PreToolUse hook rewrite protocol shape (`modifiedToolInput` field name, JSON envelope) may not match §3.3 step 7 | PR #2 | 30-min spike: write a no-op rewriter, observe Claude Code behavior, adjust §3.3 step 7 OR fall back to PostToolUse double-write |
+| ~~R1~~ | **Resolved 2026-04-29.** Field is `updatedInput` (not `modifiedToolInput`); requires all original `tool_input` keys present. §3.3 step 7 updated. Source: code.claude.com/docs/en/hooks.md | n/a | resolved |
 | **R2** | `validate-drift.js` performance on a brownfield repo with 100+ artifacts — full SHA256 walk per push | After first real brownfield run | Profile, then add a Merkle-style "files changed since last run" cache if needed. Out of scope for v1.0.0 unless empirically slow |
 | **R3** | Hand-rolled YAML parser handling of edge cases (multi-line strings, escaped quotes in hash values) | PR #2 review | Frozen grammar (§3.3) explicitly forbids these; validator rejects them as `frontmatter-grammar-violation`. If a real artifact needs them, revise grammar before adding to the parser |
 | **R4** | `db_state` SELECT-only check vs. `WITH ... SELECT` CTEs and vendor-specific dialects | PR #4 | First-token-after-comments check is conservative; CTEs starting with `WITH` need an allow-list path. Defer or accept stricter behavior |
