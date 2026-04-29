@@ -1,16 +1,298 @@
 #!/usr/bin/env node
-// Skeleton for PR #1. Hash-equality + blocker/observer/rewriter contract
-// assertions land in PR #2 (hash-stamper) and PR #3 (the other 4 hooks).
-import { existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+// scripts/test-hooks.js
+// Hook contract tests. PR #2 covers: yaml-mini round-trip, section-hash
+// regression, hash-stamper end-to-end stamp test, and hash-equality between
+// hash-stamper output and validate-drift recompute.
+
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import { parse, serialize } from "../hooks/lib/yaml-mini.js";
+import { hashSections, computeHash } from "../hooks/lib/section-hash.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const hooksDir = resolve(root, "hooks/scripts");
+let failures = 0;
+let passes = 0;
 
-if (!existsSync(hooksDir)) {
-  console.log("test-hooks.js: OK (no hooks/scripts/ directory yet — full check deferred to PR #2/PR #3)");
-  process.exit(0);
+function check(cond, msg) {
+  if (cond) { passes++; }
+  else { failures++; console.error(`  FAIL: ${msg}`); }
 }
 
-console.log("test-hooks.js: OK (full check deferred to PR #2/PR #3)");
+// ---------- yaml-mini round-trip ----------
+console.log("yaml-mini:");
+const ymCases = [
+  `id: PRD-001\ntype: PRD\nrevision: 3\n`,
+  `sections:\n  S-USAGE-001:\n    hash: "TBD"\n    confirmed: true\n  S-VISION-001:\n    hash: "sha256:abc123"\n    inferred: true\n`,
+  `references:\n  - type: sad\n    id: ""\n    section: S-CONTAINER-001\n    hash-at-write: "sha256:def456"\n  - type: frs\n    id: "001"\n    section: S-API-001\n    hash-at-write: "TBD"\n`,
+  `id: SAD\ntype: SAD\nrevision: 1\nsections:\n  S-CONTEXT-001:\n    hash: "TBD"\n    confirmed: true\nreferences:\n  - type: prd\n    id: "001"\n    section: S-INVARIANTS-001\n    hash-at-write: "TBD"\n`,
+];
+for (const text of ymCases) {
+  const a = parse(text);
+  const reSerialized = serialize(a);
+  const b = parse(reSerialized);
+  check(JSON.stringify(a) === JSON.stringify(b),
+    `round-trip stable: parse(serialize(parse(text))) deep-equals parse(text) [${text.split("\n")[0]}...]`);
+}
+
+// ---------- section-hash regression ----------
+console.log("section-hash:");
+const body1 = `## §1 Title <a id="S-FOO-001"></a>\n\nSome content here.\n\n## §2 Other <a id="S-BAR-001"></a>\n\nMore content.\n`;
+const sections = hashSections(body1);
+check(sections.length === 2, `hashSections yields 2 sections (got ${sections.length})`);
+check(sections[0]?.id === "S-FOO-001", `first section id is S-FOO-001`);
+check(sections[1]?.id === "S-BAR-001", `second section id is S-BAR-001`);
+check(/^sha256:[a-f0-9]{64}$/.test(sections[0]?.hash), `section 0 hash format`);
+check(/^sha256:[a-f0-9]{64}$/.test(sections[1]?.hash), `section 1 hash format`);
+
+// Determinism
+const sections2 = hashSections(body1);
+check(sections2[0].hash === sections[0].hash, `deterministic`);
+
+// CRLF normalization
+const bodyCrlf = body1.replace(/\n/g, "\r\n");
+const sectionsCrlf = hashSections(bodyCrlf);
+check(sectionsCrlf[0].hash === sections[0].hash, `CRLF normalizes to LF`);
+
+// Trailing-whitespace stripping
+const bodyTrailing = body1.replace(/Some content here\./, "Some content here.   ");
+const sectionsTrailing = hashSections(bodyTrailing);
+check(sectionsTrailing[0].hash === sections[0].hash, `trailing whitespace stripped`);
+
+// ---------- hash-stamper integration ----------
+console.log("hash-stamper integration:");
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-stamper-"));
+  try {
+    const archDir = join(tmp, ".claude/.orchestra/architecture");
+    mkdirSync(archDir, { recursive: true });
+    const sadPath = join(archDir, "SAD.md");
+    const sadContent =
+`---
+id: SAD
+type: SAD
+revision: 1
+sections:
+  S-CONTEXT-001:
+    hash: "TBD"
+    confirmed: true
+  S-CONTAINER-001:
+    hash: "TBD"
+    confirmed: true
+---
+## §1 System Context <a id="S-CONTEXT-001"></a>
+
+Context content.
+
+## §2 Container Decomposition <a id="S-CONTAINER-001"></a>
+
+Container content.
+`;
+
+    const result = spawnSync("node", [resolve(root, "hooks/scripts/hash-stamper.js")], {
+      input: JSON.stringify({
+        session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
+        tool_input: { file_path: sadPath, content: sadContent },
+      }),
+      encoding: "utf8",
+    });
+
+    check(result.status === 0, `hash-stamper exits 0 (got ${result.status}; stderr: ${result.stderr})`);
+    check(result.stdout.length > 0, `hash-stamper produces stdout`);
+
+    let output;
+    try { output = JSON.parse(result.stdout); }
+    catch (e) { check(false, `hash-stamper stdout is JSON (parse error: ${e.message})`); output = {}; }
+
+    check(output.hookSpecificOutput?.hookEventName === "PreToolUse", `output.hookSpecificOutput.hookEventName === "PreToolUse"`);
+    check(output.hookSpecificOutput?.permissionDecision === "allow", `output.hookSpecificOutput.permissionDecision === "allow"`);
+
+    const updated = output.hookSpecificOutput?.updatedInput;
+    check(updated?.file_path === sadPath, `updatedInput preserves file_path`);
+    check(typeof updated?.content === "string", `updatedInput.content is string`);
+
+    if (typeof updated?.content === "string") {
+      const stampedContent = updated.content;
+      // Re-parse stamped frontmatter
+      const fmEnd = stampedContent.indexOf("\n---\n", 4);
+      const stampedFm = parse(stampedContent.slice(4, fmEnd));
+      const stampedBody = stampedContent.slice(fmEnd + 5);
+      const expected = hashSections(stampedBody);
+
+      // hash-equality between stamper output and independent recompute
+      for (const { id, hash } of expected) {
+        const stampedHash = stampedFm.sections?.[id]?.hash;
+        check(stampedHash === hash, `${id}: stamped hash matches recomputed`);
+      }
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------- validate-drift fixture cases ----------
+console.log("validate-drift fixtures:");
+const driftScript = resolve(root, "scripts/validate-drift.js");
+
+// Case 1: clean (recorded hash matches body)
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-drift-clean-"));
+  try {
+    const orchDir = join(tmp, ".claude/.orchestra");
+    const archDir = join(orchDir, "architecture");
+    mkdirSync(archDir, { recursive: true });
+    const body = `## §1 Title <a id="S-FOO-001"></a>\n\nContent.\n`;
+    const correct = hashSections(body)[0].hash;
+    writeFileSync(join(archDir, "SAD.md"),
+`---
+id: SAD
+type: SAD
+revision: 1
+sections:
+  S-FOO-001:
+    hash: "${correct}"
+    confirmed: true
+---
+${body}`);
+    const r = spawnSync("node", [driftScript, orchDir], { encoding: "utf8" });
+    check(r.status === 0, `clean fixture: exits 0`);
+    const report = readFileSync(join(orchDir, "DRIFT-REPORT.md"), "utf8");
+    check(report.includes("fail_count: 0"), `clean fixture: 0 fail`);
+    check(report.includes("warn_count: 0"), `clean fixture: 0 warn`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// Case 2: drift-on-confirmed (downstream references upstream with stale hash)
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-drift-confirmed-"));
+  try {
+    const orchDir = join(tmp, ".claude/.orchestra");
+    const archDir = join(orchDir, "architecture");
+    const pipeDir = join(orchDir, "pipeline/001");
+    mkdirSync(archDir, { recursive: true });
+    mkdirSync(pipeDir, { recursive: true });
+
+    const sadBody = `## §1 Context <a id="S-CONTEXT-001"></a>\n\nUpdated content.\n`;
+    const sadHash = hashSections(sadBody)[0].hash;
+    writeFileSync(join(archDir, "SAD.md"),
+`---
+id: SAD
+type: SAD
+revision: 1
+sections:
+  S-CONTEXT-001:
+    hash: "${sadHash}"
+    confirmed: true
+---
+${sadBody}`);
+
+    // PRD-001 downstream references SAD with a STALE hash
+    const prdBody = `## §1 Vision <a id="S-VISION-001"></a>\n\nVision text.\n`;
+    const prdHash = hashSections(prdBody)[0].hash;
+    writeFileSync(join(pipeDir, "PRD-001.md"),
+`---
+id: PRD-001
+type: PRD
+revision: 1
+sections:
+  S-VISION-001:
+    hash: "${prdHash}"
+    confirmed: true
+references:
+  - type: sad
+    id: ""
+    section: S-CONTEXT-001
+    hash-at-write: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+---
+${prdBody}`);
+
+    const r = spawnSync("node", [driftScript, orchDir], { encoding: "utf8" });
+    check(r.status === 0, `drift-on-confirmed: exits 0`);
+    const report = readFileSync(join(orchDir, "DRIFT-REPORT.md"), "utf8");
+    check(report.includes("drift-on-confirmed"), `drift-on-confirmed: report contains type`);
+    check(/fail_count: [1-9]/.test(report), `drift-on-confirmed: fail_count >= 1`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// Case 3: drift-on-inferred (same setup but upstream is inferred)
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-drift-inferred-"));
+  try {
+    const orchDir = join(tmp, ".claude/.orchestra");
+    const archDir = join(orchDir, "architecture");
+    const pipeDir = join(orchDir, "pipeline/001");
+    mkdirSync(archDir, { recursive: true });
+    mkdirSync(pipeDir, { recursive: true });
+
+    const sadBody = `## §1 Context <a id="S-CONTEXT-001"></a>\n\nUpdated content.\n`;
+    const sadHash = hashSections(sadBody)[0].hash;
+    writeFileSync(join(archDir, "SAD.md"),
+`---
+id: SAD
+type: SAD
+revision: 1
+sections:
+  S-CONTEXT-001:
+    hash: "${sadHash}"
+    inferred: true
+---
+${sadBody}`);
+
+    const prdBody = `## §1 Vision <a id="S-VISION-001"></a>\n\nVision text.\n`;
+    const prdHash = hashSections(prdBody)[0].hash;
+    writeFileSync(join(pipeDir, "PRD-001.md"),
+`---
+id: PRD-001
+type: PRD
+revision: 1
+sections:
+  S-VISION-001:
+    hash: "${prdHash}"
+    confirmed: true
+references:
+  - type: sad
+    id: ""
+    section: S-CONTEXT-001
+    hash-at-write: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+---
+${prdBody}`);
+
+    const r = spawnSync("node", [driftScript, orchDir], { encoding: "utf8" });
+    check(r.status === 0, `drift-on-inferred: exits 0`);
+    const report = readFileSync(join(orchDir, "DRIFT-REPORT.md"), "utf8");
+    check(report.includes("drift-on-inferred"), `drift-on-inferred: report contains type`);
+    check(/warn_count: [1-9]/.test(report), `drift-on-inferred: warn_count >= 1`);
+    check(report.includes("fail_count: 0"), `drift-on-inferred: fail_count is 0`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------- env-var opt-out ----------
+console.log("env-var opt-out:");
+{
+  const r = spawnSync("node", [resolve(root, "hooks/scripts/hash-stamper.js")], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: { file_path: "/tmp/x.md", content: "hello" },
+    }),
+    encoding: "utf8",
+    env: { ...process.env, ORCHESTRA_HOOK_HASH_STAMPER: "off" },
+  });
+  check(r.status === 0, `opt-out: exits 0`);
+  const out = JSON.parse(r.stdout || "{}");
+  check(out.hookSpecificOutput?.permissionDecision === "allow", `opt-out: emits allow`);
+  check(!out.hookSpecificOutput?.updatedInput, `opt-out: no updatedInput`);
+}
+
+if (failures > 0) {
+  console.error(`test-hooks.js: FAIL (${passes} passed, ${failures} failed)`);
+  process.exit(1);
+}
+console.log(`test-hooks.js: OK (${passes} assertions passed)`);

@@ -1,4 +1,11 @@
 {
   "$schema": "../schemas/runtime-toggles.schema.json",
-  "toggles": []
+  "toggles": [
+    {
+      "module": "hook.hash-stamper",
+      "envVar": "ORCHESTRA_HOOK_HASH_STAMPER",
+      "default": "on",
+      "description": "Section-hash stamper for .claude/.orchestra/ artifacts. Disabling breaks drift detection."
+    }
+  ]
 }

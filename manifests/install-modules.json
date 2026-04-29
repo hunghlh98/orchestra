@@ -1,4 +1,12 @@
 {
   "$schema": "../schemas/install-modules.schema.json",
-  "modules": []
+  "modules": [
+    {
+      "name": "hook.hash-stamper",
+      "kind": "hook",
+      "path": "hooks/scripts/hash-stamper.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    }
+  ]
 }
