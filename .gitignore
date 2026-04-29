@@ -1,0 +1,20 @@
+# Node
+node_modules/
+*.log
+npm-debug.log*
+
+# Python (foreign virtualenv kept out per WORKFLOW Q2 / P-08)
+.venv/
+__pycache__/
+
+# Editor / OS
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# orchestra per-project state — consumer-side artifacts must never appear in the plugin repo.
+# Release-gate prerequisite per PRD §11.2 / §12.
+.claude/.orchestra/local.yaml
+.claude/.orchestra/metrics/
+.claude/.orchestra/sessions/

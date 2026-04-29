@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orchestra:install-modules",
+  "title": "orchestra install-modules manifest",
+  "description": "Inventory of plugin components grouped by module with installation defaults. See PRD §8.6 / DESIGN-001-infra §2.2.",
+  "type": "object",
+  "required": ["modules"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "modules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/module" }
+    }
+  },
+  "$defs": {
+    "module": {
+      "type": "object",
+      "required": ["name", "kind", "path", "defaultEnabled", "stability"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z]+\\.[a-z][a-z0-9-]*$",
+          "description": "Canonical key, e.g. 'hook.hash-stamper' or 'agent.lead'."
+        },
+        "kind": { "enum": ["agent", "hook", "skill", "rule", "command", "mcp"] },
+        "path": { "type": "string" },
+        "defaultEnabled": { "type": "boolean" },
+        "stability": { "enum": ["stable", "experimental"] }
+      }
+    }
+  }
+}

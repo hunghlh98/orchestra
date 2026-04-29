@@ -1,0 +1,9 @@
+{
+  "name": "orchestra",
+  "version": "1.0.0",
+  "description": "Multi-agent SDLC pipeline behind /orchestra. One developer, generator/evaluator separation, document-driven gates.",
+  "author": "hunghlh98",
+  "license": "MIT",
+  "keywords": ["claude-code", "sdlc", "multi-agent", "orchestrator"],
+  "homepage": "https://github.com/hunghlh98/orchestra"
+}

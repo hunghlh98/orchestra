@@ -1,0 +1,4 @@
+{
+  "$schema": "../schemas/install-modules.schema.json",
+  "modules": []
+}

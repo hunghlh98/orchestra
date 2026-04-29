@@ -1,0 +1,21 @@
+{
+  "$schema": "../schemas/known-models.schema.json",
+  "models": [
+    {
+      "id": "claude-opus-4-7",
+      "tier": "opus",
+      "default": true,
+      "supportsContextMode": ["default", "1m"]
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "tier": "sonnet",
+      "supportsContextMode": ["default"]
+    },
+    {
+      "id": "claude-haiku-4-5-20251001",
+      "tier": "haiku",
+      "supportsContextMode": ["default"]
+    }
+  ]
+}

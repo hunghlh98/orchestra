@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orchestra:runtime-toggles",
+  "title": "orchestra runtime-toggles manifest",
+  "description": "Env-var opt-out registry. Every install-modules entry of kind hook|skill|mcp must have exactly one toggle entry. See PRD §8.7 / DESIGN-001-infra §2.3.",
+  "type": "object",
+  "required": ["toggles"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "toggles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/toggle" }
+    }
+  },
+  "$defs": {
+    "toggle": {
+      "type": "object",
+      "required": ["module", "envVar", "default", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "module": {
+          "type": "string",
+          "pattern": "^[a-z]+\\.[a-z][a-z0-9-]*$",
+          "description": "Must match an install-modules entry's name."
+        },
+        "envVar": {
+          "type": "string",
+          "pattern": "^ORCHESTRA_[A-Z_]+$"
+        },
+        "default": { "enum": ["on", "off"] },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}
