@@ -32,10 +32,13 @@ main();
 function main() {
   const artifacts = walkArtifacts();
   if (artifacts.length === 0) {
+    // True no-op when orchestraDir doesn't exist: do not spontaneously create
+    // metrics/ or DRIFT-REPORT.md in a fresh consumer repo. Real activity
+    // creates orchestraDir; we only annotate it once it does.
     if (existsSync(orchestraDir)) {
       writeReport({ findings: [], inferred: [], walked: 0 });
+      emitMetrics({ fail_count: 0, warn_count: 0, artifacts_walked: 0 });
     }
-    emitMetrics({ fail_count: 0, warn_count: 0, artifacts_walked: 0 });
     console.log("validate-drift.js: OK (no artifacts found — pass-by-default per Q7)");
     process.exit(0);
   }

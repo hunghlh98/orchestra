@@ -13,8 +13,9 @@ __pycache__/
 .vscode/
 .idea/
 
-# orchestra per-project state — consumer-side artifacts must never appear in the plugin repo.
-# Release-gate prerequisite per PRD §11.2 / §12.
-.claude/.orchestra/local.yaml
-.claude/.orchestra/metrics/
-.claude/.orchestra/sessions/
+# orchestra per-project state — consumer-side artifacts must never appear
+# in the plugin repo. Release-gate prerequisite per PRD §11.2 / §12.
+# Parent-dir pattern: the plugin repo has no legitimate runtime artifacts
+# under .claude/.orchestra/ (covers local.yaml, metrics/, sessions/,
+# DRIFT-REPORT.md, SUMMARY-*.md, and any other generated outputs).
+.claude/.orchestra/
