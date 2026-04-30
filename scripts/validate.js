@@ -119,6 +119,160 @@ if (existsSync(skillsDir)) {
   }
 }
 
+// === Rule validation (PRD §10.3 / §8.8) ===
+// Walks rules/**/*.md and enforces:
+//   - frontmatter present and parseable
+//   - frontmatter has `paths` — non-empty array of strings
+//   - body (post-frontmatter) ≤40 lines
+// Exported as a pure function so mutation tests can exercise it.
+export function validateRuleContent(relPath, raw) {
+  const errs = [];
+  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (!fmMatch) {
+    errs.push(`${relPath}: missing or malformed frontmatter`);
+    return errs;
+  }
+  let fm;
+  try { fm = parseYaml(fmMatch[1]); }
+  catch (e) { errs.push(`${relPath}: frontmatter parse error: ${e.message}`); return errs; }
+  if (!fm || !Array.isArray(fm.paths)) {
+    errs.push(`${relPath}: frontmatter missing 'paths' array`);
+  } else {
+    if (fm.paths.length === 0) errs.push(`${relPath}: 'paths' array is empty`);
+    for (const p of fm.paths) {
+      if (typeof p !== "string" || p.length === 0) {
+        errs.push(`${relPath}: 'paths' entry must be non-empty string, got ${JSON.stringify(p)}`);
+      }
+    }
+  }
+  const body = fmMatch[2];
+  const bodyLines = body.split("\n").length;
+  if (bodyLines > 40) {
+    errs.push(`${relPath}: body ${bodyLines} lines > 40 cap`);
+  }
+  return errs;
+}
+
+const rulesDir = resolve(root, "rules");
+function walkRules(dir, rel = "rules") {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const relPath = `${rel}/${entry}`;
+    const st = statSync(full);
+    if (st.isDirectory()) walkRules(full, relPath);
+    else if (st.isFile() && entry.endsWith(".md")) {
+      const raw = readFileSync(full, "utf8");
+      for (const e of validateRuleContent(relPath, raw)) errors.push(e);
+    }
+  }
+}
+walkRules(rulesDir);
+
+// === Command validation (PRD §10.4) ===
+// Walks commands/*.md and enforces frontmatter `name` + `description`.
+export function validateCommandContent(relPath, raw) {
+  const errs = [];
+  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (!fmMatch) {
+    errs.push(`${relPath}: missing or malformed frontmatter`);
+    return errs;
+  }
+  let fm;
+  try { fm = parseYaml(fmMatch[1]); }
+  catch (e) { errs.push(`${relPath}: frontmatter parse error: ${e.message}`); return errs; }
+  for (const k of ["name", "description"]) {
+    if (!fm || !fm[k] || typeof fm[k] !== "string") {
+      errs.push(`${relPath}: missing frontmatter key '${k}'`);
+    }
+  }
+  return errs;
+}
+
+const commandsDir = resolve(root, "commands");
+if (existsSync(commandsDir)) {
+  for (const entry of readdirSync(commandsDir)) {
+    if (!entry.endsWith(".md")) continue;
+    const full = join(commandsDir, entry);
+    const relPath = `commands/${entry}`;
+    const raw = readFileSync(full, "utf8");
+    for (const e of validateCommandContent(relPath, raw)) errors.push(e);
+  }
+}
+
+// === Inline mutation tests for the rule + command validators (PR #7 T-716) ===
+// Run only when invoked directly (not when imported).
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isMain) {
+  const mutationErrors = [];
+
+  // Mutation 1: rule with body >40 lines fails red
+  {
+    const fortyOne = "x\n".repeat(41); // 41 lines after split
+    const bad = `---\npaths:\n  - "**/*.foo"\n---\n${fortyOne}`;
+    const errs = validateRuleContent("rules/fixture/over-cap.md", bad);
+    if (!errs.some(e => /> 40 cap/.test(e))) {
+      mutationErrors.push("mutation: rule body >40 lines should fail red");
+    }
+  }
+
+  // Mutation 2: rule missing `paths:` fails red
+  {
+    const bad = `---\nname: oops\n---\n# body\n`;
+    const errs = validateRuleContent("rules/fixture/missing-paths.md", bad);
+    if (!errs.some(e => /missing 'paths' array/.test(e))) {
+      mutationErrors.push("mutation: rule missing paths should fail red");
+    }
+  }
+
+  // Mutation 3: rule with empty paths array fails red
+  {
+    const bad = `---\npaths: null\n---\n# body\n`;
+    const errs = validateRuleContent("rules/fixture/null-paths.md", bad);
+    if (!errs.some(e => /missing 'paths' array/.test(e))) {
+      mutationErrors.push("mutation: rule with non-array paths should fail red");
+    }
+  }
+
+  // Mutation 4: command missing `name` fails red
+  {
+    const bad = `---\ndescription: x\n---\nbody\n`;
+    const errs = validateCommandContent("commands/fixture/missing-name.md", bad);
+    if (!errs.some(e => /missing frontmatter key 'name'/.test(e))) {
+      mutationErrors.push("mutation: command missing name should fail red");
+    }
+  }
+
+  // Mutation 5: command missing `description` fails red
+  {
+    const bad = `---\nname: x\n---\nbody\n`;
+    const errs = validateCommandContent("commands/fixture/missing-desc.md", bad);
+    if (!errs.some(e => /missing frontmatter key 'description'/.test(e))) {
+      mutationErrors.push("mutation: command missing description should fail red");
+    }
+  }
+
+  // Inverse sanity: a clean rule fixture passes
+  {
+    const ok = `---\npaths:\n  - "**/*.foo"\n---\n# Foo coding-style\n\n## Rules\n\n- one rule.\n`;
+    const errs = validateRuleContent("rules/fixture/clean.md", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: clean rule fixture should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // Inverse sanity: a clean command fixture passes
+  {
+    const ok = `---\nname: foo\ndescription: A foo command.\n---\n# /foo\n`;
+    const errs = validateCommandContent("commands/fixture/clean.md", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: clean command fixture should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  for (const e of mutationErrors) errors.push(e);
+}
+
 if (errors.length) {
   console.error("validate.js: FAIL");
   for (const e of errors) console.error("  - " + e);

@@ -161,6 +161,97 @@
       "path": "agents/ship.md",
       "defaultEnabled": true,
       "stability": "stable"
+    },
+    {
+      "name": "command.orchestra",
+      "kind": "command",
+      "path": "commands/orchestra.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.common-coding-style",
+      "kind": "rule",
+      "path": "rules/common/coding-style.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.java-coding-style",
+      "kind": "rule",
+      "path": "rules/java/coding-style.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.java-patterns",
+      "kind": "rule",
+      "path": "rules/java/patterns.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.java-security",
+      "kind": "rule",
+      "path": "rules/java/security.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.java-testing",
+      "kind": "rule",
+      "path": "rules/java/testing.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.typescript-coding-style",
+      "kind": "rule",
+      "path": "rules/typescript/coding-style.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.typescript-patterns",
+      "kind": "rule",
+      "path": "rules/typescript/patterns.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.typescript-security",
+      "kind": "rule",
+      "path": "rules/typescript/security.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.typescript-testing",
+      "kind": "rule",
+      "path": "rules/typescript/testing.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.go-coding-style",
+      "kind": "rule",
+      "path": "rules/go/coding-style.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.python-coding-style",
+      "kind": "rule",
+      "path": "rules/python/coding-style.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "rule.kotlin-coding-style",
+      "kind": "rule",
+      "path": "rules/kotlin/coding-style.md",
+      "defaultEnabled": true,
+      "stability": "stable"
     }
   ]
 }

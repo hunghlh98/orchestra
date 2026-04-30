@@ -17,5 +17,8 @@
     "agents/evaluator.md",
     "agents/reviewer.md",
     "agents/ship.md"
+  ],
+  "commands": [
+    "commands/orchestra.md"
   ]
 }
