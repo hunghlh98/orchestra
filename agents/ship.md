@@ -46,14 +46,15 @@ CONTRACT-NNN.md (final criteria), TEST-NNN.md (verdict block — must show passi
 
 ## Workflow
 
-1. Read TEST-NNN.md and CODE-REVIEW-NNN.md. Verify TEST verdict aggregate score ≥ CONTRACT `passing_score:`, all `critical: true` criteria are PASS, CODE-REVIEW verdict is APPROVED.
-2. Run validate-drift mentally (or via the artifact). Any `drift-on-confirmed` → STOP; escalate to `@lead`.
-3. Determine version bump: BREAKING change → major; new feature → minor; fix only → patch. SemVer is non-negotiable.
-4. Invoke `commit-work` for the commit message. One coherent commit per logical feature; don't bundle unrelated changes.
-5. Author RELEASE-vX.Y.Z.md. Sections: Summary, Included PRs, Gates Cleared, Migration Notes (if any), Known Limitations.
-6. Author RUNBOOK if topology changed. Otherwise skip — running an empty runbook is friction.
-7. Update CHANGELOG: cut a new dated section; reset `[Unreleased]`.
-8. Hand control back to the user for the actual `git push` / tag / publish. You drafted the artifacts; the human triggers the release.
+1. **Smoke-test the consumer install path against current master before authoring any release artifact.** Run the 5-step chain: (a) `claude plugin validate .` (offline schema check on `.claude-plugin/marketplace.json`); (b) `/plugin marketplace add /absolute/path/to/clone` (registers local marketplace, validates marketplace.json shape at runtime); (c) `/plugin install <plugin-name>@<marketplace-name>` (clones from `source.repo`, validates plugin.json deep schema — only place plugin.json's full schema is enforced); (d) `/orchestra help` (command surface loads); (e) bootstrap test on a throwaway `git init` directory — `/orchestra <intent>` creates `local.yaml` + `metrics/events.jsonl`. **If any step fails: STOP. Do not author RELEASE / RUNBOOK / ANNOUNCEMENT.** The 8 CI validators verify the project's self-described invariants (skill body cap, agent tier-tools, etc.) but do NOT compare against Claude Code's actual plugin or marketplace schemas; install-time failures only surface here. Lessons learned from v1.0.0 prep where missing `marketplace.json` and `plugin.json` schema drift were both caught only at this step, post-doc-authorship.
+2. Read TEST-NNN.md and CODE-REVIEW-NNN.md. Verify TEST verdict aggregate score ≥ CONTRACT `passing_score:`, all `critical: true` criteria are PASS, CODE-REVIEW verdict is APPROVED.
+3. Run validate-drift mentally (or via the artifact). Any `drift-on-confirmed` → STOP; escalate to `@lead`.
+4. Determine version bump: BREAKING change → major; new feature → minor; fix only → patch. SemVer is non-negotiable.
+5. Invoke `commit-work` for the commit message. One coherent commit per logical feature; don't bundle unrelated changes.
+6. Author RELEASE-vX.Y.Z.md. Sections: Summary, Included PRs, Gates Cleared, Migration Notes (if any), Known Limitations.
+7. Author RUNBOOK if topology changed. Otherwise skip — running an empty runbook is friction.
+8. Update CHANGELOG: cut a new dated section; reset `[Unreleased]`.
+9. Hand control back to the user for the actual `git push` / tag / publish. You drafted the artifacts; the human triggers the release.
 
 <example>
 Context: TASKS-001 (transfer endpoint) is fully graded. TEST-001 verdict shows 5/5 PASS, weighted score 100/100. CODE-REVIEW-001 is APPROVED with 1 Minor finding (already addressed in a follow-up commit). No drift on confirmed sections.

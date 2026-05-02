@@ -1,0 +1,17 @@
+{
+  "name": "orchestra-marketplace",
+  "owner": {
+    "name": "hunghlh98"
+  },
+  "description": "Single-plugin marketplace for orchestra: a multi-agent SDLC pipeline behind /orchestra.",
+  "plugins": [
+    {
+      "name": "orchestra",
+      "source": {
+        "source": "github",
+        "repo": "hunghlh98/orchestra"
+      },
+      "description": "Multi-agent SDLC pipeline behind /orchestra. One developer, generator/evaluator separation, document-driven gates."
+    }
+  ]
+}

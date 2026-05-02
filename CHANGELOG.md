@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+(no entries yet — v1.1+ work lands here)
+
+## [1.0.0] — 2026-05-03
+
+Initial release. See [`releases/RELEASE-v1.0.0.md`](releases/RELEASE-v1.0.0.md) and [`runbooks/RUNBOOK-v1.0.0.md`](runbooks/RUNBOOK-v1.0.0.md). Full v1.0.0 scope is specified in [`docs/PRD-001.md`](docs/PRD-001.md).
+
+### Added (release-prep — install path + release artifacts)
+
+- `.claude-plugin/marketplace.json` — Claude Code plugin marketplace manifest. Without it, `/plugin marketplace add hunghlh98/orchestra` fails with "Plugin not found in any configured marketplace" (caught during pre-tag smoke-test). Per https://code.claude.com/docs/en/plugin-marketplaces.md, Claude Code's plugin system separates marketplace discovery from plugin install — the orchestra repo acts as both (single-plugin marketplace named `orchestra-marketplace` listing the `orchestra` plugin via GitHub source). Consumer install is now a 2-step flow: `/plugin marketplace add hunghlh98/orchestra` → `/plugin install orchestra@orchestra-marketplace`. PRD §11.4 / G4 wording (single command) is technically a 2-step process; eligible for v1.0.1 PRD amendment but not blocking — both commands complete in <5 min, no setup wizard, intent of G4 satisfied.
+
+### Fixed (release-prep — plugin.json schema)
+
+- `.claude-plugin/plugin.json` — corrected 5 schema errors caught by `/plugin install` validation (per https://code.claude.com/docs/en/plugins-reference.md#plugin-manifest-schema):
+  - `author` was a string `"hunghlh98"`; Claude Code requires an object. Fixed to `{ "name": "hunghlh98" }` (email omitted to keep PII off the public manifest).
+  - `hooks`, `mcpServers`, `agents[]`, `commands[]` — all relative paths must start with `./`. Fixed all 11 path references.
+- This pair of fixes (marketplace.json + plugin.json schema) both stem from the same root cause: the orchestra PRD and DESIGN docs specified manifest shapes from imagination rather than from the official Claude Code plugin reference. CI validators only checked our internal invariants — none compared against Claude Code's actual schema. v1.0.1 candidate: extend `validate.js` to walk plugin.json and assert (a) `author` is an object with `name`; (b) all relative paths in `hooks`/`mcpServers`/`agents[]`/`commands[]` start with `./`. `claude plugin validate .` only validates the marketplace manifest (not plugin.json deeply), so we cannot rely on the upstream CLI to catch this drift.
+- `releases/RELEASE-v1.0.0.md` — inaugural release notes per `agents/ship.md` workflow + `docs/pipeline-schema.md` RELEASE shape. Sections: Summary, Included PRs (#1..#7 with commit refs), Gates Cleared, Composition table, Migration Notes (2-step install), Known Limitations (NoSQL probes deferred, WITH/CTE rejected, specialist agents deferred, etc.), What's Next.
+- `runbooks/RUNBOOK-v1.0.0.md` — install + smoke-test runbook. Topology fully new (5 hooks + 2 MCPs + 8 agents + 8 skills + 1 cmd + 12 rules). Sections: Topology Changes, Pre-deploy Verification, Deploy Steps (2-step install), Rollback (`/plugin uninstall` + optional state cleanup), Smoke Test (5-step post-deploy verification), Observability.
+- `README.md` — full rewrite from in-development scaffold. Adds: 2-step install instructions, 5-subcommand usage table, what-ships count table (8/8/12/1/5/2), 3-bullet architecture summary (gen/eval separation, doc-driven gates, capability-first models), env-var configuration, 8-validator overview.
+- `CHANGELOG.md` — `[Unreleased]` flipped to `[1.0.0] — 2026-05-03` per Keep-a-Changelog spec; fresh empty `[Unreleased]` placeholder retained for v1.1+ work.
+
 ### Added (PR #7 — /orchestra command + 12 rule files + validator extensions)
 
 - `commands/orchestra.md` — dispatcher per DESIGN-002-leaves §4.1. Five subcommand sections: smart-router (default natural-language path), `sprint`, `release`, `commit`, `help`. Frontmatter: `name` / `description` / `argument-hint`. Body documents the 10-step smart-router flow (PRD §9.1 + §9.4 + §9.5 + §9.11), the AskUserQuestion budget per PRD §8.11 (HIGH=0 / MEDIUM=1 / LOW=2–3, hard cap 3), and the circuit-breaker / DEADLOCK resume reference (PRD §9.6 + §9.6.1). `/orchestra commit` invokes the `commit-work` skill directly with no team.
@@ -113,6 +134,3 @@ Per R10 Option A: agents are **not** in runtime-toggles.json. test-removability 
 - GitHub Actions CI running all six validators on every push and PR.
 - `.gitignore` for `node_modules`, `.venv/`, and consumer-side `.claude/.orchestra/{local.yaml, metrics, sessions}` per PRD §11.2.
 
-## [1.0.0] — TBD
-
-Initial release. See [`docs/PRD-001.md`](docs/PRD-001.md) for the full v1.0.0 scope.
