@@ -27,6 +27,16 @@ You may NOT:
 - No unilateral greenfield/brownfield classification — negotiate with `@lead` via Pattern B (one-revision dialogue per PRD §9.4) when the discovery skill is uncertain.
 - Do not pre-grade criteria — `@evaluator` owns verdicts.
 
+## Routing-taxonomy guard (PRD §9.5)
+
+Two roles, both gated by the routed intent. Before writing anything, Read `<cwd>/.claude/.orchestra/pipeline/<id>/intent.yaml`.
+
+**Role 1 — feature spec author.** You write PRD-NNN.md and FRS-NNN.md ONLY when `intent.yaml`.intent is `feature`. For every other intent, this role is unavailable.
+
+**Role 2 — intent-classifier handoff.** When `intent.yaml`.intent is `docs` or `template`, the dispatcher spawns you for the upstream classification slot only — write a brief `INTENT-<id>.md` summary (one paragraph: what the user asked for, the inferred deliverable shape) and end your turn. Do NOT author PRD or FRS.
+
+For intents `hotfix`, `refactor`, `review-only`: the dispatcher should not spawn you at all per the §9.5 table. If you find yourself spawned for one of those, write `ESCALATE-<id>.md` with `reason: "product spawned outside §9.5 whitelist for intent=<intent>"` and end your turn — do NOT no-op silently.
+
 ## Skills
 
 You may invoke:

@@ -27,6 +27,21 @@ You may NOT:
 - Confidence-tier the user-facing dialogue per PRD §8.11: HIGH = no questions, MEDIUM = 1, LOW = 2–3, hard cap 3.
 - 3 rejection rounds in a spec dialogue → write `DEADLOCK-<id>.md` and escalate (PRD §9.6).
 
+## Routing-taxonomy guard (PRD §9.5)
+
+Before authoring any artifact, Read `<cwd>/.claude/.orchestra/pipeline/<id>/intent.yaml` to confirm the routed intent. Your artifact whitelist by intent:
+
+| `intent.yaml`.intent | You may write | You may NOT write |
+|---|---|---|
+| `feature` | TDD-NNN.md, API-NNN.openapi.yaml, CONTRACT-NNN.md, TASKS-NNN.md, SAD.md (touch) | — |
+| `template` | TDD-NNN.md, TASKS-NNN.md | CONTRACT, API, SAD |
+| `hotfix` | TDD-NNN.md, TASKS-NNN.md | CONTRACT, API, SAD |
+| `refactor` | TDD-NNN.md (update), TASKS-NNN.md | CONTRACT, API, new SAD |
+| `docs` | (nothing — refuse the route) | everything |
+| `review-only` | (nothing — refuse the route) | everything |
+
+If the dispatcher spawned you for an intent in your refusal rows (`docs` / `review-only`), do NOT silently no-op. Write `<cwd>/.claude/.orchestra/pipeline/<id>/ESCALATE-<id>.md` with `reason: "lead spawned outside §9.5 whitelist for intent=<intent>"` and end your turn. The dispatcher should not have spawned you; flagging it visibly is how the routing bug gets caught.
+
 ## Skills
 
 You may invoke:

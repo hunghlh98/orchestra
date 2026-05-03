@@ -6,7 +6,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — v1.1+ work lands here)
+Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
+
+### Fixed (post-1.0.0 install-path hotfix #3)
+
+- `.claude-plugin/plugin.json` — removed the redundant `hooks` field. The Claude Code plugin loader auto-discovers `hooks/hooks.json` by convention; declaring it in plugin.json caused a `Hook load failed: Duplicate hooks file detected` error during install. Same root-cause class as the marketplace.json and 5-field schema fixes already documented in `[1.0.0]`: orchestra's plugin.json shape was authored from imagination rather than from the official Claude Code plugin reference. Commit `f00a415`.
+
+### Fixed (post-1.0.0 runtime hotfix #1 — orchestration primitives)
+
+- `commands/orchestra.md` — first runtime smoke-test on a fresh /tmp install surfaced three drift bugs against PRD §8.5/§9.4/§10.5: (a) the dispatcher had no `TeamCreate` step at all, so `/orchestra` ran solo without instantiating the persistent team; (b) Pattern B bootstrap was documented as optional rather than mandatory for first-run; (c) agent prompts didn't propagate the §10.5 frontmatter contract, so subagent writes landed without `sections:`/`references:` blocks. Rewritten with TeamCreate as Step 1, Pattern B mandate as Step 2, and an explicit "agents author frontmatter explicitly — do not rely on hash-stamper to create structural keys" note in each agent definition. Commit `fabffe6`.
+- `agents/{product,lead,backend,frontend,test,evaluator,reviewer}.md` — added "Frontmatter contract" sections per PRD §10.5. Necessary because hash-stamper PreToolUse:Write hook attaches to the parent context; subagent-tier writes may bypass the hook, so the agent must author the structural keys (`sections:` + `references:`) explicitly. Hash-stamper still resolves `hash: TBD` and `hash-at-write: TBD` placeholders when it does fire. Commit `fabffe6`.
+
+### Fixed (post-1.0.0 runtime hotfix #2 — TeamCreate primitive + filesystem comm)
+
+- `commands/orchestra.md` — corrected the imagined `TeamCreate({members: [...]})` form (which would have failed at runtime — the actual primitive is `TeamCreate({team_name, agent_type, description})` plus per-member `Agent` calls passing `team_name`/`name`). Also locked down the inter-agent communication pattern: agents communicate via filesystem writes to designated paths, NOT via SendMessage. Reason: SendMessage is not in any tier set (T-A: `Bash/Glob/Grep/Read/Write`; T-B: `Glob/Grep/Read/Write`; T-C: `Edit/Glob/Grep/MultiEdit/Read/Write`), and adding it would break `test-agents.js` tier validation. Parent reads agent outputs on idle notification (Claude Code fires this automatically when a subagent's turn ends). Commit `0723756`.
+
+### Added (script-first bootstrap with hook-only events.jsonl invariant)
+
+- `scripts/bootstrap-local.js` — pure-inspector bootstrap. Runs greenfield/brownfield + language/framework detection from filesystem inspection, outputs JSON (`status`, `yaml_content`, `yaml_path`, `decision`) to stdout. **Does NOT write any files itself** — the dispatcher reads stdout and uses Claude Code's Write tool to put `yaml_content` at `yaml_path`. Confidence tiering: HIGH (clean greenfield or clean brownfield) / MEDIUM (source files but no commits) / LOW (commits but no source). Exports `listFiles`, `inspect`, `classify`, `pickLanguage`, `detectFramework`, `render`. Reason: smoke-test #2 showed the original Pattern-B-always bootstrap burned two agent contexts on every first-run for cases that filesystem inspection resolves deterministically in <50ms.
+- `hooks/scripts/metrics-collector.js` — extended classify() with a PreToolUse:Write|Edit|MultiEdit branch that detects writes to `<cwd>/.claude/.orchestra/local.yaml` and emits a `local.bootstrapped` event with `mode`/`primary_language`/`framework` extracted from the proposed YAML content via line-match regexes (no full YAML parser; the hook stays stdlib-only and crash-resistant). Plus a header-comment expansion of the subscription list.
+- `hooks/hooks.json` — added `metrics-collector` to the existing PreToolUse:Write|Edit|MultiEdit matcher (alongside `pre-write-check` and `hash-stamper`). The hook fires on the dispatcher's Write of local.yaml, observes the bootstrap, and emits the event.
+- `commands/orchestra.md` — Step 2 rewritten as script-first tiered bootstrap. HIGH/MEDIUM confidence: dispatcher Bash-runs the script, parses JSON, Writes the yaml_content (the `metrics-collector` hook fires automatically and emits `local.bootstrapped`). LOW confidence or `status: ambiguous`: falls back to the original Pattern B two-agent flow. New "Conformance check" section locks in the **PRD §9.9 hook-only invariant**: the ONLY way `local.bootstrapped` lands in `events.jsonl` is via the metrics-collector hook firing on PreToolUse:Write of `local.yaml`. Scripts compute, the model writes, the hook observes and emits. Agents do NOT emit events.
+- `scripts/test-bootstrap.js` — new contract-test file. 35 assertions across 5 scenarios: empty dir → greenfield/HIGH; src no commits → brownfield/MEDIUM; src + commits → brownfield/HIGH; commits no source → greenfield/LOW; render output shape (10 required keys + newline-termination + interpolation). Imports the module's exports directly (no subprocess) for granular assertions.
+- `scripts/test-metrics.js` — added one classification case for `local.bootstrapped` (Write tool input with file_path ending `/.claude/.orchestra/local.yaml`). The existing `events.length === cases.length` assertion is self-counting, so adding the case auto-updates the expected count.
+- `package.json` — `test:bootstrap` wired into the npm test chain (now 9 validators total).
+
+### Fixed (routing-taxonomy fidelity — PRD §9.5 enforcement)
+
+- `commands/orchestra.md` — Step 5 rewritten with an explicit per-intent artifact-whitelist table (docs / template / hotfix / feature / review-only / refactor → exact agent list + exact artifact list). The previous "for example, a feature intent spawns @product → @lead → ..." wording was non-binding; smoke-test #2 showed the dispatcher producing CONTRACT/TEST artifacts for a `docs` intent contrary to its own classification. The new table is the routing contract: dispatcher spawns ONLY the agents listed for the classified intent, and propagates the intent + whitelist into each spawned agent's prompt as a runtime invariant.
+- `agents/lead.md`, `agents/product.md`, `agents/test.md` — added "Routing-taxonomy guard (PRD §9.5)" hard-boundary sections. Each agent reads `<cwd>/.claude/.orchestra/pipeline/<id>/intent.yaml` before authoring anything and refuses to write artifacts outside its per-intent whitelist (e.g., @lead refuses CONTRACT/TDD when `intent` is `docs`/`review-only`; @product refuses PRD/FRS for any intent except `feature`; @test refuses TEST-NNN.md for `docs`/`review-only` and refuses for `feature` if upstream CONTRACT is missing). Defense-in-depth pattern: dispatcher governs the happy path; agent guards catch manual invocations and future router bugs. Refusals write `ESCALATE-<id>.md` with explicit reason rather than silent no-op so routing bugs surface visibly.
 
 ## [1.0.0] — 2026-05-03
 

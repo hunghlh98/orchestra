@@ -18,7 +18,8 @@
     "test:drift": "node scripts/validate-drift.js",
     "test:removability": "node scripts/test-removability.js",
     "test:metrics": "node scripts/test-metrics.js",
+    "test:bootstrap": "node scripts/test-bootstrap.js",
     "test:probe": "node scripts/test-probe.js",
-    "test": "npm run validate && npm run test:hooks && npm run test:agents && npm run test:bash-strip && npm run test:drift && npm run test:removability && npm run test:metrics && npm run test:probe"
+    "test": "npm run validate && npm run test:hooks && npm run test:agents && npm run test:bash-strip && npm run test:drift && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:probe"
   }
 }

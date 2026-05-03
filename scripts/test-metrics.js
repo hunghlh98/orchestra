@@ -140,6 +140,18 @@ console.log("metrics-collector event classification:");
         expectEvent: "session.stopped",
         expectExtra: {},
       },
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "Write",
+          tool_input: {
+            file_path: `${tmp}/.claude/.orchestra/local.yaml`,
+            content: "mode: greenfield\nhas_source: false\nprimary_language: none\nframework: none\n",
+          },
+        },
+        expectEvent: "local.bootstrapped",
+        expectExtra: { mode: "greenfield", primary_language: "none", framework: "none" },
+      },
     ];
     for (const c of cases) runHook(c.in);
 

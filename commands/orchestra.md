@@ -64,64 +64,97 @@ Agent({
 })
 ```
 
-**Step 2 — Bootstrap if `local.yaml` is absent.** Always Pattern B regardless of feature confidence — the bootstrap is meta (it establishes the project's mode, not the feature's intent), and the project-mode classification has too many failure modes for solo authorship.
+**Step 2 — Bootstrap if `local.yaml` is absent.** Tiered: script-first for the unambiguous cases (~95% of installs), Pattern B fallback for genuinely contested cases. The bootstrap is meta (it establishes the project's mode, not the feature's intent), but most of that classification is deterministic filesystem inspection that a script handles faster and more reliably than two AI agents.
 
 ```
-2a. Spawn @product with this prompt:
-      "Run project-discovery (read tree, language hints, framework markers).
-       Write your draft project-mode classification to
-       <cwd>/.claude/.orchestra/pipeline/bootstrap/local.yaml.draft as YAML
-       with keys: project_mode, primary_language, framework, scope_hints.
-       End your turn after the write — do NOT call SendMessage."
+2a. Run the bootstrap inspector:
+      result=$(node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap-local.js "<cwd>")
+    Parse the JSON: { status, yaml_content, yaml_path, decision }.
+    decision.confidence is one of HIGH | MEDIUM | LOW.
 
-2b. On the idle notification from @product's turn:
-      Read(<cwd>/.claude/.orchestra/pipeline/bootstrap/local.yaml.draft).
-      If the draft is missing or malformed: spawn @product once more
-      with the failure note. If still missing on second attempt: write
-      DEADLOCK-bootstrap.md and halt.
+2b. If status === "exists": local.yaml already there; skip bootstrap, continue
+    to Step 3.
 
-2c. Spawn @lead with this prompt:
-      "Read <draft path> and validate against actual repo state via
-       project-discovery. Write your decision to
-       <cwd>/.claude/.orchestra/pipeline/bootstrap/lead-verdict.yaml
-       with keys: agree (bool) and (if agree=false) suggested_revision (string).
-       End your turn after the write — do NOT call SendMessage."
+2c. If decision.confidence === "HIGH" (clean greenfield OR clean brownfield):
+      Use Claude Code's Write tool to put yaml_content at yaml_path.
+      The PreToolUse:Write hook fires; metrics-collector emits the
+      `local.bootstrapped` event with mode/primary_language/framework
+      automatically (PRD §9.9 hook-only invariant). DO NOT manually
+      append to events.jsonl — the hook owns it.
+      Continue to Step 3.
 
-2d. On the idle notification from @lead's turn:
-      Read(lead-verdict.yaml).
-      If agree: true → goto 2f.
-      If agree: false → goto 2e (one revision round only).
+2d. If decision.confidence === "MEDIUM" (e.g., source files but no commits):
+      Use the Write tool with yaml_content as-is (the script flagged
+      `inferred: true` already). The metrics-collector hook fires the
+      same way as 2c. Continue to Step 3.
+      (Rationale: MEDIUM-confidence cases benefit from inference but
+      not from full Pattern B. The user can edit local.yaml if the
+      classification turns out wrong; the `inferred: true` flag signals
+      that downstream agents should not over-trust this row.)
 
-2e. Spawn @product once more with the suggested_revision and the original draft path:
-      "Apply this revision to your prior draft and rewrite local.yaml.draft.
-       End your turn."
-    On idle: re-read draft. Treat as final regardless of @lead's view.
-    (No second revision loop — Pattern B is exactly one round.)
+2e. If decision.confidence === "LOW" or status === "ambiguous": fall back
+    to Pattern B (the original two-agent flow). This branch handles
+    rare cases like "git history exists but no source files" or
+    "user intent contradicts filesystem state" (e.g., user says
+    "rebuild from scratch" while a brownfield repo is present).
 
-2f. Parent canonicalizes: copy local.yaml.draft → local.yaml, adding
-      bootstrapped_at: <ISO>
-      bootstrapped_by:
-        product: <@product agent id from team config>
-        lead:    <@lead agent id from team config>
-    Then spawn @lead one more time with this prompt:
-      "Append this exact JSON line to <cwd>/.claude/.orchestra/metrics/events.jsonl
-       using your Edit tool (read first, append the line, end your turn):
-       <line>
-       where <line> = the local.bootstrapped event per PRD §9.9 with run_id, project_mode,
-       primary_language, framework filled in from local.yaml."
-    Per PRD §9.9: this event is emitter-by-@lead, not by the metrics-collector hook.
+      2e.i.   Spawn @product via Agent({ team_name, name: "@product",
+              subagent_type: "orchestra:product", prompt: "..." }).
+              The prompt instructs @product to run project-discovery
+              skill, write its draft project-mode classification to
+              <cwd>/.claude/.orchestra/pipeline/bootstrap/local.yaml.draft,
+              then end its turn (do NOT call SendMessage — agent tool
+              sets exclude it; filesystem is the handoff).
 
-2g. Three rejection rounds total (any combination of @product or @lead refusals)
-    → write DEADLOCK-bootstrap.md per PRD §9.6.1, halt, escalate to user.
+      2e.ii.  On idle notification: Read the draft. If missing or
+              malformed, spawn @product once more with the failure
+              note. Two attempts maximum; second failure → DEADLOCK.
+
+      2e.iii. Spawn @lead via Agent({ ..., name: "@lead", ... }) with
+              prompt to validate the draft, writing its decision to
+              <cwd>/.claude/.orchestra/pipeline/bootstrap/lead-verdict.yaml
+              (agree: bool + optional suggested_revision). End turn.
+
+      2e.iv.  On idle: Read the verdict. agree: true → goto 2e.vi.
+              agree: false → one revision round only.
+
+      2e.v.   Spawn @product once more with suggested_revision; @product
+              rewrites the draft. On idle: treat the draft as final
+              (no second revision loop — Pattern B is exactly one round).
+
+      2e.vi.  Use the Write tool to put the final yaml_content at
+              yaml_path with `bootstrapped_by:` listing the two distinct
+              agent ids (product + lead from the team config).
+              The Write triggers metrics-collector's local.bootstrapped
+              emission automatically.
+
+      2e.vii. Three rejection rounds in this Pattern B flow trip the
+              circuit breaker per PRD §9.6.1: write DEADLOCK-bootstrap.md
+              and halt.
 ```
 
-A solo bootstrap (writing `local.yaml` from the parent context, or from a single agent context that simulates both @product and @lead) is **not Pattern B**. Two distinct agent contexts, one revision round between them. Verify by checking `bootstrapped_by:` in the resulting yaml — if it doesn't list two distinct agent ids, the run was solo and is non-conformant.
+**Conformance check:** Whether HIGH/MEDIUM/LOW path was taken, the ONLY way `local.bootstrapped` lands in `events.jsonl` is via the metrics-collector hook firing on PreToolUse:Write of `local.yaml`. The dispatcher, the bootstrap script, and any spawned agents do NOT write to events.jsonl directly. If you find yourself wanting to append a metric event manually — stop. The hook owns it.
 
 **Step 3 — Spawn `@lead` to classify feature intent** per PRD §9.5 routing taxonomy (`docs` / `template` / `hotfix` / `feature` / `review-only` / `refactor`). @lead writes its classification to `<cwd>/.claude/.orchestra/pipeline/<feature-id>/intent.yaml` with `intent`, `confidence`, `pattern`. Parent reads on idle.
 
 **Step 4 — Confidence override (optional).** Parse `--confidence high|medium|low` from `$ARGUMENTS` if present; if so, append `confidence.user-override` to the events.jsonl line @lead writes (or override @lead's classification before downstream agents read it). Confidence here is for the FEATURE workflow, distinct from the bootstrap which is always Pattern B.
 
-**Step 5 — Spawn the workflow agents per the routing taxonomy.** For example, a `feature` intent spawns `@product` (PRD/FRS) → wait → `@lead` (CONTRACT/TDD/TASKS) → wait → `@backend`/`@frontend` (impl) → wait → `@test` (TEST plan) → wait → `@evaluator` (verdict) → wait → `@reviewer` (CODE-REVIEW) → wait → `@ship` (RELEASE/RUNBOOK). Each transition: spawn agent, wait for idle, read its output file, decide next.
+**Step 5 — Spawn the workflow agents per the routing taxonomy (PRD §9.5).** Use the table below as the **artifact whitelist**. Spawn ONLY the agents listed for the classified intent, and instruct each spawned agent on what they may and may not produce. Each transition: spawn agent, wait for idle, Read its output file, decide next.
+
+| Intent | Agents (in order) | Artifacts they author |
+|---|---|---|
+| **docs** | `@product` (intent only) → `@ship` → `@reviewer` | (no PRD, no FRS, no TDD, no CONTRACT, no TEST) — only the doc files themselves + CODE-REVIEW |
+| **template** | `@product` (intent only) → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` | TDD-NNN.md, TASKS-NNN.md, impl source, TEST-NNN.md, VERDICT-NNN.md, CODE-REVIEW-NNN.md (no PRD/FRS, no CONTRACT, no API) |
+| **hotfix** | `@lead` → builder → `@test` → `@evaluator` → `@ship` | TDD-NNN.md, TASKS-NNN.md, impl-fix, TEST-NNN.md, VERDICT-NNN.md, RELEASE (no PRD/FRS, no CONTRACT, no API, no CODE-REVIEW) |
+| **feature** | `@product` → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` → `@ship` | **Full set:** PRD-NNN.md, FRS-NNN.md, TDD-NNN.md, API-NNN.openapi.yaml, CONTRACT-NNN.md, TASKS-NNN.md, impl source, TEST-NNN.md, VERDICT-NNN.md, CODE-REVIEW-NNN.md, RELEASE/RUNBOOK |
+| **review-only** | `@reviewer` (assess only — no downstream) | CODE-REVIEW-NNN.md only (no PRD/FRS/TDD/CONTRACT/TEST/RELEASE) |
+| **refactor** | `@reviewer` (assess) → `@lead` (TDD update) → builder → `@test` → `@evaluator` | CODE-REVIEW-NNN.md, TDD-NNN.md (update), impl, TEST-NNN.md, VERDICT-NNN.md (no PRD/FRS, no CONTRACT, no API) |
+
+**Each spawned agent MUST be given the routed intent in its prompt.** Concretely, every Step-5 `Agent` call's `prompt` MUST include a line like:
+
+> `Routed intent for this run: <intent>. Per PRD §9.5 routing taxonomy your authorized artifacts are: <list-from-row-above>. Do NOT author any artifact outside this whitelist; if you believe a different artifact is required, write an ESCALATE-<id>.md note instead and end your turn.`
+
+This propagates the whitelist as a runtime invariant. Each agent's own routing-taxonomy guard (in their definition) cross-checks against the `intent.yaml` written in Step 3 for defense-in-depth.
 
 **Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/`.** Agents author their artifact frontmatter per PRD §10.5 (sections, references). The parent does NOT copy/edit those artifacts — each agent owns its outputs.
 
