@@ -27,6 +27,12 @@
         "hooks": [
           { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/metrics-collector.js" }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/metrics-collector.js" }
+        ]
       }
     ],
     "PostToolUse": [

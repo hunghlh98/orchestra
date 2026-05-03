@@ -229,14 +229,16 @@ console.log("metrics-collector event classification:");
           tool: "Edit",
         },
       },
-      // Pipeline artifact: intent.yaml (lowercase singleton)
+      // Pipeline artifact: intent.yaml — verifies the lowercase singleton
+      // path AND insight-tracker semantic enrichment (intent/confidence/pattern
+      // extracted from YAML content into the event itself).
       {
         in: {
           session_id: "s1", cwd: tmp,
           hook_event_name: "PreToolUse", tool_name: "Write",
           tool_input: {
             file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/intent.yaml`,
-            content: "intent: docs\n",
+            content: "feature_id: 001-hello-world\nintent: docs\nconfidence: HIGH\npattern: Pattern A\n",
           },
         },
         expectEvent: "artifact.written",
@@ -245,6 +247,27 @@ console.log("metrics-collector event classification:");
           artifact_type: "intent",
           file_name: "intent.yaml",
           tool: "Write",
+          intent: "docs",
+          confidence: "HIGH",
+          pattern: "Pattern A",
+        },
+      },
+      // Skill tool invocation — emits skill.invoked. Most decision-laden
+      // moments of a feature run go through skills (task-breakdown,
+      // write-contract, qa-test-planner, code-review).
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "Skill",
+          tool_input: {
+            skill: "write-contract",
+            args: "feature 001 transfer endpoint",
+          },
+        },
+        expectEvent: "skill.invoked",
+        expectExtra: {
+          skill: "write-contract",
+          args_summary: "feature 001 transfer endpoint",
         },
       },
     ];

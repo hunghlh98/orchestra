@@ -485,6 +485,7 @@ console.log("hooks.json matcher validation:");
     "WebFetch", "WebSearch",
     "Agent", "Task",       // Agent canonical; Task legacy alias retained for older Claude Code
     "TodoWrite", "TeamCreate",
+    "Skill",               // user/agent skill invocations
   ]);
   const MCP_REGEX_ATOM = /^mcp__[a-zA-Z0-9_-]*\.\*$/;
 

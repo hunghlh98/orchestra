@@ -101,6 +101,18 @@ function classify(input) {
       description: typeof ti.description === "string" ? ti.description.slice(0, 200) : "",
     };
   }
+  if (hookEvent === "PreToolUse" && toolName === "Skill") {
+    // Skills are where the actual reasoning happens for orchestra agents
+    // (task-breakdown, write-contract, qa-test-planner, code-review, ...).
+    // Without this branch, a feature-intent run's most decision-laden
+    // moments are invisible to events.jsonl.
+    const ti = input?.tool_input || {};
+    return {
+      ts, event: "skill.invoked", run_id,
+      skill: typeof ti.skill === "string" ? ti.skill : "unknown",
+      args_summary: typeof ti.args === "string" ? ti.args.slice(0, 200) : "",
+    };
+  }
   if (hookEvent === "PreToolUse" && typeof toolName === "string" && toolName.startsWith("mcp__orchestra-")) {
     return { ts, event: "mcp.tool.called", tool: toolName, run_id };
   }
@@ -123,13 +135,27 @@ function classify(input) {
     // tree without needing Claude Code's session jsonl.
     const pipelineMatch = filePath.match(/\/\.claude\/\.orchestra\/pipeline\/([^/]+)\/([^/]+)$/);
     if (pipelineMatch) {
-      return {
+      const fileName = pipelineMatch[2];
+      const artifactType = inferArtifactType(fileName);
+      const event = {
         ts, event: "artifact.written", run_id,
         feature_id: pipelineMatch[1],
-        artifact_type: inferArtifactType(pipelineMatch[2]),
-        file_name: pipelineMatch[2],
+        artifact_type: artifactType,
+        file_name: fileName,
         tool: toolName,
       };
+      // Insight-tracker: semantic enrichment for intent.yaml writes — extract
+      // the routing decision into the event itself so events.jsonl carries
+      // the decision, not just the fact-of-write. Mirrors local.bootstrapped's
+      // mode/primary_language/framework extraction. Future artifacts can be
+      // enriched the same way (e.g., CODE-REVIEW verdict, VERDICT pass/fail).
+      if (fileName === "intent.yaml") {
+        const fields = extractIntentFields(input?.tool_input);
+        if (fields.intent) event.intent = fields.intent;
+        if (fields.confidence) event.confidence = fields.confidence;
+        if (fields.pattern) event.pattern = fields.pattern;
+      }
+      return event;
     }
     return null; // other Write/Edit calls aren't logged here (no behavioral capture)
   }
@@ -200,6 +226,28 @@ function extractBootstrapFields(toolInput) {
 function matchField(text, re) {
   const m = text.match(re);
   return m ? m[1] : undefined;
+}
+
+// Best-effort extraction of routing-decision fields from intent.yaml proposed
+// content. Same line-match-without-full-YAML-parser approach as
+// extractBootstrapFields. `pattern:` value can be quoted ("Pattern A") or
+// bare (Pattern A); the regex tolerates both.
+function extractIntentFields(toolInput) {
+  if (!toolInput) return {};
+  const candidates = [];
+  if (typeof toolInput.content === "string") candidates.push(toolInput.content);
+  if (typeof toolInput.new_string === "string") candidates.push(toolInput.new_string);
+  if (Array.isArray(toolInput.edits)) {
+    for (const e of toolInput.edits) {
+      if (typeof e?.new_string === "string") candidates.push(e.new_string);
+    }
+  }
+  const text = candidates.join("\n");
+  return {
+    intent: matchField(text, /^intent:\s*"?([a-z-]+)"?/m),
+    confidence: matchField(text, /^confidence:\s*"?([A-Z]+)"?/m),
+    pattern: matchField(text, /^pattern:\s*"?([A-Za-z0-9 _-]+?)"?\s*$/m),
+  };
 }
 
 // Infer artifact type from filename. Two patterns:
