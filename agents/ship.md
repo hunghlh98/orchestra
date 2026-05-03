@@ -46,7 +46,7 @@ CONTRACT-NNN.md (final criteria), TEST-NNN.md (verdict block — must show passi
 
 ## Frontmatter contract
 
-RELEASE / RUNBOOK / ANNOUNCEMENT artifacts you author MUST include the frontmatter shape from PRD §10.5 and `docs/pipeline-schema.md`. Author `sections:` and `references:` **explicitly** — do not rely on `hash-stamper` to create them. The hook attaches to the parent context's PreToolUse:Write and may not fire on writes from inside your team-member subagent context.
+See [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract). RELEASE-specific shape:
 
 ```yaml
 ---

@@ -59,27 +59,7 @@ CONTRACT-NNN.md (probable, weighted criteria with `passing_score:` policy), TDD-
 
 ## Frontmatter contract
 
-Every artifact you author MUST include the frontmatter shape from PRD §10.5 and `docs/pipeline-schema.md`. Author the `sections:` and `references:` blocks **explicitly** — do not rely on `hash-stamper` to create them. The hook attaches to the parent context's PreToolUse:Write and may not fire on writes from inside your team-member subagent context. Hash-stamper resolves `hash: TBD` and `hash-at-write: TBD` placeholders when it does fire; the structural keys must be in your source.
-
-```yaml
----
-id: <TYPE>-<NNN>
-type: <TYPE>
-created: <ISO-8601>
-revision: 1
-sections:
-  S-<TYPE>-001:
-    hash: TBD
-    confirmed: true                # OR `inferred: true` (mutually exclusive)
-references:
-  - type: <upstream-type>           # see your Inputs section
-    id: <upstream-id>
-    section: S-<TYPE>-NNN
-    hash-at-write: TBD
----
-```
-
-Add at least one `S-<TYPE>-NNN` entry per H2 heading in the body. Plus type-specific keys per `docs/pipeline-schema.md` (e.g. `signed: true|false`, `weighted_criteria_total: 100`, `probe_count:`, `critical_failure_conditions:` for CONTRACT).
+See [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract). Type-specific keys for CONTRACT/TDD/TASKS in same doc.
 
 ## Workflow
 

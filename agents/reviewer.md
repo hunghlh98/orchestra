@@ -43,7 +43,7 @@ CODE-REVIEW-NNN.md per `docs/pipeline-schema.md`: `verdict:` field, `confidence:
 
 ## Frontmatter contract
 
-Every artifact you author MUST include the frontmatter shape from PRD §10.5 and `docs/pipeline-schema.md`. Author the `sections:` and `references:` blocks **explicitly** — do not rely on `hash-stamper` to create them. The hook attaches to the parent context's PreToolUse:Write and may not fire on writes from inside your team-member subagent context.
+See [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract). CODE-REVIEW-specific shape:
 
 ```yaml
 ---

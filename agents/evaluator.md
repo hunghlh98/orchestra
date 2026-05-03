@@ -66,7 +66,7 @@ references:
 ---
 ```
 
-Author `sections:` and `references:` **explicitly** — `hash-stamper` may not fire on writes from inside your team-member subagent context.
+Author `sections:` and `references:` explicitly per [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract).
 
 ## Workflow
 

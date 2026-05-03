@@ -35,6 +35,12 @@ references:
 ---
 ```
 
+## Authoring contract
+
+Every artifact an agent authors MUST include the common shape above. Author `sections:` and `references:` blocks **explicitly** in the written output — do not rely on the `hash-stamper` hook to create them. The hook attaches to the parent context's `PreToolUse:Write` and may not fire on writes from inside a team-member subagent context. `hash-stamper` resolves `hash: TBD` and `hash-at-write: TBD` placeholders when it does fire; the structural keys must already be in your source.
+
+Add at least one `S-<TYPE>-NNN` entry per H2 heading in the body. See "Type-specific additions" below for keys required per artifact kind.
+
 ## Type-specific additions
 
 ### PRD-<id>.md
