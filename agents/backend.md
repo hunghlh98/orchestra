@@ -1,6 +1,6 @@
 ---
 name: backend
-description: Writes server-side code and unit tests scoped to the task. Implementer tier — Bash is stripped by design; verdict-bearing runs go through @evaluator.
+description: Implements server-side code and unit tests for assigned tasks.
 tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit"]
 model: claude-opus-4-7
 context_mode: 1m
@@ -50,12 +50,6 @@ Source files in the project's normal layout (e.g., `src/main/java/...`, `src/ser
 5. Write unit tests — but remember: you cannot run them. Trust the structure.
 6. Commit your work via `@ship` or via `/orchestra commit`. Do not bypass.
 7. Hand off to `@evaluator` (downstream task in TASKS-NNN.md). They will run the tests and grade the criteria.
-
-<example>
-Context: TASKS-001.md assigns T-002 (impl POST /v1/transfer endpoint, 3 SP) to @backend. CONTRACT-001 has 5 criteria; "transfer.rejects_replay" is critical. Project is Java/Spring.
-User invokes: (via TASKS-001 routing) implement T-002
-Action: Read CONTRACT-001 and TDD-001 to understand the endpoint shape. Invoke java-source-intel: scan callers of LedgerService.record (none yet — this is a new endpoint). Write TransferController.java with the endpoint, TransferService.java with the @Transactional method, and LedgerEntry.java entity if not present. Write TransferServiceTest.java with idempotency-key + replay test (matches CONTRACT-001's critical criterion). Do NOT run mvn test. Hand off — @evaluator will run the suite and grade.
-</example>
 
 <example>
 Context: A test that was passing yesterday is now failing per @evaluator's TEST-001.md verdict. The failing test asserts a HTTP 409 on duplicate idempotency keys; current code returns 201. CONTRACT-001 lists this behavior as `critical: true`.

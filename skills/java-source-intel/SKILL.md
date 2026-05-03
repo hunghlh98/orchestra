@@ -1,6 +1,6 @@
 ---
 name: java-source-intel
-description: "Surfaces caller graphs and impact zones in Java codebases via ripgrep + structural search. Use when @backend works on Java. Keywords: Java, ripgrep, callers, impact, @Transactional, Spring."
+description: "Surfaces caller graphs and impact zones in Java codebases via ripgrep + structural search. Use when @backend works on Java."
 origin: orchestra
 ---
 

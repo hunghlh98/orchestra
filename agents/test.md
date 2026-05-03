@@ -1,6 +1,6 @@
 ---
 name: test
-description: Writes test plans and adversarial fuzz inputs scoped to the CONTRACT. Implementer tier — Bash stripped; @evaluator owns all verdict-bearing runs.
+description: Authors TEST plans and adversarial fuzz inputs from the CONTRACT.
 tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit"]
 model: claude-opus-4-7
 context_mode: 1m
@@ -93,12 +93,6 @@ Leave `S-VERDICT-001` body empty (just the `## Verdict` heading) — `@evaluator
 4. Write the actual test code if the project has unit-test infrastructure. Match the existing harness (Jest, JUnit, pytest, etc.).
 5. Cross-link: every probe in TEST-NNN.md should map to either a unit test under `src/test/` or an http_probe / db_state spec the orchestra-probe MCP can run.
 6. Hand off. `@evaluator` runs the suite and writes the verdict.
-
-<example>
-Context: CONTRACT-001 has 5 criteria for the transfer endpoint, including the critical `transfer.rejects_replay`. The project is Java/Spring with JUnit + Testcontainers.
-User invokes: (via TASKS-001) write TEST-001 for the transfer feature
-Action: Invoke qa-test-planner. Build the matrix: transfer.persists (happy ✓, error: invalid amount → 400 ✓, idempotency ✓), transfer.idempotent (replay ✓, concurrent ✓), transfer.emits_event (boundary: zero-amount → still emit per contract ✓), transfer.rejects_replay (replay → 409 ✓ critical), transfer.under_500ms (boundary: latency at p95 ✓). Author TEST-001.md with 5 criteria × ~3 probes each. Write TransferControllerIntegrationTest.java mirroring the probes for unit-test parity. Verdict block empty. Hand off.
-</example>
 
 <example>
 Context: A new criterion `transfer.audit_logs` is added to CONTRACT-001, but it can't be probed via http_probe or db_state — it requires reading a log file produced by the application's logger.

@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Reviews diffs for correctness, idioms, security, and performance. Strict read-only — never patches issues; writes only CODE-REVIEW verdicts at ≥80% confidence.
+description: Reviews diffs for correctness, idioms, security, performance.
 tools: ["Read", "Grep", "Glob", "Bash", "Write"]
 model: claude-opus-4-7
 context_mode: 1m

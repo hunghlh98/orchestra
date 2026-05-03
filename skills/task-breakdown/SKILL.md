@@ -1,6 +1,6 @@
 ---
 name: task-breakdown
-description: "Decomposes intent into a task graph with story-point estimates and agent assignments. Use when @lead routes a feature. Keywords: decompose, story points, task graph, dependency, estimation."
+description: "Decomposes intent into a task graph with story-point estimates and agent assignments. Use when @lead routes a feature."
 origin: orchestra
 ---
 

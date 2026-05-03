@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Reviews code with severity-graded checklists for correctness, idioms, performance, security. Use when @reviewer grades a diff. Keywords: review, idioms, performance, security checklist, severity."
+description: "Reviews code with severity-graded checklists for correctness, idioms, performance, security. Use when @reviewer grades a diff."
 origin: orchestra
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: project-discovery
-description: "Discovers project primary language, framework, and brownfield/greenfield mode. Use when bootstrapping a session. Keywords: discovery, language, framework, brownfield, scope hints."
+description: "Discovers project primary language, framework, and brownfield/greenfield mode. Use when bootstrapping a session."
 origin: orchestra
 ---
 

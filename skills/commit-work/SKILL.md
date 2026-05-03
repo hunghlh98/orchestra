@@ -1,6 +1,6 @@
 ---
 name: commit-work
-description: "Generates Conventional Commits messages from staged diffs with type, scope, and trailer. Use for /orchestra commit and @ship work. Keywords: conventional commits, scope, message, git diff, breaking."
+description: "Generates Conventional Commits messages from staged diffs with type, scope, and trailer. Use for /orchestra commit and @ship work."
 origin: orchestra
 ---
 

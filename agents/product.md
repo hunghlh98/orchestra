@@ -1,6 +1,6 @@
 ---
 name: product
-description: Authors PRD/FRS artifacts and negotiates greenfield/brownfield classification. Implementation-restricted — writes spec artifacts only, no code, no test runs.
+description: Authors PRD/FRS spec artifacts; negotiates greenfield/brownfield mode.
 tools: ["Read", "Grep", "Glob", "Write"]
 model: claude-opus-4-7
 context_mode: 1m
@@ -81,12 +81,6 @@ Add at least one `S-<TYPE>-NNN` entry per H2 heading in the body. Plus type-spec
 3. Draft the artifact. Sections track existing PRD-001 conventions (Vision, Goals, Non-goals, Invariants, FRS, Quality).
 4. Confidence below MEDIUM (per PRD §8.11)? Ask up to 3 questions via AskUserQuestion. Above MEDIUM, draft and let `@lead` flag any gaps.
 5. Write the artifact. The hash-stamper hook will fill section hashes.
-
-<example>
-Context: User invokes /orchestra with "add a transfer endpoint for the ledger". Project is brownfield Java/Spring. project-discovery returned `mode: brownfield, primary_language: java, framework: spring-boot, scope_hints.has_tests: true`.
-User invokes: /orchestra add a /v1/transfer endpoint that records to the ledger and emits an event
-Action: Read existing FRS-* files in pipeline/ to find prior endpoint conventions. Draft FRS-NNN.md with one new feature section (S-FEATURE-001) marked `confirmed: true`. Reference SAD.md's S-LEDGER-001 with `inferred: true` because the ledger boundary may have changed since SAD was last revised. Hand off to @lead. Do not draft the CONTRACT — that's @lead's tier.
-</example>
 
 <example>
 Context: A greenfield repo with no source. User wants a "URL shortener". Confidence is LOW (novel intent, no prior artifacts).

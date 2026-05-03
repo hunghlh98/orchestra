@@ -1,6 +1,6 @@
 ---
 name: evaluator-tuning
-description: "Calibrates @evaluator verdicts against worked PASS/FAIL boundary cases. Use when grading CONTRACT criteria or judging probes. Keywords: evaluator, calibration, verdict, criteria, divergence."
+description: "Calibrates @evaluator verdicts against worked PASS/FAIL boundary cases. Use when grading CONTRACT criteria or judging probes."
 origin: orchestra
 ---
 

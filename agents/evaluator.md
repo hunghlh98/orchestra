@@ -1,6 +1,6 @@
 ---
 name: evaluator
-description: Runs probes, grades CONTRACT criteria, and writes the TEST verdict block. Strict read-only — never patches code; writes only verdict artifacts.
+description: Runs probes, grades CONTRACT criteria, writes the TEST verdict block.
 tools: ["Read", "Grep", "Glob", "Bash", "Write"]
 model: claude-opus-4-7
 context_mode: 1m

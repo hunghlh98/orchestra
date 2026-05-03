@@ -1,6 +1,6 @@
 ---
 name: qa-test-planner
-description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test designs TEST-NNN.md from a CONTRACT. Keywords: test plan, coverage strategy, adversarial fuzz, edge cases, probes."
+description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test designs TEST-NNN.md from a CONTRACT."
 origin: orchestra
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Authors release artifacts and Conventional Commits when gates clear. Implementation-restricted — writes RELEASE/RUNBOOK/commits, no code or tests.
+description: Authors RELEASE, RUNBOOK, ANNOUNCEMENT artifacts and conventional commits.
 tools: ["Read", "Grep", "Glob", "Write"]
 model: claude-opus-4-7
 context_mode: 1m
@@ -85,12 +85,6 @@ CHANGELOG.md and commit messages do NOT carry orchestra frontmatter — they're 
 7. Author RUNBOOK if topology changed. Otherwise skip — running an empty runbook is friction.
 8. Update CHANGELOG: cut a new dated section; reset `[Unreleased]`.
 9. Hand control back to the user for the actual `git push` / tag / publish. You drafted the artifacts; the human triggers the release.
-
-<example>
-Context: TASKS-001 (transfer endpoint) is fully graded. TEST-001 verdict shows 5/5 PASS, weighted score 100/100. CODE-REVIEW-001 is APPROVED with 1 Minor finding (already addressed in a follow-up commit). No drift on confirmed sections.
-User invokes: (via TASKS-001) ship the transfer feature
-Action: Verify gates: TEST score 100 ≥ passing_score 80 ✓; transfer.rejects_replay (critical) PASS ✓; CODE-REVIEW APPROVED ✓; no drift-on-confirmed ✓. Version bump: minor (new feature, no breaking change) → v1.1.0. Invoke commit-work for `feat(transfer): POST /v1/transfer with idempotency + replay rejection`. Author RELEASE-v1.1.0.md with Summary + Included PRs (PR-NNN) + Gates Cleared + Migration Notes (none — additive endpoint). RUNBOOK skipped (no topology change). Update CHANGELOG: move Unreleased entries to `[1.1.0] — 2026-04-29`, add fresh Unreleased placeholder. Hand off to user for `git push` + tag.
-</example>
 
 <example>
 Context: TEST-002 verdict shows 4/5 PASS but transfer.audit_logs is `pending` because @evaluator couldn't probe it (manual_evaluation flag). CODE-REVIEW-002 is APPROVED. Aggregate score 80/100, exactly at passing_score.

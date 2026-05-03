@@ -1,6 +1,6 @@
 ---
 name: write-contract
-description: "Authors CONTRACT-NNN.md with weighted criteria, probe DSL, and PASS/FAIL semantics. Use when @lead binds a spec to grading. Keywords: CONTRACT, criteria, probe DSL, PASS/FAIL, calibration."
+description: "Authors CONTRACT-NNN.md with weighted criteria, probe DSL, and PASS/FAIL semantics. Use when @lead binds a spec to grading."
 origin: orchestra
 ---
 
