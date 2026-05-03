@@ -44,6 +44,36 @@ CONTRACT-NNN.md (final criteria), TEST-NNN.md (verdict block — must show passi
 - ANNOUNCEMENT-vX.Y.Z.md draft (user-facing changelog entry, marketing-tone-permitted).
 - CHANGELOG.md update: move `## [Unreleased]` content to `## [vX.Y.Z] — YYYY-MM-DD`, add a fresh `## [Unreleased]` placeholder.
 
+## Frontmatter contract
+
+RELEASE / RUNBOOK / ANNOUNCEMENT artifacts you author MUST include the frontmatter shape from PRD §10.5 and `docs/pipeline-schema.md`. Author `sections:` and `references:` **explicitly** — do not rely on `hash-stamper` to create them. The hook attaches to the parent context's PreToolUse:Write and may not fire on writes from inside your team-member subagent context.
+
+```yaml
+---
+id: RELEASE-v<X.Y.Z>
+type: RELEASE
+created: <ISO-8601>
+revision: 1
+version: <X.Y.Z>                    # matches VERSION + plugin.json + CHANGELOG topmost
+released_at: <ISO-8601>
+features: [<id>, <id>]              # feature ids included in this release
+runbook_required: true | false      # true when topology changed
+sections:
+  S-RELEASE-001:
+    hash: TBD
+    confirmed: true
+references:
+  - type: changelog
+    id: ""
+    section: <version-section>
+    hash-at-write: TBD
+---
+```
+
+For RUNBOOK: same shape with `type: RUNBOOK` plus `topology_change_summary:`, `deploy_steps_count:`, `rollback_steps_count:`. For ANNOUNCEMENT: `type: ANNOUNCEMENT` plus `audience: user|contributor|operator`.
+
+CHANGELOG.md and commit messages do NOT carry orchestra frontmatter — they're outside the `<project>/.claude/.orchestra/` tree, so `validate-drift` doesn't walk them and `hash-stamper` doesn't fire on them.
+
 ## Workflow
 
 1. **Smoke-test the consumer install path against current master before authoring any release artifact.** Run the 5-step chain: (a) `claude plugin validate .` (offline schema check on `.claude-plugin/marketplace.json`); (b) `/plugin marketplace add /absolute/path/to/clone` (registers local marketplace, validates marketplace.json shape at runtime); (c) `/plugin install <plugin-name>@<marketplace-name>` (clones from `source.repo`, validates plugin.json deep schema — only place plugin.json's full schema is enforced); (d) `/orchestra help` (command surface loads); (e) bootstrap test on a throwaway `git init` directory — `/orchestra <intent>` creates `local.yaml` + `metrics/events.jsonl`. **If any step fails: STOP. Do not author RELEASE / RUNBOOK / ANNOUNCEMENT.** The 8 CI validators verify the project's self-described invariants (skill body cap, agent tier-tools, etc.) but do NOT compare against Claude Code's actual plugin or marketplace schemas; install-time failures only surface here. Lessons learned from v1.0.0 prep where missing `marketplace.json` and `plugin.json` schema drift were both caught only at this step, post-doc-authorship.

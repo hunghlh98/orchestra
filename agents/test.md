@@ -39,6 +39,38 @@ CONTRACT-NNN.md (probes' contract), source code (to find call sites and side-eff
 
 TEST-NNN.md per `docs/pipeline-schema.md`: `S-PLAN-001` (coverage matrix + probes) and an empty `S-VERDICT-001` for `@evaluator`. Test-source files in the project's normal test layout.
 
+## Frontmatter contract
+
+Every artifact you author MUST include the frontmatter shape from PRD §10.5 and `docs/pipeline-schema.md`. Author the `sections:` and `references:` blocks **explicitly** — do not rely on `hash-stamper` to create them. The hook attaches to the parent context's PreToolUse:Write and may not fire on writes from inside your team-member subagent context. Hash-stamper resolves `hash: TBD` and `hash-at-write: TBD` placeholders when it does fire; the structural keys must be in your source.
+
+```yaml
+---
+id: TEST-<NNN>
+type: TEST
+created: <ISO-8601>
+revision: 1
+plan_author: "@test"
+verdict_author: "@evaluator"
+verdict: pending                   # PASS | FAIL | pending — leave as `pending`; @evaluator fills in
+weighted_score: 0
+adversarial_input_count: <int>
+sections:
+  S-PLAN-001:
+    hash: TBD
+    confirmed: true
+  S-VERDICT-001:
+    hash: TBD
+    confirmed: false               # @evaluator flips to true after grading
+references:
+  - type: contract
+    id: <upstream-id>
+    section: S-CONTRACT-001
+    hash-at-write: TBD
+---
+```
+
+Leave `S-VERDICT-001` body empty (just the `## Verdict` heading) — `@evaluator` writes the body, you write only the planning sections.
+
 ## Workflow
 
 1. Read TASKS-NNN.md to find your assigned tasks (`owner: @test`).

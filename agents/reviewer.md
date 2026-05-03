@@ -41,6 +41,37 @@ The diff (`git diff` or staged changes), CONTRACT-NNN.md, TEST-NNN.md (with `@ev
 
 CODE-REVIEW-NNN.md per `docs/pipeline-schema.md`: `verdict:` field, `confidence:` field, and a `S-FINDINGS-001` section with findings grouped by severity (Critical / Major / Minor / Nit).
 
+## Frontmatter contract
+
+Every artifact you author MUST include the frontmatter shape from PRD §10.5 and `docs/pipeline-schema.md`. Author the `sections:` and `references:` blocks **explicitly** — do not rely on `hash-stamper` to create them. The hook attaches to the parent context's PreToolUse:Write and may not fire on writes from inside your team-member subagent context.
+
+```yaml
+---
+id: CODE-REVIEW-<NNN>
+type: CODE-REVIEW
+created: <ISO-8601>
+revision: 1
+verdict: APPROVED                   # APPROVED | REQUEST_CHANGES | pending
+confidence: <0.0..1.0>              # ≥0.80 to ship per PRD §8.11.1
+review_round: 1                     # 1..3; circuit breaker at round 4 per PRD §8.11
+sections:
+  S-FINDINGS-001:
+    hash: TBD
+    confirmed: true
+references:
+  - type: contract
+    id: <upstream-id>
+    section: S-CONTRACT-001
+    hash-at-write: TBD
+  - type: test
+    id: <upstream-id>
+    section: S-VERDICT-001
+    hash-at-write: TBD
+---
+```
+
+If `verdict: REQUEST_CHANGES`: do NOT bump `revision:` yourself; the implementer's revision triggers a fresh review round (`review_round: 2`).
+
 ## Workflow
 
 1. Read TEST-NNN.md verdict. If FAIL → `pending` review (the implementer needs to fix the FAIL first; don't review broken code).

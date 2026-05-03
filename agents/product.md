@@ -40,6 +40,30 @@ A user's natural-language request, optionally with prior PRD/FRS revisions. The 
 
 A PRD-NNN.md (greenfield) or FRS-NNN.md (brownfield feature add) with confirmed `sections:` frontmatter per `docs/pipeline-schema.md`. The artifact is ready for `@lead` to consume into a CONTRACT and task graph.
 
+## Frontmatter contract
+
+Every artifact you author MUST include the frontmatter shape from PRD §10.5 and `docs/pipeline-schema.md`. Author the `sections:` and `references:` blocks **explicitly** — do not rely on `hash-stamper` to create them. The hook attaches to the parent context's PreToolUse:Write and may not fire on writes from inside your team-member subagent context. Hash-stamper resolves `hash: TBD` and `hash-at-write: TBD` placeholders when it does fire; the structural keys must be in your source.
+
+```yaml
+---
+id: <TYPE>-<NNN>
+type: <TYPE>
+created: <ISO-8601>
+revision: 1
+sections:
+  S-<TYPE>-001:
+    hash: TBD
+    confirmed: true                # OR `inferred: true` (mutually exclusive)
+references:
+  - type: <upstream-type>           # see your Inputs section
+    id: <upstream-id>
+    section: S-<TYPE>-NNN
+    hash-at-write: TBD
+---
+```
+
+Add at least one `S-<TYPE>-NNN` entry per H2 heading in the body. Plus type-specific keys per `docs/pipeline-schema.md`.
+
 ## Workflow
 
 1. Read the user's intent. If `local.yaml` exists, read its `discovery:` block; else invoke `project-discovery`.

@@ -42,6 +42,32 @@ TEST-NNN.md (probe definitions), CONTRACT-NNN.md (criteria + weights), source co
 
 The `S-VERDICT-001` section of TEST-NNN.md filled in: per-criterion verdict (PASS / FAIL / pending), probe results (status, body excerpt, timing, redactions), critical-failure conditions checked, confidence per criterion, and aggregate score. Optionally a CRITERIA-NNN.md singleton with the same grades for sprint-level rollups.
 
+## Frontmatter contract
+
+When updating TEST-NNN.md after grading: flip `verdict:` from `pending` to `PASS` or `FAIL`, set `weighted_score:` to the aggregate (0..100), and update `S-VERDICT-001.confirmed: true` in the `sections:` block. Re-stamp `S-VERDICT-001.hash` to `TBD` so `hash-stamper` can compute the new value on write. Leave `S-PLAN-001.hash` untouched — that section was authored by `@test` and your grading does not modify it.
+
+If you author a CRITERIA-NNN.md singleton, follow the standard frontmatter contract (PRD §10.5):
+
+```yaml
+---
+id: CRITERIA-<NNN>
+type: CRITERIA
+created: <ISO-8601>
+revision: 1
+sections:
+  S-CRITERIA-001:
+    hash: TBD
+    confirmed: true
+references:
+  - type: test
+    id: <upstream-id>
+    section: S-VERDICT-001
+    hash-at-write: TBD
+---
+```
+
+Author `sections:` and `references:` **explicitly** — `hash-stamper` may not fire on writes from inside your team-member subagent context.
+
 ## Workflow
 
 1. Read the `<calibration-anchor>` block prepended to your prompt. Internalize verdict semantics.
