@@ -31,9 +31,12 @@ async function main() {
     for await (const chunk of process.stdin) stdin += chunk;
     const input = JSON.parse(stdin);
 
-    const isTask = input.tool_name === "Task";
+    // Accept both "Task" (legacy) and "Agent" (canonical) — Claude Code
+    // renamed the subagent-spawn tool. Smoke #3 surfaced that the literal
+    // "Task" filter silently skipped real Agent invocations.
+    const isSubagentSpawn = input.tool_name === "Task" || input.tool_name === "Agent";
     const isEvaluator = input?.tool_input?.subagent_type === "evaluator";
-    if (!isTask || !isEvaluator) {
+    if (!isSubagentSpawn || !isEvaluator) {
       passthrough();
       process.exit(0);
     }

@@ -80,11 +80,25 @@ function classify(input) {
       run_id,
     };
   }
-  if (hookEvent === "PreToolUse" && toolName === "Task") {
+  if (hookEvent === "PreToolUse" && (toolName === "Task" || toolName === "Agent")) {
+    const ti = input?.tool_input || {};
     return {
       ts, event: "task.subagent.invoked",
-      subagent_type: input?.tool_input?.subagent_type || "unknown",
+      subagent_type: ti.subagent_type || "unknown",
+      agent_name: ti.name || null,                       // e.g. "@lead" — present when invoked via TeamCreate flow
+      team_name: ti.team_name || null,                   // present when joined to a team
+      tool: toolName,                                    // distinguishes legacy Task from canonical Agent
+      prompt_summary: typeof ti.prompt === "string" ? ti.prompt.slice(0, 200) : "",
       run_id,
+    };
+  }
+  if (hookEvent === "PreToolUse" && toolName === "TeamCreate") {
+    const ti = input?.tool_input || {};
+    return {
+      ts, event: "team.created", run_id,
+      team_name: ti.team_name || "unknown",
+      agent_type: ti.agent_type || "unknown",
+      description: typeof ti.description === "string" ? ti.description.slice(0, 200) : "",
     };
   }
   if (hookEvent === "PreToolUse" && typeof toolName === "string" && toolName.startsWith("mcp__orchestra-")) {
@@ -92,7 +106,8 @@ function classify(input) {
   }
   if (hookEvent === "PreToolUse" && (toolName === "Write" || toolName === "Edit" || toolName === "MultiEdit")) {
     const filePath = input?.tool_input?.file_path || "";
-    if (typeof filePath === "string" && filePath.endsWith("/.claude/.orchestra/local.yaml")) {
+    if (typeof filePath !== "string") return null;
+    if (filePath.endsWith("/.claude/.orchestra/local.yaml")) {
       const fields = extractBootstrapFields(input?.tool_input);
       return {
         ts, event: "local.bootstrapped", run_id,
@@ -100,6 +115,20 @@ function classify(input) {
         project_mode: fields.mode || "unknown",
         primary_language: fields.primary_language || "unknown",
         framework: fields.framework || "unknown",
+      };
+    }
+    // Pipeline-artifact observability: any write under
+    // <cwd>/.claude/.orchestra/pipeline/<feature-id>/<file> emits an
+    // `artifact.written` event so events.jsonl alone reconstructs the artifact
+    // tree without needing Claude Code's session jsonl.
+    const pipelineMatch = filePath.match(/\/\.claude\/\.orchestra\/pipeline\/([^/]+)\/([^/]+)$/);
+    if (pipelineMatch) {
+      return {
+        ts, event: "artifact.written", run_id,
+        feature_id: pipelineMatch[1],
+        artifact_type: inferArtifactType(pipelineMatch[2]),
+        file_name: pipelineMatch[2],
+        tool: toolName,
       };
     }
     return null; // other Write/Edit calls aren't logged here (no behavioral capture)
@@ -171,6 +200,20 @@ function extractBootstrapFields(toolInput) {
 function matchField(text, re) {
   const m = text.match(re);
   return m ? m[1] : undefined;
+}
+
+// Infer artifact type from filename. Two patterns:
+//   1. UPPERCASE-NNN... → captures everything before "-<digit>".
+//      PRD-001.md → "PRD"; CODE-REVIEW-001-hello-world.md → "CODE-REVIEW";
+//      API-001.openapi.yaml → "API"; ESCALATE-001.md → "ESCALATE".
+//   2. Known lowercase singletons (e.g. intent.yaml).
+// Falls back to "unknown" so the event is still emitted (run_id + file_name
+// preserve traceability even when we can't classify).
+function inferArtifactType(fileName) {
+  const m = fileName.match(/^([A-Z][A-Z0-9-]*?)-\d/);
+  if (m) return m[1];
+  if (fileName === "intent.yaml") return "intent";
+  return "unknown";
 }
 
 function emitHookOutputIfPreToolUse(stdin) {

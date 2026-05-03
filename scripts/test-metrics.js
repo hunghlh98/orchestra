@@ -123,7 +123,47 @@ console.log("metrics-collector event classification:");
       {
         in: { session_id: "s1", cwd: tmp, hook_event_name: "PreToolUse", tool_name: "Task", tool_input: { subagent_type: "evaluator" } },
         expectEvent: "task.subagent.invoked",
-        expectExtra: { subagent_type: "evaluator" },
+        expectExtra: { subagent_type: "evaluator", tool: "Task" },
+      },
+      // Canonical "Agent" invocation with full team/name fields populated.
+      // Verifies the event is enriched with agent_name, team_name, prompt_summary
+      // so events.jsonl alone can reconstruct the orchestration trace.
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "Agent",
+          tool_input: {
+            subagent_type: "orchestra:lead",
+            name: "@lead",
+            team_name: "orchestra-001-hello-world",
+            prompt: "Classify the user intent for this run and write intent.yaml",
+          },
+        },
+        expectEvent: "task.subagent.invoked",
+        expectExtra: {
+          subagent_type: "orchestra:lead",
+          agent_name: "@lead",
+          team_name: "orchestra-001-hello-world",
+          tool: "Agent",
+        },
+      },
+      // TeamCreate observability — surfaces the team boundary in events.jsonl
+      // so smoke runs can be replayed without reading Claude Code's session jsonl.
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "TeamCreate",
+          tool_input: {
+            team_name: "orchestra-001-hello-world",
+            agent_type: "orchestra-coordinator",
+            description: "Orchestra v1 run for adding a hello-world README",
+          },
+        },
+        expectEvent: "team.created",
+        expectExtra: {
+          team_name: "orchestra-001-hello-world",
+          agent_type: "orchestra-coordinator",
+        },
       },
       {
         in: { session_id: "s1", cwd: tmp, hook_event_name: "PreToolUse", tool_name: "mcp__orchestra-probe", tool_input: {} },
@@ -151,6 +191,61 @@ console.log("metrics-collector event classification:");
         },
         expectEvent: "local.bootstrapped",
         expectExtra: { mode: "greenfield", primary_language: "none", framework: "none" },
+      },
+      // Pipeline artifact: PRD-001.md (single-segment artifact type)
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "Write",
+          tool_input: {
+            file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/PRD-001.md`,
+            content: "---\nid: PRD-001\n---\n",
+          },
+        },
+        expectEvent: "artifact.written",
+        expectExtra: {
+          feature_id: "001-hello-world",
+          artifact_type: "PRD",
+          file_name: "PRD-001.md",
+          tool: "Write",
+        },
+      },
+      // Pipeline artifact: CODE-REVIEW-... (multi-segment artifact type) via Edit
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "Edit",
+          tool_input: {
+            file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/CODE-REVIEW-001-hello-world.md`,
+            old_string: "verdict: pending",
+            new_string: "verdict: APPROVE",
+          },
+        },
+        expectEvent: "artifact.written",
+        expectExtra: {
+          feature_id: "001-hello-world",
+          artifact_type: "CODE-REVIEW",
+          file_name: "CODE-REVIEW-001-hello-world.md",
+          tool: "Edit",
+        },
+      },
+      // Pipeline artifact: intent.yaml (lowercase singleton)
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "Write",
+          tool_input: {
+            file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/intent.yaml`,
+            content: "intent: docs\n",
+          },
+        },
+        expectEvent: "artifact.written",
+        expectExtra: {
+          feature_id: "001-hello-world",
+          artifact_type: "intent",
+          file_name: "intent.yaml",
+          tool: "Write",
+        },
       },
     ];
     for (const c of cases) runHook(c.in);

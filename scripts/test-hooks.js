@@ -450,6 +450,99 @@ console.log("val-calibration:");
   check(offR.status === 0, `val-calibration opt-out: exits 0`);
   const offOut = JSON.parse(offR.stdout || "{}");
   check(offOut.hookSpecificOutput?.permissionDecision === "allow", `val-calibration opt-out: emits allow`);
+
+  // Tool-name agnostic: works the same when Claude Code dispatches via "Agent"
+  // (canonical) instead of legacy "Task". The matcher in hooks.json is now
+  // "Task|Agent", so the script must accept both tool_name values.
+  const agentR = spawnSync("node", [script], {
+    input: JSON.stringify({
+      session_id: "test", hook_event_name: "PreToolUse", tool_name: "Agent",
+      tool_input: { subagent_type: "evaluator", prompt: "Grade CONTRACT-001" },
+    }),
+    encoding: "utf8",
+  });
+  check(agentR.status === 0, `val-calibration: exits 0 for tool_name=Agent`);
+  const agentOut = JSON.parse(agentR.stdout || "{}");
+  check(
+    typeof agentOut.hookSpecificOutput?.updatedInput?.prompt === "string" &&
+      agentOut.hookSpecificOutput.updatedInput.prompt.includes("<calibration-anchor>"),
+    `val-calibration: injects calibration-anchor on tool_name=Agent`,
+  );
+}
+
+// ---------- hooks.json matcher validation ----------
+// Smoke #3 surfaced that hooks.json had matcher: "Task" but Claude Code's
+// subagent-spawn tool is now "Agent" — the hook never fired on real runs,
+// silently breaking val-calibration. Tests didn't catch it because they call
+// hook scripts directly (synthesizing stdin), bypassing the matcher routing.
+// This validator closes that gap: every PreToolUse matcher's atoms must be
+// either a known Claude Code tool name or a recognized MCP regex pattern.
+console.log("hooks.json matcher validation:");
+{
+  const KNOWN_TOOLS = new Set([
+    "Bash", "Read", "Write", "Edit", "MultiEdit",
+    "Glob", "Grep", "NotebookEdit",
+    "WebFetch", "WebSearch",
+    "Agent", "Task",       // Agent canonical; Task legacy alias retained for older Claude Code
+    "TodoWrite", "TeamCreate",
+  ]);
+  const MCP_REGEX_ATOM = /^mcp__[a-zA-Z0-9_-]*\.\*$/;
+
+  function validateMatcher(matcher) {
+    if (typeof matcher !== "string" || matcher.length === 0) {
+      return { ok: false, reason: "matcher is not a non-empty string" };
+    }
+    const atoms = matcher.split("|");
+    for (const atom of atoms) {
+      if (KNOWN_TOOLS.has(atom)) continue;
+      if (MCP_REGEX_ATOM.test(atom)) continue;
+      return { ok: false, reason: `atom "${atom}" is neither a known tool nor mcp__*.*`};
+    }
+    return { ok: true };
+  }
+
+  function validateHooksMatchers(hooks) {
+    const findings = [];
+    const preToolUse = hooks?.PreToolUse || [];
+    for (let i = 0; i < preToolUse.length; i++) {
+      const entry = preToolUse[i];
+      if (!Object.hasOwn(entry, "matcher")) {
+        findings.push(`PreToolUse[${i}] missing matcher key`);
+        continue;
+      }
+      const r = validateMatcher(entry.matcher);
+      if (!r.ok) findings.push(`PreToolUse[${i}] matcher="${entry.matcher}": ${r.reason}`);
+    }
+    return findings;
+  }
+
+  // Real hooks.json passes
+  const hooksPath = resolve(root, "hooks/hooks.json");
+  const hooksJson = JSON.parse(readFileSync(hooksPath, "utf8")).hooks;
+  const findings = validateHooksMatchers(hooksJson);
+  check(findings.length === 0, `hooks.json: every PreToolUse matcher is known (got: ${findings.join("; ")})`);
+
+  // Mutation: synthetic FakeTool atom must fail red
+  const bad1 = validateHooksMatchers({ PreToolUse: [{ matcher: "FakeTool", hooks: [] }] });
+  check(bad1.length === 1, `mutation: matcher="FakeTool" produces 1 finding (got ${bad1.length})`);
+
+  // Mutation: alternation with one bad atom must fail
+  const bad2 = validateHooksMatchers({ PreToolUse: [{ matcher: "Write|MadeUpTool|Edit", hooks: [] }] });
+  check(bad2.length === 1, `mutation: matcher="Write|MadeUpTool|Edit" produces 1 finding (got ${bad2.length})`);
+
+  // Mutation: missing matcher key must fail
+  const bad3 = validateHooksMatchers({ PreToolUse: [{ hooks: [] }] });
+  check(bad3.length === 1, `mutation: missing matcher key produces 1 finding (got ${bad3.length})`);
+
+  // Inverse sanity: typical alternations must pass
+  const ok1 = validateHooksMatchers({ PreToolUse: [{ matcher: "Write|Edit|MultiEdit", hooks: [] }] });
+  check(ok1.length === 0, `inverse: matcher="Write|Edit|MultiEdit" passes clean`);
+  const ok2 = validateHooksMatchers({ PreToolUse: [{ matcher: "Task|Agent", hooks: [] }] });
+  check(ok2.length === 0, `inverse: matcher="Task|Agent" passes clean`);
+  const ok3 = validateHooksMatchers({ PreToolUse: [{ matcher: "mcp__orchestra-.*", hooks: [] }] });
+  check(ok3.length === 0, `inverse: matcher="mcp__orchestra-.*" passes clean`);
+  const ok4 = validateHooksMatchers({ PreToolUse: [{ matcher: "TeamCreate", hooks: [] }] });
+  check(ok4.length === 0, `inverse: matcher="TeamCreate" passes clean`);
 }
 
 if (failures > 0) {
