@@ -21,7 +21,7 @@ A criterion is graded against its CONTRACT-defined `weight:` (sum across all cri
 - Every listed probe returned the expected status / body / DB row state.
 - No `critical:` condition in the CONTRACT triggered (e.g., "5xx on any happy-path probe").
 - All `adversarial:` inputs were handled per the documented contract (status, body, side effects).
-- The artifact under review (TEST-NNN.md, code, etc.) is present and well-formed per pipeline-schema.md.
+- The artifact under review (verify/<NNN>-TEST.md, code, etc.) is present and well-formed per pipeline-schema.md.
 - Confidence in PASS ≥80%. If `@evaluator` is uncertain — even after re-running probes — return `pending`, not `PASS`.
 
 ## FAIL criteria (any triggers FAIL)
@@ -85,14 +85,14 @@ The 8 cases below are the v1.0.0 calibration baseline. `@evaluator` must judge s
 ### Case 8: `inferred:` upstream section drifts mid-test
 **Scenario:** Mid-evaluation, `validate-drift.js` fires and reports a `drift-on-inferred` warning on an upstream PRD section that this CONTRACT references.
 **Verdict for the criterion:** Continue the evaluation. The criterion's verdict stands on its own probes.
-**Verdict for the feature:** Note the drift in the TEST-NNN.md verdict block. `@reviewer` sees the warning and decides whether to re-confirm the upstream section or accept the inference.
+**Verdict for the feature:** Note the drift in the verify/<NNN>-TEST.md verdict block. `@reviewer` sees the warning and decides whether to re-confirm the upstream section or accept the inference.
 **Why:** `inferred:` sections are warnings, not blockers. Drift on `confirmed:` upstream would FAIL the run; drift on `inferred:` is informational. Don't conflate the two.
 
 ---
 
 ## How to use this anchor
 
-When you (`@evaluator`) read a criterion in a TEST-NNN.md or CONTRACT-NNN.md:
+When you (`@evaluator`) read a criterion in a verify/<NNN>-TEST.md or interfaces/<NNN>-CONTRACT.md:
 
 1. **Identify the verdict path.** PASS / FAIL / pending — these are the only three.
 2. **Check critical-failure conditions first.** If any triggered, FAIL stops the search.
@@ -100,6 +100,6 @@ When you (`@evaluator`) read a criterion in a TEST-NNN.md or CONTRACT-NNN.md:
 4. **Run every adversarial fuzz input.** Pass-through of adversarial input → FAIL.
 5. **Confirm artifact existence and well-formedness.** Missing → pending; malformed → FAIL.
 6. **Compute confidence.** Below 80% in either direction → pending.
-7. **Write the verdict** to the TEST-NNN.md verdict block. Include: probes run, results, observed behavior, rationale.
+7. **Write the verdict** to the verify/<NNN>-TEST.md verdict block. Include: probes run, results, observed behavior, rationale.
 
 Default to `pending` when uncertain. Better to escalate than to ship a false PASS.

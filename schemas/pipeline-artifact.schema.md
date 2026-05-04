@@ -15,11 +15,66 @@ references:
 
 > Type-specific extensions of the common frontmatter contract. Every artifact under `<project>/.claude/.orchestra/` carries the common shape plus the type-specific keys listed below. Hook scripts and `validate-drift.js` parse every example here using `hooks/lib/yaml-mini.js`.
 
+## Filename + folder layout
+
+Feature-scoped artifacts use the format `<feature_id>-<TYPE>.<ext>` (numeric or slug feature_id first; type uppercase) and live under topical sub-folders inside the feature pipeline dir:
+
+```
+<project>/.claude/.orchestra/
+├── architecture/
+│   └── SAD.md                                   # project singleton (no feature id)
+├── runbooks/
+│   └── RUNBOOK-vX.Y.Z.md                        # version singleton
+├── releases/
+│   └── RELEASE-vX.Y.Z.md                        # version singleton
+└── pipeline/
+    └── <feature_id>-<slug>/                     # e.g., 001-url-shortener/
+        ├── intent.yaml                          # control plane (not an artifact)
+        ├── ESCALATE-<id>.md                     # exception files at root
+        ├── DEADLOCK-<id>.md
+        ├── requirements/
+        │   ├── 001-PRD.md
+        │   └── 001-FRS.md
+        ├── interfaces/
+        │   ├── 001-CONTRACT.md
+        │   └── 001-API.openapi.yaml
+        ├── design/
+        │   └── 001-TDD.md
+        ├── plan/
+        │   ├── 001-TASKS.md
+        │   └── 001-IMPL-NOTES.md
+        ├── verify/
+        │   ├── 001-TEST.md
+        │   ├── 001-CODE-REVIEW.md
+        │   └── 001-VERDICT.md
+        └── release/
+            ├── 001-RELEASE.md                   # feature-scoped release notes
+            ├── 001-RUNBOOK.md                   # feature-scoped runbook
+            ├── 001-ANNOUNCEMENT.md
+            └── 001-COMMIT-MSG.txt
+```
+
+Type → folder map:
+
+| Type | Folder | Example filename |
+|---|---|---|
+| `PRD`, `FRS` | `requirements/` | `001-PRD.md`, `001-FRS.md` |
+| `CONTRACT`, `API` | `interfaces/` | `001-CONTRACT.md`, `001-API.openapi.yaml` |
+| `TDD` | `design/` | `001-TDD.md` |
+| `TASKS` (`PLAN`), `IMPL-NOTES` | `plan/` | `001-TASKS.md`, `001-IMPL-NOTES.md` |
+| `TEST`, `CODE-REVIEW`, `VERDICT` | `verify/` | `001-TEST.md`, `001-CODE-REVIEW.md`, `001-VERDICT.md` |
+| `RELEASE`, `RUNBOOK`, `ANNOUNCEMENT`, `COMMIT-MSG` (feature-scoped) | `release/` | `001-RELEASE.md` |
+| `SAD` | `architecture/` (project singleton, no feature id) | `SAD.md` |
+| `RUNBOOK-vX.Y.Z`, `RELEASE-vX.Y.Z` (version singletons) | `runbooks/`, `releases/` | `RUNBOOK-v1.2.0.md` |
+| `ESCALATE`, `DEADLOCK` | feature-dir root | `ESCALATE-001.md` |
+
+**Rationale for the format flip**: `<feature_id>-<TYPE>` puts the feature id first so an `ls -1` sort groups all artifacts for a feature together regardless of type. It also makes a single grep pattern (`grep "001-PRD"`) hit both the filename and the artifact's own `id:` frontmatter field.
+
 ## Common shape (all artifacts)
 
 ```yaml
 ---
-id: <ARTIFACT>-<id>
+id: <feature_id>-<TYPE>          # e.g., "001-PRD", "001-CONTRACT" — matches filename stem
 type: <PRD|FRS|TDD|CONTRACT|...>
 created: <ISO-8601>
 revision: <integer ≥ 1>
@@ -29,11 +84,13 @@ sections:
     confirmed: true              # OR inferred: true (mutually exclusive)
 references:
   - type: <upstream-type>        # sad | prd | frs | tdd | contract | api | runbook | release | impl-be | impl-fe | code-review | doc | test | plan
-    id: <upstream-id>            # "" for singletons (sad)
+    id: <feature_id>             # e.g., "001-url-shortener"; "" for singletons (sad)
     section: S-<TYPE>-NNN
     hash-at-write: "sha256:..."
 ---
 ```
+
+`references[].id` is the **feature id** (matches the pipeline sub-dir name, e.g., `001-url-shortener`), not the upstream artifact's `id:` — the resolver uses it to locate the feature dir, then looks up the type-specific folder.
 
 ## Authoring contract
 

@@ -10,7 +10,7 @@ Grades a code change with explicit severity tagging and an `APPROVED` / `REQUEST
 
 ## When to use
 
-- `@reviewer` has been spawned with a TEST-NNN.md verdict block in PASS state.
+- `@reviewer` has been spawned with a verify/<NNN>-TEST.md verdict block in PASS state.
 - The diff is staged or committed and ready for grading.
 - A `@evaluator` PASS came back too fast and you want a sanity pass.
 
@@ -82,17 +82,17 @@ A miss here is **Major** unless data-loss-adjacent (then Critical).
 | Test coverage visible | tests exist for the changed paths |
 | Domain familiarity | language is one of the P0 ruleset languages (Java, TS) |
 | Spec clarity | upstream PRD/CONTRACT is `confirmed: true`, not `inferred` |
-| Evaluator agreement | `@evaluator`'s TEST-NNN.md verdict aligns with what the code suggests |
+| Evaluator agreement | `@evaluator`'s verify/<NNN>-TEST.md verdict aligns with what the code suggests |
 
 Below 80% → `pending`. Below 60% → `pending` and request a `@lead` re-spec round.
 
-### Step 6 — Write CODE-REVIEW-NNN.md
+### Step 6 — Write verify/<NNN>-CODE-REVIEW.md
 
-Path: `<project>/.claude/.orchestra/pipeline/<id>/CODE-REVIEW-<id>.md`. Shape per `schemas/pipeline-artifact.schema.md`:
+Path: `<project>/.claude/.orchestra/pipeline/<feature_id>/verify/<NNN>-CODE-REVIEW.md`. Shape per `schemas/pipeline-artifact.schema.md`:
 
 ```yaml
 ---
-id: CODE-REVIEW-<id>
+id: <NNN>-CODE-REVIEW
 type: CODE-REVIEW
 revision: 1
 verdict: APPROVED|REQUEST_CHANGES|pending
@@ -135,7 +135,7 @@ For depth, see:
 
 ## Worked example
 
-Diff: backend adds `POST /v1/transfer` endpoint, ~180 LOC across 3 files. Tests exist. Language: TypeScript. CONTRACT-001.md is `confirmed: true`.
+Diff: backend adds `POST /v1/transfer` endpoint, ~180 LOC across 3 files. Tests exist. Language: TypeScript. `interfaces/001-CONTRACT.md` is `confirmed: true`.
 
 Walk:
 
@@ -146,4 +146,4 @@ Walk:
 5. **Performance** — single DB call per request. No loops. ✓
 6. **Confidence** — diff small (+20), tests exist (+20), TS is P0 ruleset (+20), CONTRACT confirmed (+20), evaluator agreed (+20) = **100%**.
 
-Verdict: **APPROVED** with one Minor finding inline. Write CODE-REVIEW-001.md and let `@ship` proceed.
+Verdict: **APPROVED** with one Minor finding inline. Write `verify/001-CODE-REVIEW.md` and let `@ship` proceed.

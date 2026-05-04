@@ -10,7 +10,7 @@ Anchors `@evaluator`'s judgment to consistent PASS/FAIL/pending semantics. The `
 
 ## When to use
 
-- You are `@evaluator` grading a TEST-NNN.md or CONTRACT-NNN.md verdict block.
+- You are `@evaluator` grading a verify/<NNN>-TEST.md or interfaces/<NNN>-CONTRACT.md verdict block.
 - A criterion's outcome is ambiguous and you're not sure whether it's PASS, FAIL, or pending.
 - A probe returned partial evidence (200 status but empty body, near-timeout, redacted field, redirect chain).
 - You're comparing this run against a prior verdict and want to ensure consistency.
@@ -26,7 +26,7 @@ The verdict space is closed: **PASS / FAIL / pending**. Nothing else.
 3. **Run every adversarial fuzz input.** Pass-through → FAIL.
 4. **Confirm artifact well-formedness** per `schemas/pipeline-artifact.schema.md`. Missing → pending; malformed → FAIL.
 5. **Compute confidence** per the 5-signal rubric in `references/calibration-examples.md`. <80% → pending, never PASS.
-6. **Write the verdict** to the TEST-NNN.md verdict block: probes run, results, rationale, confidence.
+6. **Write the verdict** to the verify/<NNN>-TEST.md verdict block: probes run, results, rationale, confidence.
 
 Default to `pending` when uncertain. Escalating is cheap; a false PASS is expensive.
 
@@ -45,7 +45,7 @@ The 8 worked cases in `references/calibration-examples.md` cover:
 | 7 | Critical-fail condition triggered, probes pass | FAIL |
 | 8 | Drift mid-test on `inferred:` upstream | per-criterion stands; warning logged |
 
-Match the shape of your situation to the closest case. If yours doesn't match any, write a new boundary case into TEST-NNN.md's verdict block and flag it for `@reviewer` to add to calibration on the next iteration.
+Match the shape of your situation to the closest case. If yours doesn't match any, write a new boundary case into verify/<NNN>-TEST.md's verdict block and flag it for `@reviewer` to add to calibration on the next iteration.
 
 ## References
 
@@ -64,4 +64,4 @@ Walk the path:
 4. Confidence: 95% — clear empty-string assertion failure.
 5. Verdict: **FAIL**.
 
-Note this matches Case 1 in the calibration anchor (200 + empty body). The pattern generalizes: status passes don't compensate for body-assertion failures. Document this in the TEST-NNN.md verdict block with the probe's literal response so `@reviewer` can see exactly why the FAIL stuck.
+Note this matches Case 1 in the calibration anchor (200 + empty body). The pattern generalizes: status passes don't compensate for body-assertion failures. Document this in the verify/<NNN>-TEST.md verdict block with the probe's literal response so `@reviewer` can see exactly why the FAIL stuck.

@@ -1,16 +1,16 @@
 ---
 name: qa-test-planner
-description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test designs TEST-NNN.md from a CONTRACT."
+description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test designs verify/<NNN>-TEST.md from a CONTRACT."
 origin: orchestra
 ---
 
 # qa-test-planner
 
-Designs the TEST-NNN.md artifact: which probes to run, what edge cases to cover, what adversarial inputs to send. Pairs with `write-contract` (criteria definition) and `evaluator-tuning` (verdict semantics). `@test` writes the plan; `@evaluator` runs it.
+Designs the verify/<NNN>-TEST.md artifact: which probes to run, what edge cases to cover, what adversarial inputs to send. Pairs with `write-contract` (criteria definition) and `evaluator-tuning` (verdict semantics). `@test` writes the plan; `@evaluator` runs it.
 
 ## When to use
 
-- A CONTRACT-NNN.md has been written by `@lead` and you need a test plan that grades it.
+- A `interfaces/<NNN>-CONTRACT.md` has been written by `@lead` and you need a test plan that grades it.
 - A bug or regression was reported and you're capturing the reproduction as an adversarial fuzz input.
 - You're sizing test scope for a new endpoint, migration, or refactor.
 
@@ -78,13 +78,13 @@ Standard adversarial set (apply where relevant):
 
 Document the *expected* behavior in the criterion. The point of an adversarial probe is **the contract owns the answer** — `@evaluator` doesn't guess; it grades against the documented expectation.
 
-### Step 4 — Write TEST-NNN.md
+### Step 4 — Write verify/<NNN>-TEST.md
 
-Path: `<project>/.claude/.orchestra/pipeline/<id>/TEST-<id>.md`. Shape per `schemas/pipeline-artifact.schema.md`:
+Path: `<project>/.claude/.orchestra/pipeline/<feature_id>/verify/<NNN>-TEST.md`. Shape per `schemas/pipeline-artifact.schema.md`:
 
 ```yaml
 ---
-id: TEST-<id>
+id: <NNN>-TEST
 type: TEST
 revision: 1
 sections:
@@ -133,7 +133,7 @@ For depth, see:
 
 ## Worked example
 
-CONTRACT-001 has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test` builds the plan:
+`interfaces/001-CONTRACT.md` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test` builds the plan:
 
 | Criterion | Probes |
 |---|---|
@@ -141,4 +141,4 @@ CONTRACT-001 has 3 criteria: `transfer.persists`, `transfer.emits_event`, `trans
 | transfer.emits_event | (1) http_probe POST → expect 201; (2) db_state SELECT FROM event_log WHERE topic='transfer'; **boundary**: zero-amount transfer → still emit? (per contract: yes) |
 | transfer.idempotent | (1) **adversarial replay**: POST twice with same key, expect second is no-op; (2) db_state SELECT count(*) FROM ledger WHERE key='k1' = 1 |
 
-TEST-001.md is written with all probes laid out. `@evaluator` runs them, fills in the verdict block, and grades each criterion PASS/FAIL/pending per `evaluator-tuning` semantics.
+`verify/001-TEST.md` is written with all probes laid out. `@evaluator` runs them, fills in the verdict block, and grades each criterion PASS/FAIL/pending per `evaluator-tuning` semantics.

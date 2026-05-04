@@ -33,7 +33,7 @@ You may NOT:
 
 ## Inputs
 
-CONTRACT-NNN.md, TDD-NNN.md, TASKS-NNN.md. Existing components under `src/components/` (or framework equivalent). Project's design system / theme tokens.
+`interfaces/<NNN>-CONTRACT.md`, `design/<NNN>-TDD.md`, `plan/<NNN>-TASKS.md`. Existing components under `src/components/` (or framework equivalent). Project's design system / theme tokens.
 
 ## Outputs
 
@@ -41,7 +41,7 @@ Component files (`*.tsx`, `*.vue`, `*.svelte` per framework). State slices, hook
 
 ## Workflow
 
-1. Read TASKS-NNN.md to find your tasks (`owner: @frontend`).
+1. Read `plan/<NNN>-TASKS.md` to find your tasks (`owner: @frontend`).
 2. Read the CONTRACT/TDD and any backend API contract referenced.
 3. Sketch the 4 states for each component you'll touch: loading, empty, error, success. Write a one-line plan for each.
 4. Write the component. Use existing design-system primitives; avoid inline styles unless the design system has gaps.
@@ -51,6 +51,6 @@ Component files (`*.tsx`, `*.vue`, `*.svelte` per framework). State slices, hook
 
 <example>
 Context: An existing Toast component shows duplicate notifications when the same error fires twice in rapid succession. CONTRACT-003 tightens the spec: "duplicate errors within 500ms collapse to one toast".
-User invokes: (via TASKS-003) fix toast deduplication
+User invokes: (via `plan/003-TASKS.md`) fix toast deduplication
 Action: Read existing Toast and useToast hook. Add deduplication in useToast: track {message, ts} for the last N toasts; if a new toast matches a prior message within 500ms, no-op. Do not modify Toast itself — the dedup belongs in the hook layer per existing project patterns. Verify all 4 states still render correctly (the dedup affects the dispatch path, not the rendering states). Hand off to @evaluator for the timing-sensitive probe.
 </example>

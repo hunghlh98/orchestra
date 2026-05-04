@@ -22,10 +22,30 @@ const SINGLETONS = {
   runbook: (id) => join(orchestraDir, `runbooks/RUNBOOK-${id}.md`),
   release: (id) => join(orchestraDir, `releases/RELEASE-${id}.md`),
 };
-const PIPELINE_TYPES = new Set([
-  "prd", "frs", "tdd", "contract", "test", "code-review", "doc",
-  "impl-be", "impl-fe", "code-design-be", "code-design-fe", "plan",
-]);
+// Type → folder under pipeline/<feature_id>/. See schemas/pipeline-artifact.schema.md.
+const TYPE_FOLDER = {
+  prd: "requirements",
+  frs: "requirements",
+  contract: "interfaces",
+  api: "interfaces",
+  tdd: "design",
+  tasks: "plan",
+  plan: "plan",
+  "impl-notes": "plan",
+  "impl-be": "plan",
+  "impl-fe": "plan",
+  "code-design-be": "plan",
+  "code-design-fe": "plan",
+  test: "verify",
+  "code-review": "verify",
+  verdict: "verify",
+  doc: "verify",
+};
+function numericPrefix(id) {
+  if (typeof id !== "string") return id;
+  const m = id.match(/^(\d+)/);
+  return m ? m[1] : id;
+}
 
 main();
 
@@ -201,9 +221,12 @@ function extractFrontmatter(content) {
 function resolveUpstream(type, id) {
   if (typeof type !== "string") return null;
   if (SINGLETONS[type]) return SINGLETONS[type](id);
-  if (type === "api") return join(orchestraDir, `pipeline/${id}/API-${id}.openapi.yaml`);
-  if (PIPELINE_TYPES.has(type)) return join(orchestraDir, `pipeline/${id}/${type.toUpperCase()}-${id}.md`);
-  return null;
+  const folder = TYPE_FOLDER[type];
+  if (!folder) return null;
+  const TYPE = type.toUpperCase();
+  const num = numericPrefix(id);
+  const ext = type === "api" ? "openapi.yaml" : "md";
+  return join(orchestraDir, `pipeline/${id}/${folder}/${num}-${TYPE}.${ext}`);
 }
 
 function writeReport({ findings, inferred, walked }) {

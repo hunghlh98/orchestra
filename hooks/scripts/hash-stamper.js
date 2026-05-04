@@ -138,20 +138,42 @@ const SINGLETONS = {
   release: (id, root) => join(root, `.claude/.orchestra/releases/RELEASE-${id}.md`),
 };
 
-const PIPELINE_TYPES = new Set([
-  "prd", "frs", "tdd", "contract", "test", "code-review", "doc",
-  "impl-be", "impl-fe", "code-design-be", "code-design-fe", "plan",
-]);
+// Type → folder under pipeline/<feature_id>/. See schemas/pipeline-artifact.schema.md.
+const TYPE_FOLDER = {
+  prd: "requirements",
+  frs: "requirements",
+  contract: "interfaces",
+  api: "interfaces",
+  tdd: "design",
+  tasks: "plan",
+  plan: "plan",
+  "impl-notes": "plan",
+  "impl-be": "plan",
+  "impl-fe": "plan",
+  "code-design-be": "plan",
+  "code-design-fe": "plan",
+  test: "verify",
+  "code-review": "verify",
+  verdict: "verify",
+  doc: "verify",
+};
+
+// feature_id e.g. "001-url-shortener" → numeric prefix "001" used in filenames.
+function numericPrefix(id) {
+  if (typeof id !== "string") return id;
+  const m = id.match(/^(\d+)/);
+  return m ? m[1] : id;
+}
 
 function resolveUpstream(type, id, root) {
   if (typeof type !== "string") return null;
   if (SINGLETONS[type]) return SINGLETONS[type](id, root);
-  if (type === "api") return join(root, `.claude/.orchestra/pipeline/${id}/API-${id}.openapi.yaml`);
-  if (PIPELINE_TYPES.has(type)) {
-    const TYPE = type.toUpperCase();
-    return join(root, `.claude/.orchestra/pipeline/${id}/${TYPE}-${id}.md`);
-  }
-  return null;
+  const folder = TYPE_FOLDER[type];
+  if (!folder) return null;
+  const TYPE = type.toUpperCase();
+  const num = numericPrefix(id);
+  const ext = type === "api" ? "openapi.yaml" : "md";
+  return join(root, `.claude/.orchestra/pipeline/${id}/${folder}/${num}-${TYPE}.${ext}`);
 }
 
 function lookupUpstreamHash(path, section) {

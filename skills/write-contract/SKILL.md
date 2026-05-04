@@ -1,16 +1,16 @@
 ---
 name: write-contract
-description: "Authors CONTRACT-NNN.md with weighted criteria, probe DSL, and PASS/FAIL semantics. Use when @lead binds a spec to grading."
+description: "Authors interfaces/<NNN>-CONTRACT.md with weighted criteria, probe DSL, and PASS/FAIL semantics. Use when @lead binds a spec to grading."
 origin: orchestra
 ---
 
 # write-contract
 
-Produces CONTRACT-NNN.md: the artifact that binds a feature's success criteria to executable probes. `@lead` writes it after PRD/FRS are confirmed; `@test` consumes it to write the test plan; `@evaluator` uses the criteria + probes to grade. The CONTRACT is where ambiguous spec becomes machine-gradable.
+Produces interfaces/<NNN>-CONTRACT.md: the artifact that binds a feature's success criteria to executable probes. `@lead` writes it after PRD/FRS are confirmed; `@test` consumes it to write the test plan; `@evaluator` uses the criteria + probes to grade. The CONTRACT is where ambiguous spec becomes machine-gradable.
 
 ## When to use
 
-- A PRD-NNN.md or FRS-NNN.md is `confirmed: true` and the next step is execution.
+- A `requirements/<NNN>-PRD.md` or `requirements/<NNN>-FRS.md` is `confirmed: true` and the next step is execution.
 - An existing CONTRACT needs revision because criteria proved unclear during testing.
 - `@lead` is bootstrapping a brownfield migration and needs to lock acceptance criteria before refactor work begins.
 
@@ -96,13 +96,13 @@ Default: 80 (out of 100). Override per CONTRACT if:
 
 Document the rationale in the body; don't change `passing_score` casually.
 
-### Step 6 — Write CONTRACT-NNN.md
+### Step 6 — Write interfaces/<NNN>-CONTRACT.md
 
-Path: `<project>/.claude/.orchestra/pipeline/<id>/CONTRACT-<id>.md`. Shape:
+Path: `<project>/.claude/.orchestra/pipeline/<feature_id>/interfaces/<NNN>-CONTRACT.md`. Shape:
 
 ```yaml
 ---
-id: CONTRACT-<id>
+id: <NNN>-CONTRACT
 type: CONTRACT
 revision: 1
 passing_score: 80
@@ -170,7 +170,7 @@ For depth, see:
 
 ## Worked example
 
-PRD-001 says: *"Add `POST /v1/users/:id/transfer`. Records to ledger. Idempotent on `idempotency_key`. Emits a `transfer` event. Replay attacks rejected. p95 < 500ms at 100 RPS."*
+`requirements/001-PRD.md` says: *"Add `POST /v1/users/:id/transfer`. Records to ledger. Idempotent on `idempotency_key`. Emits a `transfer` event. Replay attacks rejected. p95 < 500ms at 100 RPS."*
 
 Decompose into 5 criteria. Assign weights by impact:
 
@@ -184,4 +184,4 @@ Decompose into 5 criteria. Assign weights by impact:
 
 Total: 100. `passing_score: 80` (default). transfer.rejects_replay is **critical** because a replay vulnerability is a security regression — single FAIL = feature does not ship.
 
-Write CONTRACT-001.md per Step 6 shape. Hand off to `@test` for TEST-001.md design via `qa-test-planner`.
+Write `interfaces/001-CONTRACT.md` per Step 6 shape. Hand off to `@test` for `verify/001-TEST.md` design via `qa-test-planner`.

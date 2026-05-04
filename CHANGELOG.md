@@ -8,6 +8,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Changed (artifact rename `<TYPE>-<id>` → `<id>-<TYPE>` + topical folder layout under feature pipeline dir)
+
+Reorganizes pipeline artifacts for grep-ability and review-by-topic. Filenames flip so the feature id sorts first (`001-PRD.md` instead of `PRD-001.md`); per-feature artifacts move into 6 topical subfolders. Singletons (`SAD.md`, `RUNBOOK-vX.Y.Z.md`, `RELEASE-vX.Y.Z.md`) keep their existing locations and naming. Smoke-5 artifacts are not migrated — clean break, the next `/orchestra` run lands in the new layout.
+
+**Layout** under `<project>/.claude/.orchestra/pipeline/<feature_id>/`:
+
+| Folder | Holds | Author |
+|---|---|---|
+| `requirements/` | `<NNN>-PRD.md`, `<NNN>-FRS.md` | `@product` |
+| `interfaces/` | `<NNN>-CONTRACT.md`, `<NNN>-API.openapi.yaml` | `@lead` |
+| `design/` | `<NNN>-TDD.md` | `@lead` |
+| `plan/` | `<NNN>-TASKS.md`, `<NNN>-IMPL-NOTES.md` | `@lead`, builders |
+| `verify/` | `<NNN>-TEST.md`, `<NNN>-CODE-REVIEW.md`, `<NNN>-VERDICT.md` | `@test`, `@reviewer`, `@evaluator` |
+| `release/` | feature-scoped `<NNN>-RELEASE.md` etc. (version-singletons stay at `releases/`) | `@ship` |
+
+`intent.yaml` and exception files (`ESCALATE-<id>.md`, `DEADLOCK-<id>.md`) stay at the feature-dir root.
+
+**Frontmatter `id:` flips too** — `id: 001-PRD` instead of `id: PRD-001`, matching the filename stem. The artifact's own `id:` is never used programmatically (only `references[].id` is, and that uses the feature_id matching the dir slug); the field is purely a grep/human label, so flipping it has zero code cost and pays back at search time.
+
+- `schemas/pipeline-artifact.schema.md` — new `## Filename + folder layout` section with directory tree, type→folder map, rationale. Common-shape `id:` example flipped to `<feature_id>-<TYPE>`.
+- `hooks/scripts/hash-stamper.js` — `resolveUpstream(type, id, root)` rewritten to use a `TYPE_FOLDER` map + `numericPrefix(id)` extractor. Builds `pipeline/${id}/${folder}/${num}-${TYPE}.${ext}`. Singleton paths unchanged.
+- `scripts/validate-drift.js` — same resolver shape (mirrors hash-stamper). Walker still recurses `pipeline/`, `architecture/`, `runbooks/`, `releases/` — folder topology under each feature pipeline dir is implicit.
+- 8 agent prompts (`product`, `lead`, `test`, `evaluator`, `reviewer`, `ship`, `backend`, `frontend`) — all path references updated to the new format. Worked examples flipped to concrete `requirements/001-PRD.md` / `verify/001-TEST.md` / `interfaces/001-CONTRACT.md` style. Frontmatter shape examples in `test.md`, `evaluator.md`, `reviewer.md` updated to `id: <NNN>-<TYPE>`.
+- `commands/orchestra.md` — Step 5 routing taxonomy table updated for all 6 intents (docs/template/hotfix/feature/review-only/refactor) with new path-aware artifact lists.
+- 6 skill files (`code-review`, `evaluator-tuning` + `references/calibration-examples.md`, `qa-test-planner`, `task-breakdown`, `write-contract`) — same sweep. Frontmatter shape examples and worked examples consistently flipped.
+- Validator chain: 9/9 green. Counts unchanged.
+
 ### Fixed (hash-stamper grammar mismatch + greenfield SAD bootstrap gap)
 
 Surfaced by `/tmp/orchestra-smoke-5`: every artifact landed with `hash-at-write: TBD` unresolved, and `architecture/SAD.md` was never created on the first feature of a greenfield project. Two distinct root causes:

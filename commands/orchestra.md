@@ -117,11 +117,11 @@ Agent({
 | Intent | Agents (in order) | Artifacts they author |
 |---|---|---|
 | **docs** | `@product` (intent only) → `@ship` → `@reviewer` | (no PRD, no FRS, no TDD, no CONTRACT, no TEST) — only the doc files themselves + CODE-REVIEW |
-| **template** | `@product` (intent only) → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` | TDD-NNN.md, TASKS-NNN.md, impl source, TEST-NNN.md, VERDICT-NNN.md, CODE-REVIEW-NNN.md (no PRD/FRS, no CONTRACT, no API) |
-| **hotfix** | `@lead` → builder → `@test` → `@evaluator` → `@ship` | TDD-NNN.md, TASKS-NNN.md, impl-fix, TEST-NNN.md, VERDICT-NNN.md, RELEASE (no PRD/FRS, no CONTRACT, no API, no CODE-REVIEW) |
-| **feature** | `@product` → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` → `@ship` | **Full set:** PRD-NNN.md, FRS-NNN.md, TDD-NNN.md, API-NNN.openapi.yaml, CONTRACT-NNN.md, TASKS-NNN.md, impl source, TEST-NNN.md, VERDICT-NNN.md, CODE-REVIEW-NNN.md, RELEASE/RUNBOOK |
-| **review-only** | `@reviewer` (assess only — no downstream) | CODE-REVIEW-NNN.md only (no PRD/FRS/TDD/CONTRACT/TEST/RELEASE) |
-| **refactor** | `@reviewer` (assess) → `@lead` (TDD update) → builder → `@test` → `@evaluator` | CODE-REVIEW-NNN.md, TDD-NNN.md (update), impl, TEST-NNN.md, VERDICT-NNN.md (no PRD/FRS, no CONTRACT, no API) |
+| **template** | `@product` (intent only) → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` | `design/<NNN>-TDD.md`, `plan/<NNN>-TASKS.md`, impl source, `verify/<NNN>-TEST.md`, `verify/<NNN>-VERDICT.md`, `verify/<NNN>-CODE-REVIEW.md` (no PRD/FRS, no CONTRACT, no API) |
+| **hotfix** | `@lead` → builder → `@test` → `@evaluator` → `@ship` | `design/<NNN>-TDD.md`, `plan/<NNN>-TASKS.md`, impl-fix, `verify/<NNN>-TEST.md`, `verify/<NNN>-VERDICT.md`, RELEASE (no PRD/FRS, no CONTRACT, no API, no CODE-REVIEW) |
+| **feature** | `@product` → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` → `@ship` | **Full set:** `requirements/<NNN>-PRD.md`, `requirements/<NNN>-FRS.md`, `design/<NNN>-TDD.md`, `interfaces/<NNN>-API.openapi.yaml`, `interfaces/<NNN>-CONTRACT.md`, `plan/<NNN>-TASKS.md`, impl source, `verify/<NNN>-TEST.md`, `verify/<NNN>-VERDICT.md`, `verify/<NNN>-CODE-REVIEW.md`, RELEASE/RUNBOOK |
+| **review-only** | `@reviewer` (assess only — no downstream) | `verify/<NNN>-CODE-REVIEW.md` only (no PRD/FRS/TDD/CONTRACT/TEST/RELEASE) |
+| **refactor** | `@reviewer` (assess) → `@lead` (TDD update) → builder → `@test` → `@evaluator` | `verify/<NNN>-CODE-REVIEW.md`, `design/<NNN>-TDD.md` (update), impl, `verify/<NNN>-TEST.md`, `verify/<NNN>-VERDICT.md` (no PRD/FRS, no CONTRACT, no API) |
 
 **Each spawned agent MUST be given the routed intent in its prompt.** Concretely, every Step-5 `Agent` call's `prompt` MUST include a line like:
 

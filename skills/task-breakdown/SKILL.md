@@ -11,7 +11,7 @@ Turns a confirmed intent (PRD or natural-language request) into a directed acycl
 ## When to use
 
 - `@lead` has received a feature, refactor, or template intent classified per the routing taxonomy.
-- An existing PRD-NNN.md or FRS-NNN.md needs decomposing into TDD-bound tasks.
+- An existing `requirements/<NNN>-PRD.md` or `requirements/<NNN>-FRS.md` needs decomposing into TDD-bound tasks.
 - A sprint pull (`/orchestra sprint --size N`) needs the next N issues converted into a task graph.
 - `@product` or `@lead` is sizing a brownfield migration and needs to estimate before negotiating with the user.
 
@@ -69,11 +69,11 @@ The longest dependency chain by SP sum is the critical path. Total sprint durati
 
 ### Step 6 — Write the task graph
 
-Output to `<project>/.claude/.orchestra/pipeline/<id>/TASKS-<id>.md` with shape:
+Output to `<project>/.claude/.orchestra/pipeline/<feature_id>/plan/<NNN>-TASKS.md` with shape:
 
 ```yaml
 ---
-id: TASKS-<id>
+id: <NNN>-TASKS
 type: TASKS
 revision: 1
 sections:
@@ -116,12 +116,12 @@ User says: *"Add a /v1/users/:id/transfer endpoint that records to the ledger an
 
 | ID | Owner | SP | Blocks | Blocked by | Exit |
 |---|---|---|---|---|---|
-| T-001 | @lead | 1 | T-002 | — | CONTRACT-001.md written with 4 criteria |
+| T-001 | @lead | 1 | T-002 | — | `interfaces/001-CONTRACT.md` written with 4 criteria |
 | T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit |
 | T-003 | @test | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body |
 | T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic |
-| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | TEST-001.md verdict block: all 4 criteria PASS or pending |
-| T-006 | @reviewer | 2 | T-007 | T-005 | CODE-REVIEW-001.md APPROVED |
+| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `verify/001-TEST.md` verdict block: all 4 criteria PASS or pending |
+| T-006 | @reviewer | 2 | T-007 | T-005 | `verify/001-CODE-REVIEW.md` APPROVED |
 | T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes if applicable |
 
 Total: 13 SP. Critical path: T-001 → T-002 → T-005 → T-006 → T-007 = 9 SP. Parallelism on T-002/T-003/T-004 saves 4 SP of wall time.

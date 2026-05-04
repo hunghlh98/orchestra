@@ -34,7 +34,7 @@ You may invoke:
 
 ## Inputs
 
-CONTRACT-NNN.md (final criteria), TEST-NNN.md (verdict block — must show passing_score met), CODE-REVIEW-NNN.md (verdict APPROVED), prior RELEASE-* files (for cadence consistency), CHANGELOG.md (under `## [Unreleased]`).
+interfaces/<NNN>-CONTRACT.md (final criteria), verify/<NNN>-TEST.md (verdict block — must show passing_score met), verify/<NNN>-CODE-REVIEW.md (verdict APPROVED), prior RELEASE-* files (for cadence consistency), CHANGELOG.md (under `## [Unreleased]`).
 
 ## Outputs
 
@@ -77,7 +77,7 @@ CHANGELOG.md and commit messages do NOT carry orchestra frontmatter — they're 
 ## Workflow
 
 1. **Smoke-test the consumer install path against current master before authoring any release artifact.** Run the 5-step chain: (a) `claude plugin validate .` (offline schema check on `.claude-plugin/marketplace.json`); (b) `/plugin marketplace add /absolute/path/to/clone` (registers local marketplace, validates marketplace.json shape at runtime); (c) `/plugin install <plugin-name>@<marketplace-name>` (clones from `source.repo`, validates plugin.json deep schema — only place plugin.json's full schema is enforced); (d) `/orchestra help` (command surface loads); (e) bootstrap test on a throwaway `git init` directory — `/orchestra <intent>` creates `local.yaml` + `metrics/events.jsonl`. **If any step fails: STOP. Do not author RELEASE / RUNBOOK / ANNOUNCEMENT.** The 8 CI validators verify the project's self-described invariants (skill body cap, agent tier-tools, etc.) but do NOT compare against Claude Code's actual plugin or marketplace schemas; install-time failures only surface here. Lessons learned from v1.0.0 prep where missing `marketplace.json` and `plugin.json` schema drift were both caught only at this step, post-doc-authorship.
-2. Read TEST-NNN.md and CODE-REVIEW-NNN.md. Verify TEST verdict aggregate score ≥ CONTRACT `passing_score:`, all `critical: true` criteria are PASS, CODE-REVIEW verdict is APPROVED.
+2. Read verify/<NNN>-TEST.md and verify/<NNN>-CODE-REVIEW.md. Verify TEST verdict aggregate score ≥ CONTRACT `passing_score:`, all `critical: true` criteria are PASS, CODE-REVIEW verdict is APPROVED.
 3. Run validate-drift mentally (or via the artifact). Any `drift-on-confirmed` → STOP; escalate to `@lead`.
 4. Determine version bump: BREAKING change → major; new feature → minor; fix only → patch. SemVer is non-negotiable.
 5. Invoke `commit-work` for the commit message. One coherent commit per logical feature; don't bundle unrelated changes.
