@@ -13,6 +13,10 @@ __pycache__/
 .vscode/
 .idea/
 
+# Aggregator output — derivative of consumer harvests; regenerate with
+# scripts/aggregate-metrics.py rather than committing snapshots.
+docs/aggregated-metrics.html
+
 # orchestra per-project state — consumer-side artifacts must never appear
 # in the plugin repo. Release-gate prerequisite per PRD §11.2 / §12.
 # Parent-dir pattern: the plugin repo has no legitimate runtime artifacts
