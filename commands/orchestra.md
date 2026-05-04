@@ -37,9 +37,24 @@ The handoff pattern is:
 
 Do NOT instruct spawned agents to call `SendMessage` — they cannot. Do NOT poll for messages — Claude Code's idle notification fires automatically when the spawned agent's turn ends. Do NOT write artifacts from the parent context — every pipeline artifact must be authored inside its assigned agent's context per the tier discipline.
 
+### Autonomy resolution + pause transitions (PRD §8.14, DESIGN-002 §10)
+
+**Resolved level = `--autonomy=<tag>` in `$ARGUMENTS` > `local.yaml.autonomy.level` > hard-coded `DRAFT_AND_GATE`.** Tags: `EXECUTION_ONLY` | `JOINT_PROCESSING` | `OPTION_SYNTHESIS` | `DRAFT_AND_GATE` | `FULL_AUTONOMY`. Resolve at run start (Step 1); pass into TeamCreate description and `@lead`'s prompt; record in `runs/<run-id>.json.autonomy_level`.
+
+**Pauses fire ONLY when resolved level is `DRAFT_AND_GATE`.** Behavior at other levels per PRD §8.14.3: `FULL_AUTONOMY` skips all 4 pauses; `EXECUTION_ONLY` skips confidence classification; `JOINT_PROCESSING` adds per-stage dialogue; `OPTION_SYNTHESIS` halts after option set (v1.0.0 routes through `DRAFT_AND_GATE` PAUSE-1 with an explicit "you'll do the apply step yourself" message).
+
+When you reach a step marked `→ PAUSE-N` below, call `AskUserQuestion` per this table. On user reject → write `DEADLOCK-<id>.md` and halt:
+
+| # | Fires after | Question shape |
+|---|---|---|
+| 1 | Step 3 (intent + autonomy classification) | "intent=`<intent>`, confidence=`<conf>`, pattern=`<A\|B\|C>`, autonomy=`<tag>` — proceed?" Also surfaces @lead's auto-classified suggestion if it differs from the resolved default. |
+| 2 | Step 5 (after `@product` writes PRD + FRS) | "Spec captures: `<one-line summary>`. Proceed to architecture/contract?" |
+| 3 | Step 5 (after `@lead` writes CONTRACT) | "Gate is `<criteria summary>`. Kick off implementation?" |
+| 4 | Step 5 (after `@reviewer` writes CODE-REVIEW) | "Review verdict: `<APPROVED\|REQUEST_CHANGES>` (`<N minor, M blockers>`). Ship?" |
+
 ### Model actions (numbered = you must do these)
 
-**Step 1 — Create the team and join members.** Every `/orchestra` run starts with `TeamCreate` (container) followed by `Agent` calls (members joined on demand).
+**Step 1 — Resolve autonomy + create the team.** Resolve the autonomy tag per the precedence above (CLI flag → `local.yaml.autonomy.level` → `DRAFT_AND_GATE`); include it in TeamCreate's `description` and pass it into every spawned agent's prompt. Then `TeamCreate` (container) + `Agent` calls (members joined on demand).
 
 ```
 TeamCreate({
@@ -93,7 +108,7 @@ Agent({
 
 **Conformance check:** Whether HIGH/MEDIUM/LOW path was taken, the ONLY way `local.bootstrapped` lands in `events.jsonl` is via the metrics-collector hook firing on PreToolUse:Write of `local.yaml`. The dispatcher, the bootstrap script, and any spawned agents do NOT write to events.jsonl directly. If you find yourself wanting to append a metric event manually — stop. The hook owns it.
 
-**Step 3 — Spawn `@lead` to classify feature intent** per PRD §9.5 routing taxonomy (`docs` / `template` / `hotfix` / `feature` / `review-only` / `refactor`). @lead writes its classification to `<cwd>/.claude/.orchestra/pipeline/<feature-id>/intent.yaml` with `intent`, `confidence`, `pattern`. Parent reads on idle.
+**Step 3 — Spawn `@lead` to classify feature intent** per PRD §9.5 routing taxonomy (`docs` / `template` / `hotfix` / `feature` / `review-only` / `refactor`). @lead writes its classification to `<cwd>/.claude/.orchestra/pipeline/<feature-id>/intent.yaml` with `intent`, `confidence`, `pattern`, plus a suggested `autonomy_level` from the diagnostic in `agents/lead.md`'s `Autonomy classification` section. Parent reads on idle. **→ PAUSE-1** (intent + autonomy confirmation).
 
 **Step 4 — Confidence override (optional).** If `--confidence` flag in `$ARGUMENTS`, override @lead's feature-confidence classification before downstream agents read it.
 
@@ -111,6 +126,8 @@ Agent({
 **Each spawned agent MUST be given the routed intent in its prompt.** Concretely, every Step-5 `Agent` call's `prompt` MUST include a line like:
 
 > `Routed intent for this run: <intent>. Per PRD §9.5 routing taxonomy your authorized artifacts are: <list-from-row-above>. Do NOT author any artifact outside this whitelist; if you believe a different artifact is required, write an ESCALATE-<id>.md note instead and end your turn.`
+
+**Step 5b — Pause integration during the spawn loop.** When resolved autonomy is `DRAFT_AND_GATE`, fire `AskUserQuestion` at three transitions inside Step 5 (in addition to PAUSE-1 already fired in Step 3): **→ PAUSE-2** after `@product` writes PRD + FRS, before spawning `@lead`/builder; **→ PAUSE-3** after `@lead` writes CONTRACT, before spawning the implementer/`@test`; **→ PAUSE-4** after `@reviewer` writes CODE-REVIEW, before spawning `@ship`. Question shapes per the Pause transitions table above. On reject → write `DEADLOCK-<id>.md` and halt. For `feature` intent all 4 pauses fire; lighter intents (`docs`/`hotfix`/`template`/`refactor`/`review-only`) fire only the pauses whose preceding step actually ran (e.g., `hotfix` skips PAUSE-2 because there is no `@product` PRD/FRS).
 
 **Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/`.** Agents author their artifact frontmatter per PRD §10.5 (sections, references). The parent does NOT copy/edit those artifacts — each agent owns its outputs.
 
@@ -177,5 +194,6 @@ Print usage:
 
 Flags:
 - `--confidence {high,medium,low}` — override `@lead`'s confidence classification (logged).
+- `--autonomy <tag>` — override the autonomy level for this run; tag ∈ {`EXECUTION_ONLY`, `JOINT_PROCESSING`, `OPTION_SYNTHESIS`, `DRAFT_AND_GATE`, `FULL_AUTONOMY`}. Without the flag, `local.yaml.autonomy.level` wins; without that, default is `DRAFT_AND_GATE`. See PRD §8.14.
 
 Deferred (v1.1+): `/save`, `/load`, `/orchestra-disagree`, `/orchestra legacy`, `/orchestra resume`.
