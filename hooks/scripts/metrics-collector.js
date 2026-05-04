@@ -46,6 +46,8 @@ async function main() {
       const path = join(dir, "events.jsonl");
       try {
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+        const manifest = ensureManifest(dir);
+        if (manifest.redact_prompts) applyRedaction(event);
         appendFileSync(path, JSON.stringify(event) + "\n");
         rotateIfNeeded(path, dir);
       } catch (e) {
@@ -493,6 +495,49 @@ function emitRunSummary(input) {
   const runsDir = join(metricsDir, "runs");
   if (!existsSync(runsDir)) mkdirSync(runsDir, { recursive: true });
   writeFileSync(join(runsDir, `${sessionId}.json`), JSON.stringify(summary, null, 2) + "\n");
+}
+
+// === Manifest + redaction (privacy guard for consumer telemetry) ===
+// Creates metrics/manifest.json on first events.jsonl write with privacy-first
+// defaults: redact_prompts:true, telemetry_optin:"explicit". Consumers can
+// flip redact_prompts:false to retain user-prompt content. The manifest is
+// the harvest unit's privacy policy: plugin authors aggregating consumer data
+// inspect this file to confirm what's been redacted.
+function ensureManifest(metricsDir) {
+  const manifestPath = join(metricsDir, "manifest.json");
+  const defaults = {
+    schema_version: 1,
+    plugin_version: readPluginVersion(),
+    redact_prompts: true,
+    telemetry_optin: "explicit",
+    created_at: new Date().toISOString(),
+  };
+  if (!existsSync(manifestPath)) {
+    try { writeFileSync(manifestPath, JSON.stringify(defaults, null, 2) + "\n"); }
+    catch {}
+    return defaults;
+  }
+  try {
+    const raw = JSON.parse(readFileSync(manifestPath, "utf8"));
+    return { ...defaults, ...raw };
+  } catch {
+    return defaults;
+  }
+}
+
+// Replaces user-content fields with "<redacted, len=N>" placeholders.
+// Three known fields carry user prompts at this point:
+//   prompt_summary  (task.subagent.invoked)
+//   description     (team.created)
+//   args_summary    (skill.invoked)
+// Other event fields (file_name, agent_name, intent, etc.) are derived
+// classifications, not raw user text — left intact.
+function applyRedaction(event) {
+  for (const key of ["prompt_summary", "description", "args_summary"]) {
+    if (typeof event[key] === "string" && event[key].length > 0) {
+      event[key] = `<redacted, len=${event[key].length}>`;
+    }
+  }
 }
 
 function readJsonl(path) {

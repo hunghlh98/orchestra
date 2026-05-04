@@ -108,6 +108,15 @@ console.log("metrics-collector retention:");
 console.log("metrics-collector event classification:");
 {
   const tmp = mkdtempSync(join(tmpdir(), "orchestra-classify-"));
+  // Pre-seed manifest with redact_prompts:false so this test can verify the
+  // underlying classification (prompt_summary, description, args_summary)
+  // without redaction interference. Redaction has dedicated coverage below.
+  const metricsDir = join(tmp, ".claude/.orchestra/metrics");
+  mkdirSync(metricsDir, { recursive: true });
+  writeFileSync(
+    join(metricsDir, "manifest.json"),
+    JSON.stringify({ schema_version: 1, redact_prompts: false, telemetry_optin: "explicit" }, null, 2),
+  );
   try {
     const cases = [
       {
@@ -284,6 +293,67 @@ console.log("metrics-collector event classification:");
         check(got?.[k] === v, `event[${i}].${k} === ${JSON.stringify(v)} (got ${JSON.stringify(got?.[k])})`);
       }
     }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 4b. Manifest + redaction policy ---
+console.log("metrics-collector manifest + redaction:");
+{
+  // 4b.1: First emission creates manifest with privacy-first defaults.
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-redact-"));
+  try {
+    runHook({
+      session_id: "s1", cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Task",
+      tool_input: { subagent_type: "orchestra:lead", name: "@lead", prompt: "build me a tiny URL shortener" },
+    });
+    const manifestPath = join(tmp, ".claude/.orchestra/metrics/manifest.json");
+    check(existsSync(manifestPath), `manifest.json auto-created on first emission`);
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    check(manifest.redact_prompts === true, `default redact_prompts is true`);
+    check(manifest.telemetry_optin === "explicit", `default telemetry_optin is "explicit"`);
+    check(manifest.schema_version === 1, `schema_version is 1`);
+
+    // 4b.2: prompt_summary redacted by default.
+    const events = readFileSync(join(tmp, ".claude/.orchestra/metrics/events.jsonl"), "utf8")
+      .split("\n").filter(Boolean).map(l => JSON.parse(l));
+    const e = events[0];
+    check(/^<redacted, len=\d+>$/.test(e.prompt_summary), `prompt_summary redacted by default (got ${JSON.stringify(e.prompt_summary)})`);
+
+    // 4b.3: Flip redact_prompts:false and emit again — content visible.
+    const m2 = { ...manifest, redact_prompts: false };
+    writeFileSync(manifestPath, JSON.stringify(m2, null, 2));
+    runHook({
+      session_id: "s2", cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Task",
+      tool_input: { subagent_type: "orchestra:lead", name: "@lead", prompt: "VERBATIM USER TEXT" },
+    });
+    const events2 = readFileSync(join(tmp, ".claude/.orchestra/metrics/events.jsonl"), "utf8")
+      .split("\n").filter(Boolean).map(l => JSON.parse(l));
+    const e2 = events2[1];
+    check(e2.prompt_summary === "VERBATIM USER TEXT", `prompt_summary visible when redact_prompts:false`);
+
+    // 4b.4: team.created.description and skill.invoked.args_summary also redacted by default.
+    // Re-flip to redact_prompts:true.
+    writeFileSync(manifestPath, JSON.stringify({ ...m2, redact_prompts: true }, null, 2));
+    runHook({
+      session_id: "s3", cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "TeamCreate",
+      tool_input: { team_name: "orchestra-x", agent_type: "orchestra-coordinator", description: "user-supplied team description" },
+    });
+    runHook({
+      session_id: "s3", cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Skill",
+      tool_input: { skill: "write-contract", args: "user-supplied skill args" },
+    });
+    const events3 = readFileSync(join(tmp, ".claude/.orchestra/metrics/events.jsonl"), "utf8")
+      .split("\n").filter(Boolean).map(l => JSON.parse(l));
+    const teamEvent = events3.find(x => x.event === "team.created");
+    const skillEvent = events3.find(x => x.event === "skill.invoked");
+    check(/^<redacted, len=\d+>$/.test(teamEvent.description), `team.created.description redacted`);
+    check(/^<redacted, len=\d+>$/.test(skillEvent.args_summary), `skill.invoked.args_summary redacted`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
