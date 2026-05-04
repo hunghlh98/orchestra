@@ -56,18 +56,34 @@ async function main() {
       }
     }
 
-    // SubagentStop also emits a tokens.jsonl row with measured token usage
-    // for the subagent session that just ended. See emitSubagentTokens.
+    // SubagentStop emits a tokens.jsonl row + scans for ★ Insight blocks in
+    // the subagent's session jsonl, appending any to insights.jsonl. Token
+    // emission and insight emission are independent: insights are captured
+    // even when the subagent has no measurable token usage.
     if (input.hook_event_name === "SubagentStop") {
-      try { emitSubagentTokens(input); }
-      catch (e) { process.stderr.write(`metrics-collector tokens emit failed: ${e.message}\n`); }
+      try {
+        const sub = findJustStoppedSubagent(input);
+        if (sub) {
+          emitSubagentTokens(input, sub);
+          emitInsightsForSession(input, sub.path, sub.sid, sub.role);
+        }
+      }
+      catch (e) { process.stderr.write(`metrics-collector tokens/insights emit failed: ${e.message}\n`); }
     }
 
-    // Stop on the parent dispatcher session also writes a per-run summary to
-    // metrics/runs/<run-id>.json. Only fires for the parent (not subagent
-    // sessions) — detected by matching prompt.submitted in events.jsonl.
+    // Stop on the parent dispatcher session writes runs/<run-id>.json + scans
+    // the parent jsonl for ★ Insight blocks. Only fires for the parent (not
+    // subagent stops) — emitRunSummary checks via prompt.submitted match.
     if (input.hook_event_name === "Stop") {
-      try { emitRunSummary(input); }
+      try {
+        emitRunSummary(input);
+        const cwd = input.cwd || process.cwd();
+        const sid = input.session_id || "";
+        if (sid) {
+          const parentPath = join(getProjectSessionsDir(cwd), `${sid}.jsonl`);
+          if (existsSync(parentPath)) emitInsightsForSession(input, parentPath, sid, "dispatcher");
+        }
+      }
       catch (e) { process.stderr.write(`metrics-collector run summary failed: ${e.message}\n`); }
     }
 
@@ -289,14 +305,17 @@ function inferArtifactType(fileName) {
 // modified jsonl that is NOT the parent's session_id is the one that stopped.
 // Orchestra's filesystem-coupled handoff means subagents don't run concurrently
 // per parent run, so the heuristic is reliable in practice.
-function emitSubagentTokens(input) {
+// Identify the just-stopped subagent's session jsonl. Used by both
+// emitSubagentTokens and the insight emission flow at SubagentStop, so
+// they're decoupled (insight extraction works even when token usage is 0).
+function findJustStoppedSubagent(input) {
   const cwd = input.cwd || process.cwd();
   const parentId = input.session_id || "";
   const sessionsDir = getProjectSessionsDir(cwd);
 
   let entries;
   try { entries = readdirSync(sessionsDir).filter(f => f.endsWith(".jsonl")); }
-  catch { return; }
+  catch { return null; }
 
   let mostRecent = null;
   let mostRecentMtime = 0;
@@ -311,19 +330,25 @@ function emitSubagentTokens(input) {
       mostRecent = { sid, path };
     }
   }
-  if (!mostRecent) return;
-
-  const tokens = sumTokensInJsonl(mostRecent.path);
-  if (tokens.turns === 0) return;
-
+  if (!mostRecent) return null;
   const agent = identifyAgent(mostRecent.path);
+  return { sid: mostRecent.sid, path: mostRecent.path, role: agent.role, ord: agent.ord };
+}
+
+function emitSubagentTokens(input, sub) {
+  if (!sub) return null;
+  const tokens = sumTokensInJsonl(sub.path);
+  if (tokens.turns === 0) return null;
+
+  const cwd = input.cwd || process.cwd();
+  const parentId = input.session_id || "";
   const row = {
     ts: new Date().toISOString(),
     event: "subagent.tokens",
     run_id: parentId,
-    subagent_session_id: mostRecent.sid,
-    agent_role: agent.role,
-    agent_turn: agent.ord,
+    subagent_session_id: sub.sid,
+    agent_role: sub.role,
+    agent_turn: sub.ord,
     tokens,
   };
 
@@ -331,6 +356,8 @@ function emitSubagentTokens(input) {
   const path = join(dir, "tokens.jsonl");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   appendFileSync(path, JSON.stringify(row) + "\n");
+
+  return { sid: sub.sid, path: sub.path, role: sub.role };
 }
 
 function getProjectSessionsDir(cwd) {
@@ -475,6 +502,20 @@ function emitRunSummary(input) {
     }
   }
 
+  // Count insights for this run (by run_id) from insights.jsonl, if it exists.
+  // The Stop emission for the parent fires AFTER emitRunSummary in main(), so
+  // the parent's own insights are not yet in insights.jsonl at this point —
+  // only subagent insights (emitted at SubagentStop) are counted here. The
+  // count remains useful as a "subagent reasoning depth" signal; the parent's
+  // insights land on disk a moment later and get picked up by aggregators.
+  let insightsCount = 0;
+  const insightsPath = join(metricsDir, "insights.jsonl");
+  if (existsSync(insightsPath)) {
+    for (const row of readJsonl(insightsPath)) {
+      if (row.run_id === sessionId) insightsCount += 1;
+    }
+  }
+
   const summary = {
     run_id: sessionId,
     started_at: startedAt,
@@ -488,6 +529,7 @@ function emitRunSummary(input) {
     artifacts_produced: artifactsProduced,
     gates,
     tokens,
+    insights_count: insightsCount,
     deadlocked,
     plugin_version: readPluginVersion(),
   };
@@ -509,6 +551,7 @@ function ensureManifest(metricsDir) {
     schema_version: 1,
     plugin_version: readPluginVersion(),
     redact_prompts: true,
+    capture_insight_text: false,
     telemetry_optin: "explicit",
     created_at: new Date().toISOString(),
   };
@@ -561,6 +604,75 @@ function readPluginVersion() {
     }
   } catch {}
   return "unknown";
+}
+
+// === Insight extraction (Explanatory Output style ★ Insight blocks) ===
+// Scans a session jsonl for `★ Insight ─...─{20,}` blocks emitted by the
+// model in `assistant` text content, and appends one row per insight to
+// metrics/insights.jsonl. Privacy default: text is null (count + length
+// only); flip manifest.capture_insight_text:true to capture body text.
+function emitInsightsForSession(input, sessionPath, sessionId, role) {
+  if (!existsSync(sessionPath)) return 0;
+  const cwd = input.cwd || process.cwd();
+  const runId = input.session_id || "";
+  const metricsDir = join(cwd, ".claude/.orchestra/metrics");
+  if (!existsSync(metricsDir)) mkdirSync(metricsDir, { recursive: true });
+  const manifest = ensureManifest(metricsDir);
+
+  const insights = extractInsightsFromJsonl(sessionPath);
+  if (insights.length === 0) return 0;
+
+  const insightsPath = join(metricsDir, "insights.jsonl");
+  const ts = new Date().toISOString();
+  for (let i = 0; i < insights.length; i++) {
+    const ins = insights[i];
+    const row = {
+      ts,
+      event: "insight.emitted",
+      run_id: runId,
+      session_id: sessionId,
+      agent_role: role,
+      insight_index: i + 1,
+      line_count: ins.line_count,
+      char_count: ins.char_count,
+      text: manifest.capture_insight_text ? ins.text : null,
+    };
+    appendFileSync(insightsPath, JSON.stringify(row) + "\n");
+  }
+  return insights.length;
+}
+
+function extractInsightsFromJsonl(jsonlPath) {
+  const found = [];
+  let content;
+  try { content = readFileSync(jsonlPath, "utf8"); } catch { return found; }
+  // Detection pattern: the canonical Explanatory Output style wraps both
+  // bracket lines in backticks (`★ Insight ─...─`), but we tolerate the
+  // un-backticked variant too in case the style emits differently.
+  const insightRe = /`?★ Insight ─+`?\n([\s\S]*?)\n`?─{20,}`?/g;
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const d = JSON.parse(line);
+      if (d?.message?.role !== "assistant") continue;
+      let text = d.message.content;
+      if (Array.isArray(text)) {
+        text = text.filter(c => c?.type === "text").map(c => c.text || "").join("\n");
+      }
+      if (typeof text !== "string" || !text.includes("★ Insight")) continue;
+      insightRe.lastIndex = 0;
+      let m;
+      while ((m = insightRe.exec(text)) !== null) {
+        const body = m[1];
+        found.push({
+          line_count: body.split("\n").length,
+          char_count: body.length,
+          text: body,
+        });
+      }
+    } catch {}
+  }
+  return found;
 }
 
 function emitHookOutputIfPreToolUse(stdin) {

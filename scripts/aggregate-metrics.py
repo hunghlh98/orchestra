@@ -110,6 +110,14 @@ code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 0.9
 </style>
 """
 
+    # Insights stats from runs/<id>.json's insights_count field
+    insights_per_run = [r.get("insights_count", 0) for r in all_runs]
+    total_insights = sum(insights_per_run)
+    runs_with_insights = sum(1 for n in insights_per_run if n > 0)
+    avg_insights = (total_insights / total_runs) if total_runs else 0
+    median_insights = (statistics.median(insights_per_run)
+                       if insights_per_run else 0)
+
     summary_table = f"""
 <h2>Summary</h2>
 <table>
@@ -120,6 +128,8 @@ code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 0.9
 {row(["Deadlocked", f"{fmt(deadlocked)} ({pct(deadlocked, total_runs)})"])}
 {row(["Folders with redact_prompts:true", f"{fmt(redacted_folders)} / {fmt(len(manifests))}"])}
 {row(["Folders with telemetry_optin:explicit", f"{fmt(optin_explicit)} / {fmt(len(manifests))}"])}
+{row(["★ Insights emitted (total)", f"{fmt(total_insights)} across {fmt(runs_with_insights)} runs ({pct(runs_with_insights, total_runs)})"])}
+{row(["★ Insights per run", f"avg {avg_insights:.1f}  ·  median {median_insights:.0f}"])}
 </tbody>
 </table>
 """

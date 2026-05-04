@@ -2,7 +2,7 @@
 // scripts/test-metrics.js
 // metrics-collector contract tests: append safety + rotation behavior.
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, statSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, statSync, realpathSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -354,6 +354,93 @@ console.log("metrics-collector manifest + redaction:");
     const skillEvent = events3.find(x => x.event === "skill.invoked");
     check(/^<redacted, len=\d+>$/.test(teamEvent.description), `team.created.description redacted`);
     check(/^<redacted, len=\d+>$/.test(skillEvent.args_summary), `skill.invoked.args_summary redacted`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 4c. Insight extraction (Explanatory Output style) ---
+console.log("metrics-collector insight extraction:");
+{
+  // Build a synthetic session jsonl with two ★ Insight blocks in
+  // assistant messages, then trigger SubagentStop and verify
+  // insights.jsonl is populated correctly.
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-insights-"));
+  const homeBase = join(tmp, "home");
+  const project = join(tmp, "proj");
+  mkdirSync(project, { recursive: true });
+  // Encoded cwd = realpath of project, with / -> -. Use realpath because
+  // macOS /tmp -> /private/tmp via symlink.
+  const realProj = realpathSync(project);
+  const encoded = realProj.replace(/\//g, "-");
+  const sessDir = join(homeBase, ".claude/projects", encoded);
+  mkdirSync(sessDir, { recursive: true });
+
+  // Two assistant messages each containing one ★ Insight block.
+  const insightBody1 = "- bullet alpha\n- bullet beta\n- bullet gamma";
+  const insightBody2 = "- single line";
+  const horizon = "─".repeat(40);
+  const star = "★";
+  // Canonical Explanatory Output style: backticks around both bracket lines.
+  const text1 = "Some text before.\n\n`" + star + " Insight " + horizon + "`\n" + insightBody1 + "\n`" + horizon + "`\n\nMore text after.";
+  const text2 = "`" + star + " Insight " + horizon + "`\n" + insightBody2 + "\n`" + horizon + "`";
+
+  const subSid = "subagent-with-insights";
+  const subPath = join(sessDir, `${subSid}.jsonl`);
+  const lines = [
+    JSON.stringify({ type: "user", message: { role: "user", content: "You are @lead in the orchestra pipeline. Do work." }}),
+    JSON.stringify({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: text1 }] }}),
+    JSON.stringify({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: text2 }] }}),
+  ];
+  writeFileSync(subPath, lines.join("\n") + "\n");
+
+  // Also write a parent session jsonl (older mtime) so the heuristic
+  // picks up the subagent as the most recent non-parent.
+  const parentSid = "parent-no-insights";
+  const parentPath = join(sessDir, `${parentSid}.jsonl`);
+  writeFileSync(parentPath, JSON.stringify({ type: "user", message: { role: "user", content: "/orchestra hi" }}) + "\n");
+  const oldTime = Date.now() / 1000 - 100;
+  utimesSync(parentPath, oldTime, oldTime);
+
+  try {
+    const r = runHook(
+      { hook_event_name: "SubagentStop", session_id: parentSid, cwd: realProj },
+      { HOME: homeBase },
+    );
+    check(r.status === 0, `hook exited 0 (status=${r.status} stderr=${r.stderr})`);
+
+    const insightsPath = join(realProj, ".claude/.orchestra/metrics/insights.jsonl");
+    const tokensPath = join(realProj, ".claude/.orchestra/metrics/tokens.jsonl");
+    check(existsSync(insightsPath), `insights.jsonl created (tokens.jsonl exists=${existsSync(tokensPath)}; stderr=${r.stderr})`);
+    if (!existsSync(insightsPath)) {
+      // skip subsequent assertions to avoid noisy crash
+    } else {
+      const rows = readFileSync(insightsPath, "utf8").split("\n").filter(Boolean).map(JSON.parse);
+      check(rows.length === 2, `2 insight rows emitted (got ${rows.length})`);
+      check(rows[0].event === "insight.emitted", `event field = insight.emitted`);
+      check(rows[0].run_id === parentSid, `run_id = parent's session_id`);
+      check(rows[0].session_id === subSid, `session_id = subagent's id`);
+      check(rows[0].agent_role === "lead", `agent_role identified from "You are @lead"`);
+      check(rows[0].insight_index === 1, `first row insight_index=1`);
+      check(rows[1].insight_index === 2, `insight_index increments sequentially per-session`);
+      check(rows[0].text === null, `text null by default (capture_insight_text:false)`);
+      check(rows[0].line_count === 3, `line_count=3 for first insight (got ${rows[0].line_count})`);
+      check(rows[0].char_count === insightBody1.length, `char_count matches body length`);
+
+      // Flip capture_insight_text:true and re-trigger; new rows carry text.
+      const manifestPath = join(realProj, ".claude/.orchestra/metrics/manifest.json");
+      const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+      m.capture_insight_text = true;
+      writeFileSync(manifestPath, JSON.stringify(m, null, 2));
+
+      runHook(
+        { hook_event_name: "SubagentStop", session_id: parentSid, cwd: realProj },
+        { HOME: homeBase },
+      );
+      const rows2 = readFileSync(insightsPath, "utf8").split("\n").filter(Boolean).map(JSON.parse);
+      check(rows2.length === 4, `2 more insight rows emitted on second hook (total ${rows2.length})`);
+      check(rows2[2].text === insightBody1, `text captured when capture_insight_text:true`);
+    }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
