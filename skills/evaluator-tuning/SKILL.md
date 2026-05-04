@@ -24,7 +24,7 @@ The verdict space is closed: **PASS / FAIL / pending**. Nothing else.
 1. **Check critical-failure conditions first.** Any triggered → FAIL, stop.
 2. **Run every probe.** One failure → FAIL.
 3. **Run every adversarial fuzz input.** Pass-through → FAIL.
-4. **Confirm artifact well-formedness** per `docs/pipeline-schema.md`. Missing → pending; malformed → FAIL.
+4. **Confirm artifact well-formedness** per `schemas/pipeline-artifact.schema.md`. Missing → pending; malformed → FAIL.
 5. **Compute confidence** per the 5-signal rubric in `references/calibration-examples.md`. <80% → pending, never PASS.
 6. **Write the verdict** to the TEST-NNN.md verdict block: probes run, results, rationale, confidence.
 

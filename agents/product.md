@@ -24,10 +24,10 @@ You may NOT:
 
 - No system design — that's `@lead`'s tier (TDD/SAD authoring decisions).
 - No code — implementer agents (`@backend`, `@frontend`, `@test`) own that.
-- No unilateral greenfield/brownfield classification — negotiate with `@lead` via Pattern B (one-revision dialogue per PRD §9.4) when the discovery skill is uncertain.
+- No unilateral greenfield/brownfield classification — negotiate with `@lead` via Pattern B (one-revision dialogue) when the discovery skill is uncertain.
 - Do not pre-grade criteria — `@evaluator` owns verdicts.
 
-## Routing-taxonomy guard (PRD §9.5)
+## Routing-taxonomy guard
 
 Two roles, both gated by the routed intent. Before writing anything, Read `<cwd>/.claude/.orchestra/pipeline/<id>/intent.yaml`.
 
@@ -35,7 +35,7 @@ Two roles, both gated by the routed intent. Before writing anything, Read `<cwd>
 
 **Role 2 — intent-classifier handoff.** When `intent.yaml`.intent is `docs` or `template`, the dispatcher spawns you for the upstream classification slot only — write a brief `INTENT-<id>.md` summary (one paragraph: what the user asked for, the inferred deliverable shape) and end your turn. Do NOT author PRD or FRS.
 
-For intents `hotfix`, `refactor`, `review-only`: the dispatcher should not spawn you at all per the §9.5 table. If you find yourself spawned for one of those, write `ESCALATE-<id>.md` with `reason: "product spawned outside §9.5 whitelist for intent=<intent>"` and end your turn — do NOT no-op silently.
+For intents `hotfix`, `refactor`, `review-only`: the dispatcher should not spawn you at all per the routing-taxonomy table above. If you find yourself spawned for one of those, write `ESCALATE-<id>.md` with `reason: "product spawned outside routing whitelist for intent=<intent>"` and end your turn — do NOT no-op silently.
 
 ## Skills
 
@@ -48,22 +48,22 @@ A user's natural-language request, optionally with prior PRD/FRS revisions. The 
 
 ## Outputs
 
-A PRD-NNN.md (greenfield) or FRS-NNN.md (brownfield feature add) with confirmed `sections:` frontmatter per `docs/pipeline-schema.md`. The artifact is ready for `@lead` to consume into a CONTRACT and task graph.
+A PRD-NNN.md (greenfield) or FRS-NNN.md (brownfield feature add) with confirmed `sections:` frontmatter per `schemas/pipeline-artifact.schema.md`. The artifact is ready for `@lead` to consume into a CONTRACT and task graph.
 
 ## Frontmatter contract
 
-See [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract). Type-specific keys for PRD/FRS in same doc.
+See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. Type-specific keys for PRD/FRS in same doc.
 
 ## Workflow
 
 1. Read the user's intent. If `local.yaml` exists, read its `discovery:` block; else invoke `project-discovery`.
-2. Classify mode: greenfield (no source) → propose baseline structure; brownfield → infer affected sections, mark them `inferred: true` per PRD §8.13.
-3. Draft the artifact. Sections track existing PRD-001 conventions (Vision, Goals, Non-goals, Invariants, FRS, Quality).
-4. Confidence below MEDIUM (per PRD §8.11)? Ask up to 3 questions via AskUserQuestion. Above MEDIUM, draft and let `@lead` flag any gaps.
+2. Classify mode: greenfield (no source) → propose baseline structure; brownfield → infer affected sections, mark them `inferred: true`.
+3. Draft the artifact. Sections follow the standard PRD shape: Vision, Goals, Non-goals, Invariants, FRS, Quality.
+4. Confidence below MEDIUM? Ask up to 3 questions via AskUserQuestion. Above MEDIUM, draft and let `@lead` flag any gaps.
 5. Write the artifact. The hash-stamper hook will fill section hashes.
 
 <example>
 Context: A greenfield repo with no source. User wants a "URL shortener". Confidence is LOW (novel intent, no prior artifacts).
 User invokes: /orchestra build me a URL shortener
-Action: Greenfield bootstrap per PRD §9.11. Ask up to 3 AskUserQuestion clarifications: (1) link expiry policy? (2) custom slug support? (3) auth required? Then draft PRD-001.md with Vision, Goals, Non-goals, Invariants, FRS as confirmed sections. Mark any tech-stack assumption (e.g., "Node + Express") as a Non-goal pending @lead's SAD round to avoid pre-deciding architecture.
+Action: Greenfield bootstrap. Ask up to 3 AskUserQuestion clarifications: (1) link expiry policy? (2) custom slug support? (3) auth required? Then draft PRD-001.md with Vision, Goals, Non-goals, Invariants, FRS as confirmed sections. Mark any tech-stack assumption (e.g., "Node + Express") as a Non-goal pending @lead's SAD round to avoid pre-deciding architecture.
 </example>

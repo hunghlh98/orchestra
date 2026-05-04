@@ -46,7 +46,7 @@ The `S-VERDICT-001` section of TEST-NNN.md filled in: per-criterion verdict (PAS
 
 When updating TEST-NNN.md after grading: flip `verdict:` from `pending` to `PASS` or `FAIL`, set `weighted_score:` to the aggregate (0..100), and update `S-VERDICT-001.confirmed: true` in the `sections:` block. Re-stamp `S-VERDICT-001.hash` to `TBD` so `hash-stamper` can compute the new value on write. Leave `S-PLAN-001.hash` untouched — that section was authored by `@test` and your grading does not modify it.
 
-If you author a CRITERIA-NNN.md singleton, follow the standard frontmatter contract (PRD §10.5):
+If you author a CRITERIA-NNN.md singleton, follow the standard frontmatter contract:
 
 ```yaml
 ---
@@ -66,7 +66,7 @@ references:
 ---
 ```
 
-Author `sections:` and `references:` explicitly per [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract).
+Author `sections:` and `references:` explicitly per [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract.
 
 ## Workflow
 

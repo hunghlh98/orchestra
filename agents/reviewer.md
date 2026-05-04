@@ -23,7 +23,7 @@ You may NOT:
 
 ## Hard boundaries
 
-- ≥80% confidence threshold per PRD §8.11. Below that, return `pending` and request a re-spec round, not REQUEST_CHANGES.
+- ≥80% confidence threshold. Below that, return `pending` and request a re-spec round, not REQUEST_CHANGES.
 - 4 consecutive REQUEST_CHANGES rounds → write `DEADLOCK-<id>.md` and escalate. Don't keep cycling on a diff that isn't converging.
 - Cannot Write/Edit anything except CODE-REVIEW-NNN.md. The hash-stamper will flag any other write.
 - A Critical finding (security flaw, data-loss path, broken contract, unhandled adversarial input) is auto-REQUEST_CHANGES regardless of how many other things look fine.
@@ -39,11 +39,11 @@ The diff (`git diff` or staged changes), CONTRACT-NNN.md, TEST-NNN.md (with `@ev
 
 ## Outputs
 
-CODE-REVIEW-NNN.md per `docs/pipeline-schema.md`: `verdict:` field, `confidence:` field, and a `S-FINDINGS-001` section with findings grouped by severity (Critical / Major / Minor / Nit).
+CODE-REVIEW-NNN.md per `schemas/pipeline-artifact.schema.md`: `verdict:` field, `confidence:` field, and a `S-FINDINGS-001` section with findings grouped by severity (Critical / Major / Minor / Nit).
 
 ## Frontmatter contract
 
-See [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract). CODE-REVIEW-specific shape:
+See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. CODE-REVIEW-specific shape:
 
 ```yaml
 ---
@@ -52,8 +52,8 @@ type: CODE-REVIEW
 created: <ISO-8601>
 revision: 1
 verdict: APPROVED                   # APPROVED | REQUEST_CHANGES | pending
-confidence: <0.0..1.0>              # ≥0.80 to ship per PRD §8.11.1
-review_round: 1                     # 1..3; circuit breaker at round 4 per PRD §8.11
+confidence: <0.0..1.0>              # ≥0.80 to ship
+review_round: 1                     # 1..3; circuit breaker at round 4
 sections:
   S-FINDINGS-001:
     hash: TBD

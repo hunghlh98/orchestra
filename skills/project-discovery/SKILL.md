@@ -10,7 +10,7 @@ Returns a structured snapshot of the working directory's shape: `{ has_source, p
 
 ## When to use
 
-- `/orchestra` is invoked and there's no `.claude/.orchestra/local.yaml` yet (greenfield/brownfield bootstrap per PRD §9.11).
+- `/orchestra` is invoked and there's no `.claude/.orchestra/local.yaml` yet (greenfield/brownfield bootstrap).
 - `@product` or `@lead` needs to size a refactor and hasn't read the source tree yet.
 - `@reviewer` needs to know which language ruleset (`rules/<lang>/`) to load before grading code.
 - Any agent is about to invoke a language-specific skill (e.g., `java-source-intel`) and needs to confirm Java is the primary stack.
@@ -71,7 +71,7 @@ Quick brownfield-quality signal. None of these block anything; they shape the UX
 - **scope_hints.has_ci** — `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`, `.circleci/` exists.
 - **scope_hints.has_docker** — `Dockerfile`, `docker-compose.yml` exists.
 - **scope_hints.git_age_days** — days since first commit (read `git log --reverse --format=%cd | head -1`); helps gauge codebase maturity.
-- **scope_hints.file_count** — total tracked files; >5000 = "large" (per PRD §8.11.1 confidence signal).
+- **scope_hints.file_count** — total tracked files; >5000 = "large" (confidence signal).
 
 ### Check 5 — mode
 
@@ -80,7 +80,7 @@ mode = "greenfield" if has_source == false
      | "brownfield" if has_source == true
 ```
 
-This is the only categorical mode in v1.0.0. Greenfield triggers `@product` + `@lead` Pattern B negotiation; brownfield triggers section inference per PRD §8.13.
+This is the only categorical mode in v1.0.0. Greenfield triggers `@product` + `@lead` Pattern B negotiation; brownfield triggers section inference (the `inferred: true` flag on synthesized sections).
 
 ## Output shape
 
@@ -105,7 +105,7 @@ Successive `/orchestra` runs read this and skip discovery unless the user passes
 
 ## When to escalate
 
-- Top-2 languages within 5% of each other AND configs disagree → ask the user (1 question, MEDIUM confidence per PRD §8.11).
+- Top-2 languages within 5% of each other AND configs disagree → ask the user (1 question, MEDIUM confidence).
 - Multiple frameworks at parity → ask the user.
 - `has_source: true` but no recognized language → mode = brownfield, primary_language: unknown. Flag for `@product` to negotiate a manual classification.
 

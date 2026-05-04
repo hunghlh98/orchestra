@@ -61,7 +61,7 @@ Skip an axis only if the CONTRACT explicitly says so (e.g., a read-only GET has 
 
 ### Step 3 — Adversarial fuzz inputs
 
-Per PRD §9.7 (qa-test-planner) and the calibration's Case 4: adversarial inputs are first-class. Each one is a probe with an explicit `expected_result` of "handled cleanly".
+Per the calibration's Case 4: adversarial inputs are first-class. Each one is a probe with an explicit `expected_result` of "handled cleanly".
 
 Standard adversarial set (apply where relevant):
 
@@ -80,7 +80,7 @@ Document the *expected* behavior in the criterion. The point of an adversarial p
 
 ### Step 4 — Write TEST-NNN.md
 
-Path: `<project>/.claude/.orchestra/pipeline/<id>/TEST-<id>.md`. Shape per `docs/pipeline-schema.md`:
+Path: `<project>/.claude/.orchestra/pipeline/<id>/TEST-<id>.md`. Shape per `schemas/pipeline-artifact.schema.md`:
 
 ```yaml
 ---

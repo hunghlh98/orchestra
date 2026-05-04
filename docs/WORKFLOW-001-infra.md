@@ -155,7 +155,7 @@ Streams labeled A–D show parallelization opportunity within the PR.
 | T-206 | test-hooks.js extension: hash-equality regression suite | `scripts/test-hooks.js` | For each fixture: hash-stamper(input) == validate-drift.recompute(input) byte-for-byte |
 | T-207 | install-modules.json += `hook.hash-stamper` entry | `manifests/install-modules.json` | T-113 (test-removability) green |
 | T-208 | runtime-toggles.json += `ORCHESTRA_HOOK_HASH_STAMPER` toggle | `manifests/runtime-toggles.json` | 1:1 correspondence with T-207 |
-| T-209 | Pipeline schema doc — type-specific frontmatter fields per artifact | `docs/pipeline-schema.md` | Documents PRD, FRS, TDD, CONTRACT, SAD, TEST, CODE-REVIEW, DOC, RELEASE, RUNBOOK frontmatter shapes |
+| T-209 | Pipeline schema doc — type-specific frontmatter fields per artifact | `schemas/pipeline-artifact.schema.md` | Documents PRD, FRS, TDD, CONTRACT, SAD, TEST, CODE-REVIEW, DOC, RELEASE, RUNBOOK frontmatter shapes |
 
 **PR #2 merge-gate G-R1 — resolved 2026-04-29.** Spike confirmed `hookSpecificOutput.updatedInput` is the canonical field; T-203 algorithm proceeds as designed. No fallback needed.
 

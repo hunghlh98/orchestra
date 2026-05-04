@@ -10,7 +10,7 @@ Turns a confirmed intent (PRD or natural-language request) into a directed acycl
 
 ## When to use
 
-- `@lead` has received a feature, refactor, or template intent classified per the PRD §9.5 routing taxonomy.
+- `@lead` has received a feature, refactor, or template intent classified per the routing taxonomy.
 - An existing PRD-NNN.md or FRS-NNN.md needs decomposing into TDD-bound tasks.
 - A sprint pull (`/orchestra sprint --size N`) needs the next N issues converted into a task graph.
 - `@product` or `@lead` is sizing a brownfield migration and needs to estimate before negotiating with the user.
@@ -26,7 +26,7 @@ Read the PRD/FRS and list every artifact that must ship. Each deliverable is a t
 
 ### Step 2 — Assign owners
 
-Use the v1.0.0 agent roster (PRD §9.2). One owner per task; cross-tier handoffs become explicit edges.
+Use the v1.0.0 agent roster. One owner per task; cross-tier handoffs become explicit edges.
 
 | Task shape | Owner |
 |---|---|
@@ -97,7 +97,7 @@ references:
 ## When to escalate
 
 - Estimate uncertainty >2 SP for any task ("could be 3 or 5") → `@lead` flags this and asks `@product` for a re-spec round (Pattern B).
-- Critical path > 1.5× sprint capacity → don't decompose further, surface to user with a "trim or extend?" question per PRD §8.11.
+- Critical path > 1.5× sprint capacity → don't decompose further, surface to user with a "trim or extend?" question (within the confidence-tier question budget).
 - Task can't be assigned to a v1.0.0 agent role → flag as "needs `@architect` or `@security`" and defer (those agents are v1.1+).
 
 ## References

@@ -26,17 +26,17 @@ You may NOT:
 - Every CONTRACT criterion needs at least one probe — no exceptions. If a criterion can't be probed via http_probe / db_state, escalate to `@lead` for re-spec or mark it for manual `@reviewer` evaluation in the test plan.
 - Coverage matrix must address all 4 axes per `qa-test-planner` skill: happy / boundary / error / idempotency. Skipping an axis requires explicit CONTRACT justification.
 
-## Routing-taxonomy guard (PRD §9.5)
+## Routing-taxonomy guard
 
 Before writing TEST-NNN.md, Read `<cwd>/.claude/.orchestra/pipeline/<id>/intent.yaml` to learn the routed intent. Your upstream and behavior depend on it:
 
 | `intent.yaml`.intent | Upstream | Coverage source |
 |---|---|---|
 | `feature` | CONTRACT-NNN.md (required) | One-or-more probes per CONTRACT criterion (the existing rule). |
-| `template` / `hotfix` / `refactor` | TDD-NNN.md (no CONTRACT exists by §9.5) | Acceptance section of TDD; coverage matrix maps to the changed-behavior list, not weighted criteria. The "every CONTRACT criterion → probe" rule is N/A here. |
+| `template` / `hotfix` / `refactor` | TDD-NNN.md (no CONTRACT exists for these intents) | Acceptance section of TDD; coverage matrix maps to the changed-behavior list, not weighted criteria. The "every CONTRACT criterion → probe" rule is N/A here. |
 | `docs` / `review-only` | (none — you should not have been spawned) | — |
 
-If `intent.yaml`.intent is `docs` or `review-only`, do NOT author TEST-NNN.md. Write `ESCALATE-<id>.md` with `reason: "@test spawned outside §9.5 whitelist for intent=<intent>"` and end your turn.
+If `intent.yaml`.intent is `docs` or `review-only`, do NOT author TEST-NNN.md. Write `ESCALATE-<id>.md` with `reason: "@test spawned outside routing whitelist for intent=<intent>"` and end your turn.
 
 If `intent.yaml`.intent is `feature` but CONTRACT-NNN.md is missing, do NOT proceed — write `ESCALATE-<id>.md` with `reason: "@test for feature intent but CONTRACT-NNN.md absent — upstream skipped"` and end your turn.
 
@@ -51,11 +51,11 @@ CONTRACT-NNN.md (probes' contract), source code (to find call sites and side-eff
 
 ## Outputs
 
-TEST-NNN.md per `docs/pipeline-schema.md`: `S-PLAN-001` (coverage matrix + probes) and an empty `S-VERDICT-001` for `@evaluator`. Test-source files in the project's normal test layout.
+TEST-NNN.md per `schemas/pipeline-artifact.schema.md`: `S-PLAN-001` (coverage matrix + probes) and an empty `S-VERDICT-001` for `@evaluator`. Test-source files in the project's normal test layout.
 
 ## Frontmatter contract
 
-See [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract). TEST-specific shape:
+See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. TEST-specific shape:
 
 ```yaml
 ---

@@ -8,6 +8,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Changed (consumer-surface dev/consumer separation — leaky-cite cleanup + schema relocation)
+
+Establishes a hard line between the developer surface (`docs/`, `scripts/test-*`, `scripts/validate*`) and the consumer surface (`agents/`, `commands/`, `skills/`, `hooks/`, `schemas/`). A consumer who installs the plugin has no `docs/PRD-001.md`, `DESIGN-NNN-*.md`, or `WORKFLOW-NNN-*.md` on their machine — every cite of those by section anchor was either a phantom pointer (LLM cannot resolve) or a token-burning deferred Read. Inlining the rule and dropping the cite removes both costs. Schema doc relocated from `docs/` to `schemas/` because it's structurally consumer-facing (every agent that authors a pipeline artifact references it).
+
+- `CLAUDE.md` (new, project-local) — codifies the dev/consumer separation rule, the inline-the-rule fix pattern, and the list of where dev-trace cites SHOULD go (CHANGELOG, commit messages, `docs/`).
+- `scripts/validate.js` — new `findLeakyCites(relPath, raw)` exported function + walker over `agents/`, `commands/`, `skills/`. Canary character is `§`; 3 mutation tests assert leaky cite fails red, bare `§` (no doc prefix) fails red, clean body passes. Auto-enforces the rule on every CI run.
+- Rename: `docs/pipeline-schema.md` → `schemas/pipeline-artifact.schema.md`. Joins JSON schemas under `schemas/` (existing pattern: `*.schema.json` for machine-readable, `*.schema.md` for prose). Schema is now consumer surface, not dev surface.
+- 8 agent files (`backend`, `evaluator`, `lead`, `product`, `reviewer`, `ship`, `test`) — 25 leaky `§` cites stripped. Each cite's rule was already inline beside it; surgery was mostly delete-the-parenthetical.
+- `commands/orchestra.md` — 12 leaky cites stripped (dispatcher header, autonomy/pause section header, step bullets, hook table cell, autonomy flag footer). Re-pointed `Step 6` and the `hash-stamper` row at `schemas/pipeline-artifact.schema.md`.
+- 6 skill files (`code-review`, `commit-work`, `evaluator-tuning` + `references/calibration-examples.md`, `project-discovery`, `qa-test-planner`, `task-breakdown`) — 16 leaky cites stripped. `commit-work` worked example rewritten to a consumer-generic scenario (`feat(api): T-204 add /v1/users CRUD with cursor pagination`) — old example referenced `WORKFLOW-002-leaves §2.1` and `DESIGN-002 §3.1/§3.5`, which only exist in this repo.
+- `schemas/pipeline-artifact.schema.md` (the moved file) — 6 internal `§` cites stripped (frontmatter scope line, prose intro, 4 inline YAML comments). Frontmatter `references.prd` block kept (provenance trail for repo maintainers; not LLM-read).
+- 3 dev docs (`docs/PRD-001.md`, `docs/DESIGN-001-infra.md`, `docs/WORKFLOW-001-infra.md`) — path references updated to the new `schemas/` location for consistency.
+- Validator chain: 9/9 green. Counts unchanged: validate (no leaks), test-hooks 78, test-agents 16, test-bash-strip 6, validate-drift no-op, test-removability 36/15, test-metrics 82, test-bootstrap 37, test-probe 30.
+
 ### Added (W2 — AI agent autonomy levels per PRD §8.14 + DESIGN-002 §10)
 
 Implements the 5-tag autonomy surface (`EXECUTION_ONLY` / `JOINT_PROCESSING` / `OPTION_SYNTHESIS` / `DRAFT_AND_GATE` / `FULL_AUTONOMY`) with `DRAFT_AND_GATE` as the v1.0.0 hard-coded default. Pauses fire only at `DRAFT_AND_GATE`; other levels behave per PRD §8.14.3. Auto-classification by `@lead` is suggestion-only — never changes the level without user assent.

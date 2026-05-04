@@ -86,7 +86,7 @@ The 8 cases below are the v1.0.0 calibration baseline. `@evaluator` must judge s
 **Scenario:** Mid-evaluation, `validate-drift.js` fires and reports a `drift-on-inferred` warning on an upstream PRD section that this CONTRACT references.
 **Verdict for the criterion:** Continue the evaluation. The criterion's verdict stands on its own probes.
 **Verdict for the feature:** Note the drift in the TEST-NNN.md verdict block. `@reviewer` sees the warning and decides whether to re-confirm the upstream section or accept the inference.
-**Why:** `inferred:` sections are warnings, not blockers (PRD §8.13). Drift on `confirmed:` upstream would FAIL the run; drift on `inferred:` is informational. Don't conflate the two.
+**Why:** `inferred:` sections are warnings, not blockers. Drift on `confirmed:` upstream would FAIL the run; drift on `inferred:` is informational. Don't conflate the two.
 
 ---
 

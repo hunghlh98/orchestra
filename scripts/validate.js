@@ -224,6 +224,42 @@ export function validateLocalYamlContent(relPath, raw) {
   return errs;
 }
 
+// === Leaky-cite check (project CLAUDE.md: dev/consumer separation) ===
+// Forbids '§' in agents/, commands/, skills/ bodies. The '§' character in the
+// consumer surface invariably points at Orchestra's internal dev docs
+// (docs/PRD-001.md, DESIGN-NNN-*.md, WORKFLOW-NNN-*.md).
+// Consumers don't need those docs to operate the plugin — every cite of theirs
+// is either a phantom anchor or an inefficient deferred Read. The fix shape:
+// inline the rule, drop the cite. Pure function so mutation tests can drive it.
+export function findLeakyCites(relPath, raw) {
+  const errs = [];
+  const lines = raw.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (/§/.test(lines[i])) {
+      const snippet = lines[i].trim().slice(0, 80);
+      errs.push(`${relPath}:${i + 1}: leaky '§' cite to dev-surface doc — '${snippet}'`);
+    }
+  }
+  return errs;
+}
+
+function walkLeakyCites(dir) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const st = statSync(full);
+    if (st.isDirectory()) walkLeakyCites(full);
+    else if (st.isFile() && entry.endsWith(".md")) {
+      const relPath = full.slice(root.length + 1);
+      const raw = readFileSync(full, "utf8");
+      for (const e of findLeakyCites(relPath, raw)) errors.push(e);
+    }
+  }
+}
+walkLeakyCites(resolve(root, "agents"));
+walkLeakyCites(resolve(root, "commands"));
+walkLeakyCites(resolve(root, "skills"));
+
 // === Inline mutation tests for the rule + command validators (PR #7 T-716) ===
 // Run only when invoked directly (not when imported).
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
@@ -321,6 +357,34 @@ if (isMain) {
     const errs = validateLocalYamlContent("local.yaml", ok);
     if (errs.length !== 0) {
       mutationErrors.push(`inverse sanity: missing autonomy block should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // === Leaky-cite mutation tests (project CLAUDE.md: dev/consumer separation) ===
+  // Mutation 9: '§' in body fails red
+  {
+    const bad = `# header\n\nrun this per PRD §8.11.\n`;
+    const errs = findLeakyCites("agents/fixture.md", bad);
+    if (!errs.some(e => /leaky '§' cite/.test(e))) {
+      mutationErrors.push("mutation: leaky '§' cite should fail red");
+    }
+  }
+
+  // Mutation 10: bare '§' (no PRD prefix) also fails red — the canary is the symbol itself
+  {
+    const bad = `escalate per §9.5 whitelist.\n`;
+    const errs = findLeakyCites("agents/fixture.md", bad);
+    if (!errs.some(e => /leaky '§' cite/.test(e))) {
+      mutationErrors.push("mutation: bare '§' (no doc prefix) should fail red");
+    }
+  }
+
+  // Inverse sanity: clean body (domain nouns only) passes
+  {
+    const ok = `Author PRD-NNN.md and FRS-NNN.md per the routing taxonomy.\nClassify intent: docs / template / hotfix / feature.\n`;
+    const errs = findLeakyCites("agents/fixture.md", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: clean body (no §) should pass, got: ${errs.join(", ")}`);
     }
   }
 

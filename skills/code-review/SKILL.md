@@ -88,7 +88,7 @@ Below 80% → `pending`. Below 60% → `pending` and request a `@lead` re-spec r
 
 ### Step 6 — Write CODE-REVIEW-NNN.md
 
-Path: `<project>/.claude/.orchestra/pipeline/<id>/CODE-REVIEW-<id>.md`. Shape per `docs/pipeline-schema.md`:
+Path: `<project>/.claude/.orchestra/pipeline/<id>/CODE-REVIEW-<id>.md`. Shape per `schemas/pipeline-artifact.schema.md`:
 
 ```yaml
 ---
@@ -123,7 +123,7 @@ references:
 
 ## Circuit breaker
 
-Per PRD §9.6: 3 consecutive `REQUEST_CHANGES` rounds → write `DEADLOCK-<id>.md`, escalate to user. The implementer is not converging; further iterations are negative-EV.
+3 consecutive `REQUEST_CHANGES` rounds → write `DEADLOCK-<id>.md`, escalate to user. The implementer is not converging; further iterations are negative-EV.
 
 ## References
 

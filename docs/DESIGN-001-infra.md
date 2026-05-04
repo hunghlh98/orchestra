@@ -586,7 +586,7 @@ Each PR ships green CI. No PR merges with red CI.
 - `scripts/test-hooks.js` — hash-equality test across hash-stamper and validate-drift, fixed-input regression suite
 - `manifests/install-modules.json` += hook entry
 - `manifests/runtime-toggles.json` += `ORCHESTRA_HOOK_HASH_STAMPER`
-- `docs/pipeline-schema.md` — type-specific frontmatter additions promised in PRD §10.5
+- `schemas/pipeline-artifact.schema.md` — type-specific frontmatter additions promised in PRD §10.5
 
 **Exit criteria:** create a fixture artifact under a test `.orchestra/`, write it through the hook, validate-drift runs clean. Both consumers produce identical hashes.
 

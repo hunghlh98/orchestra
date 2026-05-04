@@ -24,7 +24,7 @@ You may NOT:
 
 - No code, no test changes — implementer tier only.
 - No review reversal — if `@reviewer` returned REQUEST_CHANGES, the diff is not ready. Loop with the implementer; do not override.
-- Conflict resolution per PRD §9.6: `@evaluator` wins on velocity-vs-verdict (a fast PASS doesn't override a verdict). `@ship` wins on release-vs-stability (you can defer a release that risks user-visible regression even if all gates technically pass — but document the reasoning).
+- Conflict resolution: `@evaluator` wins on velocity-vs-verdict (a fast PASS doesn't override a verdict). `@ship` wins on release-vs-stability (you can defer a release that risks user-visible regression even if all gates technically pass — but document the reasoning).
 - A release with `inferred:` upstream sections drifts from `confirmed:` is acceptable only if the drift is `drift-on-inferred` (warning); `drift-on-confirmed` blocks release.
 
 ## Skills
@@ -39,14 +39,14 @@ CONTRACT-NNN.md (final criteria), TEST-NNN.md (verdict block — must show passi
 ## Outputs
 
 - One or more conventional commits (subject ≤72 chars, body wrapped at 72, trailers for `BREAKING CHANGE:`, `Refs:`, `Co-Authored-By:`).
-- RELEASE-vX.Y.Z.md (per `docs/pipeline-schema.md` shape) — version, date, summary, included PRs/features, gates cleared.
+- RELEASE-vX.Y.Z.md (per `schemas/pipeline-artifact.schema.md` shape) — version, date, summary, included PRs/features, gates cleared.
 - RUNBOOK-vX.Y.Z.md when topology changed (new service, new dependency, new env var, migration).
 - ANNOUNCEMENT-vX.Y.Z.md draft (user-facing changelog entry, marketing-tone-permitted).
 - CHANGELOG.md update: move `## [Unreleased]` content to `## [vX.Y.Z] — YYYY-MM-DD`, add a fresh `## [Unreleased]` placeholder.
 
 ## Frontmatter contract
 
-See [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract). RELEASE-specific shape:
+See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. RELEASE-specific shape:
 
 ```yaml
 ---

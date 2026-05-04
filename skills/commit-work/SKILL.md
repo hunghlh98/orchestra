@@ -88,7 +88,7 @@ Trailers go at the bottom, separated from body by one blank line. Common trailer
 
 - `BREAKING CHANGE:` — if the diff breaks an existing contract. Triggers a major version bump per SemVer.
 - `Closes #NN` — GitHub issue reference.
-- `Refs: PRD-001 §8.7` — internal artifact reference.
+- `Refs: SPEC-<id> sec-<n>` — internal artifact reference (PRD/FRS/TDD section).
 - `Co-Authored-By: <name> <email>` — pair-programming credit.
 
 ### Step 7 — Run the commit
@@ -128,31 +128,28 @@ For depth, see:
 User runs `/orchestra commit`. `git diff --staged --stat` shows:
 
 ```
- skills/task-breakdown/SKILL.md          | 156 ++++++++++
- skills/project-discovery/SKILL.md       | 142 +++++++++
- manifests/install-modules.json          |  16 ++
- manifests/runtime-toggles.json          |  16 ++
- CHANGELOG.md                            |  12 +
+ src/api/users.ts          | 78 +++++++++++++++++
+ src/api/users.test.ts     | 54 ++++++++++++
+ docs/api/users.md         | 22 +++++
 ```
 
 Analysis:
-- Type: `feat` (new skills are user-facing functionality the agents can invoke).
-- Scope: `skills` (load-bearing area).
-- Subject: should reference the task IDs from WORKFLOW-002-leaves §2.1.
+- Type: `feat` (new endpoint).
+- Scope: `api` (load-bearing area).
+- Subject: state the why-shaped what; reference the spec/issue ID this resolves.
 
 Output:
 
 ```
-feat(skills): T-501..T-502 — task-breakdown + project-discovery SKILL.md
+feat(api): T-204 add /v1/users CRUD with cursor pagination
 
-Ships first 2 of 8 v1.0.0 skills per WORKFLOW-002-leaves §2.1 PR #5.
-Both skills follow the SKILL.md skeleton from DESIGN-002 §3.1; bodies
-under 400 lines; descriptions under 200 chars with trigger keywords.
+Implements GET/POST/PUT/DELETE on /v1/users. Cursor pagination uses
+opaque base64 tokens (max 100 per page). Validates payloads with zod;
+emits audit log on writes. Adversarial probes cover oversized bodies,
+malformed cursors, and concurrent writes against the same record.
 
-Manifests bumped to track the new modules + their env-var toggles.
-test-removability now reports 9 modules / 9 toggles (was 7/7).
-
-Refs: WORKFLOW-002-leaves §2.1, DESIGN-002 §3.5
+Refs: FRS-USERS sec-3.2
+Closes #142
 ```
 
 `@ship` (or `/orchestra commit`) runs `git commit` with this message and verifies hooks pass.

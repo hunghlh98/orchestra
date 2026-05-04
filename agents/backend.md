@@ -25,7 +25,7 @@ You may NOT:
 
 - Do not modify CONTRACT-NNN.md or TEST-NNN.md — those are upstream artifacts owned by `@lead` and `@test`.
 - Do not write `RUNBOOK-*.md` or `RELEASE-*.md` — those are `@ship`'s tier.
-- Bash strip is structural: `test-bash-strip.js` will fail CI if `Bash` ever appears in this agent's `tools` array. Do not request a tools amendment without an explicit PRD §10.1 review.
+- Bash strip is structural: `test-bash-strip.js` will fail CI if `Bash` ever appears in this agent's `tools` array. Do not request a tools amendment without an explicit tools-tier review.
 - New infrastructure needs (new database, new queue, new third-party service) → escalate via `ESCALATE-ARCH-<id>.md` instead of plumbing them in silently.
 
 ## Skills

@@ -4,7 +4,7 @@ title: orchestra Pipeline Artifact Frontmatter Schemas
 created: 2026-04-29
 status: draft
 revision: 1
-scope: type-specific frontmatter shapes for every artifact in PRD §9.3 ownership table
+scope: type-specific frontmatter shapes for every artifact authored by the orchestra agents
 references:
   prd:
     - id: PRD-001
@@ -13,7 +13,7 @@ references:
 
 # orchestra Pipeline Artifact Frontmatter Schemas
 
-> Type-specific extensions of the common frontmatter contract in PRD §10.5. Every artifact under `<project>/.claude/.orchestra/` carries the common shape plus the type-specific keys listed below. Hook scripts and `validate-drift.js` parse every example here using `hooks/lib/yaml-mini.js`.
+> Type-specific extensions of the common frontmatter contract. Every artifact under `<project>/.claude/.orchestra/` carries the common shape plus the type-specific keys listed below. Hook scripts and `validate-drift.js` parse every example here using `hooks/lib/yaml-mini.js`.
 
 ## Common shape (all artifacts)
 
@@ -60,14 +60,14 @@ acceptance_criteria_count: <int> # for spot-check during review
 ### TDD-<id>.md
 
 ```yaml
-sad-touched: true | false        # whether this feature mutated SAD; gates SAD update flow per PRD §D-22
+sad-touched: true | false        # whether this feature mutated SAD; gates SAD update flow
 c4_levels_present: [3, 4]        # which c4 levels this TDD covers (always 3-4; cloned 1-2 sections from SAD)
 ```
 
 ### CONTRACT-<id>.md
 
 ```yaml
-signed: true | false             # @evaluator co-sign per PRD §8.2
+signed: true | false             # @evaluator co-sign
 weighted_criteria_total: 100     # validation: must sum to exactly 100
 probe_count: <int>
 critical_failure_conditions: <int>
@@ -119,7 +119,7 @@ adversarial_input_count: <int>
 
 ```yaml
 verdict: APPROVED | REQUEST_CHANGES | pending
-review_round: <1..3>             # circuit breaker at round 4 per PRD §8.11
+review_round: <1..3>             # circuit breaker at round 4
 ```
 
 ### DOC-<id>.md
@@ -196,7 +196,7 @@ features_touched: [<id>, ...]
 
 ## Validation
 
-`validate.js` (PR #1) and `validate-drift.js` (PR #2) read these via `hooks/lib/yaml-mini.js`. Any frontmatter that violates the frozen grammar (PRD §8.13) fails with `frontmatter-grammar-violation`. Any artifact whose `sections.<id>.hash` differs from the recomputed hash of its body fails with `frontmatter-out-of-sync`.
+`validate.js` (PR #1) and `validate-drift.js` (PR #2) read these via `hooks/lib/yaml-mini.js`. Any frontmatter that violates the frozen grammar fails with `frontmatter-grammar-violation`. Any artifact whose `sections.<id>.hash` differs from the recomputed hash of its body fails with `frontmatter-out-of-sync`.
 
 ## Versioning
 

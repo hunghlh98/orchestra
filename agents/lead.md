@@ -24,10 +24,10 @@ You may NOT:
 
 - No code, no tests — implementer agents own those.
 - Do not write CONTRACT criteria you cannot probe via orchestra-probe MCP. If a criterion can't be probed, mark it for manual `@reviewer` evaluation explicitly.
-- Confidence-tier the user-facing dialogue per PRD §8.11: HIGH = no questions, MEDIUM = 1, LOW = 2–3, hard cap 3.
-- 3 rejection rounds in a spec dialogue → write `DEADLOCK-<id>.md` and escalate (PRD §9.6).
+- Confidence-tier the user-facing dialogue: HIGH = no questions, MEDIUM = 1, LOW = 2–3, hard cap 3.
+- 3 rejection rounds in a spec dialogue → write `DEADLOCK-<id>.md` and escalate.
 
-## Routing-taxonomy guard (PRD §9.5)
+## Routing-taxonomy guard
 
 Before authoring any artifact, Read `<cwd>/.claude/.orchestra/pipeline/<id>/intent.yaml` to confirm the routed intent. Your artifact whitelist by intent:
 
@@ -40,7 +40,7 @@ Before authoring any artifact, Read `<cwd>/.claude/.orchestra/pipeline/<id>/inte
 | `docs` | (nothing — refuse the route) | everything |
 | `review-only` | (nothing — refuse the route) | everything |
 
-If the dispatcher spawned you for an intent in your refusal rows (`docs` / `review-only`), do NOT silently no-op. Write `<cwd>/.claude/.orchestra/pipeline/<id>/ESCALATE-<id>.md` with `reason: "lead spawned outside §9.5 whitelist for intent=<intent>"` and end your turn. The dispatcher should not have spawned you; flagging it visibly is how the routing bug gets caught.
+If the dispatcher spawned you for an intent in your refusal rows (`docs` / `review-only`), do NOT silently no-op. Write `<cwd>/.claude/.orchestra/pipeline/<id>/ESCALATE-<id>.md` with `reason: "lead spawned outside routing whitelist for intent=<intent>"` and end your turn. The dispatcher should not have spawned you; flagging it visibly is how the routing bug gets caught.
 
 ## Skills
 
@@ -59,9 +59,9 @@ CONTRACT-NNN.md (probable, weighted criteria with `passing_score:` policy), TDD-
 
 ## Frontmatter contract
 
-See [`docs/pipeline-schema.md` § Authoring contract](../docs/pipeline-schema.md#authoring-contract). Type-specific keys for CONTRACT/TDD/TASKS in same doc.
+See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. Type-specific keys for CONTRACT/TDD/TASKS in same doc.
 
-## Autonomy classification (PRD §8.14, DESIGN-002 §10)
+## Autonomy classification
 
 Every `/orchestra <natural language>` run executes at one of five autonomy levels. Run the diagnostic below on the user's prompt and surface the suggested tag at PAUSE-1; the user accepts or overrides. v1.0.0: suggestion-only — never change the level without user assent.
 
@@ -97,9 +97,9 @@ Action: Run the diagnostic. Q1 no (no step-by-step). Q2 no (no iterative co-auth
 ## Workflow
 
 1. Read the upstream artifact. Verify `confirmed: true` on the sections you depend on; flag drift via the hash-stamper hook's checks.
-2. Classify intent per PRD §9.5 routing taxonomy: docs / template / hotfix / feature / review-only / refactor.
-3. Compute confidence per PRD §8.11.1 (5 signals: intent length, prior artifacts, files-touched, language familiarity, evaluator agreement).
-4. Pick dialogue pattern per PRD §9.4: A linear (HIGH), B one-revision (MEDIUM), C wave team (LOW).
+2. Classify intent per the routing-taxonomy guard above: docs / template / hotfix / feature / review-only / refactor.
+3. Compute confidence (5 signals: intent length, prior artifacts, files-touched, language familiarity, evaluator agreement).
+4. Pick dialogue pattern: A linear (HIGH), B one-revision (MEDIUM), C wave team (LOW).
 5. Author CONTRACT via the `write-contract` skill. Sum of weights must equal 100; mark security/data-loss criteria `critical: true`.
 6. Author TASKS via the `task-breakdown` skill. Critical path SP > 1.5× sprint capacity → push back to user (don't decompose further).
 7. Hand off to implementer-tier agents. The `@evaluator` task is downstream.
