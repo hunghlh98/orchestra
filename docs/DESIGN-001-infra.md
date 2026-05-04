@@ -119,33 +119,34 @@ These edits to PRD-001 should land before or alongside PR #1:
 
 ```json
 {
-  "$schema": "https://json.schemastore.org/claude-code-plugin",
   "name": "orchestra",
   "version": "1.0.0",
   "description": "Multi-agent SDLC pipeline behind /orchestra. One developer, generator/evaluator separation, document-driven gates.",
-  "author": "hunghlh98",
+  "author": { "name": "hunghlh98" },
   "license": "MIT",
   "keywords": ["claude-code", "sdlc", "multi-agent", "orchestrator"],
   "homepage": "https://github.com/hunghlh98/orchestra",
+  "mcpServers": "./.claude-plugin/.mcp.json",
   "agents": [
-    "agents/product.md",
-    "agents/lead.md",
-    "agents/backend.md",
-    "agents/frontend.md",
-    "agents/test.md",
-    "agents/evaluator.md",
-    "agents/reviewer.md",
-    "agents/ship.md"
+    "./agents/product.md",
+    "./agents/lead.md",
+    "./agents/backend.md",
+    "./agents/frontend.md",
+    "./agents/test.md",
+    "./agents/evaluator.md",
+    "./agents/reviewer.md",
+    "./agents/ship.md"
   ],
-  "commands": ["commands/orchestra.md"],
-  "hooks": "hooks/hooks.json",
-  "mcpServers": ".claude-plugin/.mcp.json"
+  "commands": ["./commands/orchestra.md"]
 }
 ```
 
 **Invariants:**
 - Agents listed as **explicit file paths** (PRD §8.6) — auto-discovery is forbidden so `validate.js` can verify exactly 8 entries.
 - `version` matches `VERSION` file and the topmost `## [X.Y.Z]` entry in `CHANGELOG.md` (release-gate per PRD §11.2).
+- `author` is the object form `{ "name": "..." }` — Claude Code plugin schema requires this shape; string form is rejected.
+- Path prefixes use `./` — Claude Code plugin loader resolves agent/command/MCP-server paths relative to the plugin root.
+- **No `hooks` field.** Hooks are auto-discovered from `hooks/hooks.json`; declaring the field again caused a redundant-load failure (commit `f00a415` removed it). Adding it back is a regression.
 
 ### 2.2 `manifests/install-modules.json`
 
@@ -359,26 +360,41 @@ This grammar covers every PRD example in §8.13 and §10. It is parser-implement
 | Behavior | Read `skills/evaluator-tuning/references/calibration-examples.md`; inject as `<calibration-anchor>...</calibration-anchor>` block into `tool_input.prompt` |
 | Failure | references file missing → exit 0 (graceful no-op per PRD §9.9 invariant 4) |
 
-### 3.6 `metrics-collector` (Observer, multi-event)
+### 3.6 `metrics-collector` (Observer, multi-event, multi-sink)
+
+> **Scope expanded post-PR-#3 during W3 work.** The original PR #3 spec was a single-sink (`events.jsonl`) observer with rotation. W3 added per-subagent token tracking, per-run aggregation, insight extraction, and a privacy manifest — five sinks total. PRD §9.9 carries the canonical schema; this section is the implementation contract.
 
 | Field | Spec |
 |---|---|
 | Subscribed events | `UserPromptSubmit`, `PreToolUse(Task)`, `PreToolUse(mcp__orchestra-*)`, `SubagentStop`, `Stop` |
-| Output sink | `<cwd>/.claude/.orchestra/metrics/events.jsonl` (append-only) |
-| Pre-flight | `mkdir -p` parents (idempotent per Q8); if creation fails → exit 0, drop event |
-| Event shape | One JSON per line; PRD §9.9 schema + the 2 new events below |
-| Rotation | When file size > 50MB after append: rename to `events-<ISO>.jsonl`, gzip, retain last 5 archives, start fresh file. Rotation runs on the next event after threshold; never blocks |
+| Output sinks | 5 sinks under `<cwd>/.claude/.orchestra/metrics/`: `events.jsonl`, `tokens.jsonl`, `runs/<run-id>.json`, `insights.jsonl`, `manifest.json` |
+| Pre-flight | `mkdir -p` parents (idempotent per Q8); auto-create `manifest.json` with `redact_prompts: true`, `capture_insight_text: false`, `telemetry_optin: "explicit"` defaults if absent; if creation fails → exit 0, drop event |
+| Privacy posture | Read `manifest.json` on every event; redact `prompt_summary`, `description`, `args_summary` text fields if `redact_prompts: true`; redact insight `body` if `capture_insight_text: false`. Aggregation tooling never opens the text-bearing sinks |
+| Rotation | `events.jsonl` only: when size > 50MB, rename to `events-<ISO>.jsonl`, gzip, retain last 5 archives. Other sinks are bounded by run cardinality (one file per run) or low write rate (tokens, insights) and don't rotate in v1.0.0 |
+| Crash semantics | `try/catch` around the whole body; on crash, exit 0 + append `hook.metrics-collector.crashed` to `events.jsonl` if reachable. The hook never blocks Claude Code |
 
-**Event additions per Q7/Q8 (extends PRD §9.9):**
+**Sink-by-sink behavior:**
+
+- **`events.jsonl`** — append-only structural events per PRD §9.9. New events shipped during W3:
+  - `skill.invoked` — fires when a skill is loaded by `Skill` tool. Emitted on PreToolUse(Skill); records `{ skill, agent, run_id }`.
+  - `intent-decision` — fires when `@lead` finalizes intent classification. Emitted via PreToolUse(Task) enrichment for `@lead` spawns where the prompt carries the classification result; records `{ intent, confidence, pattern, autonomy_level }` plus redacted text fields.
+- **`tokens.jsonl`** — per-subagent token usage. SubagentStop matches the just-stopped subagent by reading the most-recently-modified session jsonl under `~/.claude/projects/<project>/`, identifies the agent role via `"You are @<role> in the orchestra pipeline"` regex on the system prompt, and reads the session's final `usage` field. If `usage` is absent, tokens.jsonl skips this stop but insight extraction still runs.
+- **`runs/<run-id>.json`** — per-`/orchestra`-run aggregation. Stop event matches the parent session by checking earlier `prompt.submitted` events in `events.jsonl` for `matched_orchestra: true`. Only parents get aggregation; subagent Stops do not write runs/. Aggregation reads the same session jsonl as tokens (for total tokens), the events.jsonl trail (for agents_spawned, gates verdict, deadlock detection, intent/confidence/pattern/autonomy_level from intent-decision), and insights.jsonl (for `insights_count`).
+- **`insights.jsonl`** — `★ Insight` blocks emitted by Explanatory output style. Extraction regex matches both backtick-wrapped and bare delimiter forms: `/`?★ Insight ─+`?\n([\s\S]*?)\n`?─{20,}`?/g`. Runs at both SubagentStop (per-subagent insights) and Stop (per-parent), keyed by run_id + insight_index per session.
+- **`manifest.json`** — per-project privacy + telemetry posture. Auto-created on first event. Hook reads it on every event; consumer edits the file to opt in to text capture.
+
+**Parent-vs-subagent disambiguation (load-bearing):** orchestra's filesystem-coupled subagent handoff means at most one subagent runs per parent at a time. SubagentStop reads the most-recently-modified session jsonl; Stop reads the events.jsonl trail. The two heuristics are independent and don't conflict.
+
+**Event additions (extend PRD §9.9):**
 
 ```json
 {"ts":"<ISO>","event":"local.bootstrapped","run_id":"<uuid>","project_mode":"greenfield|brownfield","primary_language":"<lang>","framework":"<fw|null>"}
 {"ts":"<ISO>","event":"validate-drift.completed","run_id":"<uuid>","fail_count":0,"warn_count":0,"artifacts_walked":0}
+{"ts":"<ISO>","event":"skill.invoked","skill":"<name>","agent":"<role|null>","run_id":"<uuid>"}
+{"ts":"<ISO>","event":"intent-decision","run_id":"<uuid>","intent":"<tag>","confidence":"HIGH|MEDIUM|LOW","pattern":"A|B|C","autonomy_level":"<tag>","description":"[REDACTED]","args_summary":"[REDACTED]"}
 ```
 
-`local.bootstrapped` fires from a one-shot trigger inside `@lead`'s post-bootstrap step — the hook itself does not know about bootstrap; the event is appended by `@lead` to the JSONL via tool call after `local.yaml` write. This must be documented in PRD §9.11 step 4.
-
-`validate-drift.completed` is appended directly by `validate-drift.js` (it has filesystem access).
+`local.bootstrapped` is now appended by `scripts/bootstrap-local.js` (PRD §9.11 — script-first bootstrap), not by `@lead`. `validate-drift.completed` is appended directly by `validate-drift.js`. `skill.invoked` is emitted by metrics-collector on PreToolUse(Skill). `intent-decision` is enriched by metrics-collector when PreToolUse(Task) targets `@lead` with classification fields in the prompt.
 
 ---
 

@@ -394,15 +394,23 @@ Per PRD §10.4 + §9.1.
 ```yaml
 ---
 name: orchestra
-description: Multi-agent SDLC pipeline behind one entry point. Routes natural language to TeamCreate → @product + @lead classification, or dispatches sprint/release/commit/help subcommands.
+description: Multi-agent SDLC pipeline behind one entry point. Routes natural language to TeamCreate → @product + @lead classification, or dispatches sprint/release/commit/metrics/help subcommands.
 argument-hint: <subcommand|natural language>
 ---
 ```
 
-Body structure:
+Body structure (5 subcommands + smart router + autonomy parsing):
 
 ```markdown
 # /orchestra dispatcher
+
+## Parse flags (before subcommand routing)
+
+Strip `--autonomy=<tag>` and `--confidence=<tier>` from `$ARGUMENTS` first
+(per PRD §8.14, §8.11). Apply autonomy resolution precedence:
+  CLI flag > local.yaml.autonomy.level > DRAFT_AND_GATE
+The resolved level is passed to every TeamCreate call and stamped on
+the run-summary `runs/<run-id>.json` (§9.9).
 
 ## Parse arguments
 
@@ -411,44 +419,85 @@ Look at the first whitespace-separated token of `$ARGUMENTS`:
 - `sprint`  → run `## /orchestra sprint` flow (with optional `--size N`)
 - `release` → run `## /orchestra release` flow
 - `commit`  → run `## /orchestra commit` flow (no team; uses commit-work skill directly)
+- `metrics` → run `## /orchestra metrics` flow (no team; reads runs/*.json)
 - `help`    → print usage block (defined below)
 - otherwise → run `## /orchestra <natural language>` smart router
 
 ## /orchestra <natural language> (smart router)
 
-[detailed flow per PRD §8.11 confidence classification + §9.5 routing taxonomy]
+[detailed flow per PRD §8.11 confidence classification + §9.5 routing taxonomy
+ + §8.14 autonomy pause transitions — see §11 of this design for the full
+ 4-pause integration]
 
 ## /orchestra sprint [--size N]
 
-[pull N issues from .claude/.orchestra/backlog/issues/, run as multi-task /orchestra]
+[pull N issues from .claude/.orchestra/backlog/issues/, run as multi-task /orchestra;
+ autonomy level applies to each issue's run]
 
 ## /orchestra release
 
-[verify gates cleared → write RELEASE-vX.Y.Z.md + RUNBOOK if topology changed + update CHANGELOG + draft ANNOUNCEMENT-*.md]
+[verify gates cleared → write RELEASE-vX.Y.Z.md + RUNBOOK if topology changed
+ + update CHANGELOG + draft ANNOUNCEMENT-*.md]
 
 ## /orchestra commit
 
 [Conventional Commits message from `git diff --staged`, no team]
 
+## /orchestra metrics [--limit N]
+
+[Console summary of recent /orchestra runs. No team, no model call. Reads
+ .claude/.orchestra/metrics/runs/*.json, sorts by started_at desc, prints
+ last N (default 10) as a table with columns: feature_id, intent,
+ confidence, pattern, gates verdict, total tokens, duration. Footer shows
+ cumulative pass-rate and median tokens/run across ALL runs (not just the
+ displayed window). Backed by scripts/metrics-summary.py.]
+
 ## /orchestra help
 
-[print usage]
+[print usage including all 5 subcommands and --autonomy/--confidence flags]
 ```
 
 ### 4.2 Smart-router flow
 
 ```
+0. Resolved autonomy level = --autonomy CLI flag (per-run)
+                           ∨ local.yaml.autonomy.level (per-project)
+                           ∨ DRAFT_AND_GATE (default)
 1. metrics-collector logs prompt.submitted with matched_orchestra: true
-2. project-discovery skill runs → returns { has_source, primary_language, framework, scope_hints }
-3. If local.yaml absent: greenfield/brownfield bootstrap (§9.11) — @product + @lead negotiate via Pattern B
-4. @lead classifies intent per §9.5 routing taxonomy (docs / template / hotfix / feature / review-only / refactor)
-5. @lead computes confidence per §8.11.1 (5 signals → HIGH/MEDIUM/LOW)
-6. Pattern A (HIGH) / B (MEDIUM, 1-revision) / C (LOW, wave team) per §9.4
-7. TeamCreate instantiates the 8-agent team
-8. Agents work in waves per their role; artifacts written to <project>/.claude/.orchestra/pipeline/<id>/
-9. Each artifact write triggers hash-stamper (PR #2) → frontmatter section hashes stamped
-10. metrics-collector logs session.stopped at end
+   (prompt_summary redacted unless manifest.redact_prompts=false)
+2. (script) bootstrap-local.js runs project-discovery deterministically →
+   returns { has_source, primary_language, framework, scope_hints }
+3. If local.yaml absent: greenfield/brownfield bootstrap (§9.11) — script-first
+   for clear cases, @product + @lead negotiate Pattern B for ambiguous cases
+4. @lead classifies intent per §9.5 routing taxonomy and runs autonomy
+   diagnostic (§11) → confirms or suggests an autonomy override
+5. metrics-collector emits intent-decision event (intent, confidence,
+   pattern, autonomy_level)
+6. PAUSE-1 (DRAFT_AND_GATE only): AskUserQuestion confirms classification —
+   "intent=feature, confidence=MEDIUM, pattern=B, autonomy=DRAFT_AND_GATE.
+    Proceed?" User can override classifier without re-prompting.
+7. Pattern A (HIGH) / B (MEDIUM, 1-revision) / C (LOW, wave team) per §9.4
+8. TeamCreate instantiates the 8-agent team (autonomy_level passed in)
+9. Agents work in waves per their role; artifacts written to
+   <project>/.claude/.orchestra/pipeline/<id>/
+10. PAUSE-2 (DRAFT_AND_GATE only, after PRD+FRS): AskUserQuestion confirms
+    spec is what user wants
+11. Each artifact write triggers hash-stamper → frontmatter section hashes
+    stamped; metrics-collector emits skill.invoked when agents load skills
+12. PAUSE-3 (DRAFT_AND_GATE only, after CONTRACT signed): AskUserQuestion
+    confirms gate is right gate before implementation kickoff
+13. Builders → @test → @evaluator (verdict) → @reviewer
+14. PAUSE-4 (DRAFT_AND_GATE only, after CODE-REVIEW verdict): AskUserQuestion
+    confirms review acceptable, gates cleared
+15. @ship writes DOC + CHANGELOG + RELEASE; pre-release validate-drift.js runs
+16. At Stop: metrics-collector aggregates the parent run into
+    runs/<run-id>.json (feature_id, intent, confidence, pattern,
+    autonomy_level, gates verdict, agents_spawned, total tokens, duration,
+    insights_count) and extracts ★ Insight blocks from the session jsonl
+    into insights.jsonl (body redacted unless capture_insight_text=true)
 ```
+
+`PAUSE-1..PAUSE-4` only fire at `DRAFT_AND_GATE`. At `FULL_AUTONOMY` they become async draft-and-resume artifacts (v1.2+); at `JOINT_PROCESSING` they collapse into per-stage Pattern B; at `OPTION_SYNTHESIS` the run stops at PAUSE-1 with an option set; at `EXECUTION_ONLY` confidence classification is skipped and the user's prompt drives the agent sequence directly.
 
 ### 4.3 AskUserQuestion usage
 
@@ -795,13 +844,99 @@ R10 is the only one that *might* require action **before** PR #5 starts (dependi
 
 ---
 
-## 10. Summary <a id="S-SUMMARY-001"></a>
+## 10. Autonomy taxonomy <a id="S-AUTONOMY-002"></a>
 
-PR #5 ships all 8 skills (and unblocks val-calibration via the calibration source); PR #6 adds the 8-agent surface against the now-complete skill set; PR #7 ships the `/orchestra` entry command and the language-rule system. After PR #7, the v1.0.0 plugin is feature-complete pending release-time polish (`RELEASE-v1.0.0.md`, distribution scripts, README expansion).
+> Forward-spec for W2 (autonomy config). Implements PRD §8.14 in this design pass. Vendored from `~/second-brain/research/ai-agent-autonomy-level-diagnostic.md` (read 2026-05-04). The 5-question diagnostic and 3-axis matrix are inlined here so the plugin is self-contained on consumer installs — no external file dependency.
 
-**29 new manifest entries**, **8 new toggles**, **~36 new files** total across the three PRs. Each PR ships green-CI on merge; the same `npm test` chain that protected PR #1..#4 protects PR #5..#7 as new validation extensions plug in.
+### 10.1 The five tags
 
-**Next step:** confirm the PRD §8.7 amendment (R10) — keep or extend the toggle surface — then hand off to `/sc:sc-workflow` to produce the per-PR work breakdown and dependency-ordered task graph.
+Five autonomy levels, one tag each. Tags are routable: orchestration pipelines key off them, audit logs record them per-run (`runs/<run-id>.autonomy_level`), escalation routers consult them when deciding whether to pause.
+
+| Level | Tag | Mental model |
+|---|---|---|
+| **Operator** | `EXECUTION_ONLY` | Human directs, AI executes. Step-by-step instructions, no agent strategy. |
+| **Collaborator** | `JOINT_PROCESSING` | AI assists; tight iterative loop. Agent and human co-author logic. |
+| **Consultant** | `OPTION_SYNTHESIS` | AI suggests options; human chooses **and acts**. Inversion: execution returns to human. |
+| **Approver** | `DRAFT_AND_GATE` | AI prepares full solution; pauses at authorization checkpoints; human approves; AI executes. **v1.0.0 default.** |
+| **Observer** | `FULL_AUTONOMY` | AI acts end-to-end; human monitors via telemetry/alerts. |
+
+### 10.2 Diagnostic — five ordered yes/no questions
+
+Run in order. **First yes wins.** Later matches do not override the tighter constraint. No yes anywhere → not delegable in current form (tighten the spec, narrow the scope, or keep the work human).
+
+1. **`EXECUTION_ONLY`** — Does the task require the agent to strictly follow explicit, step-by-step instructions without formulating its own logic or strategy?
+2. **`JOINT_PROCESSING`** — Does the task require an iterative, synchronous loop where the agent and human co-author logic, troubleshoot state, or refine artifacts in real-time?
+3. **`OPTION_SYNTHESIS`** — Is the agent's primary objective to analyze constraints and generate a bounded list of viable, optimized strategies for the human to evaluate and select?
+4. **`DRAFT_AND_GATE`** — Can the agent autonomously generate a complete solution, halting strictly at a final authorization checkpoint before executing any state-changing actions?
+5. **`FULL_AUTONOMY`** — Is the task sufficiently bounded and resilient that the agent can execute it end-to-end, relying on the human solely for asynchronous auditing via telemetry or alert thresholds?
+
+`@lead` runs this diagnostic in §10.4 to suggest a level when classifying a `/orchestra` request.
+
+### 10.3 The 3-axis decision matrix
+
+Autonomy is not a single dial; it decomposes into three independent axes — *who* formulates strategy, *who* makes the final decision, *who* executes the state-changing action.
+
+| **Level (Tag)**                       | **Strategy & Logic** | **Final Decision** | **Execution**       |
+|---------------------------------------|----------------------|--------------------|---------------------|
+| **Operator** (`EXECUTION_ONLY`)       | Human                | Human              | AI                  |
+| **Collaborator** (`JOINT_PROCESSING`) | Both (iterative)     | Both (consensus)   | AI                  |
+| **Consultant** (`OPTION_SYNTHESIS`)   | AI                   | Human              | **Human**           |
+| **Approver** (`DRAFT_AND_GATE`)       | AI                   | Human              | AI                  |
+| **Observer** (`FULL_AUTONOMY`)        | AI                   | AI                 | AI                  |
+
+**The Consultant inversion is real.** L3 (`OPTION_SYNTHESIS`) is the only level where Execution moves *back* to the human after AI does the strategy work. Use it deliberately for high-leverage, irreversible decisions: architecture proposals, vendor selection, hiring loops. An orchestration router that models autonomy as a single dial misroutes Consultant-shaped tasks (lets the AI act when it was only meant to advise). v1.0.0 routes `OPTION_SYNTHESIS` to a degenerate form — `@lead` produces an option set then halts at PAUSE-1; full Consultant-mode artifacts (e.g. `PROPOSAL-<id>.md`) are deferred to v1.1+.
+
+### 10.4 Auto-classification by `@lead`
+
+`@lead`'s prompt body includes this section's diagnostic. On every `/orchestra <natural language>` invocation, `@lead`:
+
+1. Reads the user prompt + `local.yaml.autonomy.level` (default fallback `DRAFT_AND_GATE`).
+2. Runs the 5-question diagnostic against the prompt; records the suggested tag.
+3. If suggested tag ≠ current default, surfaces it at PAUSE-1: *"Default is `DRAFT_AND_GATE`; this looks like `OPTION_SYNTHESIS` (architecture proposal — you'll want to do the apply step yourself). Confirm or override?"*
+4. If user accepts: run continues at suggested tag. If user overrides: run continues at user's tag.
+5. The resolved tag is recorded in `runs/<run-id>.json.autonomy_level`.
+
+Auto-classification is suggestion-only in v1.0.0 — it never *changes* the level without user assent. v1.1+ may make assent implicit when classifier confidence is high.
+
+### 10.5 Pause integration in the dispatcher (`commands/orchestra.md`)
+
+The dispatcher resolves the autonomy level (CLI flag → local.yaml → default) before TeamCreate. The level is passed to `@lead` and is consulted at four pause transitions during the `/orchestra <natural language>` flow per §4.2:
+
+| # | Transition | Pause behavior at `DRAFT_AND_GATE` |
+|---|---|---|
+| 1 | After intent classification | `AskUserQuestion`: *"intent=feature, confidence=MEDIUM, pattern=B, autonomy=DRAFT_AND_GATE — proceed?"* (also where auto-classification suggestion surfaces). |
+| 2 | After PRD + FRS drafted | `AskUserQuestion`: *"This spec captures `<one-line summary>`. Proceed to architecture/contract?"* |
+| 3 | After CONTRACT co-signed | `AskUserQuestion`: *"Gate is `<criteria summary>`. Kick off implementation?"* |
+| 4 | After CODE-REVIEW verdict | `AskUserQuestion`: *"Review verdict: `APPROVED` (2 minor, 0 blockers). Ship?"* |
+
+Other autonomy levels behave per PRD §8.14.3:
+- `EXECUTION_ONLY` — confidence classification is skipped; `@lead` follows the user's prompt as a literal task list.
+- `JOINT_PROCESSING` — every artifact write is followed by a back-and-forth dialogue (Pattern B per stage).
+- `OPTION_SYNTHESIS` — run halts at PAUSE-1 after producing the option set.
+- `FULL_AUTONOMY` — pauses become async `PAUSE-<phase>-<id>.md` artifacts (v1.2+); v1.0.0 simply omits all pauses.
+
+### 10.6 Manifest integration
+
+`local.yaml.autonomy.level` is the per-project default (PRD §9.12). v1.0.0 does not add an `ORCHESTRA_AUTONOMY_*` env-var toggle — overrides happen via the CLI flag (per-run) or YAML edit (per-project), matching the §7.3 toggle-surface scope discipline (env vars only for hooks/skills/MCPs; commands and behavioral modes use natural mechanisms).
+
+### 10.7 Telemetry
+
+Every `runs/<run-id>.json` records `autonomy_level: "<tag>"`. Aggregation (`scripts/aggregate-metrics.py`) can break runs out by autonomy level. Two questions the data answers:
+
+1. **How often does the default survive?** Pass-rate at `DRAFT_AND_GATE` vs override rate. If users override every time, the default is wrong.
+2. **Which intents correlate with which levels?** If `feature` always runs at `FULL_AUTONOMY` and `refactor` always runs at `OPTION_SYNTHESIS`, the dispatcher could pre-bias suggestions per-intent.
+
+Both feed v1.1+ refinements to the auto-classifier.
+
+---
+
+## 11. Summary <a id="S-SUMMARY-001"></a>
+
+PR #5 ships all 8 skills (and unblocks val-calibration via the calibration source); PR #6 adds the 8-agent surface against the now-complete skill set; PR #7 ships the `/orchestra` entry command and the language-rule system; **PR #8 ships the autonomy config** (per WORKFLOW-002 §2.4 and §10 of this design). After PR #8, the v1.0.0 plugin is feature-complete pending release-time polish (`RELEASE-v1.0.0.md`, distribution scripts, README expansion).
+
+**29 new manifest entries**, **8 new toggles**, **~36 new files** in PR #5–#7 plus **~5 files** in PR #8 (autonomy schema, dispatcher flag parser, 4 pause call sites, auto-classifier in `@lead`). Each PR ships green-CI on merge; the same `npm test` chain that protected PR #1..#4 protects PR #5..#8 as new validation extensions plug in.
+
+**Next step:** confirm the PRD §8.7 amendment (R10) — keep or extend the toggle surface — then hand off to `/sc:sc-workflow` for the PR #5..#8 task graph.
 
 ---
 

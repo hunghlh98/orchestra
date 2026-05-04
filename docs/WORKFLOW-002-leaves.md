@@ -31,8 +31,9 @@ references:
 | **PR #5** | Medium-Large | ~17 (8 skills + ~7 references + calibration) | Unblocks val-calibration; G6 manifest-active | R7, R9 |
 | **PR #6** | Medium | ~10 (8 agents + plugin.json + validators) | G2 fully-enforced; G6 fully-validated | R6 |
 | **PR #7** | Medium | ~14 (1 command + 12 rules + validate.js ext) | G1 entry surface + G7 language-extensible | R8 |
+| **PR #8** | Small-Medium | ~5 (local.yaml schema + bootstrap-local.js update + commands/orchestra.md flag parser + 4 AskUserQuestion call sites + @lead diagnostic) | Closes PRD §8.14 W2 surface | R12 |
 
-After PR #7 merges, the v1.0.0 plugin is feature-complete pending release-time polish (RELEASE-v1.0.0.md, distribution scripts, README expansion).
+After PR #8 merges, the v1.0.0 plugin is feature-complete pending release-time polish (RELEASE-v1.0.0.md, distribution scripts, README expansion).
 
 ---
 
@@ -219,6 +220,53 @@ References ship **only when SKILL.md cites them** AND the depth genuinely doesn'
 
 **Pre-merge gate:** R8 (rule ≤40-line cap) — security topics may be tight. Mitigation per DESIGN-002 §9: aggressive split into multiple files per language (already 4 per language). If still tight, request PRD §8.8 amendment to allow rule references/ for depth.
 
+> **Errata to T-701 exit criteria.** Original spec said "5 subcommand sections (smart router, sprint, release, commit, help)". Shipped reality is **6 subcommands** (smart router + 5 dispatched: sprint, release, commit, **metrics**, help). The `/orchestra metrics` subcommand was added during W3 work (commit `a8afe10`) and is reflected in the canonical spec at PRD §9.1 + DESIGN-002 §4.1. T-701 should be re-read with that count.
+
+### 2.4 PR #8 — Autonomy config (Small-Medium, ~5 files)
+
+Implements PRD §8.14 + DESIGN-002 §10. v1.0.0 ships `DRAFT_AND_GATE` as the hard-coded default, sync-pause via `AskUserQuestion` at four transitions, and a suggestion-only auto-classifier in `@lead`. Async `PAUSE-<phase>-<id>.md` artifacts and full `OPTION_SYNTHESIS` (`PROPOSAL-<id>.md`) are deferred to v1.1+ / v1.2+.
+
+#### Stream A — schema + bootstrap
+
+| ID | Task | File | Exit criteria |
+|---|---|---|---|
+| T-801 | Extend local.yaml schema with `autonomy: { level: <tag> }` block | `scripts/bootstrap-local.js` | Fresh bootstrap writes `autonomy.level: DRAFT_AND_GATE`; existing bootstrap fixtures regenerate clean |
+| T-802 | Add 5-tag enum validation to `validate.js` for `local.yaml.autonomy.level` | `scripts/validate.js` | Mutation test: `level: BOGUS` fails red; the 5 valid tags pass; missing block defaults to `DRAFT_AND_GATE` (warn-only) |
+
+#### Stream B — dispatcher flag + pause integration
+
+| ID | Task | File | Exit criteria |
+|---|---|---|---|
+| T-803 | Parse `--autonomy=<tag>` flag in `commands/orchestra.md` body; resolution precedence per DESIGN-002 §10.5 (CLI > local.yaml > DRAFT_AND_GATE) | `commands/orchestra.md` | Flag survives subcommand routing; resolved level passed to TeamCreate; appears in `runs/<run-id>.json.autonomy_level` |
+| T-804 | Wire 4 `AskUserQuestion` call sites at PAUSE-1..4 transitions (intent classification, post-spec, post-CONTRACT, post-review) | `commands/orchestra.md` body | Each pause fires only when `autonomy_level == "DRAFT_AND_GATE"`; user override semantics per §10.5 table; pause skipped for other levels per PRD §8.14.3 |
+
+#### Stream C — auto-classifier
+
+| ID | Task | File | Exit criteria |
+|---|---|---|---|
+| T-805 | Inline DESIGN-002 §10.2 5-question diagnostic + §10.3 3-axis matrix into `@lead` body | `agents/lead.md` | Frontmatter still ≤30-word description; body has new `## Autonomy classification` section; ≥1 `<example>` block showing classifier on a Consultant-shaped task |
+
+#### Stream D — telemetry + tests + CHANGELOG
+
+| ID | Task | File | Exit criteria |
+|---|---|---|---|
+| T-806 | Extend `metrics-collector` to record `autonomy_level` in `runs/<run-id>.json` (already structurally present per DESIGN-001 §3.6 — verify wired through) | `hooks/scripts/metrics-collector.js` | Run completes; `runs/<run-id>.json.autonomy_level` matches the resolved level |
+| T-807 | Test coverage: `test-bootstrap.js` extension (autonomy schema), `test-metrics.js` extension (autonomy_level in runs/), `test-hooks.js` AskUserQuestion fixture | `scripts/test-{bootstrap,metrics,hooks}.js` | Each fixture has at least one assertion for the autonomy field; mutation tests fail red on missing autonomy_level |
+| T-808 | CHANGELOG entry under `## [Unreleased]` documenting W2 surface | `CHANGELOG.md` | Entry mentions PRD §8.14, DESIGN-002 §10, the 4 pause points, and the suggestion-only auto-classifier |
+
+**PR #8 exit criteria:**
+
+- `local.yaml.autonomy.level` round-trips through bootstrap + dispatcher
+- `--autonomy=<tag>` flag overrides at runtime; resolution precedence verified by fixture
+- 4 PAUSE points fire at `DRAFT_AND_GATE` and skip at `FULL_AUTONOMY` (smoke-test)
+- `runs/<run-id>.autonomy_level` populated for every run
+- `@lead` produces a Consultant-shaped suggestion in a smoke fixture (architecture-proposal prompt → suggested `OPTION_SYNTHESIS`)
+- All previous validators stay green
+
+**Pre-merge gate:** R12 (auto-classifier accuracy) — diagnostic suggestions are advisory; bad suggestions don't block runs (user always has final say). Mitigation: ship suggestion-only in v1.0.0; revisit auto-accept thresholds in v1.1+ when telemetry data accumulates.
+
+**Estimated scope:** Small-Medium (~5 files of moderate prose + dispatcher wiring, ~1 contributor-day).
+
 ---
 
 ## 3. Dependency graph + risk attachments <a id="S-DEPS-001"></a>
@@ -232,6 +280,10 @@ T-PA-01 (PRD §8.7 amendment) ──► PR #5 (skills)
                           ┌───────────┴───────────┐
                           ▼                       ▼
                    PR #6 (agents)          PR #7 (cmd + rules)
+                          │                       │
+                          └───────────┬───────────┘
+                                      ▼
+                                 PR #8 (autonomy config)
                                       │
                                       ▼
                           v1.0.0 release prep (out of scope)
@@ -241,8 +293,9 @@ T-PA-01 (PRD §8.7 amendment) ──► PR #5 (skills)
 1. T-PA-01 must merge before PR #5 begins (test-removability scope assumption).
 2. PR #5 must merge before PR #6 begins (agent prompts reference skills by name).
 3. PR #5 must merge before PR #7 begins (val-calibration calibration source ships in PR #5; command body may reference skill examples).
+4. PR #6 + PR #7 must both merge before PR #8 begins (T-805 edits `@lead` from PR #6; T-803/T-804 edit `commands/orchestra.md` from PR #7).
 
-**Parallelizable after PR #5:** PR #6 ∥ PR #7. Different directories (`agents/` vs `commands/+rules/`); no shared validators extended in same PR. Two-contributor split saves ~1 day.
+**Parallelizable after PR #5:** PR #6 ∥ PR #7. Different directories (`agents/` vs `commands/+rules/`); no shared validators extended in same PR. Two-contributor split saves ~1 day. PR #8 must wait for both.
 
 ### 3.2 Within-PR streams
 
@@ -262,25 +315,27 @@ T-PA-01 (PRD §8.7 amendment) ──► PR #5 (skills)
 | **R9** Calibration source quality | PR #5 review | Informational | Walk through ≥1 boundary case using calibration-examples.md as judgment lens |
 | ~~R10~~ PRD §8.7 inconsistency | ~~Pre-flight~~ | **Resolved by T-PA-01** | done before PR #5 |
 | **R11** test-bash-strip name-set hard-coded | v1.1+ refactor | Out of scope | Acceptable for v1.0.0 |
+| **R12** Auto-classifier accuracy on novel intents | PR #8 review | Informational | Suggestion-only in v1.0.0 — bad suggestions don't block runs (user always has final say). Telemetry per PRD §8.14.5 (`runs/<id>.autonomy_level`) feeds v1.1+ refinement |
 
-**No PR-blocking merge-gate**: R7 and R8 are "possibly blocking" only if a specific implementation overruns the cap; both have escape hatches (PRD amendment with justification). R6 and R9 are advisory.
+**No PR-blocking merge-gate**: R7 and R8 are "possibly blocking" only if a specific implementation overruns the cap; both have escape hatches (PRD amendment with justification). R6, R9, R12 are advisory.
 
 ---
 
 ## 4. CI matrix <a id="S-CI-001"></a>
 
-**No new validators introduced** in PR #5..#7 — only extensions to existing ones. Auxiliary tests (`test-metrics`, `test-probe`) unchanged.
+**No new validators introduced** in PR #5..#8 — only extensions to existing ones. Auxiliary tests (`test-metrics`, `test-probe`, `test-bootstrap`) gain coverage in PR #8.
 
-| Validator | Pre-flight | PR #5 | PR #6 | PR #7 | Final state |
-|---|---|---|---|---|---|
-| `validate.js` | (no change) | + skill frontmatter + ≤400-line cap (T-524) | (no change) | + rule + command frontmatter + ≤40-line cap (T-716) | Validates manifests + plugin.json + CHANGELOG↔VERSION + skill/rule/command frontmatter |
-| `test-hooks.js` | (no change) | val-calibration assertion flips to active (T-525) | (no change) | (no change) | Full hook contract suite incl. active val-calibration |
-| `test-agents.js` | (no change) | (no change) | full 7-check validation (T-611) | (no change) | Validates 8 agent frontmatters end-to-end |
-| `test-bash-strip.js` | (no change) | (no change) | full implementer-name detection (T-612) | (no change) | Asserts no Bash on @backend/@frontend/@test |
-| `validate-drift.js` | (no change) | (no change) | (no change) | (no change) | Final shape; pass-by-default on plugin repo |
-| `test-removability.js` | scope-locks via T-PA-01 | + 8 skill modules + 8 toggles | + 8 agent modules (no toggles) | + 13 cmd/rule modules (no toggles) | **36 modules / 15 toggles** |
-| `test-metrics.js` | (no change) | (no change) | (no change) | (no change) | Full from PR #3 |
-| `test-probe.js` | (no change) | (no change) | (no change) | (no change) | Full from PR #4 |
+| Validator | Pre-flight | PR #5 | PR #6 | PR #7 | PR #8 | Final state |
+|---|---|---|---|---|---|---|
+| `validate.js` | (no change) | + skill frontmatter + ≤400-line cap (T-524) | (no change) | + rule + command frontmatter + ≤40-line cap (T-716) | + autonomy.level enum check on local.yaml (T-802) | Validates manifests + plugin.json + CHANGELOG↔VERSION + skill/rule/command frontmatter + local.yaml autonomy schema |
+| `test-hooks.js` | (no change) | val-calibration assertion flips to active (T-525) | (no change) | (no change) | + AskUserQuestion fixture for the 4 PAUSE points (T-807) | Full hook contract suite incl. active val-calibration + DRAFT_AND_GATE pause behavior |
+| `test-agents.js` | (no change) | (no change) | full 7-check validation (T-611) | (no change) | (no change) | Validates 8 agent frontmatters end-to-end |
+| `test-bash-strip.js` | (no change) | (no change) | full implementer-name detection (T-612) | (no change) | (no change) | Asserts no Bash on @backend/@frontend/@test |
+| `validate-drift.js` | (no change) | (no change) | (no change) | (no change) | (no change) | Final shape; pass-by-default on plugin repo |
+| `test-removability.js` | scope-locks via T-PA-01 | + 8 skill modules + 8 toggles | + 8 agent modules (no toggles) | + 13 cmd/rule modules (no toggles) | (no change — autonomy disables via local.yaml, not env-var) | **36 modules / 15 toggles** |
+| `test-metrics.js` | (no change) | (no change) | (no change) | (no change) | + autonomy_level field in runs/&lt;id&gt;.json (T-807) | Full from PR #3 + autonomy_level recorded |
+| `test-bootstrap.js` | (no change) | (no change) | (no change) | (no change) | + autonomy.level default + override (T-807) | Bootstrap-local.js produces autonomy-aware local.yaml |
+| `test-probe.js` | (no change) | (no change) | (no change) | (no change) | (no change) | Full from PR #4 |
 
 **CI invariant maintained:** every PR ships green on the merge commit. Each validator extension lands with fixture tests in the same PR (mutation tests verifying the extension fails-red on bad input).
 
@@ -292,6 +347,7 @@ T-PA-01 (PRD §8.7 amendment) ──► PR #5 (skills)
 
 1. **T-PA-01 before PR #5** — test-removability scope must agree with PRD §8.7 before skill toggles land.
 2. **PR #5 before PR #6 and PR #7** — both downstream PRs reference the skill set by name.
+3. **PR #6 + PR #7 before PR #8** — PR #8 edits `agents/lead.md` (from PR #6) and `commands/orchestra.md` (from PR #7); both must exist first.
 
 ### 5.2 Parallelizable after PR #5
 
@@ -319,10 +375,11 @@ Within a single PR, the streams in §3.2 can run as separate commits on the same
 | PR #5 | 2.5 days | Calibration-examples.md (load-bearing); skill prose iteration on ≤400-line cap |
 | PR #6 | 2 days | Agent prose iteration; ≥2 `<example>` blocks per agent (24 examples total) |
 | PR #7 | 1.5 days | Java/TS rule content iteration on ≤40-line cap (8 files) |
+| PR #8 | 1 day | Schema + dispatcher flag parser + 4 AskUserQuestion call sites + `@lead` diagnostic + telemetry verification |
 
-**Total leaf-component v1.0.0:** ~6.0 contributor-days serial, ~5.0 days with PR #6 ∥ PR #7 split.
+**Total leaf-component v1.0.0:** ~7.0 contributor-days serial, ~6.0 days with PR #6 ∥ PR #7 split (PR #8 must serialize after both).
 
-**Combined v1.0.0 effort (PR #1–#7):** 5.5 (infra) + 6.0 (leaves) = **~11.5 contributor-days serial / ~9.5 with both splits**.
+**Combined v1.0.0 effort (PR #1–#8):** 5.5 (infra) + 7.0 (leaves) = **~12.5 contributor-days serial / ~10.5 with the PR #6 ∥ PR #7 split**.
 
 ### 5.5 Out of scope for this workflow
 

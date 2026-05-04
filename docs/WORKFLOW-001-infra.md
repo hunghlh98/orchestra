@@ -323,4 +323,39 @@ Then PR #1 with `/sc:sc-implement PR #1`, etc.
 
 ---
 
-**End of WORKFLOW-001-infra.** Implementation begins at `/sc:sc-implement PR #0`.
+## 7. Post-shipping addenda <a id="S-ADDENDA-001"></a>
+
+### 7.1 W3 metrics-collector scope expansion (post-PR #3)
+
+PR #3's original T-304 spec scoped `metrics-collector` as a single-sink (`events.jsonl`) observer with 50MB rotation. After PR #3 merged, a separate W3 work stream expanded the hook to 5 sinks:
+
+- `events.jsonl` — original single sink (rotation preserved)
+- `tokens.jsonl` — per-subagent token usage (SubagentStop)
+- `runs/<run-id>.json` — per-run aggregation (Stop, parent-only)
+- `insights.jsonl` — `★ Insight` extraction from session jsonls
+- `manifest.json` — privacy + telemetry posture (auto-created)
+
+The expanded contract is canonical at **DESIGN-001-infra §3.6** (rewritten in revision 3 of that doc). T-309's `test-metrics.js` correspondingly grew from JSONL append-safety + rotation coverage to ~77 assertions covering all 5 sinks, redaction, insight extraction, and manifest defaults.
+
+PRD §9.9 also reflects the 5-sink schema; `aggregate-metrics.py` and `metrics-summary.py` were added as operator-only tooling per PRD §11.1 (not CI-gated).
+
+### 7.2 plugin.json `hooks` field removed (post-PR #3)
+
+DESIGN-001-infra §2.1's example showed `"hooks": "hooks/hooks.json"`. Empirically this caused a redundant-load failure with the Claude Code plugin loader; commit `f00a415` removed it. Hooks are auto-discovered from `hooks/hooks.json`. The DESIGN-001 §2.1 example has been corrected; adding the field back is a regression.
+
+### 7.3 Bootstrap moved from agent-driven to script-first
+
+PRD §9.11's original bootstrap flow was 5 steps, all agent-driven (`@product` + `@lead` negotiate Pattern B for every project). Post-PR #3, `scripts/bootstrap-local.js` was added to handle the deterministic file-walk + heuristic mode-detection + local.yaml write steps as a stdlib-only Node script; agents only enter for ambiguous mode-detection (step 3) and SAD initialization (step 5). PRD §9.11 has been updated to describe the script-first flow. `test-bootstrap.js` validates the script's deterministic output.
+
+### 7.4 Forward pointers
+
+For the canonical contract on the surfaces listed above:
+
+- `metrics-collector` 5-sink behavior → DESIGN-001-infra §3.6
+- `plugin.json` shape → DESIGN-001-infra §2.1
+- script-first bootstrap → PRD §9.11 + `scripts/bootstrap-local.js`
+- W2 autonomy config (forward-spec) → PRD §8.14 + DESIGN-002-leaves §10 + WORKFLOW-002-leaves §2.4
+
+---
+
+**End of WORKFLOW-001-infra.** Implementation begins at `/sc:sc-implement PR #0`. Post-shipping refinements are tracked under §7.
