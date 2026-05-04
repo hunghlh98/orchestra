@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Orchestra — Real-Usage Baseline (smoke-4)</title>
+
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 1100px; margin: 2em auto; padding: 0 1em; color: #1a1a1a; line-height: 1.5; }
+h1 { border-bottom: 3px solid #1a1a1a; padding-bottom: 0.3em; }
+h2 { margin-top: 2em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.9em; }
+th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+th { background: #f4f4f4; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
+.lede { color: #555; font-size: 0.95em; }
+.callout { background: #fffbe6; border-left: 4px solid #e0c200; padding: 0.8em 1em; margin: 1em 0; }
+.meta { color: #888; font-size: 0.85em; margin-top: 3em; border-top: 1px solid #ddd; padding-top: 1em; }
+</style>
+
+</head>
+<body>
+<h1>Orchestra — Real-Usage Baseline (smoke-4)</h1>
+<p class="lede">Measured token usage from the URL-shortener smoke run, parsed from Claude Code session jsonls. Pairs with the static estimate in <code>docs/optimization-baseline.html</code>; replaces it as the &quot;before&quot; ground truth for the optimization workstream.</p>
+
+<h2>Run summary</h2>
+<table>
+<tbody>
+<tr><td>Run</td><td>URL shortener (greenfield smoke)</td></tr>
+<tr><td>Run id</td><td><code>d61490de-f019-486d-936a-a1774cae7e66</code></td></tr>
+<tr><td>Sessions analysed</td><td>11</td></tr>
+<tr><td>Total turns recorded</td><td>385</td></tr>
+<tr><td>Artifacts produced</td><td>17</td></tr>
+<tr><td>Subagent invocations</td><td>10</td></tr>
+<tr><td>First event</td><td>2026-05-03T08:43:42.817Z</td></tr>
+<tr><td>Last event</td><td>2026-05-03T18:18:24.793Z</td></tr>
+</tbody>
+</table>
+
+
+<h2>Aggregate token usage (real, measured)</h2>
+
+<table>
+<thead><tr><th>Bucket</th><th>Tokens</th><th>Share of effective input</th></tr></thead>
+<tbody>
+<tr><td>Fresh input (uncached)</td><td>1,164</td><td>0.0%</td></tr>
+<tr><td>Cache read (5min/1h)</td><td>18,552,685</td><td>82.2%</td></tr>
+<tr><td>Cache creation</td><td>4,019,176</td><td>17.8%</td></tr>
+<tr><td><strong>Effective input</strong></td><td><strong>22,573,025</strong></td><td>100.0%</td></tr>
+<tr><td>Output</td><td>815,190</td><td>—</td></tr>
+<tr><td><strong>Grand total</strong></td><td><strong>23,388,215</strong></td><td>—</td></tr>
+</tbody>
+</table>
+
+<div class="callout">
+<strong>What this measures:</strong> total tokens billed during the smoke-4 run with the
+<em>pre-trim</em> orchestra plugin (before PR-α/β/γ). This is the &quot;before&quot; column for
+the post-trim diff in Task 13.
+<br><br>
+<strong>What it doesn't measure:</strong> per-file plugin attribution. Claude Code reports
+total per-turn input, not &quot;how many of those tokens were the dispatcher vs the agent body.&quot;
+For per-file estimates see <code>docs/optimization-baseline.html</code> (chars/3.8 heuristic).
+</div>
+
+
+<h2>By agent role</h2>
+<p class="lede">Multi-turn agents are merged. Cache reads dominate after the first turn (the dispatcher gets cached).</p>
+<table>
+<thead><tr><th>Role</th><th>Sessions</th><th>Turns</th><th>Input (fresh)</th><th>Output</th><th>Cache read</th><th>Cache create</th><th>Grand total</th></tr></thead>
+<tbody>
+<tr><td><strong>dispatcher</strong></td><td>1</td><td>166</td><td>676</td><td>338,452</td><td>13,729,066</td><td>2,585,192</td><td><strong>16,653,386</strong></td></tr><tr><td><strong>@reviewer</strong></td><td>2</td><td>49</td><td>109</td><td>97,556</td><td>1,799,483</td><td>331,512</td><td><strong>2,228,660</strong></td></tr><tr><td><strong>@lead</strong></td><td>2</td><td>58</td><td>113</td><td>216,349</td><td>1,092,489</td><td>281,874</td><td><strong>1,590,825</strong></td></tr><tr><td><strong>@evaluator</strong></td><td>1</td><td>35</td><td>75</td><td>47,304</td><td>880,456</td><td>308,384</td><td><strong>1,236,219</strong></td></tr><tr><td><strong>@backend</strong></td><td>2</td><td>39</td><td>94</td><td>55,367</td><td>615,928</td><td>223,740</td><td><strong>895,129</strong></td></tr><tr><td><strong>@ship</strong></td><td>1</td><td>19</td><td>38</td><td>7,267</td><td>277,245</td><td>158,289</td><td><strong>442,839</strong></td></tr><tr><td><strong>@test</strong></td><td>1</td><td>12</td><td>42</td><td>43,135</td><td>121,307</td><td>110,328</td><td><strong>274,812</strong></td></tr><tr><td><strong>@product</strong></td><td>1</td><td>7</td><td>17</td><td>9,760</td><td>36,711</td><td>19,857</td><td><strong>66,345</strong></td></tr>
+</tbody>
+</table>
+
+
+<h2>Per session (raw)</h2>
+<details><summary>Show 11 sessions</summary>
+<table>
+<thead><tr><th>Session</th><th>Role</th><th>Turns</th><th>Input (fresh)</th><th>Output</th><th>Cache read</th><th>Cache create</th><th>Grand total</th></tr></thead>
+<tbody>
+<tr><td><code>d61490de</code></td><td>dispatcher (parent)</td><td>166</td><td>676</td><td>338,452</td><td>13,729,066</td><td>2,585,192</td><td><strong>16,653,386</strong></td></tr><tr><td><code>0826777d</code></td><td>@reviewer</td><td>40</td><td>75</td><td>67,544</td><td>1,691,841</td><td>253,947</td><td><strong>2,013,407</strong></td></tr><tr><td><code>4572b6d1</code></td><td>@evaluator</td><td>35</td><td>75</td><td>47,304</td><td>880,456</td><td>308,384</td><td><strong>1,236,219</strong></td></tr><tr><td><code>56b99eae</code></td><td>@lead</td><td>41</td><td>76</td><td>118,990</td><td>880,570</td><td>181,888</td><td><strong>1,181,524</strong></td></tr><tr><td><code>272b9a8a</code></td><td>@backend</td><td>26</td><td>66</td><td>46,733</td><td>468,085</td><td>173,873</td><td><strong>688,757</strong></td></tr><tr><td><code>c4de3186</code></td><td>@ship</td><td>19</td><td>38</td><td>7,267</td><td>277,245</td><td>158,289</td><td><strong>442,839</strong></td></tr><tr><td><code>1a7c1a67</code></td><td>@lead</td><td>17</td><td>37</td><td>97,359</td><td>211,919</td><td>99,986</td><td><strong>409,301</strong></td></tr><tr><td><code>15e1bd1a</code></td><td>@test</td><td>12</td><td>42</td><td>43,135</td><td>121,307</td><td>110,328</td><td><strong>274,812</strong></td></tr><tr><td><code>44e0fee2</code></td><td>@reviewer (second turn)</td><td>9</td><td>34</td><td>30,012</td><td>107,642</td><td>77,565</td><td><strong>215,253</strong></td></tr><tr><td><code>23946c1f</code></td><td>@backend (second turn)</td><td>13</td><td>28</td><td>8,634</td><td>147,843</td><td>49,867</td><td><strong>206,372</strong></td></tr><tr><td><code>e80d7638</code></td><td>@product</td><td>7</td><td>17</td><td>9,760</td><td>36,711</td><td>19,857</td><td><strong>66,345</strong></td></tr>
+</tbody>
+</table>
+</details>
+
+
+<h2>Cross-check vs static estimate</h2>
+<p class="lede">The static <code>chars/3.8</code> estimate in <code>optimization-baseline.html</code> measures plugin file size, not run cost. Compare:</p>
+<table>
+<tbody>
+<tr><td>Static estimate (whole plugin worst-case sum)</td><td>~12,003 + 12,298 + 4,238 + 786 = <strong>~29,325 tok</strong></td></tr>
+<tr><td>Real-run effective input + output (pre-trim)</td><td><strong>23,388,215 tok</strong></td></tr>
+</tbody>
+</table>
+<p class="lede">
+The real-run number is far higher than static because: (a) every turn re-loads context (compounded by cache),
+(b) intermediate tool results count toward input, (c) prompt/response cycles include user content beyond the plugin.
+The static estimate bounds <em>plugin contribution per turn</em>; the real number captures <em>total session economics.</em>
+</p>
+
+<p class="meta">Generated by <code>scripts/measure-real-usage.py</code>. Source: <code>~/.claude/projects/-private-tmp-orchestra-smoke-4/*.jsonl</code> + <code>/tmp/orchestra-smoke-4/.claude/.orchestra/metrics/events.jsonl</code>.</p>
+</body>
+</html>

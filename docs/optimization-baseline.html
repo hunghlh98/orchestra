@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Orchestra — Optimization Baseline</title>
+
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 1100px; margin: 2em auto; padding: 0 1em; color: #1a1a1a; line-height: 1.5; }
+h1 { border-bottom: 3px solid #1a1a1a; padding-bottom: 0.3em; }
+h2 { margin-top: 2em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.9em; }
+th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+th { background: #f4f4f4; }
+code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
+.lede { color: #555; font-size: 0.95em; }
+.meta { color: #888; font-size: 0.85em; margin-top: 3em; border-top: 1px solid #ddd; padding-top: 1em; }
+</style>
+
+</head>
+<body>
+<h1>Orchestra — Optimization Baseline</h1>
+<p class="lede">Pre-cut measurement for the cost-trim workstream (Task 1 of 13). Pairs with <code>docs/optimization-result.html</code> generated in Task 13 from real session jsonl diff.</p>
+
+<h2>Summary — Current Cost Baseline</h2>
+<p class="lede">Methodology: token estimates use <strong>chars / 3.8</strong>, a calibrated heuristic for Claude on English markdown. Real session-jsonl measurement happens in Task 13 (post-merge result report).</p>
+<table>
+<thead><tr><th>Surface</th><th>Tokens (estimate)</th><th>Frequency</th></tr></thead>
+<tbody>
+<tr><td>always_loaded</td><td>464</td><td>every Claude Code session (registry preload)</td></tr>
+<tr><td>per_invocation (/orchestra)</td><td>3,251</td><td>every /orchestra invocation</td></tr>
+<tr><td>per_spawn (sum of 8 agents)</td><td>10,067</td><td>worst case if all 8 spawn</td></tr>
+<tr><td>per_invocation (sum of 8 skills)</td><td>12,298</td><td>worst case if all 8 fire</td></tr>
+</tbody>
+</table>
+
+
+<h2>Decision Inputs</h2>
+<ul>
+<li><strong>Always-loaded baseline:</strong> 464 tok per session. Findings #3 + #4 cut this surface — savings recur on every login.</li>
+<li><strong>/orchestra invocation baseline:</strong> 3,251 tok per call. Finding #1 cuts this — savings recur on every /orchestra run.</li>
+<li><strong>Per-spawn baseline (sum of all 8):</strong> 10,067 tok worst case. Findings #2 + #5 cut this — savings recur per agent spawn.</li>
+<li><strong>Highest single-file cost:</strong> commands/orchestra.md at 3,251 body tokens — confirms the spec-panel finding that the dispatcher is the costliest single surface.</li>
+</ul>
+
+
+<h2>Per-File Token Breakdown</h2>
+<table>
+<thead><tr>
+<th>File</th><th>Chars</th><th>Words</th><th>Total tok</th><th>Description tok</th><th>Body tok</th><th>Surface</th>
+</tr></thead>
+<tbody>
+<tr><td><code>agents/backend.md</code></td><td>3,521</td><td>518</td><td>927</td><td>16</td><td>871</td><td>per_spawn</td></tr><tr><td><code>agents/evaluator.md</code></td><td>6,290</td><td>893</td><td>1,655</td><td>18</td><td>1,600</td><td>per_spawn</td></tr><tr><td><code>agents/frontend.md</code></td><td>3,433</td><td>501</td><td>903</td><td>17</td><td>847</td><td>per_spawn</td></tr><tr><td><code>agents/lead.md</code></td><td>4,571</td><td>645</td><td>1,203</td><td>19</td><td>1,151</td><td>per_spawn</td></tr><tr><td><code>agents/product.md</code></td><td>4,093</td><td>569</td><td>1,077</td><td>18</td><td>1,024</td><td>per_spawn</td></tr><tr><td><code>agents/reviewer.md</code></td><td>5,848</td><td>801</td><td>1,539</td><td>16</td><td>1,487</td><td>per_spawn</td></tr><tr><td><code>agents/ship.md</code></td><td>6,770</td><td>888</td><td>1,782</td><td>19</td><td>1,729</td><td>per_spawn</td></tr><tr><td><code>agents/test.md</code></td><td>5,372</td><td>765</td><td>1,414</td><td>17</td><td>1,358</td><td>per_spawn</td></tr><tr><td><code>skills/code-review/SKILL.md</code></td><td>6,053</td><td>872</td><td>1,593</td><td>33</td><td>1,544</td><td>per_invocation</td></tr><tr><td><code>skills/commit-work/SKILL.md</code></td><td>6,647</td><td>999</td><td>1,749</td><td>34</td><td>1,699</td><td>per_invocation</td></tr><tr><td><code>skills/evaluator-tuning/SKILL.md</code></td><td>3,644</td><td>541</td><td>959</td><td>33</td><td>909</td><td>per_invocation</td></tr><tr><td><code>skills/java-source-intel/SKILL.md</code></td><td>6,480</td><td>845</td><td>1,705</td><td>32</td><td>1,656</td><td>per_invocation</td></tr><tr><td><code>skills/project-discovery/SKILL.md</code></td><td>5,967</td><td>830</td><td>1,570</td><td>29</td><td>1,524</td><td>per_invocation</td></tr><tr><td><code>skills/qa-test-planner/SKILL.md</code></td><td>6,192</td><td>900</td><td>1,629</td><td>32</td><td>1,581</td><td>per_invocation</td></tr><tr><td><code>skills/task-breakdown/SKILL.md</code></td><td>5,975</td><td>1,016</td><td>1,572</td><td>31</td><td>1,525</td><td>per_invocation</td></tr><tr><td><code>skills/write-contract/SKILL.md</code></td><td>7,254</td><td>1,047</td><td>1,909</td><td>32</td><td>1,860</td><td>per_invocation</td></tr><tr><td><code>commands/orchestra.md</code></td><td>12,613</td><td>1,683</td><td>3,319</td><td>46</td><td>3,251</td><td>per_invocation_orchestra</td></tr>
+</tbody>
+</table>
+
+
+<h2>Projected Savings — by Finding</h2>
+<p class="lede">Estimated savings per finding, ordered by descending leverage. Frequency column matters: a per-session saving accrues every login; a per-spawn saving only accrues when an agent runs.</p>
+<table>
+<thead><tr>
+<th>Finding</th><th>Action</th><th>Surface</th><th>Saving (est.)</th><th>Frequency</th>
+</tr></thead>
+<tbody>
+<tr><td>#3</td><td>Shorten 8 agent descriptions to ≤80 chars</td><td>always_loaded (every session)</td><td>0 tok</td><td>per Claude Code session</td></tr><tr><td>#4</td><td>Drop Keywords: trailers from 8 skill descriptions</td><td>always_loaded (every session)</td><td>0 tok</td><td>per Claude Code session</td></tr><tr><td>#5</td><td>Cap 6 implementer agents at 1 example (skip @evaluator, @reviewer)</td><td>per_spawn (multiplied by spawn count)</td><td>1,182 tok</td><td>per agent spawn (across the 6 implementers)</td></tr><tr><td>#2</td><td>Extract duplicated Frontmatter contract block to docs/</td><td>per_spawn (multiplied by spawn count)</td><td>750 tok</td><td>per agent spawn (across 6 agents)</td></tr><tr><td>#1</td><td>Trim commands/orchestra.md (Q3 conservative — 3 sections kept)</td><td>per_orchestra_invocation</td><td>504 tok</td><td>per /orchestra invocation</td></tr>
+</tbody>
+</table>
+
+<p class="meta">Generated by <code>scripts/measure-baseline.py</code>. Methodology: chars / 3.8 token estimate. Ground truth via session jsonl diff in Task 13 post-merge.</p>
+</body>
+</html>
