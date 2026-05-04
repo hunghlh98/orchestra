@@ -61,6 +61,14 @@ async function main() {
       catch (e) { process.stderr.write(`metrics-collector tokens emit failed: ${e.message}\n`); }
     }
 
+    // Stop on the parent dispatcher session also writes a per-run summary to
+    // metrics/runs/<run-id>.json. Only fires for the parent (not subagent
+    // sessions) — detected by matching prompt.submitted in events.jsonl.
+    if (input.hook_event_name === "Stop") {
+      try { emitRunSummary(input); }
+      catch (e) { process.stderr.write(`metrics-collector run summary failed: ${e.message}\n`); }
+    }
+
     if (input.hook_event_name === "PreToolUse") {
       process.stdout.write(JSON.stringify({
         hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow" },
@@ -372,6 +380,142 @@ function identifyAgent(jsonlPath) {
     } catch {}
   }
   return { role: "unknown", ord: null };
+}
+
+// === Run summary on Stop (parent dispatcher only) ===
+// On Stop, if the just-stopped session is the parent /orchestra dispatcher
+// (detected by matching prompt.submitted with matched_orchestra:true), aggregate
+// events.jsonl + tokens.jsonl + the parent's own session jsonl into a single
+// runs/<run-id>.json summary. This is the harvest unit consumers ship to the
+// plugin author for stats aggregation. See aggregate-metrics.py (Task 18).
+function emitRunSummary(input) {
+  const cwd = input.cwd || process.cwd();
+  const sessionId = input.session_id || "";
+  if (!sessionId) return;
+
+  const metricsDir = join(cwd, ".claude/.orchestra/metrics");
+  const eventsPath = join(metricsDir, "events.jsonl");
+  if (!existsSync(eventsPath)) return;
+
+  const events = readJsonl(eventsPath);
+
+  // Confirm this is a parent /orchestra dispatcher Stop (not a subagent stop).
+  const promptStart = events.find(e =>
+    e.event === "prompt.submitted" &&
+    e.run_id === sessionId &&
+    e.matched_orchestra === true
+  );
+  if (!promptStart) return;
+
+  // Bracket the run by parent's start ts and now.
+  const startedAt = promptStart.ts;
+  const endedAt = new Date().toISOString();
+  const durationSeconds = Math.round(
+    (Date.parse(endedAt) - Date.parse(startedAt)) / 1000
+  );
+
+  // All events temporally inside the run window (covers parent + subagent run_ids).
+  const runEvents = events.filter(e =>
+    e.ts >= startedAt && e.ts <= endedAt
+  );
+
+  // Derive intent / confidence / pattern from the intent.yaml artifact.written enrichment.
+  const intentEvent = runEvents.find(e =>
+    e.event === "artifact.written" && e.file_name === "intent.yaml"
+  );
+  const intent = intentEvent?.intent || null;
+  const confidence = intentEvent?.confidence || null;
+  const pattern = intentEvent?.pattern || null;
+  const featureId = intentEvent?.feature_id || null;
+
+  // Agents spawned: unique agent_names from task.subagent.invoked events.
+  const agentsSpawned = [...new Set(
+    runEvents
+      .filter(e => e.event === "task.subagent.invoked" && e.agent_name)
+      .map(e => e.agent_name)
+  )];
+
+  // Artifacts produced: unique file names from artifact.written.
+  const artifactsProduced = [...new Set(
+    runEvents
+      .filter(e => e.event === "artifact.written" && e.file_name)
+      .map(e => e.file_name)
+  )];
+
+  // Gates (best-effort from artifact existence; verdict content not yet parsed).
+  const verdictWritten = artifactsProduced.some(n => /^VERDICT-/.test(n));
+  const codeReviewWritten = artifactsProduced.some(n => /^CODE-REVIEW-/.test(n));
+  const deadlocked = artifactsProduced.some(n => /^DEADLOCK/.test(n));
+  const gates = {
+    verdict: verdictWritten ? "produced" : "pending",
+    code_review: codeReviewWritten ? "produced" : "pending",
+    passing_score: null, // requires reading the artifact; left for richer enrichment later
+  };
+
+  // Aggregate tokens: parent session jsonl + sum of tokens.jsonl rows for this run.
+  const tokens = { input: 0, output: 0, cache_read: 0, cache_create: 0 };
+  const parentJsonl = join(getProjectSessionsDir(cwd), `${sessionId}.jsonl`);
+  if (existsSync(parentJsonl)) {
+    const t = sumTokensInJsonl(parentJsonl);
+    tokens.input += t.input;
+    tokens.output += t.output;
+    tokens.cache_read += t.cache_read;
+    tokens.cache_create += t.cache_create;
+  }
+  const tokensJsonl = join(metricsDir, "tokens.jsonl");
+  if (existsSync(tokensJsonl)) {
+    for (const row of readJsonl(tokensJsonl)) {
+      if (row.run_id !== sessionId) continue;
+      tokens.input += row.tokens?.input || 0;
+      tokens.output += row.tokens?.output || 0;
+      tokens.cache_read += row.tokens?.cache_read || 0;
+      tokens.cache_create += row.tokens?.cache_create || 0;
+    }
+  }
+
+  const summary = {
+    run_id: sessionId,
+    started_at: startedAt,
+    ended_at: endedAt,
+    duration_seconds: durationSeconds,
+    intent,
+    confidence,
+    pattern,
+    feature_id: featureId,
+    agents_spawned: agentsSpawned,
+    artifacts_produced: artifactsProduced,
+    gates,
+    tokens,
+    deadlocked,
+    plugin_version: readPluginVersion(),
+  };
+
+  const runsDir = join(metricsDir, "runs");
+  if (!existsSync(runsDir)) mkdirSync(runsDir, { recursive: true });
+  writeFileSync(join(runsDir, `${sessionId}.json`), JSON.stringify(summary, null, 2) + "\n");
+}
+
+function readJsonl(path) {
+  const result = [];
+  let content;
+  try { content = readFileSync(path, "utf8"); } catch { return result; }
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    try { result.push(JSON.parse(line)); } catch {}
+  }
+  return result;
+}
+
+function readPluginVersion() {
+  try {
+    const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || join(dirname(import.meta.url.replace("file://","")), "..", "..");
+    const pkgPath = join(pluginRoot, "package.json");
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+      return pkg.version || "unknown";
+    }
+  } catch {}
+  return "unknown";
 }
 
 function emitHookOutputIfPreToolUse(stdin) {
