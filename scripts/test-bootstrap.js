@@ -116,6 +116,7 @@ console.log("bootstrap-local render shape:");
     "mode:", "has_source:", "primary_language:", "framework:",
     "scope_hints:", "bootstrapped_at:", "bootstrapped_by:",
     "method: script", "confidence:", "inferred:",
+    "autonomy:", "level: DRAFT_AND_GATE",
   ];
   for (const key of requiredKeys) {
     check(yaml.includes(key), `render output contains "${key}"`);

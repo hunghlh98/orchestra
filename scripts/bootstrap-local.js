@@ -137,6 +137,8 @@ export function render(d) {
     `  has_commits: ${d.has_commits}`,
     `  confidence: ${d.confidence}`,
     `inferred: true`,
+    `autonomy:`,
+    `  level: DRAFT_AND_GATE`,
     `notes: |`,
     `  Auto-bootstrapped from filesystem inspection at ${now}.`,
     `  Confidence: ${d.confidence}.`,

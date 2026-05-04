@@ -200,6 +200,30 @@ if (existsSync(commandsDir)) {
   }
 }
 
+// === Local YAML validation (PRD §8.14 + §9.12) ===
+// Pure function exposed for mutation tests. Consumer-side `local.yaml` lives
+// at <cwd>/.claude/.orchestra/local.yaml and is gitignored on the plugin side,
+// so there is no walk here — the function is callable for mutation testing
+// and by downstream tooling that needs a sanity check on consumer files.
+// Missing autonomy block is allowed (runtime defaults to DRAFT_AND_GATE).
+export const VALID_AUTONOMY_LEVELS = [
+  "EXECUTION_ONLY", "JOINT_PROCESSING", "OPTION_SYNTHESIS",
+  "DRAFT_AND_GATE", "FULL_AUTONOMY",
+];
+
+export function validateLocalYamlContent(relPath, raw) {
+  const errs = [];
+  let parsed;
+  try { parsed = parseYaml(raw); }
+  catch (e) { errs.push(`${relPath}: parse error: ${e.message}`); return errs; }
+  if (parsed && parsed.autonomy && parsed.autonomy.level) {
+    if (!VALID_AUTONOMY_LEVELS.includes(parsed.autonomy.level)) {
+      errs.push(`${relPath}: autonomy.level '${parsed.autonomy.level}' not in ${VALID_AUTONOMY_LEVELS.join("|")}`);
+    }
+  }
+  return errs;
+}
+
 // === Inline mutation tests for the rule + command validators (PR #7 T-716) ===
 // Run only when invoked directly (not when imported).
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
@@ -267,6 +291,36 @@ if (isMain) {
     const errs = validateCommandContent("commands/fixture/clean.md", ok);
     if (errs.length !== 0) {
       mutationErrors.push(`inverse sanity: clean command fixture should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // === Autonomy enum mutation tests (T-802) ===
+  // Mutation 6: autonomy.level=BOGUS fails red
+  {
+    const bad = `mode: greenfield\nautonomy:\n  level: BOGUS\n`;
+    const errs = validateLocalYamlContent("local.yaml", bad);
+    if (!errs.some(e => /autonomy\.level 'BOGUS'/.test(e))) {
+      mutationErrors.push("mutation: autonomy.level=BOGUS should fail red");
+    }
+  }
+
+  // Mutation 7: each of the 5 valid tags passes
+  {
+    for (const tag of VALID_AUTONOMY_LEVELS) {
+      const ok = `mode: greenfield\nautonomy:\n  level: ${tag}\n`;
+      const errs = validateLocalYamlContent("local.yaml", ok);
+      if (errs.length !== 0) {
+        mutationErrors.push(`inverse sanity: autonomy.level=${tag} should pass, got: ${errs.join(", ")}`);
+      }
+    }
+  }
+
+  // Mutation 8: missing autonomy block passes (default DRAFT_AND_GATE applies at runtime)
+  {
+    const ok = `mode: greenfield\nhas_source: false\n`;
+    const errs = validateLocalYamlContent("local.yaml", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: missing autonomy block should pass, got: ${errs.join(", ")}`);
     }
   }
 
