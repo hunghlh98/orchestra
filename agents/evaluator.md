@@ -66,7 +66,7 @@ references:
 ---
 ```
 
-Author `sections:` and `references:` explicitly per [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract.
+Author `sections:` and `references:` explicitly per [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract); H2 headings follow the [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar). When filling the verdict block in TEST-NNN.md, do NOT remove or change the existing `## Verdict <a id="S-VERDICT-001"></a>` anchor authored by `@test` — the hash-stamper keys section content off it.
 
 ## Workflow
 

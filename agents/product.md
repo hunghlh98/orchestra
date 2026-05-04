@@ -50,20 +50,20 @@ A user's natural-language request, optionally with prior PRD/FRS revisions. The 
 
 A PRD-NNN.md (greenfield) or FRS-NNN.md (brownfield feature add) with confirmed `sections:` frontmatter per `schemas/pipeline-artifact.schema.md`. The artifact is ready for `@lead` to consume into a CONTRACT and task graph.
 
-## Frontmatter contract
+## Frontmatter + body contract
 
-See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. Type-specific keys for PRD/FRS in same doc.
+See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) for `sections:` (dict keyed by S-ID, not a list) and [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar) for the `## Heading <a id="S-FOO-001"></a>` anchor rule. PRD/FRS standard sections: `S-VISION-001`, `S-GOALS-001`, `S-NON-GOALS-001`, `S-INVARIANTS-001`, `S-ACCEPTANCE-001`.
 
 ## Workflow
 
 1. Read the user's intent. If `local.yaml` exists, read its `discovery:` block; else invoke `project-discovery`.
 2. Classify mode: greenfield (no source) → propose baseline structure; brownfield → infer affected sections, mark them `inferred: true`.
-3. Draft the artifact. Sections follow the standard PRD shape: Vision, Goals, Non-goals, Invariants, FRS, Quality.
+3. Draft the artifact. Each H2 carries its `<a id>` anchor; each anchor is a key in the `sections:` frontmatter dict.
 4. Confidence below MEDIUM? Ask up to 3 questions via AskUserQuestion. Above MEDIUM, draft and let `@lead` flag any gaps.
-5. Write the artifact. The hash-stamper hook will fill section hashes.
+5. Write the artifact. The hash-stamper hook fills section hashes from the anchored body.
 
 <example>
 Context: A greenfield repo with no source. User wants a "URL shortener". Confidence is LOW (novel intent, no prior artifacts).
 User invokes: /orchestra build me a URL shortener
-Action: Greenfield bootstrap. Ask up to 3 AskUserQuestion clarifications: (1) link expiry policy? (2) custom slug support? (3) auth required? Then draft PRD-001.md with Vision, Goals, Non-goals, Invariants, FRS as confirmed sections. Mark any tech-stack assumption (e.g., "Node + Express") as a Non-goal pending @lead's SAD round to avoid pre-deciding architecture.
+Action: Greenfield bootstrap. Ask up to 3 AskUserQuestion clarifications: (1) link expiry policy? (2) custom slug support? (3) auth required? Then draft PRD-001.md per the schema (dict-keyed `sections:`, anchored H2s). Mark any tech-stack assumption (e.g., "Node + Express") as a Non-goal pending @lead's SAD round to avoid pre-deciding architecture.
 </example>

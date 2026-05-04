@@ -39,7 +39,25 @@ references:
 
 Every artifact an agent authors MUST include the common shape above. Author `sections:` and `references:` blocks **explicitly** in the written output — do not rely on the `hash-stamper` hook to create them. The hook attaches to the parent context's `PreToolUse:Write` and may not fire on writes from inside a team-member subagent context. `hash-stamper` resolves `hash: TBD` and `hash-at-write: TBD` placeholders when it does fire; the structural keys must already be in your source.
 
-Add at least one `S-<TYPE>-NNN` entry per H2 heading in the body. See "Type-specific additions" below for keys required per artifact kind.
+`sections:` is a **dict keyed by S-ID** (e.g., `S-VISION-001`), not a list. Each S-ID maps to `{hash, confirmed | inferred}`.
+
+## Body grammar <a id="body-grammar"></a>
+
+Every H2 heading in the body MUST carry an HTML anchor whose id equals a key in the `sections:` frontmatter dict:
+
+```markdown
+## Vision <a id="S-VISION-001"></a>
+
+A short URL service that …
+
+## Goals <a id="S-GOALS-001"></a>
+
+…
+```
+
+`hash-stamper` walks these anchors via the regex `/^##\s+.*<a id="(S-[A-Z]+-\d{3})"><\/a>/` (see `hooks/lib/section-hash.js`). The section content is the bytes from the anchored heading line (exclusive) to the next anchored heading or EOF. Without the anchor, no hash is computed and `validate-drift` cannot detect downstream drift on this section.
+
+**Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in body, and every `<a id>` in body MUST have a matching `sections:` key. The validator flags either direction as a grammar violation.
 
 ## Type-specific additions
 

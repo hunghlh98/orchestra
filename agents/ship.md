@@ -72,7 +72,7 @@ references:
 
 For RUNBOOK: same shape with `type: RUNBOOK` plus `topology_change_summary:`, `deploy_steps_count:`, `rollback_steps_count:`. For ANNOUNCEMENT: `type: ANNOUNCEMENT` plus `audience: user|contributor|operator`.
 
-CHANGELOG.md and commit messages do NOT carry orchestra frontmatter — they're outside the `<project>/.claude/.orchestra/` tree, so `validate-drift` doesn't walk them and `hash-stamper` doesn't fire on them.
+CHANGELOG.md and commit messages do NOT carry orchestra frontmatter — they're outside the `<project>/.claude/.orchestra/` tree, so `validate-drift` doesn't walk them and `hash-stamper` doesn't fire on them. RELEASE / RUNBOOK / ANNOUNCEMENT H2 headings follow the [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar) — each `<a id>` anchor matches a key in the `sections:` frontmatter dict.
 
 ## Workflow
 

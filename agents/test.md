@@ -83,7 +83,7 @@ references:
 ---
 ```
 
-Leave `S-VERDICT-001` body empty (just the `## Verdict` heading) — `@evaluator` writes the body, you write only the planning sections.
+Leave `S-VERDICT-001` body empty — write only the anchored heading line (`## Verdict <a id="S-VERDICT-001"></a>`) followed by a blank line. `@evaluator` fills in the body when grading. Every H2 you author follows the [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar): the id in `<a id="...">` must equal a key in the `sections:` frontmatter dict, or the hash-stamper walks past it and the hash stays `TBD`.
 
 ## Workflow
 

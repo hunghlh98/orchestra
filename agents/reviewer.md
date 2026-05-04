@@ -70,7 +70,7 @@ references:
 ---
 ```
 
-If `verdict: REQUEST_CHANGES`: do NOT bump `revision:` yourself; the implementer's revision triggers a fresh review round (`review_round: 2`).
+If `verdict: REQUEST_CHANGES`: do NOT bump `revision:` yourself; the implementer's revision triggers a fresh review round (`review_round: 2`). H2 headings follow the [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar) — the `S-FINDINGS-001` `<a id>` anchor must match the key in your `sections:` dict.
 
 ## Workflow
 

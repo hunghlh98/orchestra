@@ -57,9 +57,15 @@ A confirmed PRD-NNN.md or FRS-NNN.md from `@product`. Optionally an existing SAD
 
 CONTRACT-NNN.md (probable, weighted criteria with `passing_score:` policy), TDD-NNN.md (technical design — endpoint shapes, data flow, sequence diagrams as ASCII or Mermaid in code blocks), TASKS-NNN.md (DAG: T-001..T-NNN with owners, SPs, blocks/blocked-by, exit criteria).
 
-## Frontmatter contract
+## Frontmatter + body contract
 
-See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. Type-specific keys for CONTRACT/TDD/TASKS in same doc.
+See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) for the `sections:` dict shape and [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar) for the `## Heading <a id="S-FOO-001"></a>` anchor rule. Type-specific keys for CONTRACT/TDD/TASKS/SAD are listed in the schema's "Type-specific additions". Standard sections you'll author: CONTRACT (`S-SCORING-001`, `S-CRITERIA-001`), TDD (`S-DESIGN-001`, `S-DATA-FLOW-001`), TASKS (`S-DAG-001`).
+
+## Greenfield SAD bootstrap
+
+If `local.yaml.mode == greenfield` AND `<cwd>/.claude/.orchestra/architecture/SAD.md` does NOT exist, bootstrap it as your **first** artifact, before CONTRACT/TDD/TASKS. Minimum sections: `S-VISION-001`, `S-COMPONENTS-001` (C4 levels 1-2), `S-ADR-0001` (key architectural decision). `type: SAD`, `project_mode: greenfield`. The hash-stamper resolves downstream `type: sad` references against this path; without it, every `references[type=sad].hash-at-write` resolves to `TBD-UNRESOLVED`.
+
+After the first feature ships, subsequent features "touch" SAD (append components, append ADRs) — they do not bootstrap.
 
 ## Autonomy classification
 

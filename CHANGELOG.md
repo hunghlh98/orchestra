@@ -8,6 +8,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Fixed (hash-stamper grammar mismatch + greenfield SAD bootstrap gap)
+
+Surfaced by `/tmp/orchestra-smoke-5`: every artifact landed with `hash-at-write: TBD` unresolved, and `architecture/SAD.md` was never created on the first feature of a greenfield project. Two distinct root causes:
+
+1. **Frontmatter `sections:` shape mismatch.** `schemas/pipeline-artifact.schema.md` mandates a dict keyed by S-ID (`sections: { S-VISION-001: { hash, confirmed } }`), and `hooks/scripts/hash-stamper.js` writes through that shape. But `agents/product.md` and `agents/lead.md` only pointed at the schema doc with no inline guidance, so they emitted a list of `{name, hash-at-write}` instead — silently divergent. The four other agents (`test`, `evaluator`, `reviewer`, `ship`) had inline frontmatter examples already, all dict-keyed, all correct.
+2. **Body anchor grammar was contract-only in code.** `hooks/lib/section-hash.js:8` keys section walks off the regex `/^##\s+.*<a id="(S-[A-Z]+-\d{3})"><\/a>/`, but no agent prompt or schema doc said so. Agents authored prose H2s without anchors → `hashSections()` returned `[]` → no hashes ever stamped, even when frontmatter was correct.
+3. **Greenfield SAD never bootstrapped.** `agents/lead.md` routing table said feature intent produces `SAD.md (touch)`, but on the first feature of a greenfield project there's nothing to touch. No prompt branch handled the bootstrap case.
+
+Fix shape — keep the contract in **one** place:
+
+- `schemas/pipeline-artifact.schema.md` — new `## Body grammar` section spelling out the `<a id="S-FOO-001"></a>` H2-anchor rule, the regex from `section-hash.js`, and the bidirectional invariant (every `sections:` key needs an anchor and vice versa). Also tightened the authoring contract to state `sections:` is a dict, not a list. Single source of truth.
+- `agents/product.md` — replaced the bare schema link with a sharper pointer naming the standard PRD/FRS sections (`S-VISION-001`, `S-GOALS-001`, `S-NON-GOALS-001`, `S-INVARIANTS-001`, `S-ACCEPTANCE-001`) and pointing at the new `#body-grammar` anchor. Workflow updated to remind that each H2 carries its anchor.
+- `agents/lead.md` — sharper pointer naming standard CONTRACT/TDD/TASKS sections; new `## Greenfield SAD bootstrap` operational rule (if `local.yaml.mode == greenfield` AND `architecture/SAD.md` absent, bootstrap with `S-VISION-001` / `S-COMPONENTS-001` / `S-ADR-0001` before CONTRACT/TDD/TASKS).
+- `agents/test.md`, `agents/evaluator.md`, `agents/reviewer.md`, `agents/ship.md` — one-line pointer to `#body-grammar` added in their frontmatter sections. No inline duplication.
+- Validator chain: 9/9 green. Counts unchanged: validate, test-hooks 78, test-agents 16, test-bash-strip 6, validate-drift no-op, test-removability 36/15, test-metrics 82, test-bootstrap 37, test-probe 30. Live verification (consumer-side `/orchestra` run against fresh dir) gated on user invocation.
+
 ### Changed (consumer-surface dev/consumer separation — leaky-cite cleanup + schema relocation)
 
 Establishes a hard line between the developer surface (`docs/`, `scripts/test-*`, `scripts/validate*`) and the consumer surface (`agents/`, `commands/`, `skills/`, `hooks/`, `schemas/`). A consumer who installs the plugin has no `docs/PRD-001.md`, `DESIGN-NNN-*.md`, or `WORKFLOW-NNN-*.md` on their machine — every cite of those by section anchor was either a phantom pointer (LLM cannot resolve) or a token-burning deferred Read. Inlining the rule and dropping the cite removes both costs. Schema doc relocated from `docs/` to `schemas/` because it's structurally consumer-facing (every agent that authors a pipeline artifact references it).
