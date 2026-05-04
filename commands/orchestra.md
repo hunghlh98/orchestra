@@ -154,6 +154,14 @@ No team. Direct invocation of the `commit-work` skill.
 2. Read the staged diff and produce a Conventional Commits message: `<type>(<scope>): <subject>` per the skill body.
 3. Hand the message to the user; the user runs `git commit` themselves (no auto-commit).
 
+## /orchestra metrics [--limit N]
+
+Console summary of recent orchestra runs from this project's `<cwd>/.claude/.orchestra/metrics/runs/`. Default `N=10`. Reads only the per-run summary JSONs (privacy-safe — no user-prompt content); prints a table with feature_id, intent, confidence, pattern, gates, tokens, duration, plus a footer with total/pass-rate/median-tokens.
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/metrics-summary.py --metrics-dir <cwd>/.claude/.orchestra/metrics ${LIMIT_FLAG}
+```
+
 ## /orchestra help
 
 Print usage:
@@ -163,6 +171,7 @@ Print usage:
 /orchestra sprint [--size N]    Pull N issues from .claude/.orchestra/backlog/issues/ and run as a batch (default N=3).
 /orchestra release              Verify gates → write RELEASE / RUNBOOK / ANNOUNCEMENT artifacts and bump VERSION.
 /orchestra commit               Conventional Commits message from `git diff --staged`. No team.
+/orchestra metrics [--limit N]  Console summary of last N runs from .claude/.orchestra/metrics/runs/.
 /orchestra help                 This message.
 ```
 
