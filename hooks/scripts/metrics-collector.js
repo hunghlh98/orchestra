@@ -17,9 +17,10 @@
 
 import {
   existsSync, mkdirSync, appendFileSync, statSync, readFileSync, writeFileSync,
-  readdirSync, rmSync,
+  readdirSync, rmSync, realpathSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { homedir } from "node:os";
 import { gzipSync } from "node:zlib";
 
 const NAME = "ORCHESTRA_HOOK_METRICS_COLLECTOR";
@@ -51,6 +52,13 @@ async function main() {
         // best-effort; never blocks
         process.stderr.write(`metrics-collector append failed: ${e.message}\n`);
       }
+    }
+
+    // SubagentStop also emits a tokens.jsonl row with measured token usage
+    // for the subagent session that just ended. See emitSubagentTokens.
+    if (input.hook_event_name === "SubagentStop") {
+      try { emitSubagentTokens(input); }
+      catch (e) { process.stderr.write(`metrics-collector tokens emit failed: ${e.message}\n`); }
     }
 
     if (input.hook_event_name === "PreToolUse") {
@@ -262,6 +270,108 @@ function inferArtifactType(fileName) {
   if (m) return m[1];
   if (fileName === "intent.yaml") return "intent";
   return "unknown";
+}
+
+// === Token emission on SubagentStop ===
+// On SubagentStop, find the just-stopped subagent's session jsonl in
+// ~/.claude/projects/<encoded-cwd>/, sum its tokens, and append one row to
+// <cwd>/.claude/.orchestra/metrics/tokens.jsonl. Heuristic: the most recently
+// modified jsonl that is NOT the parent's session_id is the one that stopped.
+// Orchestra's filesystem-coupled handoff means subagents don't run concurrently
+// per parent run, so the heuristic is reliable in practice.
+function emitSubagentTokens(input) {
+  const cwd = input.cwd || process.cwd();
+  const parentId = input.session_id || "";
+  const sessionsDir = getProjectSessionsDir(cwd);
+
+  let entries;
+  try { entries = readdirSync(sessionsDir).filter(f => f.endsWith(".jsonl")); }
+  catch { return; }
+
+  let mostRecent = null;
+  let mostRecentMtime = 0;
+  for (const f of entries) {
+    const sid = f.replace(/\.jsonl$/, "");
+    if (sid === parentId) continue;
+    const path = join(sessionsDir, f);
+    let mtime;
+    try { mtime = statSync(path).mtimeMs; } catch { continue; }
+    if (mtime > mostRecentMtime) {
+      mostRecentMtime = mtime;
+      mostRecent = { sid, path };
+    }
+  }
+  if (!mostRecent) return;
+
+  const tokens = sumTokensInJsonl(mostRecent.path);
+  if (tokens.turns === 0) return;
+
+  const agent = identifyAgent(mostRecent.path);
+  const row = {
+    ts: new Date().toISOString(),
+    event: "subagent.tokens",
+    run_id: parentId,
+    subagent_session_id: mostRecent.sid,
+    agent_role: agent.role,
+    agent_turn: agent.ord,
+    tokens,
+  };
+
+  const dir = join(cwd, ".claude/.orchestra/metrics");
+  const path = join(dir, "tokens.jsonl");
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  appendFileSync(path, JSON.stringify(row) + "\n");
+}
+
+function getProjectSessionsDir(cwd) {
+  let resolved;
+  try { resolved = realpathSync(cwd); } catch { resolved = cwd; }
+  const encoded = resolved.replace(/\//g, "-");
+  return join(homedir(), ".claude", "projects", encoded);
+}
+
+function sumTokensInJsonl(jsonlPath) {
+  const result = { input: 0, output: 0, cache_read: 0, cache_create: 0, turns: 0 };
+  let content;
+  try { content = readFileSync(jsonlPath, "utf8"); } catch { return result; }
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const d = JSON.parse(line);
+      const u = d?.message?.usage;
+      if (!u) continue;
+      result.input += u.input_tokens || 0;
+      result.output += u.output_tokens || 0;
+      result.cache_read += u.cache_read_input_tokens || 0;
+      result.cache_create += u.cache_creation_input_tokens || 0;
+      result.turns += 1;
+    } catch {}
+  }
+  return result;
+}
+
+function identifyAgent(jsonlPath) {
+  let content;
+  try { content = readFileSync(jsonlPath, "utf8"); } catch { return { role: "unknown", ord: null }; }
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const d = JSON.parse(line);
+      if (d?.type !== "user") continue;
+      let text = d.message?.content;
+      if (Array.isArray(text)) {
+        text = text.map(c => (c && typeof c.text === "string") ? c.text : "").join(" ");
+      }
+      if (typeof text !== "string") continue;
+      if (text.includes("<local-command-caveat>")) return { role: "dispatcher", ord: null };
+      const m = text.match(/You are @(\w+) in the orchestra pipeline/);
+      if (m) {
+        const ordM = text.match(/\((\w+) turn\)/);
+        return { role: m[1], ord: ordM ? ordM[1] : null };
+      }
+    } catch {}
+  }
+  return { role: "unknown", ord: null };
 }
 
 function emitHookOutputIfPreToolUse(stdin) {
