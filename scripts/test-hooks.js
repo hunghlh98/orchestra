@@ -546,6 +546,27 @@ console.log("hooks.json matcher validation:");
   check(ok4.length === 0, `inverse: matcher="TeamCreate" passes clean`);
 }
 
+// ---------- orchestra.md autonomy + AskUserQuestion fixture (T-807) ----------
+// Doc-contract test: the dispatcher declares 4 PAUSE-N references and the
+// autonomy resolution precedence per PRD §8.14 + DESIGN-002 §10. This is a
+// fixture in the test-removability sense — it pins spec→dispatcher fidelity.
+console.log("orchestra.md autonomy + pause fixture:");
+{
+  const orchestraPath = resolve(root, "commands/orchestra.md");
+  const body = readFileSync(orchestraPath, "utf8");
+  for (let i = 1; i <= 4; i++) {
+    check(body.includes(`PAUSE-${i}`), `commands/orchestra.md references PAUSE-${i}`);
+  }
+  check(/--autonomy/.test(body), `commands/orchestra.md mentions --autonomy flag`);
+  for (const tag of ["EXECUTION_ONLY", "JOINT_PROCESSING", "OPTION_SYNTHESIS", "DRAFT_AND_GATE", "FULL_AUTONOMY"]) {
+    check(body.includes(tag), `commands/orchestra.md enumerates ${tag} tag`);
+  }
+  check(/AskUserQuestion/.test(body), `commands/orchestra.md references AskUserQuestion primitive`);
+  // Resolution precedence: CLI > local.yaml > default (loose match for the chain).
+  check(/local\.yaml.*autonomy/i.test(body) || /autonomy.*local\.yaml/i.test(body),
+    `commands/orchestra.md documents local.yaml.autonomy.level fallback`);
+}
+
 if (failures > 0) {
   console.error(`test-hooks.js: FAIL (${passes} passed, ${failures} failed)`);
   process.exit(1);

@@ -247,7 +247,7 @@ console.log("metrics-collector event classification:");
           hook_event_name: "PreToolUse", tool_name: "Write",
           tool_input: {
             file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/intent.yaml`,
-            content: "feature_id: 001-hello-world\nintent: docs\nconfidence: HIGH\npattern: Pattern A\n",
+            content: "feature_id: 001-hello-world\nintent: docs\nconfidence: HIGH\npattern: Pattern A\nautonomy_level: DRAFT_AND_GATE\n",
           },
         },
         expectEvent: "artifact.written",
@@ -259,6 +259,7 @@ console.log("metrics-collector event classification:");
           intent: "docs",
           confidence: "HIGH",
           pattern: "Pattern A",
+          autonomy_level: "DRAFT_AND_GATE",
         },
       },
       // Skill tool invocation — emits skill.invoked. Most decision-laden
@@ -440,6 +441,59 @@ console.log("metrics-collector insight extraction:");
       const rows2 = readFileSync(insightsPath, "utf8").split("\n").filter(Boolean).map(JSON.parse);
       check(rows2.length === 4, `2 more insight rows emitted on second hook (total ${rows2.length})`);
       check(rows2[2].text === insightBody1, `text captured when capture_insight_text:true`);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 4d. Autonomy_level propagation into run summary (T-806/T-807) ---
+console.log("metrics-collector autonomy_level in run summary:");
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-autonomy-"));
+  try {
+    const sid = "auton-1";
+    // emitRunSummary gates on a matching prompt.submitted with
+    // matched_orchestra:true, so prime the run with UserPromptSubmit first.
+    // Then: intent.yaml write → Stop. extractIntentFields plucks autonomy_level
+    // and propagates onto the artifact.written event; emitRunSummary reads
+    // events.jsonl, finds the intent.yaml event, copies the autonomy_level
+    // field onto runs/<sid>.json.
+    runHook({ session_id: sid, cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "/orchestra build x" });
+    runHook({
+      session_id: sid, cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: {
+        file_path: `${tmp}/.claude/.orchestra/pipeline/001-x/intent.yaml`,
+        content: "feature_id: 001-x\nintent: feature\nconfidence: HIGH\npattern: Pattern A\nautonomy_level: FULL_AUTONOMY\n",
+      },
+    });
+    runHook({ session_id: sid, cwd: tmp, hook_event_name: "Stop" });
+
+    const runPath = join(tmp, ".claude/.orchestra/metrics/runs", `${sid}.json`);
+    check(existsSync(runPath), `runs/${sid}.json created`);
+    if (existsSync(runPath)) {
+      const summary = JSON.parse(readFileSync(runPath, "utf8"));
+      check(summary.autonomy_level === "FULL_AUTONOMY", `autonomy_level=FULL_AUTONOMY in run summary (got ${summary.autonomy_level})`);
+      check(summary.intent === "feature", `intent still propagates (got ${summary.intent})`);
+    }
+
+    // Inverse: missing autonomy_level in YAML → null in summary (default precedence kicks in at runtime, not at telemetry layer).
+    const sid2 = "auton-2";
+    runHook({ session_id: sid2, cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "/orchestra build y" });
+    runHook({
+      session_id: sid2, cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: {
+        file_path: `${tmp}/.claude/.orchestra/pipeline/002-y/intent.yaml`,
+        content: "feature_id: 002-y\nintent: docs\nconfidence: HIGH\npattern: Pattern A\n",
+      },
+    });
+    runHook({ session_id: sid2, cwd: tmp, hook_event_name: "Stop" });
+    const runPath2 = join(tmp, ".claude/.orchestra/metrics/runs", `${sid2}.json`);
+    if (existsSync(runPath2)) {
+      const summary2 = JSON.parse(readFileSync(runPath2, "utf8"));
+      check(summary2.autonomy_level === null, `autonomy_level=null when YAML omits it (got ${summary2.autonomy_level})`);
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });

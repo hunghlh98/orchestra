@@ -188,6 +188,7 @@ function classify(input) {
         if (fields.intent) event.intent = fields.intent;
         if (fields.confidence) event.confidence = fields.confidence;
         if (fields.pattern) event.pattern = fields.pattern;
+        if (fields.autonomy_level) event.autonomy_level = fields.autonomy_level;
       }
       return event;
     }
@@ -281,6 +282,7 @@ function extractIntentFields(toolInput) {
     intent: matchField(text, /^intent:\s*"?([a-z-]+)"?/m),
     confidence: matchField(text, /^confidence:\s*"?([A-Z]+)"?/m),
     pattern: matchField(text, /^pattern:\s*"?([A-Za-z0-9 _-]+?)"?\s*$/m),
+    autonomy_level: matchField(text, /^autonomy_level:\s*"?([A-Z_]+)"?/m),
   };
 }
 
@@ -455,6 +457,7 @@ function emitRunSummary(input) {
   const intent = intentEvent?.intent || null;
   const confidence = intentEvent?.confidence || null;
   const pattern = intentEvent?.pattern || null;
+  const autonomyLevel = intentEvent?.autonomy_level || null;
   const featureId = intentEvent?.feature_id || null;
 
   // Agents spawned: unique agent_names from task.subagent.invoked events.
@@ -524,6 +527,7 @@ function emitRunSummary(input) {
     intent,
     confidence,
     pattern,
+    autonomy_level: autonomyLevel,
     feature_id: featureId,
     agents_spawned: agentsSpawned,
     artifacts_produced: artifactsProduced,
