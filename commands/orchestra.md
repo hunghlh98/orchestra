@@ -14,16 +14,16 @@ The 5 hooks (see "Runtime hooks" table below) own their events and side effects.
 
 ## Status output
 
-The dispatcher emits two kinds of terminal output beyond agent prose and pause questions: **status lines** at filesystem-coupled transitions, and **banners** when reading exception artifacts. Both are model-emitted dispatcher text, NOT hook output.
+Two model-emitted dispatcher channels (NOT hook output): single-line status updates at filesystem-coupled transitions, and multi-line banners on exception artifacts. No ANSI, no emoji.
 
-**Status lines** — single line, no ANSI, no emoji. One emitted at each:
+| Event | Format |
+|---|---|
+| Before `Agent({ subagent_type: "<role>" })` | `[orchestra] spawn @<role> → <artifact-target>` |
+| After parent `Read(<path>)` returns | `[orchestra] read  @<role> wrote <filename>` |
+| Before `AskUserQuestion` pause | `[orchestra] pause PAUSE-<N>: <one-line question>` |
+| Terminal state (Step 7) | `[orchestra] shutdown <terminal_state> feature=<feature-id> duration=<Ns>` |
 
-- Before every `Agent({ subagent_type: "<role>" })` call: `[orchestra] spawn @<role> → <artifact-target>`
-- After every parent `Read(<path>)` returns: `[orchestra] read  @<role> wrote <filename>`
-- Before every `AskUserQuestion` pause: `[orchestra] pause PAUSE-<N>: <one-line question>`
-- At terminal state (Step 7): `[orchestra] shutdown <terminal_state> feature=<feature-id> duration=<Ns>`
-
-**Banners** — multi-line, fire after a parent `Read` returns an artifact whose basename matches `DEADLOCK-*.md`, `ESCALATE-*.md`, or `ESCALATE-ARCH-*.md`. At every autonomy level:
+Banner template — fires after parent `Read` returns an artifact whose basename matches `DEADLOCK-*.md`, `ESCALATE-*.md`, or `ESCALATE-ARCH-*.md` (at every autonomy level):
 
 ```
 ============================================================
@@ -34,7 +34,7 @@ The dispatcher emits two kinds of terminal output beyond agent prose and pause q
 ============================================================
 ```
 
-The metrics-collector hook captures structurally-equivalent events (`task.subagent.invoked`, `artifact.written`, `team.shutdown`) for replay; status lines + banners are the user's live signal.
+The `metrics-collector` hook captures structurally-equivalent events for replay; status lines + banners are the user's live signal.
 
 ## Parse arguments
 
@@ -139,20 +139,22 @@ Agent({
 
 **Step 4 — Confidence override (optional).** If `--confidence` flag in `$ARGUMENTS`, override @lead's feature-confidence classification before downstream agents read it.
 
-**Step 5 — Spawn the workflow agents per the routing taxonomy.** Use the table below as the **artifact whitelist**. Spawn ONLY the agents listed for the classified intent, and instruct each spawned agent on what they may and may not produce. Each transition: spawn agent, wait for idle, Read its output file, decide next.
+**Step 5 — Spawn the workflow agents per the routing taxonomy.** Spawn ONLY the agents listed for the classified intent, in order. Each transition: spawn agent, wait for idle, Read its output file, decide next.
 
-| Intent | Agents (in order) | Artifacts they author |
+| Intent | Agents (in order) | Whitelist anchor |
 |---|---|---|
-| **docs** | `@product` (intent only) → `@ship` → `@reviewer` | (no PRD, no FRS, no TDD, no CONTRACT, no TEST) — only the doc files themselves + CODE-REVIEW |
-| **template** | `@product` (intent only) → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` | `design/<NNN>-TDD.md`, `plan/<NNN>-TASKS.md`, impl source, `verify/<NNN>-TEST.md`, `verify/<NNN>-VERDICT.md`, `verify/<NNN>-CODE-REVIEW.md` (no PRD/FRS, no CONTRACT, no API) |
-| **hotfix** | `@lead` → builder → `@test` → `@evaluator` → `@ship` | `design/<NNN>-TDD.md`, `plan/<NNN>-TASKS.md`, impl-fix, `verify/<NNN>-TEST.md`, `verify/<NNN>-VERDICT.md`, RELEASE (no PRD/FRS, no CONTRACT, no API, no CODE-REVIEW) |
-| **feature** | `@product` → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` → `@ship` | **Full set:** `requirements/<NNN>-PRD.md`, `requirements/<NNN>-FRS.md`, `design/<NNN>-TDD.md`, `interfaces/<NNN>-API.openapi.yaml`, `interfaces/<NNN>-CONTRACT.md`, `plan/<NNN>-TASKS.md`, impl source, `verify/<NNN>-TEST.md`, `verify/<NNN>-VERDICT.md`, `verify/<NNN>-CODE-REVIEW.md`, RELEASE/RUNBOOK |
-| **review-only** | `@reviewer` (assess only — no downstream) | `verify/<NNN>-CODE-REVIEW.md` only (no PRD/FRS/TDD/CONTRACT/TEST/RELEASE) |
-| **refactor** | `@reviewer` (assess) → `@lead` (TDD update) → builder → `@test` → `@evaluator` | `verify/<NNN>-CODE-REVIEW.md`, `design/<NNN>-TDD.md` (update), impl, `verify/<NNN>-TEST.md`, `verify/<NNN>-VERDICT.md` (no PRD/FRS, no CONTRACT, no API) |
+| **feature** | `@product` → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` → `@ship` | `schemas/routing-taxonomy.md#feature` |
+| **hotfix** | `@lead` → builder → `@test` → `@evaluator` → `@ship` | `schemas/routing-taxonomy.md#hotfix` |
+| **template** | `@product` (intent only) → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` | `schemas/routing-taxonomy.md#template` |
+| **refactor** | `@reviewer` → `@lead` (TDD update) → builder → `@test` → `@evaluator` | `schemas/routing-taxonomy.md#refactor` |
+| **docs** | `@product` (intent only) → `@ship` → `@reviewer` | `schemas/routing-taxonomy.md#docs` |
+| **review-only** | `@reviewer` (assess only) | `schemas/routing-taxonomy.md#review-only` |
 
-**Each spawned agent MUST be given the routed intent in its prompt.** Concretely, every Step-5 `Agent` call's `prompt` MUST include a line like:
+Full per-intent artifact whitelist lives in `schemas/routing-taxonomy.md`. Agents Read the relevant anchor when the inline summary in their spawn prompt is insufficient.
 
-> `Routed intent for this run: <intent>. Per the routing taxonomy your authorized artifacts are: <list-from-row-above>. Do NOT author any artifact outside this whitelist; if you believe a different artifact is required, write an ESCALATE-<id>.md note instead and end your turn.`
+**Each spawned agent MUST be given the routed intent + whitelist pointer in its prompt.** Format:
+
+> `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent> (1-line summary: <agents-and-key-artifacts>). Out-of-whitelist requests → write ESCALATE-<feature_id>.md at the feature-dir root and end your turn.`
 
 **Step 5b — Pause integration during the spawn loop.** When resolved autonomy is `DRAFT_AND_GATE`, fire `AskUserQuestion` at three transitions inside Step 5 (in addition to PAUSE-1 already fired in Step 3): **→ PAUSE-2** after `@product` writes PRD + FRS, before spawning `@lead`/builder; **→ PAUSE-3** after `@lead` writes CONTRACT, before spawning the implementer/`@test`; **→ PAUSE-4** after `@reviewer` writes CODE-REVIEW, before spawning `@ship`. Question shapes per the Pause transitions table above. On reject → write `DEADLOCK-<id>.md` and halt. For `feature` intent all 4 pauses fire; lighter intents (`docs`/`hotfix`/`template`/`refactor`/`review-only`) fire only the pauses whose preceding step actually ran (e.g., `hotfix` skips PAUSE-2 because there is no `@product` PRD/FRS).
 

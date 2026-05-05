@@ -8,6 +8,47 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Refactor (PR #5 v1.0.1 — streamline plugin loading: status output + routing taxonomy externalize)
+
+Closes WORKFLOW-003 §S-PRTASKS-001 PR #5 (T-S41, T-S42, T-S43, T-S44). Implements PRD-003 §S-FRS-001 F-9 (status-output compress) and F-10 (routing taxonomy externalized to consumer-surface schema). Final PR of the v1.0.1 streamlining initiative.
+
+Files changed:
+
+- `schemas/routing-taxonomy.md` (new) — normative consumer-surface schema mapping `intent.yaml.intent` to authorized agents and artifact whitelist. Per-intent H2 anchors (`#feature`, `#hotfix`, `#template`, `#refactor`, `#docs`, `#review-only`). Each section: ordered agent list + full artifact whitelist + excluded-artifacts rationale. ~600 words.
+- `commands/orchestra.md` `## Status output` — 23 lines → 14 lines. Replaced the bulleted prose with a 4-row event-format table (cleaner reference, same behavior). Banner template block preserved verbatim. Saves ~60 words.
+- `commands/orchestra.md` Step 5 — 2-column table (intent → agents in order; whitelist anchor) replaces the previous 3-column table that inlined the full artifact list. Spawn-prompt mandate (line 153 area) updated to reference the schema by anchor with a 1-line backstop summary inline. Saves ~250 words.
+
+Token reduction this PR (commands/orchestra.md, words; measured):
+
+| File | Before | After | Δ |
+|---|---|---|---|
+| commands/orchestra.md | 2,386 | 2,273 | −113 |
+
+WORKFLOW-003 §2.5 PR #5 exit target was ≤2,000 (down from 2,386). Landed at 2,273 — missed by 273 words. Honest delivery; the remaining content is operational and load-bearing (smart-router Steps 1-7, AskUserQuestion budget, hooks glossary, sprint subcommand, help message). The aggressive ≤2,000 target was estimated assuming additional cuts that aren't justifiable within F-9 + F-10 scope without losing semantic content.
+
+Final cumulative state through PR #5 (vs pre-streamlining baseline):
+
+- `commands/orchestra.md` (always-loaded L1): 3,141 → 2,273 words (−868 = **−28%**).
+- Mean `agents/*.md` (per-spawn L2): 785 → 671 words (−15%, locked in PR #4).
+- `agents/lead.md` (highest-leverage orchestrator): 1,128 → 689 (−39%).
+- `skills/*` count: 8 → 11 (3 new skills: `resume-pipeline`, `shutdown-team`, `cut-release`).
+- `skills/*/references/*` files: 1 → 3 (calibration-examples baseline + autonomy-diagnostic + smoke-checklist). routing-taxonomy.md is filed under `schemas/` not `references/`, so the references count is unchanged this PR.
+- `schemas/*.md` files: 1 → 2 (pipeline-artifact.schema.md baseline + routing-taxonomy.md).
+
+Spawn-prompt mandate change (subtle but load-bearing):
+
+Before: dispatcher inlined the FULL artifact list into every Step-5 spawn prompt (~30-40 tokens × 6 spawns per feature run = ~200 tokens).
+
+After: dispatcher inlines a 1-line summary + schema anchor pointer (~15 tokens × 6 spawns ≈ 90 tokens). Agents Read `schemas/routing-taxonomy.md#<intent>` only when the inline summary is insufficient — the common path skips the Read entirely.
+
+R-3 mitigation (DESIGN-004 §S-RISKS-001): the 1-line backstop summary inline is what lets agents stay decisive without an external Read. If the summary drifts from the schema, the schema is canonical for artifact whitelists; the dispatcher table is canonical for spawn order. Both must update in sync.
+
+Smoke gate (PR #5 exit):
+- node scripts/test-agents.js: OK
+- node scripts/validate.js: OK
+- bash scripts/test-streamline-fixture.sh: PASS
+- Manual whitelist-enforcement smoke (6-intent + 1 negative): deferred to interactive verification per fixture's printed checklist.
+
 ### Refactor (PR #4 v1.0.1 — streamline plugin loading: references demotion)
 
 Closes WORKFLOW-003 §S-PRTASKS-001 PR #4 (T-S34, T-S35, T-S38, T-S39, T-S40). Implements PRD-003 §S-FRS-001 F-7 (autonomy diagnostic to references file per D-2 override) and a re-scoped F-8 (heavy reference material moved out of agent bodies into `skills/*/references/`).
