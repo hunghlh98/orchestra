@@ -77,7 +77,7 @@ id: <NNN>-TASKS
 type: TASKS
 revision: 1
 sections:
-  S-TASKS-001: { hash: "TBD", confirmed: true }
+  S-TASKS-001: { hash: "TBD", confirmed: false }   # mutable by design — agents update Status column
 references:
   - type: prd
     id: "<id>"
@@ -87,12 +87,14 @@ references:
 
 ## Task list <a id="S-TASKS-001"></a>
 
-| ID | Owner | SP | Blocks | Blocked by | Exit criteria |
-|---|---|---|---|---|---|
-| T-001 | @backend | 3 | T-002, T-003 | — | endpoint at /v1/foo returns 201; CONTRACT criterion `foo.persists` PASS |
-| T-002 | @test | 2 | T-005 | T-001 | adversarial fuzz: malformed JSON returns 400 |
-| ... | ... | ... | ... | ... | ... |
+| ID | Owner | SP | Blocks | Blocked by | Exit criteria | Status | Updated by | Updated at |
+|---|---|---|---|---|---|---|---|---|
+| T-001 | @backend | 3 | T-002, T-003 | — | endpoint at /v1/foo returns 201; CONTRACT criterion `foo.persists` PASS | pending | — | — |
+| T-002 | @test | 2 | T-005 | T-001 | adversarial fuzz: malformed JSON returns 400 | pending | — | — |
+| ... | ... | ... | ... | ... | ... | ... | ... | ... |
 ```
+
+Initial Status is `pending` for every row. The owning agent flips Status as work progresses per the per-tier rules in `schemas/pipeline-artifact.schema.md` PLAN-<id> section: implementer-tier (`@backend`, `@frontend`) self-reports `pending → in_progress → done`; read-only-tier (`@evaluator`, `@reviewer`) status is derived from verdict frontmatter and rows stay `pending` in TASKS.md. `S-TASKS-001` is `confirmed: false` so the drift validator skips the inevitable mutations.
 
 ## When to escalate
 
@@ -114,14 +116,14 @@ User says: *"Add a /v1/users/:id/transfer endpoint that records to the ledger an
 
 `@lead` decomposes:
 
-| ID | Owner | SP | Blocks | Blocked by | Exit |
-|---|---|---|---|---|---|
-| T-001 | @lead | 1 | T-002 | — | `interfaces/001-CONTRACT.md` written with 4 criteria |
-| T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit |
-| T-003 | @test | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body |
-| T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic |
-| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `verify/001-TEST.md` verdict block: all 4 criteria PASS or pending |
-| T-006 | @reviewer | 2 | T-007 | T-005 | `verify/001-CODE-REVIEW.md` APPROVED |
-| T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes if applicable |
+| ID | Owner | SP | Blocks | Blocked by | Exit | Status |
+|---|---|---|---|---|---|---|
+| T-001 | @lead | 1 | T-002 | — | `interfaces/001-CONTRACT.md` written with 4 criteria | pending |
+| T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit | pending |
+| T-003 | @test | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
+| T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic | pending |
+| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `verify/001-TEST.md` verdict block: all 4 criteria PASS or pending | pending |
+| T-006 | @reviewer | 2 | T-007 | T-005 | `verify/001-CODE-REVIEW.md` APPROVED | pending |
+| T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes if applicable | pending |
 
 Total: 13 SP. Critical path: T-001 → T-002 → T-005 → T-006 → T-007 = 9 SP. Parallelism on T-002/T-003/T-004 saves 4 SP of wall time.

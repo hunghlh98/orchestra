@@ -72,6 +72,10 @@ references:
 
 If `verdict: REQUEST_CHANGES`: do NOT bump `revision:` yourself; the implementer's revision triggers a fresh review round (`review_round: 2`). H2 headings follow the [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar) — the `S-FINDINGS-001` `<a id>` anchor must match the key in your `sections:` dict.
 
+## Task-status derivation (T-A; do NOT self-report)
+
+Your row in `plan/<NNN>-TASKS.md` is NOT updated by you — that would breach T-A discipline. `/orchestra resume` derives your task status from `verify/<NNN>-CODE-REVIEW.md.verdict`: `verdict ∈ {APPROVED, REQUEST_CHANGES}` ⟹ task `done`; `verdict: pending` ⟹ task still `pending`. Just author the CODE-REVIEW correctly and the dispatcher computes the rest.
+
 ## Workflow
 
 1. Read verify/<NNN>-TEST.md verdict. If FAIL → `pending` review (the implementer needs to fix the FAIL first; don't review broken code).

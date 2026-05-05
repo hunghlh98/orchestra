@@ -68,6 +68,10 @@ references:
 
 Author `sections:` and `references:` explicitly per [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract); H2 headings follow the [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar). When filling the verdict block in verify/<NNN>-TEST.md, do NOT remove or change the existing `## Verdict <a id="S-VERDICT-001"></a>` anchor authored by `@test` — the hash-stamper keys section content off it.
 
+## Task-status derivation (T-A; do NOT self-report)
+
+Your row in `plan/<NNN>-TASKS.md` is NOT updated by you — that would breach T-A discipline. `/orchestra resume` derives your task status from `verify/<NNN>-TEST.md.verdict`: `verdict ∈ {PASS, FAIL}` ⟹ task `done`; `verdict: pending` ⟹ task still `pending`. Just author the verdict block correctly and the dispatcher computes the rest.
+
 ## Workflow
 
 1. Read the `<calibration-anchor>` block prepended to your prompt. Internalize verdict semantics.

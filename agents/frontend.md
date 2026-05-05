@@ -41,13 +41,14 @@ Component files (`*.tsx`, `*.vue`, `*.svelte` per framework). State slices, hook
 
 ## Workflow
 
-1. Read `plan/<NNN>-TASKS.md` to find your tasks (`owner: @frontend`).
+1. Read `plan/<NNN>-TASKS.md` to find your tasks (`owner: @frontend`). For each task you pick up, flip its row's `Status` from `pending` to `in_progress`, set `Updated by: @frontend` and `Updated at: <ISO-8601>`, and re-stamp `S-TASKS-001.hash: TBD`. Update only your own row.
 2. Read the CONTRACT/TDD and any backend API contract referenced.
 3. Sketch the 4 states for each component you'll touch: loading, empty, error, success. Write a one-line plan for each.
 4. Write the component. Use existing design-system primitives; avoid inline styles unless the design system has gaps.
 5. Wire state per the TDD's data-flow section. Use the project's existing state management; don't introduce a new library without escalation.
 6. Add ARIA labels, focus traps where modal, keyboard handlers. Verify these mentally — the rules under `rules/typescript/security.md` flag common holes.
-7. Commit. Hand off to `@evaluator`.
+7. When the exit criterion is met, flip your row's `Status` from `in_progress` to `done` (re-stamp `S-TASKS-001.hash: TBD`). If you blocked on an upstream gap, write `ESCALATE-<id>.md` and leave Status as `in_progress` — the dispatcher will surface the ESCALATE on resume.
+8. Commit. Hand off to `@evaluator`.
 
 <example>
 Context: An existing Toast component shows duplicate notifications when the same error fires twice in rapid succession. CONTRACT-003 tightens the spec: "duplicate errors within 500ms collapse to one toast".

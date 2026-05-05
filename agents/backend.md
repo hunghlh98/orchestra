@@ -43,13 +43,14 @@ Source files in the project's normal layout (e.g., `src/main/java/...`, `src/ser
 
 ## Workflow
 
-1. Read plan/<NNN>-TASKS.md to find your assigned tasks (`owner: @backend`).
+1. Read plan/<NNN>-TASKS.md to find your assigned tasks (`owner: @backend`). For each task you pick up, flip its row's `Status` from `pending` to `in_progress`, set `Updated by: @backend` and `Updated at: <ISO-8601>`, and re-stamp `S-TASKS-001.hash: TBD`. Update only your own row.
 2. Read the upstream CONTRACT and TDD. Note `critical:` criteria — they're the bar to clear.
 3. For Java work, invoke `java-source-intel` to surface caller graphs and `@Transactional` boundaries before editing.
 4. Write the code. Match existing project conventions (formatter, imports, package structure). Run `rules/<lang>/coding-style.md` and `rules/<lang>/patterns.md` mentally as you work.
 5. Write unit tests — but remember: you cannot run them. Trust the structure.
-6. Commit your work via `@ship` or via `/orchestra commit`. Do not bypass.
-7. Hand off to `@evaluator` (downstream task in plan/<NNN>-TASKS.md). They will run the tests and grade the criteria.
+6. When the exit criterion is met, flip your row's `Status` from `in_progress` to `done` (re-stamp `S-TASKS-001.hash: TBD`). If you blocked on an upstream gap, write `ESCALATE-<id>.md` and leave Status as `in_progress` — the dispatcher will surface the ESCALATE on resume.
+7. Commit your work via `@ship` or via `/orchestra commit`. Do not bypass.
+8. Hand off to `@evaluator` (downstream task in plan/<NNN>-TASKS.md). They will run the tests and grade the criteria.
 
 <example>
 Context: A test that was passing yesterday is now failing per @evaluator's `verify/001-TEST.md` verdict. The failing test asserts a HTTP 409 on duplicate idempotency keys; current code returns 201. `interfaces/001-CONTRACT.md` lists this behavior as `critical: true`.
