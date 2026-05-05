@@ -8,6 +8,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Refactor (PR #3 v1.0.1 — streamline plugin loading: tier-discipline collapse)
+
+Closes WORKFLOW-003 §S-PRTASKS-001 PR #3 (T-S22..T-S32). Implements PRD-003 §S-FRS-001 F-5, F-6 — P1 cleanup tier of the streamlining initiative. The `## Tier discipline` + `## Hard boundaries` two-section pattern across all 8 agents collapses to a single `## Tier discipline` section: the tier letter + a one-line note that the `tools:` frontmatter is authoritative, followed by **only** agent-specific operational rules. Pure prose-only tier rules (the may/may-NOT lists that just restated the `tools:` array) are deleted per F-5: "Tier enforcement remains entirely via the `tools:` frontmatter."
+
+Token reduction (per agent, words):
+
+| Agent | Before | After | Δ |
+|---|---|---|---|
+| backend | 589 | 524 | −65 |
+| frontend | 573 | 519 | −54 |
+| product | 577 | 524 | −53 |
+| reviewer | 867 | 744 | −123 |
+| test | 808 | 761 | −47 |
+| ship | 910 | 854 | −56 |
+| evaluator | 974 | 840 | −134 |
+| lead | 981 | 954 | −27 |
+| **Total** | **6,279** | **5,720** | **−559** |
+| **Mean** | **785** | **715** | **−70** |
+
+Mean target was ≤700 (per WORKFLOW-003 §2.3 PR #3 exit). Actual landed at 715 — missed by 15 words/agent (~2%). Reviewer and evaluator saw the largest savings (−123 / −134) because their `## Hard boundaries` sections had the highest density of tier-restating bullets that collapsed cleanly. Lead saw the smallest (−27) because most of its operational rules were already concentrated in `## Hard boundaries` and survived the collapse.
+
+T-S30/T-S31 deletes:
+- `agents/evaluator.md` `## Task-status derivation (T-A; do NOT self-report)` section deleted (5 lines, ~50 words). The T-A `tools:` array (no Edit/MultiEdit) makes self-update of `plan/<NNN>-TASKS.md` structurally impossible — the prose was annotation creep, not load-bearing rule. Status derivation logic remains canonical at `commands/orchestra.md:233-236` (`/orchestra resume` Step 3).
+- `agents/reviewer.md` same section deleted (5 lines, ~50 words). Same rationale.
+
+What was preserved per agent (operational rules — NOT tier rules):
+- backend: "only `@evaluator` runs verdict-bearing tests"; "do not interpret a green test run as success"; "do not touch frontend files"; upstream/release artifact scope rules; ESCALATE-ARCH for new infra.
+- frontend: 4-state contract (loading/empty/error/success); accessibility AA; "do not touch backend"; ESCALATE-DESIGN for design-system mods.
+- lead: "no code or tests"; CONTRACT must be probable; confidence-tier dialogue (HIGH=0/MEDIUM=1/LOW=2-3); 3 rejection rounds → DEADLOCK.
+- product: "no source/tests/build config"; "no system design"; greenfield/brownfield Pattern B negotiation; "no pre-grading".
+- reviewer: ≥80% confidence threshold; 4-round REQUEST_CHANGES → DEADLOCK; Critical → auto-REQUEST_CHANGES; "never patch the diff".
+- ship: open DEADLOCK/gate/REQUEST_CHANGES blocks release; no review reversal; conflict-resolution between agents; drift-on-confirmed blocks release.
+- test: cannot run tests yourself; mocks only at integration boundaries; every CONTRACT criterion needs ≥1 probe; 4-axis coverage matrix.
+- evaluator: source/tests/CONTRACT all read-only; ≥80% confidence threshold; calibration Case 7 (critical-failure outranks probe results).
+
+WORKFLOW-003 §2.3 estimated mean `wc -w agents/*.md` ≤ 700 (down from ~870). Actual delivery is recorded in this PR's smoke-fixture output. Pattern continues from PR #1/#2: estimates ran ~2× optimistic; actual savings positive but short of target by ~10–30%. Each PR is dialing in measurement accuracy.
+
 ### Refactor (PR #2 v1.0.1 — streamline plugin loading: subcommand demotion)
 
 Closes WORKFLOW-003 §S-PRTASKS-001 PR #2 (T-S12..T-S14, T-S16..T-S21). Implements PRD-003 §S-FRS-001 F-4 — P0 demotion tier of the streamlining initiative. Net effect: the rare-path subcommands (`/orchestra resume|shutdown|release`) move out of the always-loaded dispatcher body into per-subcommand skills, paying their token cost only when actually invoked. Per D-1 (locked in PR #0): per-subcommand skills, not a single combined skill.

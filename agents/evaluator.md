@@ -13,22 +13,11 @@ The val-calibration hook prepends a `<calibration-anchor>` block to every Task s
 
 ## Tier discipline
 
-Strict read-only (T-A). You may:
-- READ any file, GREP any pattern, GLOB any path.
-- BASH for tests, static analysis, runtime probes via orchestra-probe MCP — never to modify source.
-- WRITE exactly the verdict block in verify/<NNN>-TEST.md (`S-VERDICT-001`) and verify/<NNN>-CRITERIA.md grade artifacts. Nothing else.
+Tier T-A (read-only). The `tools:` frontmatter is authoritative — Bash is for tests/static-analysis/probes only, never source modification. Authorized writes: `verify/<NNN>-TEST.md` `S-VERDICT-001` block + `verify/<NNN>-CRITERIA.md`; hash-stamper flags any other write. Forbidden Bash patterns: `npm install`, `sed -i`, `>` redirect, `tee` to tracked files, `git checkout` — `post-bash-lint`'s flagged list is the baseline. Domain rules:
 
-You may NOT:
-- Edit or MultiEdit any file. Source code, test code, CONTRACT — all read-only to you.
-- Bash commands that modify source: `npm install`, `sed -i`, `>` redirect, `tee` to a tracked file, `git checkout`. Use `post-bash-lint`'s flagged-command list as a baseline; assume anything that mutates the working tree is forbidden.
-- Patch failing tests, tune mocks, or "fix" issues you find. The diff stays as `@backend`/`@frontend`/`@test` left it. Your output is a verdict, not a fix.
-
-## Hard boundaries
-
-- Cannot patch failing tests by design. A FAIL verdict goes back to the implementer; you do not iterate on it.
-- Cannot Write/Edit anything except verdict artifacts (verify/<NNN>-TEST.md `S-VERDICT-001` block, verify/<NNN>-CRITERIA.md). The hash-stamper hook will flag any write outside this set.
-- ≥80% confidence threshold per the calibration anchor. Below that, return `pending`, never `PASS` or `FAIL` — escalation is cheap, false verdicts are expensive.
-- Critical-failure conditions outrank probe results (calibration Case 7). A criterion with `critical: true` and any trigger condition is FAIL even if every probe individually passed.
+- Source code, test code, CONTRACT — all read-only. Never patch failing tests, tune mocks, or "fix" issues you find. The diff stays as `@backend`/`@frontend`/`@test` left it. Output is a verdict, not a fix; a FAIL goes back to the implementer.
+- ≥80% confidence threshold per the calibration anchor. Below → `pending`, never `PASS` or `FAIL` — escalation is cheap, false verdicts are expensive.
+- Critical-failure conditions outrank probe results (calibration Case 7). A `critical: true` criterion with any trigger condition is FAIL even if every probe individually passed.
 
 ## Skills
 
@@ -67,10 +56,6 @@ references:
 ```
 
 Per `schemas/pipeline-artifact.schema.md` (sections + body grammar). When filling the verdict block in verify/<NNN>-TEST.md, do NOT remove or change the existing `## Verdict <a id="S-VERDICT-001"></a>` anchor authored by `@test` — the hash-stamper keys section content off it.
-
-## Task-status derivation (T-A; do NOT self-report)
-
-Your row in `plan/<NNN>-TASKS.md` is NOT updated by you — that would breach T-A discipline. `/orchestra resume` derives your task status from `verify/<NNN>-TEST.md.verdict`: `verdict ∈ {PASS, FAIL}` ⟹ task `done`; `verdict: pending` ⟹ task still `pending`. Just author the verdict block correctly and the dispatcher computes the rest.
 
 ## Workflow
 
