@@ -49,36 +49,11 @@ After the first feature ships, subsequent features "touch" SAD (append component
 
 ## Autonomy classification
 
-Every `/orchestra <natural language>` run executes at one of five autonomy levels. Run the diagnostic below on the user's prompt and surface the suggested tag at PAUSE-1; the user accepts or overrides. v1.0.0: suggestion-only — never change the level without user assent.
+On first spawn for a new feature_id, Read `skills/task-breakdown/references/autonomy-diagnostic.md` and run the 5-Q diagnostic. Surface the suggested tag at PAUSE-1; user accepts or overrides. v1.0.0: suggestion-only — never change the level without user assent.
 
-**Diagnostic — 5 ordered yes/no questions, first yes wins:**
+**Resolved precedence:** `--autonomy <tag>` CLI flag > `local.yaml.autonomy.level` > hard-coded `DRAFT_AND_GATE`. If the suggested tag differs from the resolved default, surface it at PAUSE-1 alongside intent/confidence/pattern.
 
-1. `EXECUTION_ONLY` — Does the task require following explicit step-by-step instructions without formulating logic?
-2. `JOINT_PROCESSING` — Does it require an iterative synchronous loop with the human co-authoring logic?
-3. `OPTION_SYNTHESIS` — Is the objective to analyze constraints and generate a bounded option set for human evaluation?
-4. `DRAFT_AND_GATE` — Can the agent generate a complete solution, halting at a final authorization checkpoint before state-changing actions?
-5. `FULL_AUTONOMY` — Is the task bounded enough that the agent can execute end-to-end with async telemetry-only oversight?
-
-No yes anywhere → not delegable in current form; tighten the spec or keep the work human.
-
-**3-axis decomposition — strategy / decision / execution:**
-
-| Tag | Strategy | Decision | Execution |
-|---|---|---|---|
-| `EXECUTION_ONLY` | Human | Human | AI |
-| `JOINT_PROCESSING` | Both | Both | AI |
-| `OPTION_SYNTHESIS` | AI | Human | **Human** |
-| `DRAFT_AND_GATE` | AI | Human | AI |
-| `FULL_AUTONOMY` | AI | AI | AI |
-
-The Consultant inversion is real: at `OPTION_SYNTHESIS`, execution returns to the human after AI does the strategy work. Use it for high-leverage, irreversible decisions (architecture proposals, vendor selection, datastore evaluation). v1.0.0 routes `OPTION_SYNTHESIS` to a halt-after-options form — full `PROPOSAL-<id>.md` artifacts are deferred to v1.1+.
-
-**Resolved precedence:** `--autonomy <tag>` CLI flag > `local.yaml.autonomy.level` > hard-coded `DRAFT_AND_GATE`. If your suggested tag differs from the resolved default, surface it at PAUSE-1 alongside intent/confidence/pattern.
-
-<example>
-Context: User prompt: "We're choosing between Postgres and DynamoDB for the events table. Lay out the tradeoffs."
-Action: Run the diagnostic. Q1 no (no step-by-step). Q2 no (no iterative co-authoring). Q3 **yes** — analyze constraints, return bounded option set. Suggested tag: `OPTION_SYNTHESIS`. Resolved default may be `DRAFT_AND_GATE` from local.yaml; surface at PAUSE-1: "Default is DRAFT_AND_GATE; this looks like OPTION_SYNTHESIS (datastore evaluation — you'll do the apply step). Confirm or override?" If user accepts, halt after delivering the option set; do not author CONTRACT/TASKS.
-</example>
+**Backstop (R-2):** if the diagnostic was not Read on first spawn (e.g., context compacted), default to `DRAFT_AND_GATE` and log a warning event `autonomy.diagnostic.skipped` to `events.jsonl`. On subsequent spawns within the same feature_id and on `/orchestra resume`, do NOT re-Read — autonomy is already locked in `intent.yaml`.
 
 ## Workflow
 

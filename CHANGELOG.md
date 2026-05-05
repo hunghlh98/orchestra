@@ -8,6 +8,44 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Refactor (PR #4 v1.0.1 — streamline plugin loading: references demotion)
+
+Closes WORKFLOW-003 §S-PRTASKS-001 PR #4 (T-S34, T-S35, T-S38, T-S39, T-S40). Implements PRD-003 §S-FRS-001 F-7 (autonomy diagnostic to references file per D-2 override) and a re-scoped F-8 (heavy reference material moved out of agent bodies into `skills/*/references/`).
+
+T-S33 was removed in PR #0 per D-2 override (no `classify-autonomy` skill). T-S36/T-S37 were no-ops — the severity rubric already lives canonically in `skills/code-review/SKILL.md:25-30`, NOT duplicated in `agents/reviewer.md`. WORKFLOW-003 assumed an inline duplication that doesn't exist; pragmatic re-scope skips them.
+
+T-S38 was re-scoped from "RELEASE/RUNBOOK/ANNOUNCEMENT body templates" (which also don't exist inline in `agents/ship.md`) to "smoke-test 5-step chain" — the actual heavy prose in ship.md is the 200-word smoke-test paragraph at line 70, not phantom body templates. Honors F-8's intent (extract heavy reference material from agent bodies) while correcting the task description.
+
+Files changed:
+
+- `skills/task-breakdown/references/autonomy-diagnostic.md` (new) — full 5-Q diagnostic + 3-axis decomposition + Consultant-inversion paragraph + worked example, lifted verbatim from `agents/lead.md:50-81`. Filed under `task-breakdown/` per D-2 lock-in. ~600 words.
+- `skills/cut-release/references/smoke-checklist.md` (new) — canonical 5-step pre-release smoke chain, lifted from `agents/ship.md:70` and elaborated with failure-mode history + "why CI is insufficient" rationale. Loaded by `@ship` as Step 1 of its workflow when invoked via `cut-release`. ~350 words.
+- `agents/lead.md` — `## Autonomy classification` section: 32 lines → 5 lines. Read-on-spawn directive + precedence rules + R-2 backstop. Saves ~470 words from `@lead`'s body per spawn after the first. Body word count: 954 → 689 (−265, measured).
+- `agents/ship.md` — Step 1 of `## Workflow`: 1 paragraph (~200 words) → 3 lines. Step retains the smoke-test gate semantics; full chain lives in references file. Body word count: 854 → 766 (−88, measured).
+
+Trigger semantics for the new references files:
+
+- `@lead` Reads `skills/task-breakdown/references/autonomy-diagnostic.md` ONCE per feature_id, on first spawn. Subsequent spawns and `/orchestra resume` do NOT re-Read — the level is locked in `intent.yaml`. Backstop: missing Read defaults to `DRAFT_AND_GATE` + warning event.
+- `@ship` Reads `skills/cut-release/references/smoke-checklist.md` exactly when the `cut-release` skill fires (i.e., `/orchestra release`). Not loaded for any other agent or any other subcommand.
+
+Token reduction this PR (per agent, words; measured):
+
+| Agent | Before | After | Δ |
+|---|---|---|---|
+| lead | 954 | 689 | −265 |
+| ship | 854 | 766 | −88 |
+
+Mean across all 8 agents: 715 → 671 (−44). Now under the WORKFLOW-003 §2.3 PR #3 mean target of ≤700 (achieved retroactively in PR #4 because lead/ship savings — particularly lead — were larger than estimated). Also caught a leaky cite I introduced during PR #4 authoring (`PRD-003 §S-DECISIONS-001` in the new autonomy-diagnostic.md references file) — validator surfaced it pre-commit; rephrased to drop the dev-trace cite per CLAUDE.md "Consumer surface MUST NOT cite developer-surface artifacts" rule.
+
+`skills/*/references/*` files: 1 → 3 (was originally 1 baseline; +2 from this PR). PR #5's routing-taxonomy externalization will bring it to 4.
+
+WORKFLOW-003 corrections logged (out of PR #4 scope; future workflow pass):
+
+- T-S33 removed in PR #0 per D-2 override.
+- T-S36/T-S37 were no-ops (severity rubric not duplicated inline).
+- T-S38 re-scoped from "release templates" to "smoke-test chain".
+- WORKFLOW-003's task descriptions assumed inline structures that don't exist in two places (PR #4 here, plus PR #1's `manifest.json` reference). Lesson: future workflow drafts should be authored after a measured pass through actual files.
+
 ### Refactor (PR #3 v1.0.1 — streamline plugin loading: tier-discipline collapse)
 
 Closes WORKFLOW-003 §S-PRTASKS-001 PR #3 (T-S22..T-S32). Implements PRD-003 §S-FRS-001 F-5, F-6 — P1 cleanup tier of the streamlining initiative. The `## Tier discipline` + `## Hard boundaries` two-section pattern across all 8 agents collapses to a single `## Tier discipline` section: the tier letter + a one-line note that the `tools:` frontmatter is authoritative, followed by **only** agent-specific operational rules. Pure prose-only tier rules (the may/may-NOT lists that just restated the `tools:` array) are deleted per F-5: "Tier enforcement remains entirely via the `tools:` frontmatter."
