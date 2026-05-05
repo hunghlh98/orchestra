@@ -1,0 +1,24 @@
+openapi: 3.0.3
+info:
+  title: "{{SLUG}} API"
+  version: "1.0.0"
+  description: |
+    HTTP interface for {{ID}}. The CONTRACT.md service-contract section
+    references this document for endpoint shapes; per-criterion probes in
+    CONTRACT.md drive evaluator runs.
+servers:
+  - url: http://127.0.0.1:8000
+    description: Local
+paths:
+  /:
+    get:
+      summary: "FILL: replace with first endpoint"
+      operationId: placeholder
+      responses:
+        "200":
+          description: OK
+components:
+  schemas: {}
+x-orchestra:
+  feature_id: "{{FEATURE_ID}}"
+  artifact_id: "{{ID}}"

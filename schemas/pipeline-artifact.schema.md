@@ -113,7 +113,7 @@ A short URL service that …
 …
 ```
 
-`hash-stamper` walks these anchors via the regex `/^##\s+.*<a id="(S-[A-Z]+-\d{3})"><\/a>/` (see `hooks/lib/section-hash.js`). The section content is the bytes from the anchored heading line (exclusive) to the next anchored heading or EOF. Without the anchor, no hash is computed and `validate-drift` cannot detect downstream drift on this section.
+`hash-stamper` walks these anchors via the regex `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/` (see `hooks/lib/section-hash.js`). The section content is the bytes from the anchored heading line (exclusive) to the next anchored heading or EOF. Multi-segment tags are supported (`S-NON-GOALS-001`, `S-EVAL-VERDICT-001`, etc.). Without the anchor, no hash is computed and `validate-drift` cannot detect downstream drift on this section.
 
 **Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in body, and every `<a id>` in body MUST have a matching `sections:` key. The validator flags either direction as a grammar violation.
 

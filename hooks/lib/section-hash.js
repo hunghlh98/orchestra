@@ -6,7 +6,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 
-const ANCHOR_RE = /^##\s+.*<a id="(S-[A-Z]+-\d{3})"><\/a>/;
+// Anchor IDs allow multi-segment uppercase tags (S-NON-GOALS-001, S-EVAL-VERDICT-001,
+// S-ADR-INDEX-001, etc.). The v1 regex only matched single-segment tags and silently
+// dropped multi-segment anchors — a real bug surfaced by v2's richer canon. Fixed here.
+const ANCHOR_RE = /^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/;
 
 // Walk a markdown body and return [{ id, content }, ...] for each anchored section.
 // Section content = bytes from the anchor heading line (exclusive) to the next
