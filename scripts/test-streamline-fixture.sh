@@ -9,9 +9,13 @@
 set -euo pipefail
 cd "$(cd "$(dirname "$0")/.." && pwd)"
 
-node scripts/test-agents.js > /dev/null && node scripts/validate.js > /dev/null && echo "✓ validators (test-agents.js, validate.js)"
-[ "$(ls agents/*.md | wc -l)" -eq 8 ] && echo "✓ 8 agents present"
-node -e "JSON.parse(require('fs').readFileSync('.claude-plugin/plugin.json'))" && echo "✓ plugin.json parses"
+node scripts/test-agents.js > /dev/null || { echo "✗ test-agents.js FAILED"; exit 1; }
+node scripts/validate.js > /dev/null 2>&1 || { echo "✗ validate.js FAILED:"; node scripts/validate.js; exit 1; }
+echo "✓ validators (test-agents.js, validate.js)"
+[ "$(ls agents/*.md | wc -l)" -eq 8 ] || { echo "✗ agent count drift"; exit 1; }
+echo "✓ 8 agents present"
+node -e "JSON.parse(require('fs').readFileSync('.claude-plugin/plugin.json'))" 2>/dev/null || { echo "✗ plugin.json corrupt"; exit 1; }
+echo "✓ plugin.json parses"
 echo "  consumer-surface words: $(cat commands/orchestra.md agents/*.md skills/*/SKILL.md | wc -w | tr -d ' ')"
 echo "  commands/orchestra.md words: $(wc -w < commands/orchestra.md | tr -d ' ')"
 echo "  references/ files: $(find skills -path '*/references/*' -type f 2>/dev/null | wc -l | tr -d ' ')"

@@ -8,6 +8,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Refactor (PR #2 v1.0.1 — streamline plugin loading: subcommand demotion)
+
+Closes WORKFLOW-003 §S-PRTASKS-001 PR #2 (T-S12..T-S14, T-S16..T-S21). Implements PRD-003 §S-FRS-001 F-4 — P0 demotion tier of the streamlining initiative. Net effect: the rare-path subcommands (`/orchestra resume|shutdown|release`) move out of the always-loaded dispatcher body into per-subcommand skills, paying their token cost only when actually invoked. Per D-1 (locked in PR #0): per-subcommand skills, not a single combined skill.
+
+- `skills/resume-pipeline/SKILL.md` (new) — full topological-walk algorithm currently inline at `commands/orchestra.md:220-242`. ~500 words. Loaded only when `/orchestra resume` fires.
+- `skills/shutdown-team/SKILL.md` (new) — in-session teardown algorithm. ~250 words. Loaded only when `/orchestra shutdown` fires.
+- `skills/cut-release/SKILL.md` (new) — gate verification + RELEASE/RUNBOOK/ANNOUNCEMENT authoring + commit-work invocation. ~300 words. Loaded only when `/orchestra release` fires.
+- `commands/orchestra.md` — five subcommand bodies replaced with dispatch shims:
+  - `/orchestra release` (lines 196–201): 4-step body → 3-line shim invoking `cut-release`. Saves ~70 words.
+  - `/orchestra commit` (lines 203–209): 6-line body → 1-line shim (commit-work skill was already in use; just trim prose). Saves ~40 words.
+  - `/orchestra metrics` (lines 211–217): keep bash one-liner; cut surrounding prose. Saves ~25 words. T-S15 (skills/report-metrics/) explicitly NOT created — the metrics one-liner is too small to warrant its own skill, and T-S19 already mandates the inline keep. Caught WORKFLOW-003 internal contradiction between T-S15 and T-S19 during execution; T-S19 wins.
+  - `/orchestra resume` (lines 219–242): 24-line body → 4-line shim invoking `resume-pipeline`. Saves ~430 words.
+  - `/orchestra shutdown` (lines 244–254): 11-line body → 4-line shim invoking `shutdown-team`. Saves ~150 words.
+
+T-S15 deferred (not implemented): per the contradiction above. Skills now created: 3 (resume-pipeline, shutdown-team, cut-release), not the 4 originally specified in WORKFLOW-003 §S-OVERVIEW-001.
+
+Skill-triggering reliability (R-1 from DESIGN-004 §S-RISKS-001): each shim invokes its skill by explicit name (`invoke the cut-release skill`), not by auto-activation. Plugin-dev's auto-trigger via description-matching is a fallback, not the primary path. Subcommand parity smoke is the load-bearing exit gate; pre-PR baseline captured per `scripts/test-streamline-fixture.sh`.
+
 ### Refactor (PR #1 v1.0.1 — streamline plugin loading: P0 cleanup)
 
 Closes WORKFLOW-003 §S-PRTASKS-001 PR #1 (T-S01..T-S09, T-S11). Implements PRD-003 §S-FRS-001 F-1, F-2, F-3 — the P0 cleanup tier of the streamlining initiative. Net effect: ~1,200 tokens saved per typical `/orchestra` feature run, with no behavior change. Smoke-test parity gated by static validators (`test-agents.js`, `validate.js`) since the smoke fixture (`scripts/test-streamline-fixture.sh` per WORKFLOW-003 P-S05) is not yet in place — full smoke chain runs before v1.0.1 RELEASE per the project's `feedback_smoke-before-release-docs` discipline.

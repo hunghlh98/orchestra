@@ -195,22 +195,15 @@ Each spawned agent applies its own confidence-tier question budget per its body.
 
 ## /orchestra release
 
-1. Verify gates: any `confirmed: false`, drift-on-confirmed, or failing CONTRACT criterion → halt with the failing artifact path.
-2. `@ship` writes `releases/RELEASE-vX.Y.Z.md` and (if topology changed) `runbooks/RUNBOOK-vX.Y.Z.md`.
-3. Draft `ANNOUNCEMENT-<id>.md` (one sentence, link to RELEASE).
-4. `@ship` runs `commit-work` skill for the release commit message; user commits manually.
+Cuts release artifacts after gate verification. Algorithm: invoke the `cut-release` skill — it verifies gates (`confirmed: false` / drift-on-confirmed / failing CONTRACT criterion → halt), spawns `@ship` to author RELEASE / RUNBOOK / ANNOUNCEMENT, and drafts the release commit message via `commit-work`. User commits + tags manually. Smoke-test the consumer install path BEFORE this subcommand per `feedback_smoke-before-release-docs` discipline.
 
 ## /orchestra commit
 
-No team. Direct invocation of the `commit-work` skill.
-
-1. Run `git diff --staged --stat`. If empty: stop, tell the user nothing is staged.
-2. Read the staged diff and produce a Conventional Commits message: `<type>(<scope>): <subject>` per the skill body.
-3. Hand the message to the user; the user runs `git commit` themselves (no auto-commit).
+No team. Direct invocation of the `commit-work` skill: produces a Conventional Commits message from `git diff --staged`. Empty staged diff → stop with "nothing is staged". User runs `git commit` themselves (no auto-commit).
 
 ## /orchestra metrics [--limit N]
 
-Console summary of recent orchestra runs from this project's `<cwd>/.claude/.orchestra/metrics/runs/`. Default `N=10`. Reads only the per-run summary JSONs (privacy-safe — no user-prompt content); prints a table with feature_id, intent, confidence, pattern, gates, tokens, duration, plus a footer with total/pass-rate/median-tokens.
+Console summary of recent runs from `<cwd>/.claude/.orchestra/metrics/runs/`. Default `N=10`. Privacy-safe (per-run summary JSONs only).
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/metrics-summary.py --metrics-dir <cwd>/.claude/.orchestra/metrics ${LIMIT_FLAG}
@@ -218,40 +211,15 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/metrics-summary.py --metrics-dir <cwd>/.cl
 
 ## /orchestra resume [<feature-id>]
 
-Recovers an interrupted feature run by walking `pipeline/*/` and respawning the next non-`done` task in its DAG. Idempotent — re-spawning an owner whose prior turn partially completed is safe; the owner Reads existing artifacts before re-writing. No team spawn — reuses the smart-router spawn pattern at the resume point. `DEADLOCK-resume-<id>.md` writes from the parent context follow the same carve-out as Step 7 SUMMARY (parent-authored exception artifact at terminal state, narrowly carved from the "no parent artifact writes" rule).
-
-1. **Enumerate candidates.** List `pipeline/*/` dirs missing the terminal artifact for their routed intent: `feature` requires a `RELEASE-vX.Y.Z.md.features` mention; `hotfix` / `template` / `refactor` require `verify/<NNN>-VERDICT.md`; `review-only` / `docs` require `verify/<NNN>-CODE-REVIEW.md`. 0 candidates → emit `[orchestra] resume no in-flight features` and exit. 1 → auto-select. >1 → `AskUserQuestion` with the list. If `<feature-id>` arg was passed, validate it against the candidate list; mismatch → write `DEADLOCK-resume-<id>.md` and halt.
-
-2. **Validate prerequisites.** Read `pipeline/<feature-id>/intent.yaml`. **Missing → fail closed**: write `DEADLOCK-resume-<feature-id>.md` (`triggered_by_stage: RESUME`, body: "intent.yaml absent; re-run /orchestra <natural language>") and halt — an unexpected missing-file state could mask a real bug. Then scan the feature dir:
-   - `SUMMARY-<id>.md` present → emit `[orchestra] resume <feature-id> already terminal` and exit.
-   - `DEADLOCK-<id>.md` present → emit the standard banner per `## Status output` and halt; deadlocks need manual rescope.
-   - `ESCALATE(-ARCH)?-<id>.md` with `resolution: pending` → emit banner + `AskUserQuestion` ("ESCALATE pending: `<reason from frontmatter>`. Resolved externally?"). On reject → halt; on accept → proceed.
-
-3. **Find resume point.** Read `plan/<NNN>-TASKS.md` and walk the table topologically (respect Blocked-by edges). For each task in order:
-   - `Status = done` → skip.
-   - Owner is T-A (`@evaluator` / `@reviewer`) → derive status from verdict frontmatter: `@evaluator`'s task is `done` ⟺ `verify/<NNN>-TEST.md.verdict ∈ {PASS, FAIL}`; `@reviewer`'s task is `done` ⟺ `verify/<NNN>-CODE-REVIEW.md.verdict ∈ {APPROVED, REQUEST_CHANGES}`. Derived `done` → skip. Verdict `pending` → this is the resume point.
-   - Owner is T-B (`@product` / `@lead` / `@test` / `@ship`) → derive from artifact existence with `confirmed: true` for the row's exit criterion. Match → skip; otherwise this is the resume point.
-   - Otherwise (T-C implementer with `Status ∈ {pending, in_progress}`) → this is the resume point.
-
-4. **REQUEST_CHANGES gate.** If the resume point follows a `verify/<NNN>-CODE-REVIEW.md.verdict = REQUEST_CHANGES`, do NOT auto-respawn the implementer. Emit banner + `AskUserQuestion` ("Last review verdict: REQUEST_CHANGES (`<N findings>`). Respawn @`<owner>` for revision, or halt to address findings manually?"). On accept → respawn at Step 5. On reject → halt with no further writes.
-
-5. **Spawn.** Issue an `Agent({ subagent_type, prompt })` call per the Step 1 shape. The prompt MUST include: routed intent from `intent.yaml`, the feature_id, prior artifact pointers per the routing taxonomy, the intent-whitelist clause from Step 5 of the smart router, AND a resume directive: "Your task is `T-<id>` in `plan/<NNN>-TASKS.md`. Prior `Updated by` / `Updated at` columns may indicate partial work — Read existing artifacts before re-writing. Idempotent re-write is acceptable."
-
-6. Continue per Step 5 of the smart router from the resume point through Step 7 (terminal-state detection → SUMMARY write → `TeamDelete()` → closing status line). Resume does not bypass the terminal-state machinery; it just enters mid-flight.
+Resume an interrupted feature run. Algorithm: invoke the `resume-pipeline` skill with optional `<feature-id>`. The skill walks `pipeline/*/` dirs, finds the next non-`done` task (deriving T-A status from verdict frontmatter, T-B from artifact existence, T-C from row Status), and respawns the owner with idempotent re-write semantics. Returns `{terminal_state, feature_id}` to the dispatcher; on `terminal_state == "(continued)"` the dispatcher continues per Step 5 of the smart router. Otherwise the dispatcher runs Step 7 closure (SUMMARY + TeamDelete).
 
 Status lines per `## Status output`: `[orchestra] resume scanning pipeline/` → `[orchestra] resume target=<feature-id>` → `[orchestra] resume next-task=T-<id> owner=@<role>`, then the standard spawn/read lines for each subsequent agent.
 
 ## /orchestra shutdown
 
-In-session only. `TeamDelete()` operates on the current session's implicit team context — cross-session targeting is structurally impossible per the Claude Code primitive contract.
+In-session manual abort. Algorithm: invoke the `shutdown-team` skill. The skill writes `SUMMARY-<feature-id>.md` with `terminal_state: aborted` and calls `TeamDelete()` (zero-param primitive — team is implicit from current session). The `<feature-id>` argument form is rejected — current session has at most one active team. The skill performs Step 7 closure inline; the dispatcher does NOT need to run it separately.
 
-1. **Verify active orchestra team in this session.** If the current session did not invoke `/orchestra <intent>` and is not bound to an orchestra team, print `[orchestra] no active orchestra team in this session — shutdown is a no-op` and exit 0. No SUMMARY write.
-2. **Resolve `feature_id`** from the dispatcher's own conversation state (the in-flight `/orchestra <intent>` run that started in this session). Fallback if context was compacted: read the latest `intent.yaml` `artifact.written` event for the current `run_id` from `<cwd>/.claude/.orchestra/metrics/events.jsonl` and lift `feature_id`.
-3. Parent `Write(<feature-dir>/SUMMARY-<feature-id>.md, ...)` with `terminal_state: aborted` per the Step 7 frontmatter shape.
-4. Parent `TeamDelete()`.
-5. Emit confirmation per `## Status output`: `[orchestra] shutdown aborted feature=<feature-id>`.
-
-The `<feature-id>` argument form is rejected — the current session has at most one active team. If `/orchestra shutdown <feature-id>` is invoked and the argument matches the in-session feature_id, treat it as a no-arg call; if it doesn't match, error with `[orchestra] argument feature-id mismatch with active session`.
+No active team in this session → skill emits `[orchestra] no active orchestra team in this session — shutdown is a no-op` and exits without a SUMMARY write.
 
 ## /orchestra help
 
