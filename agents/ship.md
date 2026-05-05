@@ -46,7 +46,7 @@ interfaces/<NNN>-CONTRACT.md (final criteria), verify/<NNN>-TEST.md (verdict blo
 
 ## Frontmatter contract
 
-See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. RELEASE-specific shape:
+Per `schemas/pipeline-artifact.schema.md` (sections + body grammar). RELEASE-specific shape:
 
 ```yaml
 ---

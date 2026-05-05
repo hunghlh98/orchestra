@@ -43,7 +43,7 @@ verify/<NNN>-CODE-REVIEW.md per `schemas/pipeline-artifact.schema.md`: `verdict:
 
 ## Frontmatter contract
 
-See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. CODE-REVIEW-specific shape:
+Per `schemas/pipeline-artifact.schema.md` (sections + body grammar). CODE-REVIEW-specific shape:
 
 ```yaml
 ---

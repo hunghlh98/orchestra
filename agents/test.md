@@ -55,7 +55,7 @@ You may invoke:
 
 ## Frontmatter contract
 
-See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) — Authoring contract. TEST-specific shape:
+Per `schemas/pipeline-artifact.schema.md` (sections + body grammar). TEST-specific shape:
 
 ```yaml
 ---

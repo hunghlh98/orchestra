@@ -52,7 +52,7 @@ A `requirements/<NNN>-PRD.md` (greenfield) or `requirements/<NNN>-FRS.md` (brown
 
 ## Frontmatter + body contract
 
-See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) for `sections:` (dict keyed by S-ID, not a list) and [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar) for the `## Heading <a id="S-FOO-001"></a>` anchor rule. PRD/FRS standard sections: `S-VISION-001`, `S-GOALS-001`, `S-NON-GOALS-001`, `S-INVARIANTS-001`, `S-ACCEPTANCE-001`.
+Per `schemas/pipeline-artifact.schema.md` (sections + body grammar). PRD/FRS standard sections: `S-VISION-001`, `S-GOALS-001`, `S-NON-GOALS-001`, `S-INVARIANTS-001`, `S-ACCEPTANCE-001`.
 
 ## Workflow
 

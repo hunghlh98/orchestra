@@ -66,7 +66,7 @@ references:
 ---
 ```
 
-Author `sections:` and `references:` explicitly per [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract); H2 headings follow the [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar). When filling the verdict block in verify/<NNN>-TEST.md, do NOT remove or change the existing `## Verdict <a id="S-VERDICT-001"></a>` anchor authored by `@test` — the hash-stamper keys section content off it.
+Per `schemas/pipeline-artifact.schema.md` (sections + body grammar). When filling the verdict block in verify/<NNN>-TEST.md, do NOT remove or change the existing `## Verdict <a id="S-VERDICT-001"></a>` anchor authored by `@test` — the hash-stamper keys section content off it.
 
 ## Task-status derivation (T-A; do NOT self-report)
 

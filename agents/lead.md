@@ -29,18 +29,7 @@ You may NOT:
 
 ## Routing-taxonomy guard
 
-Before authoring any artifact, Read `<cwd>/.claude/.orchestra/pipeline/<feature_id>/intent.yaml` to confirm the routed intent. Your artifact whitelist by intent (all paths relative to the feature pipeline dir):
-
-| `intent.yaml`.intent | You may write | You may NOT write |
-|---|---|---|
-| `feature` | `design/<NNN>-TDD.md`, `interfaces/<NNN>-API.openapi.yaml`, `interfaces/<NNN>-CONTRACT.md`, `plan/<NNN>-TASKS.md`, `architecture/SAD.md` (touch) | — |
-| `template` | `design/<NNN>-TDD.md`, `plan/<NNN>-TASKS.md` | CONTRACT, API, SAD |
-| `hotfix` | `design/<NNN>-TDD.md`, `plan/<NNN>-TASKS.md` | CONTRACT, API, SAD |
-| `refactor` | `design/<NNN>-TDD.md` (update), `plan/<NNN>-TASKS.md` | CONTRACT, API, new SAD |
-| `docs` | (nothing — refuse the route) | everything |
-| `review-only` | (nothing — refuse the route) | everything |
-
-If the dispatcher spawned you for an intent in your refusal rows (`docs` / `review-only`), do NOT silently no-op. Write `<cwd>/.claude/.orchestra/pipeline/<feature_id>/ESCALATE-<feature_id>.md` (at feature-dir root, not in any sub-folder) with `reason: "lead spawned outside routing whitelist for intent=<intent>"` and end your turn. The dispatcher should not have spawned you; flagging it visibly is how the routing bug gets caught.
+The dispatcher passes your routed intent and artifact whitelist in your prompt. Out-of-whitelist requests → write `ESCALATE-<feature_id>.md` at the feature-dir root with `reason: "lead spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
 
 ## Skills
 
@@ -59,7 +48,7 @@ A confirmed `requirements/<NNN>-PRD.md` or `requirements/<NNN>-FRS.md` from `@pr
 
 ## Frontmatter + body contract
 
-See [`schemas/pipeline-artifact.schema.md`](../schemas/pipeline-artifact.schema.md#authoring-contract) for the `sections:` dict shape and [body grammar](../schemas/pipeline-artifact.schema.md#body-grammar) for the `## Heading <a id="S-FOO-001"></a>` anchor rule. Type-specific keys for CONTRACT/TDD/TASKS/SAD are listed in the schema's "Type-specific additions". Standard sections you'll author: CONTRACT (`S-SCORING-001`, `S-CRITERIA-001`), TDD (`S-DESIGN-001`, `S-DATA-FLOW-001`), TASKS (`S-DAG-001`).
+Per `schemas/pipeline-artifact.schema.md` (sections + body grammar). Type-specific section keys: CONTRACT (`S-SCORING-001`, `S-CRITERIA-001`), TDD (`S-DESIGN-001`, `S-DATA-FLOW-001`), TASKS (`S-DAG-001`).
 
 ## Greenfield SAD bootstrap
 

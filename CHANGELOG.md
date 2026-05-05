@@ -8,6 +8,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Refactor (PR #1 v1.0.1 — streamline plugin loading: P0 cleanup)
+
+Closes WORKFLOW-003 §S-PRTASKS-001 PR #1 (T-S01..T-S09, T-S11). Implements PRD-003 §S-FRS-001 F-1, F-2, F-3 — the P0 cleanup tier of the streamlining initiative. Net effect: ~1,200 tokens saved per typical `/orchestra` feature run, with no behavior change. Smoke-test parity gated by static validators (`test-agents.js`, `validate.js`) since the smoke fixture (`scripts/test-streamline-fixture.sh` per WORKFLOW-003 P-S05) is not yet in place — full smoke chain runs before v1.0.1 RELEASE per the project's `feedback_smoke-before-release-docs` discipline.
+
+- `agents/lead.md` — Routing-taxonomy guard collapsed from 14-line table to 3-line directive (T-S01). The dispatcher already enforces the whitelist at `commands/orchestra.md:153-156`; the agent-side restatement was defense-in-depth that cost ~150 tokens per `@lead` spawn. Schema-citation block (line 62 area) collapsed to single-line citation per F-2 (T-S02).
+- `agents/product.md`, `agents/reviewer.md`, `agents/test.md`, `agents/ship.md`, `agents/evaluator.md` — schema-citation blocks each collapsed to single-line citation preserving the type-specific section list (T-S03..T-S07). Boilerplate prose explaining what `sections:` is moves into the schema doc itself; type-specific keys stay inline because they're agent-specific. ~80 tokens × 6 agents = ~480 saved per multi-agent run.
+- `commands/orchestra.md` — `### Runtime hooks` table compressed from verbose 7-row prose (~600 tokens) to 5-row glossary (~150 tokens) (T-S08). Full hook prose moved to new dev-surface doc `docs/HOOKS.md`. The `## Invariants` block at line 13 already establishes hook ownership of events; the verbose table was duplicated runtime context that the model couldn't act on.
+- `docs/HOOKS.md` — new dev-surface doc holding the full hook prose (T-S09). NOT loaded into consumer runtime context. Audience: plugin maintainers editing `hooks/scripts/*.js` or `hooks/hooks.json`.
+
+WORKFLOW-003 corrections noted (will be applied in a later pass — out of PR #1 scope per surgical-changes discipline):
+
+- T-S10 (version bump) deferred. WORKFLOW-003 referenced `manifest.json` which doesn't exist; the actual file is `.claude-plugin/plugin.json`. Per the project's `[Unreleased]` accumulation discipline (this CHANGELOG line 9), version flip happens at release-cut time, not at every PR.
+- T-S11 lands as this CHANGELOG entry under `## [Unreleased]` (no per-PR version section).
+
+Pre-existing drift NOT fixed in this change: `agents/lead.md`'s reference to `S-DAG-001` for the TASKS section persists (canonical anchor per `skills/task-breakdown/SKILL.md` is `S-TASKS-001`). Out of scope per surgical-changes discipline — same carve-out applied in the prior `/orchestra resume` PR (CHANGELOG entry above).
+
 ### Added (`/orchestra resume` + per-task Status tracking)
 
 `plan/<NNN>-TASKS.md` `S-TASKS-001` table now carries optional `Status` / `Updated by` / `Updated at` columns. Implementer-tier owners (`@backend`, `@frontend`) self-report by flipping their row from `pending` to `in_progress` on pickup and to `done` on exit-criterion completion, re-stamping `S-TASKS-001.hash: TBD` on each write. Read-only-tier owners (`@evaluator`, `@reviewer`) do NOT self-report — their task status is derived at read time from the verdict frontmatter they own (`@evaluator` ⟺ `verify/<NNN>-TEST.md.verdict ∈ {PASS, FAIL}`; `@reviewer` ⟺ `verify/<NNN>-CODE-REVIEW.md.verdict ∈ {APPROVED, REQUEST_CHANGES}`). T-A tier discipline preserved — only T-C implementers gain a write target on TASKS.md. New `/orchestra resume [<feature-id>]` subcommand walks `pipeline/*/` dirs, identifies in-flight features by terminal-artifact absence, finds the next non-`done` task in the DAG (deriving T-A and T-B status from the artifacts they own), and respawns the owner with a resume-context prompt. Idempotent: re-spawning a partially-done owner is safe — owner Reads existing artifacts before re-writing.

@@ -173,16 +173,15 @@ On terminal state:
 
 ### Runtime hooks
 
-The plugin registers 5 hooks in `hooks/hooks.json`. Claude Code fires them automatically on the listed lifecycle events.
+5 hooks registered in `hooks/hooks.json`; full event taxonomy in `docs/HOOKS.md` (dev-surface). Hooks own their events per `## Invariants` above — do not replicate hook side effects.
 
-| Hook | Event | What fires |
+| Hook | Events (matchers) | Side effect |
 |---|---|---|
-| `metrics-collector` | UserPromptSubmit | Logs `prompt.submitted` with `matched_orchestra: true` to `<cwd>/.claude/.orchestra/metrics/events.jsonl`. Fires the moment the user submits the `/orchestra` prompt — before Step 1 of your action list. |
-| `hash-stamper` | PreToolUse:Write\|Edit\|MultiEdit | Stamps `sections:` and resolves `references[].hash-at-write: TBD` in artifact frontmatter when writing under `<project>/.claude/.orchestra/**/*.md`. Note: hooks attach to the parent context's tool calls; subagent writes may bypass this hook, which is why agents author `sections:` and `references:` blocks explicitly per `schemas/pipeline-artifact.schema.md`. |
-| `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Blocks writes containing detectable secrets (8 patterns: AWS keys, GitHub PATs, JWTs, etc.). Exits 2 (blocking) on hit. |
-| `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into subagent-spawn prompts where `subagent_type === "evaluator"`. The matcher is `Task\|Agent` so it fires on both legacy (`Task`) and canonical (`Agent`) tool names. |
-| `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash commands (`npm install`, `sed -i`, etc.) to stderr. Observer; never blocks. |
-| `metrics-collector` | PreToolUse:Task\|Agent / PreToolUse:TeamCreate / PreToolUse:TeamDelete / PreToolUse:Skill / PreToolUse:Write\|Edit\|MultiEdit / PreToolUse:mcp__orchestra-* / SubagentStop / Stop | Logs `task.subagent.invoked` (with `agent_name` + `team_name` + `prompt_summary` enrichment), `team.created` (team boundary), `team.shutdown` (run-end at terminal state), `skill.invoked` (skill name + args summary — captures the decision-laden moments of a feature run), `local.bootstrapped` (on local.yaml writes), `artifact.written` (any pipeline write — feature_id + artifact_type + file_name; for `intent.yaml` writes, also extracts `intent` / `confidence` / `pattern` into the event for insight-tracker semantics; for `SUMMARY-*.md` writes, extracts `team_name` / `terminal_state` / `duration_seconds`), `mcp.tool.called`, `subagent.stopped`, `session.stopped`. **Goal**: events.jsonl alone reconstructs the full smoke trace; no need to read Claude Code's session jsonl to debug a run. |
+| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-* / SubagentStop / Stop | Logs lifecycle events to `<cwd>/.claude/.orchestra/metrics/events.jsonl` |
+| `hash-stamper` | PreToolUse:Write\|Edit\|MultiEdit | Stamps `sections:` hashes + resolves `references[].hash-at-write: TBD` for pipeline artifacts |
+| `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Blocks writes with detectable secrets (8 patterns); exits 2 |
+| `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts |
+| `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash to stderr (observer; never blocks) |
 
 ### AskUserQuestion budget
 
