@@ -8,6 +8,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
 
+### Added (mid-run visibility + team shutdown — PRD-002 / DESIGN-003)
+
+Closes spec drift against PRD-001 §347 / §561 / §627 (explicit teardown + `SUMMARY-<timestamp>.md`), which were written into the v1 PRD but never wired into the dispatcher. A user running `/orchestra <intent>` now (a) sees one-line status updates at every filesystem-coupled transition, (b) gets a multi-line banner when an exception artifact (`DEADLOCK-*.md`, `ESCALATE-*.md`, `ESCALATE-ARCH-*.md`) is read, and (c) gets automatic team teardown + a thin `SUMMARY-<feature-id>.md` closure receipt at every terminal state (success / deadlock / escalated / aborted). New `/orchestra shutdown` subcommand for in-session manual abort. The metrics-collector hook gains a `team.shutdown` event mirroring the existing `team.created` posture; SUMMARY artifact writes are enriched with `team_name` / `terminal_state` / `duration_seconds` via the same line-match-without-YAML-parser pattern used for `intent.yaml`.
+
+Pre-flight verification surfaced one design correction: `TeamDelete` is a zero-parameter primitive (verified via ToolSearch 2026-05-05), not the TeamCreate-mirror signature initially assumed. This collapsed cross-session shutdown (structurally impossible) and slimmed the dispatcher edit by ~30 lines. Documented in DESIGN-003 §3.1.4 + §8 R6.
+
+- `schemas/pipeline-artifact.schema.md` — `revision: 1 → 2`. New `SUMMARY-<id>.md` thin-receipt entry replaces the prior PRD-001-era thick-digest stub (`run_id` / `agents_used` / `total_token_in/out` / `features_touched` were never authored and would have duplicated `runs/<run-id>.json`). New entry: `team_name`, `started_at`, `ended_at`, `duration_seconds`, `terminal_state ∈ {success, deadlock, escalated, aborted}`, `artifact_count`. Body-grammar carve-out documented (no `<a id="S-...">` anchors required for SUMMARY since it's parent-authored bookkeeping with no `sections:` block). Layout tree + type→folder map row updated.
+- `commands/orchestra.md` — new `## Status output` section (canonical contract for status lines + banners; per project CLAUDE.md folded once, not sprinkled per Step). New Step 7 (terminal-state detection → SUMMARY write → `TeamDelete()` → closing status line). New `## /orchestra shutdown` block (in-session only; rejects `<feature-id>` argument since current session has at most one active team). Argument-parse, runtime-hooks table, and help text updated to include `shutdown` and `PreToolUse:TeamDelete` / `team.shutdown` references.
+- `hooks/scripts/metrics-collector.js` — minimal `PreToolUse:TeamDelete` branch emitting `team.shutdown { ts, run_id }` (zero-param primitive; nothing to lift from `tool_input`). New `extractSummaryFields()` mirroring `extractIntentFields()`. SUMMARY enrichment branch in the existing `artifact.written` flow.
+- `hooks/hooks.json` — new `PreToolUse:TeamDelete` matcher routing to `metrics-collector.js`.
+- `scripts/test-hooks.js` — `TeamDelete` added to the `KNOWN_TOOLS` set; new inverse-sanity check confirming `matcher: "TeamDelete"` passes the validator clean.
+- `scripts/test-metrics.js` — three new event-classification cases: `TeamDelete` → `team.shutdown` (no extras); pipeline write of `SUMMARY-001-hello-world.md` → `artifact.written` enriched with `team_name` / `terminal_state` / `duration_seconds`; the SUMMARY case also pins `inferArtifactType("SUMMARY-001-...md") === "SUMMARY"` as a regression anchor for the new schema entry.
+- `README.md` — usage block adds `/orchestra shutdown`; "What ships" subcommand count `5 → 6` and the inline enumeration extended.
+- Test totals: `test-hooks.js` 79 → 79 (no new orchestra.md fixture assertions needed); `test-metrics.js` 82 → 91 (+9). `validate.js` 0 changes (it does not validate pipeline artifacts; SUMMARY carve-out is preventive at the schema level).
+
+Notes:
+
+- Pre-existing drift NOT fixed in this change: README usage block has long been missing `/orchestra metrics`. Out of scope per surgical-changes discipline.
+- Smoke test of the consumer install path (`/tmp/test-orchestra-install`) is the gate before authoring RELEASE/RUNBOOK/ANNOUNCEMENT artifacts. In particular, verify `TeamDelete()` does not throw when called after agents have ended their turns — Orchestra's filesystem-coupled flow assumes SubagentStop drains active members synchronously by the time terminal state is detected; this is the failure mode flagged in DESIGN-003 §8 R6.
+
+### Changed (insight text capture default `false` → `true`)
+
+Flips the `capture_insight_text` default in `metrics/manifest.json` so `★ Insight` bodies emitted by the Explanatory output style are captured into `insights.jsonl` by default. Rationale: the field is the primary observability signal of the metrics pipeline, and prior smoke runs (`/tmp/orchestra-smoke-6/`) shipped 174 rows of empty `text:null` payload — the structural counts (`line_count`, `char_count`) without bodies aren't useful for tuning prompts or aggregating reasoning depth. The privacy triad is now mixed-by-design: `redact_prompts:true` (raw user input stays redacted) + `capture_insight_text:true` (model-emitted prose is captured). Consumers who want full redaction flip `capture_insight_text: false` directly in `<project>/.claude/.orchestra/metrics/manifest.json`; the existing `{...defaults, ...raw}` merge in `ensureManifest` honors that override on every subsequent hook trigger. No schema_version bump (the row shape is unchanged — only the value of an existing field shifts).
+
+- `hooks/scripts/metrics-collector.js` — flip default in `ensureManifest`; update `=== Manifest + redaction ===` and `=== Insight extraction ===` doc-comments to describe the mixed posture and the new opt-out path.
+- `scripts/test-metrics.js` — section 4c assertions invert: default capture path now asserts `text === insightBody1`; the manifest-flip half re-emits with `capture_insight_text:false` and asserts `text === null`.
+- `docs/PRD-001.md` §9.9 — `manifest.json` default block (line ~810) flips; redaction-axis bullet (line ~819) rewritten to document the mixed posture intent. `body` field-name in the schema example (line 802) is pre-existing doc-drift vs the code's `text` — left untouched (orthogonal cleanup).
+- `docs/DESIGN-001-infra.md` §3.6 — pre-flight + privacy-posture rows updated; mixed-posture rationale added inline so future readers don't reach for the symmetric default.
+- `docs/DESIGN-002-leaves.md` §15 step 16 — single-line note flipped.
+
 ### Changed (artifact rename `<TYPE>-<id>` → `<id>-<TYPE>` + topical folder layout under feature pipeline dir)
 
 Reorganizes pipeline artifacts for grep-ability and review-by-topic. Filenames flip so the feature id sorts first (`001-PRD.md` instead of `PRD-001.md`); per-feature artifacts move into 6 topical subfolders. Singletons (`SAD.md`, `RUNBOOK-vX.Y.Z.md`, `RELEASE-vX.Y.Z.md`) keep their existing locations and naming. Smoke-5 artifacts are not migrated — clean break, the next `/orchestra` run lands in the new layout.

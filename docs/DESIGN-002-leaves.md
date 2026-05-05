@@ -494,7 +494,7 @@ Look at the first whitespace-separated token of `$ARGUMENTS`:
     runs/<run-id>.json (feature_id, intent, confidence, pattern,
     autonomy_level, gates verdict, agents_spawned, total tokens, duration,
     insights_count) and extracts ★ Insight blocks from the session jsonl
-    into insights.jsonl (body redacted unless capture_insight_text=true)
+    into insights.jsonl (body captured by default; redacted when capture_insight_text=false)
 ```
 
 `PAUSE-1..PAUSE-4` only fire at `DRAFT_AND_GATE`. At `FULL_AUTONOMY` they become async draft-and-resume artifacts (v1.2+); at `JOINT_PROCESSING` they collapse into per-stage Pattern B; at `OPTION_SYNTHESIS` the run stops at PAUSE-1 with an option set; at `EXECUTION_ONLY` confidence classification is skipped and the user's prompt drives the agent sequence directly.

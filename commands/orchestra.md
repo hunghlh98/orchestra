@@ -12,15 +12,40 @@ Multi-agent SDLC pipeline. One entry surface; subcommands branch internally.
 
 The 5 hooks (see "Runtime hooks" table below) own their events and side effects. Do not write to `<cwd>/.claude/.orchestra/metrics/events.jsonl` directly, hash artifact frontmatter manually, or replicate any hook's work — every "do not do this manually" you might infer reduces to this one rule.
 
+## Status output
+
+The dispatcher emits two kinds of terminal output beyond agent prose and pause questions: **status lines** at filesystem-coupled transitions, and **banners** when reading exception artifacts. Both are model-emitted dispatcher text, NOT hook output.
+
+**Status lines** — single line, no ANSI, no emoji. One emitted at each:
+
+- Before every `Agent({ subagent_type: "<role>" })` call: `[orchestra] spawn @<role> → <artifact-target>`
+- After every parent `Read(<path>)` returns: `[orchestra] read  @<role> wrote <filename>`
+- Before every `AskUserQuestion` pause: `[orchestra] pause PAUSE-<N>: <one-line question>`
+- At terminal state (Step 7): `[orchestra] shutdown <terminal_state> feature=<feature-id> duration=<Ns>`
+
+**Banners** — multi-line, fire after a parent `Read` returns an artifact whose basename matches `DEADLOCK-*.md`, `ESCALATE-*.md`, or `ESCALATE-ARCH-*.md`. At every autonomy level:
+
+```
+============================================================
+[orchestra] <ARTIFACT_TYPE> detected
+  triggered_by_<stage|agent>: <value-from-frontmatter>
+  resolution: <value-from-frontmatter>
+  path: <absolute path to artifact>
+============================================================
+```
+
+The metrics-collector hook captures structurally-equivalent events (`task.subagent.invoked`, `artifact.written`, `team.shutdown`) for replay; status lines + banners are the user's live signal.
+
 ## Parse arguments
 
 Look at the first whitespace-separated token of `$ARGUMENTS`:
 
-- `sprint`  → run **/orchestra sprint** flow (with optional `--size N`)
-- `release` → run **/orchestra release** flow
-- `commit`  → run **/orchestra commit** flow (no team; uses `commit-work` skill directly)
-- `help`    → print usage block (defined below)
-- otherwise → run **/orchestra <natural language>** smart router
+- `sprint`   → run **/orchestra sprint** flow (with optional `--size N`)
+- `release`  → run **/orchestra release** flow
+- `commit`   → run **/orchestra commit** flow (no team; uses `commit-work` skill directly)
+- `shutdown` → run **/orchestra shutdown** flow (in-session teardown)
+- `help`     → print usage block (defined below)
+- otherwise  → run **/orchestra <natural language>** smart router
 
 ## /orchestra <natural language> (smart router)
 
@@ -132,6 +157,19 @@ Agent({
 
 **Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/`.** Agents author their artifact frontmatter (sections, references) per `schemas/pipeline-artifact.schema.md`. The parent does NOT copy/edit those artifacts — each agent owns its outputs.
 
+**Step 7 — Terminal-state detection + closure.** After every parent `Read` in Step 5, evaluate the just-read artifact's basename:
+
+- `RELEASE-vX.Y.Z.md` → `terminal_state = "success"`
+- `DEADLOCK-*.md` → `terminal_state = "deadlock"`
+- `ESCALATE(-ARCH)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
+- otherwise → continue Step 5 spawn loop
+
+On terminal state:
+
+1. Parent `Write(<feature-dir>/SUMMARY-<feature-id>.md, ...)` per `schemas/pipeline-artifact.schema.md` SUMMARY shape: `team_name`, `started_at` (the team.created timestamp from earlier in this run; fallback to first matching `team.created` in events.jsonl), `ended_at` (now), `duration_seconds`, `terminal_state`, `artifact_count`. Body: 1–3 line plain-text closing note. SUMMARY is parent-authored bookkeeping at terminal state — narrowly carved exception to the Coordination-protocol "no parent artifact writes" rule, because no agent is in scope after teardown begins.
+2. Parent `TeamDelete()` (zero-param primitive — team is implicit from current session context; failure mode: throws on active members, but Orchestra's filesystem-coupled flow has SubagentStop drain members synchronously by the time terminal state is detected).
+3. Emit closing status line per `## Status output`.
+
 ### Runtime hooks
 
 The plugin registers 5 hooks in `hooks/hooks.json`. Claude Code fires them automatically on the listed lifecycle events.
@@ -143,7 +181,7 @@ The plugin registers 5 hooks in `hooks/hooks.json`. Claude Code fires them autom
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Blocks writes containing detectable secrets (8 patterns: AWS keys, GitHub PATs, JWTs, etc.). Exits 2 (blocking) on hit. |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into subagent-spawn prompts where `subagent_type === "evaluator"`. The matcher is `Task\|Agent` so it fires on both legacy (`Task`) and canonical (`Agent`) tool names. |
 | `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash commands (`npm install`, `sed -i`, etc.) to stderr. Observer; never blocks. |
-| `metrics-collector` | PreToolUse:Task\|Agent / PreToolUse:TeamCreate / PreToolUse:Skill / PreToolUse:Write\|Edit\|MultiEdit / PreToolUse:mcp__orchestra-* / SubagentStop / Stop | Logs `task.subagent.invoked` (with `agent_name` + `team_name` + `prompt_summary` enrichment), `team.created` (team boundary), `skill.invoked` (skill name + args summary — captures the decision-laden moments of a feature run), `local.bootstrapped` (on local.yaml writes), `artifact.written` (any pipeline write — feature_id + artifact_type + file_name; for `intent.yaml` writes, also extracts `intent` / `confidence` / `pattern` into the event for insight-tracker semantics), `mcp.tool.called`, `subagent.stopped`, `session.stopped`. **Goal**: events.jsonl alone reconstructs the full smoke trace; no need to read Claude Code's session jsonl to debug a run. |
+| `metrics-collector` | PreToolUse:Task\|Agent / PreToolUse:TeamCreate / PreToolUse:TeamDelete / PreToolUse:Skill / PreToolUse:Write\|Edit\|MultiEdit / PreToolUse:mcp__orchestra-* / SubagentStop / Stop | Logs `task.subagent.invoked` (with `agent_name` + `team_name` + `prompt_summary` enrichment), `team.created` (team boundary), `team.shutdown` (run-end at terminal state), `skill.invoked` (skill name + args summary — captures the decision-laden moments of a feature run), `local.bootstrapped` (on local.yaml writes), `artifact.written` (any pipeline write — feature_id + artifact_type + file_name; for `intent.yaml` writes, also extracts `intent` / `confidence` / `pattern` into the event for insight-tracker semantics; for `SUMMARY-*.md` writes, extracts `team_name` / `terminal_state` / `duration_seconds`), `mcp.tool.called`, `subagent.stopped`, `session.stopped`. **Goal**: events.jsonl alone reconstructs the full smoke trace; no need to read Claude Code's session jsonl to debug a run. |
 
 ### AskUserQuestion budget
 
@@ -178,6 +216,18 @@ Console summary of recent orchestra runs from this project's `<cwd>/.claude/.orc
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/metrics-summary.py --metrics-dir <cwd>/.claude/.orchestra/metrics ${LIMIT_FLAG}
 ```
 
+## /orchestra shutdown
+
+In-session only. `TeamDelete()` operates on the current session's implicit team context — cross-session targeting is structurally impossible per the Claude Code primitive contract.
+
+1. **Verify active orchestra team in this session.** If the current session did not invoke `/orchestra <intent>` and is not bound to an orchestra team, print `[orchestra] no active orchestra team in this session — shutdown is a no-op` and exit 0. No SUMMARY write.
+2. **Resolve `feature_id`** from the dispatcher's own conversation state (the in-flight `/orchestra <intent>` run that started in this session). Fallback if context was compacted: read the latest `intent.yaml` `artifact.written` event for the current `run_id` from `<cwd>/.claude/.orchestra/metrics/events.jsonl` and lift `feature_id`.
+3. Parent `Write(<feature-dir>/SUMMARY-<feature-id>.md, ...)` with `terminal_state: aborted` per the Step 7 frontmatter shape.
+4. Parent `TeamDelete()`.
+5. Emit confirmation per `## Status output`: `[orchestra] shutdown aborted feature=<feature-id>`.
+
+The `<feature-id>` argument form is rejected — the current session has at most one active team. If `/orchestra shutdown <feature-id>` is invoked and the argument matches the in-session feature_id, treat it as a no-arg call; if it doesn't match, error with `[orchestra] argument feature-id mismatch with active session`.
+
 ## /orchestra help
 
 Print usage:
@@ -188,6 +238,7 @@ Print usage:
 /orchestra release              Verify gates → write RELEASE / RUNBOOK / ANNOUNCEMENT artifacts and bump VERSION.
 /orchestra commit               Conventional Commits message from `git diff --staged`. No team.
 /orchestra metrics [--limit N]  Console summary of last N runs from .claude/.orchestra/metrics/runs/.
+/orchestra shutdown             In-session: write SUMMARY (terminal_state=aborted) and TeamDelete() the current run's team.
 /orchestra help                 This message.
 ```
 

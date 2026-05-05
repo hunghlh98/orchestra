@@ -280,6 +280,44 @@ console.log("metrics-collector event classification:");
           args_summary: "feature 001 transfer endpoint",
         },
       },
+      // TeamDelete observability — emits team.shutdown at run-end. Zero-param
+      // primitive (verified via ToolSearch 2026-05-05); no tool_input fields
+      // to lift. team_name + terminal_state are recoverable by joining
+      // run_id against the immediately-preceding artifact.written:SUMMARY.
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "TeamDelete",
+          tool_input: {},
+        },
+        expectEvent: "team.shutdown",
+        expectExtra: {},
+      },
+      // SUMMARY-*.md closure receipt — verifies (a) inferArtifactType captures
+      // "SUMMARY" from the feature-dir-root exception filename (regression
+      // anchor for the new schema entry); (b) artifact.written is enriched
+      // with team_name / terminal_state / duration_seconds via
+      // extractSummaryFields (mirror of intent.yaml enrichment pattern).
+      {
+        in: {
+          session_id: "s1", cwd: tmp,
+          hook_event_name: "PreToolUse", tool_name: "Write",
+          tool_input: {
+            file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/SUMMARY-001-hello-world.md`,
+            content: "---\nteam_name: orchestra-001-hello-world\nstarted_at: 2026-05-05T10:00:00Z\nended_at: 2026-05-05T10:05:30Z\nduration_seconds: 330\nterminal_state: success\nartifact_count: 12\n---\nClosure receipt.\n",
+          },
+        },
+        expectEvent: "artifact.written",
+        expectExtra: {
+          feature_id: "001-hello-world",
+          artifact_type: "SUMMARY",
+          file_name: "SUMMARY-001-hello-world.md",
+          tool: "Write",
+          team_name: "orchestra-001-hello-world",
+          terminal_state: "success",
+          duration_seconds: "330",
+        },
+      },
     ];
     for (const c of cases) runHook(c.in);
 
@@ -424,14 +462,14 @@ console.log("metrics-collector insight extraction:");
       check(rows[0].agent_role === "lead", `agent_role identified from "You are @lead"`);
       check(rows[0].insight_index === 1, `first row insight_index=1`);
       check(rows[1].insight_index === 2, `insight_index increments sequentially per-session`);
-      check(rows[0].text === null, `text null by default (capture_insight_text:false)`);
+      check(rows[0].text === insightBody1, `text captured by default (capture_insight_text:true)`);
       check(rows[0].line_count === 3, `line_count=3 for first insight (got ${rows[0].line_count})`);
       check(rows[0].char_count === insightBody1.length, `char_count matches body length`);
 
-      // Flip capture_insight_text:true and re-trigger; new rows carry text.
+      // Flip capture_insight_text:false and re-trigger; new rows redact text.
       const manifestPath = join(realProj, ".claude/.orchestra/metrics/manifest.json");
       const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-      m.capture_insight_text = true;
+      m.capture_insight_text = false;
       writeFileSync(manifestPath, JSON.stringify(m, null, 2));
 
       runHook(
@@ -440,7 +478,7 @@ console.log("metrics-collector insight extraction:");
       );
       const rows2 = readFileSync(insightsPath, "utf8").split("\n").filter(Boolean).map(JSON.parse);
       check(rows2.length === 4, `2 more insight rows emitted on second hook (total ${rows2.length})`);
-      check(rows2[2].text === insightBody1, `text captured when capture_insight_text:true`);
+      check(rows2[2].text === null, `text redacted when capture_insight_text:false`);
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });

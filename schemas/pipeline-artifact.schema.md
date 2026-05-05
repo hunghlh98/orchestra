@@ -3,7 +3,7 @@ id: PIPELINE-SCHEMA
 title: orchestra Pipeline Artifact Frontmatter Schemas
 created: 2026-04-29
 status: draft
-revision: 1
+revision: 3
 scope: type-specific frontmatter shapes for every artifact authored by the orchestra agents
 references:
   prd:
@@ -32,6 +32,7 @@ Feature-scoped artifacts use the format `<feature_id>-<TYPE>.<ext>` (numeric or 
         ├── intent.yaml                          # control plane (not an artifact)
         ├── ESCALATE-<id>.md                     # exception files at root
         ├── DEADLOCK-<id>.md
+        ├── SUMMARY-<id>.md                      # closure receipt at terminal state
         ├── requirements/
         │   ├── 001-PRD.md
         │   └── 001-FRS.md
@@ -66,7 +67,7 @@ Type → folder map:
 | `RELEASE`, `RUNBOOK`, `ANNOUNCEMENT`, `COMMIT-MSG` (feature-scoped) | `release/` | `001-RELEASE.md` |
 | `SAD` | `architecture/` (project singleton, no feature id) | `SAD.md` |
 | `RUNBOOK-vX.Y.Z`, `RELEASE-vX.Y.Z` (version singletons) | `runbooks/`, `releases/` | `RUNBOOK-v1.2.0.md` |
-| `ESCALATE`, `DEADLOCK` | feature-dir root | `ESCALATE-001.md` |
+| `ESCALATE`, `DEADLOCK`, `SUMMARY` | feature-dir root | `ESCALATE-001.md`, `SUMMARY-001.md` |
 
 **Rationale for the format flip**: `<feature_id>-<TYPE>` puts the feature id first so an `ls -1` sort groups all artifacts for a feature together regardless of type. It also makes a single grep pattern (`grep "001-PRD"`) hit both the filename and the artifact's own `id:` frontmatter field.
 
@@ -240,7 +241,12 @@ related_design: CODE-DESIGN-<SIDE>-<id>
 ```yaml
 task_graph_node_count: <int>
 estimated_sp: <int>              # story points from task-breakdown skill
+tasks_pending: <int>             # derived counter (S-TASKS-001 rows with Status=pending)
+tasks_in_progress: <int>
+tasks_done: <int>
 ```
+
+`S-TASKS-001` is **mutable by design** — its frontmatter MUST carry `confirmed: false` so `validate-drift` skips it. The body table optionally includes `Status`, `Updated by`, `Updated at` columns; `Status ∈ {pending, in_progress, done}` (initial state `pending`). Implementer-tier owners (`@backend`, `@frontend`) self-report by flipping their row from `pending` to `in_progress` on pickup and to `done` on exit-criterion completion, re-stamping `S-TASKS-001.hash: TBD` on each write. Read-only-tier owners (`@evaluator`, `@reviewer`) do NOT self-report; their task status is derived at read time from the verdict frontmatter they author — `@evaluator`'s task is `done` ⟺ `verify/<NNN>-TEST.md` `verdict ∈ {PASS, FAIL}`; `@reviewer`'s task is `done` ⟺ `verify/<NNN>-CODE-REVIEW.md` `verdict ∈ {APPROVED, REQUEST_CHANGES}`. Tier-B owners (`@product`, `@lead`, `@test`, `@ship`) status is derived from artifact existence with `confirmed: true` sections. `ESCALATE-<id>.md` presence on the feature dir overrides task status with `blocked` for `/orchestra resume` logic. Backward-compat: a TASKS.md authored before this addition (no Status column) remains valid; readers treat a missing column as all rows `pending`.
 
 ### DEADLOCK-<id>.md
 
@@ -259,15 +265,22 @@ sad_section_to_update: S-<TYPE>-NNN
 resolution: pending | resolved-via-sad-update | abandoned
 ```
 
-### SUMMARY-<timestamp>.md
+### SUMMARY-<id>.md
+
+Parent-authored closure receipt written at every terminal state (success, deadlock, escalated, aborted). Lives at feature-dir root alongside `ESCALATE-<id>.md` and `DEADLOCK-<id>.md`. Thin by design — does NOT duplicate `runs/<run-id>.json` digest content.
 
 ```yaml
-run_id: <uuid>
-agents_used: ["@product", "@lead", ...]
-total_token_in: <int>
-total_token_out: <int>
-features_touched: [<id>, ...]
+team_name: orchestra-<feature_id>
+started_at: <ISO-8601>             # from team.created event
+ended_at: <ISO-8601>               # set at write time
+duration_seconds: <int>            # ended_at − started_at
+terminal_state: success | deadlock | escalated | aborted
+artifact_count: <int>              # count of *.md / *.yaml under feature-dir at write time
 ```
+
+Body is a 1–3 line plain-text closing note. **No `sections:` / `references:` block** — SUMMARY is parent-authored bookkeeping at terminal state, not a referenced node in the C4-style traceability graph.
+
+**Body-grammar carve-out:** the bidirectional invariant in [Body grammar](#body-grammar) (every H2 has `<a id="S-...">`, every key in `sections:` has a matching anchor) does NOT apply to SUMMARY-*.md. `validate.js` and `validate-drift.js` MUST skip the anchor walk for this artifact type.
 
 ## Validation
 

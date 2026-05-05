@@ -368,8 +368,8 @@ This grammar covers every PRD example in §8.13 and §10. It is parser-implement
 |---|---|
 | Subscribed events | `UserPromptSubmit`, `PreToolUse(Task)`, `PreToolUse(mcp__orchestra-*)`, `SubagentStop`, `Stop` |
 | Output sinks | 5 sinks under `<cwd>/.claude/.orchestra/metrics/`: `events.jsonl`, `tokens.jsonl`, `runs/<run-id>.json`, `insights.jsonl`, `manifest.json` |
-| Pre-flight | `mkdir -p` parents (idempotent per Q8); auto-create `manifest.json` with `redact_prompts: true`, `capture_insight_text: false`, `telemetry_optin: "explicit"` defaults if absent; if creation fails → exit 0, drop event |
-| Privacy posture | Read `manifest.json` on every event; redact `prompt_summary`, `description`, `args_summary` text fields if `redact_prompts: true`; redact insight `body` if `capture_insight_text: false`. Aggregation tooling never opens the text-bearing sinks |
+| Pre-flight | `mkdir -p` parents (idempotent per Q8); auto-create `manifest.json` with `redact_prompts: true`, `capture_insight_text: true`, `telemetry_optin: "explicit"` defaults if absent; if creation fails → exit 0, drop event |
+| Privacy posture | Read `manifest.json` on every event; redact `prompt_summary`, `description`, `args_summary` text fields if `redact_prompts: true`; redact insight `body` if `capture_insight_text: false`. Mixed default (prompts redacted, insight bodies captured) reflects two distinct content classes — raw user input vs model-emitted reasoning prose. Aggregation tooling never opens the text-bearing sinks |
 | Rotation | `events.jsonl` only: when size > 50MB, rename to `events-<ISO>.jsonl`, gzip, retain last 5 archives. Other sinks are bounded by run cardinality (one file per run) or low write rate (tokens, insights) and don't rotate in v1.0.0 |
 | Crash semantics | `try/catch` around the whole body; on crash, exit 0 + append `hook.metrics-collector.crashed` to `events.jsonl` if reachable. The hook never blocks Claude Code |
 

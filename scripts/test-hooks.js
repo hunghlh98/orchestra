@@ -484,7 +484,7 @@ console.log("hooks.json matcher validation:");
     "Glob", "Grep", "NotebookEdit",
     "WebFetch", "WebSearch",
     "Agent", "Task",       // Agent canonical; Task legacy alias retained for older Claude Code
-    "TodoWrite", "TeamCreate",
+    "TodoWrite", "TeamCreate", "TeamDelete",
     "Skill",               // user/agent skill invocations
   ]);
   const MCP_REGEX_ATOM = /^mcp__[a-zA-Z0-9_-]*\.\*$/;
@@ -544,6 +544,8 @@ console.log("hooks.json matcher validation:");
   check(ok3.length === 0, `inverse: matcher="mcp__orchestra-.*" passes clean`);
   const ok4 = validateHooksMatchers({ PreToolUse: [{ matcher: "TeamCreate", hooks: [] }] });
   check(ok4.length === 0, `inverse: matcher="TeamCreate" passes clean`);
+  const ok5 = validateHooksMatchers({ PreToolUse: [{ matcher: "TeamDelete", hooks: [] }] });
+  check(ok5.length === 0, `inverse: matcher="TeamDelete" passes clean`);
 }
 
 // ---------- orchestra.md autonomy + AskUserQuestion fixture (T-807) ----------

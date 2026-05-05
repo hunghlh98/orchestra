@@ -135,6 +135,13 @@ function classify(input) {
       description: typeof ti.description === "string" ? ti.description.slice(0, 200) : "",
     };
   }
+  if (hookEvent === "PreToolUse" && toolName === "TeamDelete") {
+    // TeamDelete is zero-param (verified via ToolSearch 2026-05-05) — team is
+    // implicit from current session context. team_name + terminal_state are
+    // recoverable by joining run_id against the immediately-preceding
+    // artifact.written:SUMMARY event.
+    return { ts, event: "team.shutdown", run_id };
+  }
   if (hookEvent === "PreToolUse" && toolName === "Skill") {
     // Skills are where the actual reasoning happens for orchestra agents
     // (task-breakdown, write-contract, qa-test-planner, code-review, ...).
@@ -189,6 +196,12 @@ function classify(input) {
         if (fields.confidence) event.confidence = fields.confidence;
         if (fields.pattern) event.pattern = fields.pattern;
         if (fields.autonomy_level) event.autonomy_level = fields.autonomy_level;
+      }
+      if (/^SUMMARY-.+\.md$/.test(fileName)) {
+        const fields = extractSummaryFields(input?.tool_input);
+        if (fields.team_name) event.team_name = fields.team_name;
+        if (fields.terminal_state) event.terminal_state = fields.terminal_state;
+        if (fields.duration_seconds) event.duration_seconds = fields.duration_seconds;
       }
       return event;
     }
@@ -283,6 +296,28 @@ function extractIntentFields(toolInput) {
     confidence: matchField(text, /^confidence:\s*"?([A-Z]+)"?/m),
     pattern: matchField(text, /^pattern:\s*"?([A-Za-z0-9 _-]+?)"?\s*$/m),
     autonomy_level: matchField(text, /^autonomy_level:\s*"?([A-Z_]+)"?/m),
+  };
+}
+
+// Best-effort extraction of closure fields from SUMMARY-*.md proposed content.
+// Mirrors extractIntentFields — line-match without a full YAML parser. Lifts
+// team_name / terminal_state / duration_seconds onto the artifact.written
+// event so events.jsonl carries the closure decision, not just fact-of-write.
+function extractSummaryFields(toolInput) {
+  if (!toolInput) return {};
+  const candidates = [];
+  if (typeof toolInput.content === "string") candidates.push(toolInput.content);
+  if (typeof toolInput.new_string === "string") candidates.push(toolInput.new_string);
+  if (Array.isArray(toolInput.edits)) {
+    for (const e of toolInput.edits) {
+      if (typeof e?.new_string === "string") candidates.push(e.new_string);
+    }
+  }
+  const text = candidates.join("\n");
+  return {
+    team_name: matchField(text, /^team_name:\s*"?([A-Za-z0-9_-]+?)"?\s*$/m),
+    terminal_state: matchField(text, /^terminal_state:\s*"?([a-z]+)"?/m),
+    duration_seconds: matchField(text, /^duration_seconds:\s*(\d+)/m),
   };
 }
 
@@ -544,18 +579,22 @@ function emitRunSummary(input) {
 }
 
 // === Manifest + redaction (privacy guard for consumer telemetry) ===
-// Creates metrics/manifest.json on first events.jsonl write with privacy-first
-// defaults: redact_prompts:true, telemetry_optin:"explicit". Consumers can
-// flip redact_prompts:false to retain user-prompt content. The manifest is
-// the harvest unit's privacy policy: plugin authors aggregating consumer data
-// inspect this file to confirm what's been redacted.
+// Creates metrics/manifest.json on first events.jsonl write with mixed
+// defaults: redact_prompts:true, capture_insight_text:true,
+// telemetry_optin:"explicit". The two redaction axes are independent —
+// prompt_summary/description/args_summary fields stay redacted by default
+// (they echo raw user input), while ★ Insight bodies (model-emitted prose)
+// are captured by default because they're the primary observability signal.
+// Consumers flip either bit in metrics/manifest.json to tighten or loosen.
+// The manifest is the harvest unit's privacy policy: plugin authors
+// aggregating consumer data inspect this file to confirm what's been redacted.
 function ensureManifest(metricsDir) {
   const manifestPath = join(metricsDir, "manifest.json");
   const defaults = {
     schema_version: 1,
     plugin_version: readPluginVersion(),
     redact_prompts: true,
-    capture_insight_text: false,
+    capture_insight_text: true,
     telemetry_optin: "explicit",
     created_at: new Date().toISOString(),
   };
@@ -613,8 +652,9 @@ function readPluginVersion() {
 // === Insight extraction (Explanatory Output style ★ Insight blocks) ===
 // Scans a session jsonl for `★ Insight ─...─{20,}` blocks emitted by the
 // model in `assistant` text content, and appends one row per insight to
-// metrics/insights.jsonl. Privacy default: text is null (count + length
-// only); flip manifest.capture_insight_text:true to capture body text.
+// metrics/insights.jsonl. Default: body text is captured. Set
+// manifest.capture_insight_text:false to redact text to null (structural
+// fields — index, line_count, char_count — remain regardless).
 function emitInsightsForSession(input, sessionPath, sessionId, role) {
   if (!existsSync(sessionPath)) return 0;
   const cwd = input.cwd || process.cwd();

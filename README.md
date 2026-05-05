@@ -24,6 +24,7 @@ The first registers the orchestra repo as a plugin marketplace (reading `.claude
 /orchestra sprint [--size N]     Pull N issues from .claude/.orchestra/backlog/issues/ and run as a batch (default N=3).
 /orchestra release               Verify gates → write RELEASE / RUNBOOK / ANNOUNCEMENT artifacts and bump VERSION.
 /orchestra commit                Conventional Commits message from `git diff --staged`. No team.
+/orchestra shutdown              In-session: write SUMMARY (terminal_state=aborted) and TeamDelete() the current run's team.
 /orchestra help                  Print usage.
 ```
 
@@ -36,7 +37,7 @@ Optional flag: `--confidence {high,medium,low}` overrides `@lead`'s automatic co
 | **Agents** | 8 | `@product`, `@lead`, `@backend`, `@frontend`, `@test`, `@evaluator`, `@reviewer`, `@ship` — instantiated as a TeamCreate roster on every `/orchestra` run |
 | **Skills** | 8 | `task-breakdown`, `project-discovery`, `code-review`, `qa-test-planner`, `commit-work`, `write-contract`, `evaluator-tuning`, `java-source-intel` |
 | **Rules** | 12 | Path-activated language rules: Java + TypeScript at P0 (4 files each), `common/coding-style.md` at P1, Go / Python / Kotlin stubs at P2 |
-| **Commands** | 1 | `/orchestra` with 5 subcommands (smart router, sprint, release, commit, help) |
+| **Commands** | 1 | `/orchestra` with 6 subcommands (smart router, sprint, release, commit, shutdown, help) |
 | **Hooks** | 5 | `pre-write-check`, `hash-stamper`, `post-bash-lint`, `val-calibration`, `metrics-collector` |
 | **MCP servers** | 2 | `orchestra-fs` (`tree`), `orchestra-probe` (`http_probe` + `db_state`) |
 
