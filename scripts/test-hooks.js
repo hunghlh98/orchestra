@@ -61,7 +61,10 @@ const bodyTrailing = body1.replace(/Some content here\./, "Some content here.   
 const sectionsTrailing = hashSections(bodyTrailing);
 check(sectionsTrailing[0].hash === sections[0].hash, `trailing whitespace stripped`);
 
-// ---------- hash-stamper integration ----------
+// ---------- hash-stamper integration (v2 sidecar mode) ----------
+// Updated for DESIGN-005-doc-output-overhaul §S-HASHSTAMPER-001:
+// hash-stamper now writes to <artifact>.lock.yaml when one exists; the
+// artifact body is NOT mutated. See schemas/lockfile.schema.md.
 console.log("hash-stamper integration:");
 {
   const tmp = mkdtempSync(join(tmpdir(), "orchestra-stamper-"));
@@ -69,18 +72,14 @@ console.log("hash-stamper integration:");
     const archDir = join(tmp, ".claude/.orchestra/architecture");
     mkdirSync(archDir, { recursive: true });
     const sadPath = join(archDir, "SAD.md");
+    const sadLockPath = join(archDir, "SAD.lock.yaml");
+
+    // v2 frontmatter is slim: no inline `sections:` / `references:` blocks.
     const sadContent =
 `---
 id: SAD
 type: SAD
 revision: 1
-sections:
-  S-CONTEXT-001:
-    hash: "TBD"
-    confirmed: true
-  S-CONTAINER-001:
-    hash: "TBD"
-    confirmed: true
 ---
 ## §1 System Context <a id="S-CONTEXT-001"></a>
 
@@ -90,6 +89,21 @@ Context content.
 
 Container content.
 `;
+
+    // The lockfile pre-exists (scaffold-artifact.js writes it in production).
+    // We seed it with TBD hashes so the stamper has something to update.
+    writeFileSync(sadLockPath,
+`artifact_id: SAD
+artifact_path: architecture/SAD.md
+schema_revision: 1
+sections:
+  S-CONTEXT-001:
+    hash: "TBD"
+    confirmed: true
+  S-CONTAINER-001:
+    hash: "TBD"
+    confirmed: true
+`);
 
     const result = spawnSync("node", [resolve(root, "hooks/scripts/hash-stamper.js")], {
       input: JSON.stringify({
@@ -109,24 +123,22 @@ Container content.
     check(output.hookSpecificOutput?.hookEventName === "PreToolUse", `output.hookSpecificOutput.hookEventName === "PreToolUse"`);
     check(output.hookSpecificOutput?.permissionDecision === "allow", `output.hookSpecificOutput.permissionDecision === "allow"`);
 
-    const updated = output.hookSpecificOutput?.updatedInput;
-    check(updated?.file_path === sadPath, `updatedInput preserves file_path`);
-    check(typeof updated?.content === "string", `updatedInput.content is string`);
+    // Sidecar mode: the artifact body is NOT mutated; updatedInput is absent.
+    check(output.hookSpecificOutput?.updatedInput === undefined,
+      `sidecar mode: no updatedInput (artifact body untouched)`);
 
-    if (typeof updated?.content === "string") {
-      const stampedContent = updated.content;
-      // Re-parse stamped frontmatter
-      const fmEnd = stampedContent.indexOf("\n---\n", 4);
-      const stampedFm = parse(stampedContent.slice(4, fmEnd));
-      const stampedBody = stampedContent.slice(fmEnd + 5);
-      const expected = hashSections(stampedBody);
-
-      // hash-equality between stamper output and independent recompute
-      for (const { id, hash } of expected) {
-        const stampedHash = stampedFm.sections?.[id]?.hash;
-        check(stampedHash === hash, `${id}: stamped hash matches recomputed`);
-      }
+    // Lockfile MUST have been updated with computed hashes.
+    const stampedLockText = readFileSync(sadLockPath, "utf8");
+    const stampedLock = parse(stampedLockText);
+    const expected = hashSections(sadContent.split("\n---\n").slice(1).join("\n---\n"));
+    check(expected.length === 2, `body has 2 sections (got ${expected.length})`);
+    for (const { id, hash } of expected) {
+      const stampedHash = stampedLock?.sections?.[id]?.hash;
+      check(stampedHash === hash, `${id}: lockfile hash matches recomputed (got ${stampedHash})`);
+      check(stampedLock?.sections?.[id]?.confirmed === true, `${id}: confirmed flag preserved`);
     }
+    check(stampedLock?.artifact_id === "SAD", `lockfile preserves artifact_id`);
+    check(stampedLock?.schema_revision === 1, `lockfile preserves schema_revision`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

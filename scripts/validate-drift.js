@@ -206,8 +206,38 @@ function analyzeArtifact(path) {
   try { fm = parse(fmExtracted.text); }
   catch (e) { return { path, relPath, parseError: e.message }; }
 
+  // v2 sidecar mode: when <path>.lock.yaml exists, override fm.sections /
+  // fm.references with the lockfile's blocks. Type-specific fields (id, type,
+  // status, version, etc.) still come from fm. Legacy v1 artifacts without a
+  // lockfile keep using inline blocks unchanged.
+  // See schemas/lockfile.schema.md and docs/DESIGN-005-doc-output-overhaul.md §S-HASHSTAMPER-001.
+  const lockPath = lockfilePathFor(path);
+  if (lockPath && existsSync(lockPath)) {
+    try {
+      const lockfile = parse(readFileSync(lockPath, "utf8"));
+      if (lockfile && typeof lockfile === "object") {
+        if (lockfile.sections && typeof lockfile.sections === "object") {
+          fm.sections = lockfile.sections;
+        }
+        if (Array.isArray(lockfile.references)) {
+          fm.references = lockfile.references;
+        }
+      }
+    } catch { /* malformed lockfile — fall back to inline fm */ }
+  }
+
   const bodyHashes = path.endsWith(".md") ? hashSections(fmExtracted.body) : [];
   return { path, relPath, fm, bodyHashes };
+}
+
+function lockfilePathFor(artifactPath) {
+  if (artifactPath.endsWith(".openapi.yaml")) {
+    return artifactPath.slice(0, -".openapi.yaml".length) + ".lock.yaml";
+  }
+  if (artifactPath.endsWith(".md")) {
+    return artifactPath.slice(0, -".md".length) + ".lock.yaml";
+  }
+  return null;
 }
 
 function extractFrontmatter(content) {

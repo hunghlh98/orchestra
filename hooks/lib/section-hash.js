@@ -4,6 +4,7 @@
 // identical hashes for identical inputs. See PRD §8.13.
 
 import { createHash } from "node:crypto";
+import { readFileSync, existsSync } from "node:fs";
 
 const ANCHOR_RE = /^##\s+.*<a id="(S-[A-Z]+-\d{3})"><\/a>/;
 
@@ -42,4 +43,16 @@ export function computeHash(content) {
 
 export function hashSections(body) {
   return parseSections(body).map(s => ({ id: s.id, hash: computeHash(s.content) }));
+}
+
+// Whole-file hash. Used for `.puml` source and `.svg` rendered diagram tracking
+// in v2 lockfiles (DESIGN-005 §S-HASHSTAMPER-001). Returns `null` when the file
+// does not exist; callers decide whether to record `"sha256:UNRENDERED"` etc.
+// CRLF→LF normalization matches hashSections so a Windows-edited .puml hashes
+// the same as a Unix-edited one.
+export function hashFile(absPath) {
+  if (!existsSync(absPath)) return null;
+  const raw = readFileSync(absPath, "utf8");
+  const normalized = raw.replace(/\r\n/g, "\n");
+  return computeHash(normalized);
 }
