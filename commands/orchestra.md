@@ -8,6 +8,10 @@ argument-hint: <subcommand|natural language>
 
 Multi-agent SDLC pipeline. One entry surface; subcommands branch internally.
 
+## Invariants
+
+The 5 hooks (see "Runtime hooks" table below) own their events and side effects. Do not write to `<cwd>/.claude/.orchestra/metrics/events.jsonl` directly, hash artifact frontmatter manually, or replicate any hook's work — every "do not do this manually" you might infer reduces to this one rule.
+
 ## Parse arguments
 
 Look at the first whitespace-separated token of `$ARGUMENTS`:
@@ -85,7 +89,6 @@ Agent({
 2b. status === "exists" → skip to Step 3.
 
 2c. confidence === "HIGH" or "MEDIUM" → Write yaml_content at yaml_path.
-    metrics-collector hook fires automatically; DO NOT manually emit.
     Continue to Step 3.
 
 2d. confidence === "LOW" or status === "ambiguous" → Pattern B fallback:
@@ -102,11 +105,9 @@ Agent({
     v.   Spawn @product with suggested_revision; rewrite draft. Treat next
          draft as final (Pattern B is exactly one round).
     vi.  Write final yaml_content at yaml_path with bootstrapped_by: listing
-         both agent ids. metrics-collector hook fires automatically.
+         both agent ids.
     vii. 3 rejection rounds → DEADLOCK-bootstrap.md, halt.
 ```
-
-**Conformance check:** Whether HIGH/MEDIUM/LOW path was taken, the ONLY way `local.bootstrapped` lands in `events.jsonl` is via the metrics-collector hook firing on PreToolUse:Write of `local.yaml`. The dispatcher, the bootstrap script, and any spawned agents do NOT write to events.jsonl directly. If you find yourself wanting to append a metric event manually — stop. The hook owns it.
 
 **Step 3 — Spawn `@lead` to classify feature intent** per the routing taxonomy (`docs` / `template` / `hotfix` / `feature` / `review-only` / `refactor`). @lead writes its classification to `<cwd>/.claude/.orchestra/pipeline/<feature-id>/intent.yaml` with `intent`, `confidence`, `pattern`, plus a suggested `autonomy_level` from the diagnostic in `agents/lead.md`'s `Autonomy classification` section. Parent reads on idle. **→ PAUSE-1** (intent + autonomy confirmation).
 
@@ -131,9 +132,9 @@ Agent({
 
 **Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/`.** Agents author their artifact frontmatter (sections, references) per `schemas/pipeline-artifact.schema.md`. The parent does NOT copy/edit those artifacts — each agent owns its outputs.
 
-### Runtime hooks (these fire automatically — DO NOT replicate manually)
+### Runtime hooks
 
-The orchestra plugin registers 5 hooks in `hooks/hooks.json`. Claude Code invokes them on the corresponding lifecycle events without any model action. Do not attempt to log events manually, hash frontmatter manually, or replicate any hook's work in your output.
+The plugin registers 5 hooks in `hooks/hooks.json`. Claude Code fires them automatically on the listed lifecycle events.
 
 | Hook | Event | What fires |
 |---|---|---|
@@ -143,8 +144,6 @@ The orchestra plugin registers 5 hooks in `hooks/hooks.json`. Claude Code invoke
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into subagent-spawn prompts where `subagent_type === "evaluator"`. The matcher is `Task\|Agent` so it fires on both legacy (`Task`) and canonical (`Agent`) tool names. |
 | `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash commands (`npm install`, `sed -i`, etc.) to stderr. Observer; never blocks. |
 | `metrics-collector` | PreToolUse:Task\|Agent / PreToolUse:TeamCreate / PreToolUse:Skill / PreToolUse:Write\|Edit\|MultiEdit / PreToolUse:mcp__orchestra-* / SubagentStop / Stop | Logs `task.subagent.invoked` (with `agent_name` + `team_name` + `prompt_summary` enrichment), `team.created` (team boundary), `skill.invoked` (skill name + args summary — captures the decision-laden moments of a feature run), `local.bootstrapped` (on local.yaml writes), `artifact.written` (any pipeline write — feature_id + artifact_type + file_name; for `intent.yaml` writes, also extracts `intent` / `confidence` / `pattern` into the event for insight-tracker semantics), `mcp.tool.called`, `subagent.stopped`, `session.stopped`. **Goal**: events.jsonl alone reconstructs the full smoke trace; no need to read Claude Code's session jsonl to debug a run. |
-
-If the model finds itself wanting to write to `events.jsonl` directly, or compute sha256 hashes for artifact frontmatter manually — stop. The hooks own those concerns. Your job is the action steps above.
 
 ### AskUserQuestion budget
 

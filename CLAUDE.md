@@ -75,6 +75,17 @@ These all have audiences who DO have access to `docs/`.
 
 Code comments at the top of `hooks/scripts/*.js` and `hooks/lib/*.js` referencing PRD/DESIGN sections (e.g., `// See DESIGN-001-infra §3.2 / PRD §9.9.`) are read by **plugin maintainers reading source**, not by Claude at runtime. They're defensible as developer-trace inside source comments, similar to RFC references in library source. Trim if pursuing zero-leak; otherwise leave.
 
+## Update discipline — no annotation creep
+
+When updating consumer-facing prompts (`commands/`, `agents/`, `skills/`) or any file in this repo:
+
+- Do NOT add inline "DO NOT do X manually" reminders, "Note: ..." annotations, or rule restatements alongside the change.
+- If a load-bearing rule already lives elsewhere (e.g., the `## Invariants` block at the top of `commands/orchestra.md`, the body-grammar section in `schemas/pipeline-artifact.schema.md`), trust it and do NOT re-state it inline.
+- If the rule does NOT exist yet, add it ONCE in the canonical spot — not next to every place it applies.
+- Each repetition of "the hook owns this" / "the model must NOT do X" is a tax on every consumer load AND leaks into model narration when explanatory style is on.
+
+The fix shape is **fold up, don't sprinkle**. Before adding any "DO NOT" / "Note:" prose, check whether the rule already exists somewhere canonical — if yes, link to or rely on it; if no, add it once at the canonical site.
+
 ## Scope discipline
 
 - `docs/` is dev-only. Do not write methodology notes, session reports, or planning docs anywhere else (in particular, not in the user's private second-brain vault).
