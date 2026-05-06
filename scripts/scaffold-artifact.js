@@ -112,6 +112,14 @@ const TYPE_SPEC = {
     diagrams: [{ kind: "dag", source: "diagrams/tasks-dag.puml", rendered: "diagrams/tasks-dag.svg" }],
     ext: "md",
   },
+  PLAN: {
+    classification: "feature-scoped",
+    folder: "planning",
+    template: "PLAN.template.md",
+    anchors: ["S-PROBLEM-001", "S-OPTIONS-001", "S-TRADEOFFS-001", "S-RECOMMENDATION-001", "S-OPEN-001"],
+    diagrams: [],
+    ext: "md",
+  },
   TEST: {
     classification: "feature-scoped",
     folder: "verify",

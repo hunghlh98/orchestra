@@ -3,7 +3,7 @@ id: PIPELINE-SCHEMA
 title: orchestra v2.0.0 Pipeline Artifact Frontmatter Schemas
 created: 2026-04-29
 status: draft
-revision: 4
+revision: 5
 scope: type-specific frontmatter shapes for every artifact authored by the orchestra agents; v2.0.0 provenance lives in `<artifact>.lock.yaml` sidecar (see `schemas/lockfile.schema.md`)
 references:
   prd:
@@ -71,6 +71,10 @@ Feature-scoped artifacts use `<feature_id>-<TYPE>.<ext>` (numeric or slug featur
     ├── plan/
     │   ├── <NNN>-TASKS.md (+ .lock.yaml)
     │   └── diagrams/tasks-dag.{puml,svg}
+    ├── planning/                                # OPTIONAL — only when --think
+    │   ├── <NNN>-PLAN.md (+ .lock.yaml)
+    │   ├── PLAN.choice.yaml                     # OPTIONAL — only when --delegate
+    │   └── diagrams/.gitkeep                    # PLAN has no diagrams
     └── verify/
         ├── <NNN>-TEST.md (+ .lock.yaml)
         └── <NNN>-TSR.md (+ .lock.yaml)         # NEW — folded VERDICT + CODE-REVIEW
@@ -85,6 +89,7 @@ Type → folder map:
 | `CONTRACT`, `API` | `pipeline/<id>/interfaces/` | `001-CONTRACT.md`, `001-API.openapi.yaml` | |
 | `TDD` | `pipeline/<id>/design/` | `001-TDD.md` | |
 | `TASKS` | `pipeline/<id>/plan/` | `001-TASKS.md` | |
+| `PLAN` | `pipeline/<id>/planning/` | `001-PLAN.md` | NEW v2.2.0 — only when `/orchestra sprint --think` is set |
 | `TEST`, `TSR` | `pipeline/<id>/verify/` | `001-TEST.md`, `001-TSR.md` | TSR folds v1's VERDICT + CODE-REVIEW |
 | `SAD` | `architecture/` | `SAD.md` | project singleton |
 | `ADR` | `architecture/decisions/` | `ADR-NNNN-<slug>.md` | NEW global flat numbering |
@@ -147,7 +152,7 @@ Mandatory diagram slots per artifact type. Each diagram source (`.puml`) lives u
 | TASKS | DAG (PlantUML activity) | `dag` |
 | RUNBOOK | deploy activity, rollback activity | `deploy`, `rollback` |
 | ADR | status state-machine (MANDATORY); per-option sketches (optional) | `adr-status`, `option` |
-| CHARTER, PRD, API, TEST, TSR, RELEASE | none | — |
+| CHARTER, PRD, API, TEST, TSR, RELEASE, PLAN | none | — |
 
 ## Type-specific frontmatter
 
@@ -208,6 +213,16 @@ tasks_done: <int>
 ```
 
 `S-TASKS-001` is **mutable by design** — its lockfile entry MUST carry `confirmed: false` so `validate-drift` skips it. Implementer-tier owners (`@backend`, `@frontend`) self-report by flipping their row from `pending` to `in_progress` on pickup and to `done` on exit-criterion completion. Read-only-tier owners (`@evaluator`, `@reviewer`) do NOT self-report; their task status is derived at read time from the TSR frontmatter — `@evaluator.done ⟺ TSR.eval_verdict ∈ {PASS, FAIL}`; `@reviewer.done ⟺ TSR.rev_verdict ∈ {APPROVED, REQUEST_CHANGES}`. `ESCALATE-<id>.md` presence at the feature dir overrides task status with `blocked`.
+
+### PLAN-`<id>`.md (NEW v2.2.0 — only when `/orchestra sprint --think` is set)
+
+```yaml
+feature_id: <feature_id>           # e.g., "001-foo"
+option_count: <int>                # MUST equal numbered options in S-OPTIONS-001
+recommendation: <Option-A|Option-B|Option-C|...|pending>
+```
+
+`@lead` is sole author; one fill per `--think` cycle (no mutation after handoff). `--delegate` may write a sibling `PLAN.choice.yaml` (NOT a lockfile-tracked artifact) carrying the user's accepted option. PLAN body is reference-only — no other artifact's lockfile cites it via `references[]`. Skipped entirely on the default flow (no `--think`).
 
 ### TEST-`<id>`.md
 
@@ -319,4 +334,4 @@ Brief classification artifact for `template` / `docs` / `review-only` intents (p
 
 ## Versioning
 
-Bump `revision:` when adding/renaming type-specific keys, when adding/removing artifact types, or when changing the diagram-slot table. v2.0.0's revision is `4` (was 3 in v1).
+Bump `revision:` when adding/renaming type-specific keys, when adding/removing artifact types, or when changing the diagram-slot table. v2.0.0's revision was `4` (was 3 in v1); v2.2.0 bumps to `5` (added PLAN type for `--think`/`--delegate` flow).

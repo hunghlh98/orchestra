@@ -139,9 +139,15 @@ Agent({
 
 **Step 4 — Confidence override (optional).** If `--confidence` flag in `$ARGUMENTS`, override @lead's feature-confidence classification before downstream agents read it.
 
+**Step 4b — `--think` / `--delegate` flag gate.** If `$ARGUMENTS` contains `--think` or `--delegate`, require `intent.intent ∈ {feature, refactor}`. Otherwise emit `[orchestra] warn --think|--delegate ignored on intent=<intent>` and clear the flags before Step 5. (`--delegate` implies `--think` — both flags trigger the PLAN scaffold; `--delegate` adds the user-choice gate after `@lead` fills PLAN.) The flags are no-ops on `docs`, `template`, `hotfix`, `review-only` intents because those have no `@lead` design step to surface options for.
+
 **Step 5 — Spawn the workflow agents per the routing taxonomy.** Spawn ONLY the agents listed for the classified intent, in order. Each transition:
 
 (a) **Pre-spawn scaffold (v2.0+).** For each artifact in the next agent's whitelist that does NOT yet exist on disk, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js <type> <feature-id-or-flag> [<slug>] [--mode=full|brief])`. Examples: `scaffold-artifact CHARTER 001-foo foo --mode=full` for `@product` on a feature intent; `scaffold-artifact PRD 001-foo foo` next; `scaffold-artifact FRS 001-foo foo` next. The dispatcher (this context) has Bash; agents do not. Each scaffold call writes the artifact body (with locked anchors + FILL placeholders), the paired `<artifact>.lock.yaml` (with seeded sections + diagrams[]), and stub `.puml` source files for any required diagrams. Idempotent — re-running on an existing artifact exits 2 unless `--force` is passed.
+
+(a') **PLAN scaffold (one-shot; only when `--think` is set, per Step 4b).** Before the FIRST `@lead` spawn for this feature, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js PLAN <feature-id>)`. This writes `<feature-dir>/planning/<NNN>-PLAN.md` with 5 anchored FILL spans (S-PROBLEM-001 / S-OPTIONS-001 / S-TRADEOFFS-001 / S-RECOMMENDATION-001 / S-OPEN-001). The first `@lead` spawn prompt gains the directive: `--think mode: fill <feature-dir>/planning/<NNN>-PLAN.md BEFORE TDD/CONTRACT. Author ≥3 distinct options; populate Trade-offs 1:1 with Options; pick one as the Recommendation.` PLAN scaffold runs once per `--think` cycle — re-runs are no-op (existing-artifact exit code; we do NOT pass `--force`).
+
+(a'') **`--delegate` user choice (when `--delegate` is set, after `@lead` Writes PLAN.md).** Read `<feature-dir>/planning/<NNN>-PLAN.md`. Call `AskUserQuestion` ONCE: each numbered Option from the `S-OPTIONS-001` anchor becomes a choice; the option named in `S-RECOMMENDATION-001` is highlighted as the default. Write the user's accepted choice to `<feature-dir>/planning/PLAN.choice.yaml` as `{ chosen: <Option-letter-or-number>, source: user-delegate, accepted_at: <ISO-8601> }`. The next `@lead` spawn (TDD authorship) carries `--delegate-chose: <Option-letter>` in its prompt as the binding seed. This single AskUserQuestion call is the documented carve-out from the per-tier confidence budget (see the `AskUserQuestion budget` heading below).
 
 (b) **Spawn agent.** Pass the scaffolded artifact path(s) in the agent's prompt so the agent can Read them. Agents fill `<!-- FILL: ... -->` spans and Write the artifact back; the hash-stamper hook fires on Write and stamps hashes into the paired lockfile.
 
@@ -200,6 +206,8 @@ On terminal state:
 ### AskUserQuestion budget
 
 Each spawned agent applies its own confidence-tier question budget per its body. Three rejection rounds in any review stage trip the circuit breaker → `DEADLOCK-<id>.md`, halt, escalate.
+
+**`--delegate` carve-out (v2.2.0+).** When `--delegate` is set on `/orchestra` or `/orchestra sprint` (per Step 4b), the dispatcher fires exactly one `AskUserQuestion` after `@lead` Writes PLAN.md (Step 5(a'')). This call is OUTSIDE the per-agent confidence budget — it is a user-elicited fork choice over the PLAN's `S-OPTIONS-001` anchor, not a clarification round. It does NOT count toward the 3-rejection circuit breaker. There is no other `--delegate` AskUserQuestion in the run.
 
 ## /orchestra sprint [--size N]
 
