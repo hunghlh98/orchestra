@@ -15,14 +15,16 @@ Invoked by the dispatcher when the user types `/orchestra release`. Smoke-test t
 ## Algorithm
 
 1. **Verify gates.** Walk all artifacts in scope for the release. Halt with the failing artifact path on any of:
-   - `confirmed: false` on a section that is required by its artifact type per `schemas/pipeline-artifact.schema.md`
+   - `confirmed: false` (in the artifact's lockfile `sections:` block) on a section required by its type per `schemas/pipeline-artifact.schema.md`
    - `drift-on-confirmed` (validate-drift output)
-   - Failing CONTRACT criterion (verdict `FAIL` on a `critical: true` row, or aggregate `weighted_score < passing_score`)
+   - Failing CONTRACT criterion: `verify/<NNN>-TSR.md` frontmatter `eval_verdict: FAIL`, or `eval_score < CONTRACT.passing_score`, or any `critical: true` row in `S-EVAL-TABLE-001` shows FAIL
+   - Reviewer block: TSR frontmatter `rev_verdict: REQUEST_CHANGES`
+   - Open `DEADLOCK-*.md` or `DEADLOCK-ADR-*.md` anywhere under `pipeline/`
 
 2. **Spawn `@ship` to author release artifacts.**
-   - `releases/RELEASE-vX.Y.Z.md` — version, date, summary, included PRs/features, gates cleared.
+   - `releases/RELEASE-vX.Y.Z.md` — version, date, summary, included PRs/features, gates cleared, **plus `S-ANNOUNCEMENT-001` section** (one paragraph public-facing announcement; v2.0 folded the standalone ANNOUNCEMENT artifact into RELEASE).
    - `runbooks/RUNBOOK-vX.Y.Z.md` — only if topology changed (new service, new dependency, new env var, migration).
-   - `ANNOUNCEMENT-<id>.md` — one sentence, link to RELEASE.
+   - `verify/<NNN>-TSR.md` `S-SHIP-001` — ALLOW / HOLD decision plus rationale, set after gate verification.
 
 3. **Draft release commit message** by invoking the `commit-work` skill. `@ship` gets the staged diff and produces the Conventional Commits message.
 

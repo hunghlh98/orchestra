@@ -14,20 +14,22 @@ Invoked by the dispatcher when the user types `/orchestra resume [<feature-id>]`
 
 ## Algorithm
 
-1. **Enumerate candidates.** List `pipeline/*/` dirs missing the terminal artifact for their routed intent: `feature` requires a `RELEASE-vX.Y.Z.md.features` mention; `hotfix` / `template` / `refactor` require `verify/<NNN>-VERDICT.md`; `review-only` / `docs` require `verify/<NNN>-CODE-REVIEW.md`. 0 candidates → emit `[orchestra] resume no in-flight features` and exit. 1 → auto-select. >1 → `AskUserQuestion` with the list. If `<feature-id>` arg was passed, validate it against the candidate list; mismatch → write `DEADLOCK-resume-<id>.md` and halt.
+1. **Enumerate candidates.** List `pipeline/*/` dirs missing the terminal artifact for their routed intent: `feature` requires a `RELEASE-vX.Y.Z.md.features` mention; `hotfix` / `template` / `refactor` / `review-only` / `docs` require `verify/<NNN>-TSR.md` with frontmatter `ship: ALLOW` (per v2.0 — TSR replaces v1's separate VERDICT/CODE-REVIEW). 0 candidates → emit `[orchestra] resume no in-flight features` and exit. 1 → auto-select. >1 → `AskUserQuestion` with the list. If `<feature-id>` arg was passed, validate it against the candidate list; mismatch → write `DEADLOCK-resume-<id>.md` and halt.
 
 2. **Validate prerequisites.** Read `pipeline/<feature-id>/intent.yaml`. **Missing → fail closed**: write `DEADLOCK-resume-<feature-id>.md` (`triggered_by_stage: RESUME`, body: "intent.yaml absent; re-run /orchestra <natural language>") and halt — an unexpected missing-file state could mask a real bug. Then scan the feature dir:
    - `SUMMARY-<id>.md` present → emit `[orchestra] resume <feature-id> already terminal` and exit.
    - `DEADLOCK-<id>.md` present → emit the standard banner per `commands/orchestra.md ## Status output` and halt; deadlocks need manual rescope.
-   - `ESCALATE(-ARCH)?-<id>.md` with `resolution: pending` → emit banner + `AskUserQuestion` ("ESCALATE pending: `<reason from frontmatter>`. Resolved externally?"). On reject → halt; on accept → proceed.
+   - `ESCALATE(-ARCH|-ADR)?-<id>.md` with `resolution: pending` → emit banner + `AskUserQuestion` ("ESCALATE pending: `<reason from frontmatter>`. Resolved externally?"). On reject → halt; on accept → proceed.
+   - `DEADLOCK-ADR-<NNNN>.md` present → emit banner; ADR-deadlocks need manual rescope just like other deadlocks.
 
 3. **Find resume point.** Read `plan/<NNN>-TASKS.md` and walk the table topologically (respect Blocked-by edges). For each task in order:
    - `Status = done` → skip.
-   - Owner is T-A (`@evaluator` / `@reviewer`) → derive status from verdict frontmatter: `@evaluator`'s task is `done` ⟺ `verify/<NNN>-TEST.md.verdict ∈ {PASS, FAIL}`; `@reviewer`'s task is `done` ⟺ `verify/<NNN>-CODE-REVIEW.md.verdict ∈ {APPROVED, REQUEST_CHANGES}`. Derived `done` → skip. Verdict `pending` → this is the resume point.
-   - Owner is T-B (`@product` / `@lead` / `@test` / `@ship`) → derive from artifact existence with `confirmed: true` for the row's exit criterion. Match → skip; otherwise this is the resume point.
+   - Owner is T-A (`@evaluator` / `@reviewer`) → derive status from TSR frontmatter: `@evaluator`'s task is `done` ⟺ `verify/<NNN>-TSR.md.eval_verdict ∈ {PASS, FAIL}`; `@reviewer`'s task is `done` ⟺ `verify/<NNN>-TSR.md.rev_verdict ∈ {APPROVED, REQUEST_CHANGES}`. Derived `done` → skip. Verdict `pending` → this is the resume point.
+   - Owner is `@lead` for an ADR-open subroutine → derive status from `architecture/decisions/ADR-<NNNN>-<slug>.md` frontmatter `status`: `done` ⟺ `status ∈ {accepted, deprecated}` OR `DEADLOCK-ADR-<NNNN>.md` exists. Otherwise the ADR is the resume point.
+   - Owner is T-B (`@product` / `@lead` / `@test` / `@ship`) → derive from artifact existence with `confirmed: true` (in lockfile) for the row's exit criterion. Match → skip; otherwise this is the resume point.
    - Otherwise (T-C implementer with `Status ∈ {pending, in_progress}`) → this is the resume point.
 
-4. **REQUEST_CHANGES gate.** If the resume point follows a `verify/<NNN>-CODE-REVIEW.md.verdict = REQUEST_CHANGES`, do NOT auto-respawn the implementer. Emit banner + `AskUserQuestion` ("Last review verdict: REQUEST_CHANGES (`<N findings>`). Respawn @`<owner>` for revision, or halt to address findings manually?"). On accept → respawn at Step 5. On reject → halt with no further writes.
+4. **REQUEST_CHANGES gate.** If the resume point follows a `verify/<NNN>-TSR.md.rev_verdict = REQUEST_CHANGES`, do NOT auto-respawn the implementer. Emit banner + `AskUserQuestion` ("Last review verdict: REQUEST_CHANGES (`<N findings>`). Respawn @`<owner>` for revision, or halt to address findings manually?"). On accept → respawn at Step 5. On reject → halt with no further writes.
 
 5. **Spawn.** Issue an `Agent({ subagent_type, prompt })` call per the smart-router Step 1 shape. The prompt MUST include: routed intent from `intent.yaml`, the feature_id, prior artifact pointers per the routing taxonomy, the intent-whitelist clause from Step 5 of the smart router, AND a resume directive: "Your task is `T-<id>` in `plan/<NNN>-TASKS.md`. Prior `Updated by` / `Updated at` columns may indicate partial work — Read existing artifacts before re-writing. Idempotent re-write is acceptable."
 

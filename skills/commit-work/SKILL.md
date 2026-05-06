@@ -11,7 +11,7 @@ Reads `git diff --staged` and produces a Conventional Commits 1.0.0 message: `<t
 ## When to use
 
 - User invoked `/orchestra commit` — the smart commit-message subcommand.
-- `@ship` is finalizing a feature and needs a commit (or several) for the release diff.
+- `@ship` is finalizing a feature and needs a commit (or several) for the release diff. `@ship` reads gate status from `verify/<NNN>-TSR.md` frontmatter (`eval_verdict`, `rev_verdict`) before invoking this skill.
 - Any agent has just modified files and wants to land them as a single coherent commit.
 
 You do **not** invoke this skill for amending or rebasing — those are destructive and require explicit user approval per the global CLAUDE.md "executing actions with care" guidance. Generate fresh commits, not history rewrites.

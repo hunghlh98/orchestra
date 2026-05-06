@@ -10,7 +10,7 @@ Grades a code change with explicit severity tagging and an `APPROVED` / `REQUEST
 
 ## When to use
 
-- `@reviewer` has been spawned with a verify/<NNN>-TEST.md verdict block in PASS state.
+- `@reviewer` has been spawned with `verify/<NNN>-TSR.md` eval halves in PASS state (frontmatter `eval_verdict: PASS`).
 - The diff is staged or committed and ready for grading.
 - A `@evaluator` PASS came back too fast and you want a sanity pass.
 
