@@ -17,6 +17,7 @@
     "test:hash-stamper": "node scripts/test-hash-stamper.js",
     "test:scaffold": "node scripts/test-scaffold.js",
     "test:validate-extensions": "node scripts/test-validate-extensions.js",
+    "test:validate-backlog": "node scripts/validate-backlog.js",
     "test:agents": "node scripts/test-agents.js",
     "test:bash-strip": "node scripts/test-bash-strip.js",
     "test:drift": "node scripts/validate-drift.js",
@@ -24,6 +25,6 @@
     "test:metrics": "node scripts/test-metrics.js",
     "test:bootstrap": "node scripts/test-bootstrap.js",
     "test:probe": "node scripts/test-probe.js",
-    "test": "npm run validate && npm run test:hooks && npm run test:hash-stamper && npm run test:scaffold && npm run test:validate-extensions && npm run test:agents && npm run test:bash-strip && npm run test:drift && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:probe"
+    "test": "npm run validate && npm run test:hooks && npm run test:hash-stamper && npm run test:scaffold && npm run test:validate-extensions && npm run test:validate-backlog && npm run test:agents && npm run test:bash-strip && npm run test:drift && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:probe"
   }
 }
