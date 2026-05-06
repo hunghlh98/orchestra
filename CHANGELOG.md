@@ -6,7 +6,74 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Post-1.0.0 hotfixes and follow-ups. Stays under `[Unreleased]` until the next tag is cut. No v1.x version flip yet.
+(no entries yet — placeholder for post-2.0.0 work)
+
+## [2.0.0] — 2026-05-06
+
+Major release. Two motions ship under the 2.0.0 umbrella: (1) the **doc-output overhaul** (`docs/DESIGN-005-doc-output-overhaul.md`) — pipeline artifact canon collapsed from 14 → 12 + conditional ADRs, provenance moved to `<artifact>.lock.yaml` sidecar, mandatory PlantUML diagrams, scaffold-then-fill template engine, ADR pattern, TSR fold, ANNOUNCEMENT folded into RELEASE; and (2) the **v1.0.1 streamline initiative** (originally targeted for a 1.0.1 patch that never tagged) — agent-body trims, references-file demotions, status-output compression, routing-taxonomy externalization. No automated migration — v1.x consumer projects rerun from intent.
+
+Composite token reduction across the whole release vs pre-streamline baseline: `commands/orchestra.md` 3,141 → 2,520 words (−20%); mean `agents/*.md` 785 → ~660 words (−16%); 11-PR new-feature surface adds the lockfile primitive, scaffold engine, two new skills, validator extensions, schema rewrite, and dispatcher integration.
+
+### BREAKING (doc-output overhaul)
+
+- **Pipeline artifact canon collapsed from 14 → 12 (+ conditional ADRs):**
+  - `verify/<NNN>-VERDICT.md` + `verify/<NNN>-CODE-REVIEW.md` → folded into `verify/<NNN>-TSR.md` (single file with single-writer-per-section discipline; `@evaluator` writes `S-EVAL-VERDICT-001` + `S-EVAL-TABLE-001`; `@reviewer` writes `S-REV-VERDICT-001` + `S-REV-FINDINGS-001`; `@ship` writes `S-SHIP-001`).
+  - `ANNOUNCEMENT-<NNN>.md` / `ANNOUNCEMENT-vX.Y.Z.md` → folded into `RELEASE-vX.Y.Z.md` `S-ANNOUNCEMENT-001` section.
+  - **6 routing-orphan types dropped:** `DOC`, `IMPL-NOTES`, `IMPL-BE`, `IMPL-FE`, `CODE-DESIGN-BE`, `CODE-DESIGN-FE` (declared in v1 schema but no intent ever emitted them). `COMMIT-MSG` is no longer a file artifact (string output of `commit-work` skill only).
+  - **3 new types:** `<NNN>-CHARTER.md` (Planning, `mode: full | brief`), `ADR-<NNNN>-<slug>.md` (global flat numbering at `architecture/decisions/`), `<NNN>-TSR.md` (folded VERDICT + CODE-REVIEW).
+- **Provenance moved from artifact frontmatter to paired `<artifact>.lock.yaml` sidecar.** Body frontmatter retains only `id`, `type`, `created`, `revision`, `status`, `version` (where applicable), and type-specific minimal fields. `sections:` and `references:` blocks are NO longer in body frontmatter — they live in the lockfile alongside a NEW `diagrams:` block tracking PlantUML source + rendered hashes.
+- **Diagrams MANDATORY per artifact type** (PlantUML source `.puml` → SVG via the `/plantuml` skill; both hashed in lockfile):
+  - FRS: use-case
+  - SAD: C4 L1 (Context) + C4 L2 (Container)
+  - TDD: C4 L3 (Component) + sequence-per-flow + ER + state-machine *(omittable when no lifecycle)*
+  - CONTRACT: service-contract + sequence-per-critical-criterion
+  - TASKS: DAG
+  - RUNBOOK: deploy + rollback
+  - ADR: status state-machine (NON-omittable)
+- **Authoring switched to scaffold-then-fill.** Dispatcher (parent context, has `Bash`) runs `scripts/scaffold-artifact.js` before each agent spawn; agents fill `<!-- FILL: -->` placeholders and Write back. The validator's `structural-diff` mode rejects anchor drift; `lockfile-presence` rejects scaffold-managed artifacts without a paired lockfile.
+- **`hooks/scripts/hash-stamper.js` now operates only-when-paired** — writes to `<artifact>.lock.yaml` only when one exists alongside; legacy v1 hand-authored writes pass through unstamped. `validate-drift.js` retains a backward-compat path that reads from inline frontmatter when no lockfile is paired (so v1 dev fixtures still pass).
+- **v2.0 ADR workflow:** `@lead` proposes (`status: proposed`); `@reviewer` reviews (APPROVED → flip to `accepted`; REQUEST_CHANGES → bump `review_round`); 3-round circuit breaker → `DEADLOCK-ADR-<NNNN>.md`. State-machine diagram is MANDATORY for every ADR.
+- **No automated migration.** v1.x consumer projects with existing `pipeline/` artifacts must rerun from intent. Mid-flight features that started under v1 should be re-routed via `/orchestra resume` after a clean `git init` of the feature dir, OR finished manually under v1 frontmatter conventions before upgrading.
+
+### Added (doc-output overhaul, 11 commits)
+
+- `scripts/scaffold-artifact.js` — Node ESM atomic template engine; single CLI; idempotent-by-default with `--force` override; ADR auto-numbers next NNNN; CHARTER mode dispatch; non-orchestra path refused.
+- `scripts/bump-version.js` — atomic 3-file version updater (VERSION + package.json + plugin.json); surgical regex on the JSON `"version"` field preserves all other formatting + key order; SemVer 2.0.0 input validation.
+- `schemas/lockfile.schema.md` — normative spec for `<artifact>.lock.yaml` (top-level keys, grammar constraint, bidirectional invariant with body anchors, diagram-kind enum).
+- `schemas/templates/_lockfile.template.yaml` + 14 type templates: `CHARTER-full`, `CHARTER-brief`, `PRD`, `FRS`, `SAD`, `TDD`, `API.openapi.yaml`, `CONTRACT`, `TASKS`, `TEST`, `TSR`, `RELEASE`, `RUNBOOK`, `ADR`.
+- `skills/plantuml/` — cloned from upstream `SpillwaveSolutions/plantuml@MIT` (license verified). Trimmed `examples/` (orchestra is language-agnostic). Ships `convert_puml.py` + `process_markdown_puml.py` + 19-diagram-type reference docs.
+- `skills/c4-architecture/` — single-file skill with C4-PlantUML stdlib output (`!include <C4/C4_Container>` + macros). Structure adapted from Mermaid-output upstream; output is original work (`origin: orchestra-internal`).
+- `scripts/validate.js` 7 new pure-function validators: `validateStructuralDiff`, `validateLockfilePresence`, `validateLockfileGrammar`, `validateDiagramHashes`, `validateOrphanTypes`, `validateFoldCorrectness`, `validateSoftCap`.
+- `scripts/test-validate-extensions.js` — 45 mutation assertions across the 7 validators (M11–M19 + soft-cap warn/strict + inverse fixtures).
+- `scripts/test-scaffold.js` — 116 mutation assertions covering every type's anchor parity, lockfile shape, diagram seeding, idempotency, ADR numbering, CHARTER mode dispatch, bad-input exit codes.
+- `scripts/test-hash-stamper.js` — 27 mutation assertions covering only-when-paired sidecar mode, `.puml`/`.svg` whole-file hashing, references resolution, env opt-out.
+- `commands/orchestra.md` Step 5(a) pre-spawn scaffold + Step 5c ADR-open subroutine + Step 6 v2 narration + Step 7 expanded terminal-state regex.
+- New exception types: `ESCALATE-ADR-<NNNN>.md` (reviewer/implementer flags an undocumented system-affecting decision), `DEADLOCK-ADR-<NNNN>.md` (3-round ADR circuit-break).
+- `docs/DESIGN-005-doc-output-overhaul.md` — 643-line design doc capturing the entire v2 motion (canon, schemas, scaffold-engine, validator extensions, render path, ADR workflow, TSR co-authorship, hash-stamper sidecar mode, agent + skill edit list, PR sequencing, follow-ups, decision trace).
+
+### Changed (doc-output overhaul)
+
+- `hooks/scripts/hash-stamper.js` — rewritten for only-when-paired sidecar mode. Writes to `<artifact>.lock.yaml` instead of inline frontmatter. Adds `.puml` + `.svg` whole-file hashing into `diagrams[]` entries. References resolution prefers upstream lockfile; falls back to upstream frontmatter for v1 legacy.
+- `hooks/lib/section-hash.js` — adds `hashFile(absPath)` whole-file hasher; ANCHOR_RE regex updated from `S-[A-Z]+-\d{3}` to `S-[A-Z]+(?:-[A-Z]+)*-\d{3}` to support multi-segment IDs (`S-NON-GOALS-001`, `S-EVAL-VERDICT-001`, `S-ADR-INDEX-001`). Pre-existing v1 silent-drop bug fixed (smoke-6's PRD had `S-NON-GOALS-001: hash: TBD` invisibly because v1 regex didn't match).
+- `scripts/validate-drift.js` — dual-mode read: lockfile preferred, inline frontmatter fallback for v1 legacy.
+- `schemas/pipeline-artifact.schema.md` — major rewrite (revision 3 → 4): drops 9 dead/folded types, adds 3 new types, adds diagram-slot requirements table, updates body-grammar regex doc, cross-links lockfile schema.
+- `schemas/routing-taxonomy.md` — per-intent updates (revision 1 → 2): TSR replaces VERDICT + CODE-REVIEW across all intents; CHARTER (mode: brief) replaces `INTENT-<id>.md` for template/docs/review-only intents; ADR conditional sub-flow added to feature/refactor.
+- All 8 agents (`product`, `lead`, `backend`, `frontend`, `test`, `evaluator`, `reviewer`, `ship`): `tools:` arrays preserved (tier discipline intact); workflows switched from freehand authoring to scaffold-fill via dispatcher pre-spawn. `lead` adds full ADR-open subroutine. `reviewer` adds ADR-review subroutine + ESCALATE-ADR retroactive flagging. `evaluator`/`reviewer`/`ship` enforce single-writer-per-section discipline on TSR.
+- 9 of 11 skills updated (`code-review`, `commit-work`, `cut-release`, `evaluator-tuning`, `project-discovery`, `qa-test-planner`, `resume-pipeline`, `task-breakdown`, `write-contract`): output paths updated for v2 canon (TSR, CHARTER, lockfile); diagram authoring steps added; probe DSL re-statement removed from `qa-test-planner`'s output (probes live in CONTRACT only).
+- `scripts/test-streamline-fixture.sh` — adds orphan-type smoke gate (rejects `*-VERDICT.md`/`*-CODE-REVIEW.md`/`ANNOUNCEMENT-*.md`/`*-IMPL-{NOTES,BE,FE}.md`/`*-CODE-DESIGN-{BE,FE}.md` anywhere in repo) + integrates `test-validate-extensions.js`.
+- `package.json` `test` chain — adds `test:hash-stamper` + `test:scaffold` + `test:validate-extensions` between existing entries; adds `bump-version` script.
+
+### Removed (doc-output overhaul)
+
+- Artifact types `VERDICT`, `CODE-REVIEW`, `ANNOUNCEMENT`, `DOC`, `IMPL-NOTES`, `IMPL-BE`, `IMPL-FE`, `CODE-DESIGN-BE`, `CODE-DESIGN-FE`, `COMMIT-MSG-as-file` (folded or never routed).
+- Inline `sections:` and `references:` blocks from artifact body frontmatter.
+- Inline probe DSL re-statement in TEST.md (probes live in CONTRACT only).
+- Phantom `S-ADR-0001:` body slot from SAD (replaced by `S-ADR-INDEX-001` index table).
+- `verify/<NNN>-CRITERIA.md` singleton (deprecated; just the TSR `S-EVAL-*` halves now).
+
+### v1.0.1 streamline initiative (shipped under 2.0.0; never tagged separately)
+
+The PR-by-PR detail below was originally documented under `[Unreleased]` for a v1.0.1 patch that never tagged. It ships under the 2.0.0 umbrella. Token reduction targets and per-PR exit gates are preserved verbatim from the original entries.
 
 ### Refactor (PR #5 v1.0.1 — streamline plugin loading: status output + routing taxonomy externalize)
 
