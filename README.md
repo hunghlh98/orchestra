@@ -102,6 +102,14 @@ CI runs all 8 on every push and PR.
 
 MIT. See `package.json` for the canonical license declaration.
 
+## Acknowledgments
+
+Parts of orchestra borrow from or adapt upstream work. Credit where due:
+
+- [`skills/karpathy-guidelines/`](skills/karpathy-guidelines/SKILL.md) — adapted from [`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills); the underlying observations on LLM coding pitfalls are Andrej Karpathy's. Rephrased in orchestra's tier vocabulary.
+- [`skills/plantuml/`](skills/plantuml/) — cloned from [`SpillwaveSolutions/plantuml`](https://github.com/SpillwaveSolutions/plantuml) (MIT). Examples trimmed; conversion scripts unchanged.
+- [`skills/c4-architecture/`](skills/c4-architecture/) — structure adapted from a Mermaid-output upstream skill in `softaworks/agent-toolkit`; output rewritten for C4-PlantUML stdlib (`origin: orchestra-internal`).
+
 ## Refs
 
 - [`docs/PRD-001.md`](docs/PRD-001.md) — full v1.0.0 specification (the *why* and *what*)

@@ -30,6 +30,7 @@ For intents `hotfix`, `refactor`, `review-only`: the dispatcher should not spawn
 ## Skills
 
 You may invoke:
+- `karpathy-guidelines` — behavioral guidelines on assumptions, minimum surface, surgical edits, and verifiable goals. Apply during authoring; per-tier section emphasis is in the skill body.
 - `project-discovery` — to ground PRD/FRS authoring in the real codebase shape before writing speculative requirements.
 - `/plantuml` — to render the FRS use-case diagram from `.puml` source you author.
 

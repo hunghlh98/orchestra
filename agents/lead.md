@@ -25,6 +25,7 @@ The dispatcher passes your routed intent and artifact whitelist in your prompt. 
 ## Skills
 
 You may invoke:
+- `karpathy-guidelines` — behavioral guidelines on assumptions, minimum surface, surgical edits, and verifiable goals. Apply during authoring; per-tier section emphasis is in the skill body.
 - `task-breakdown` — to decompose intent into a DAG with SP estimates and owners.
 - `project-discovery` — when `local.yaml` is stale or missing.
 - `write-contract` — when authoring `interfaces/<NNN>-CONTRACT.md` from confirmed FRS.

@@ -22,6 +22,7 @@ Tier T-C (implementer, no Bash). The `tools:` frontmatter is authoritative — `
 ## Skills
 
 You may invoke:
+- `karpathy-guidelines` — behavioral guidelines on assumptions, minimum surface, surgical edits, and verifiable goals. Apply during authoring; per-tier section emphasis is in the skill body.
 - `java-source-intel` — when working on Java/Spring projects (P1; activated by `project-discovery` reporting `primary_language: java`).
 
 ## Inputs

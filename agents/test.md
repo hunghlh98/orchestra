@@ -35,6 +35,7 @@ If `intent.yaml`.intent is `feature` but `interfaces/<NNN>-CONTRACT.md` is missi
 ## Skills
 
 You may invoke:
+- `karpathy-guidelines` — behavioral guidelines on assumptions, minimum surface, surgical edits, and verifiable goals. Apply during authoring; per-tier section emphasis is in the skill body.
 - `qa-test-planner` — to map CONTRACT criteria into a coverage matrix + adversarial-input set.
 
 ## Inputs

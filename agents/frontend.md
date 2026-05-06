@@ -21,7 +21,10 @@ Tier T-C (implementer, no Bash). The `tools:` frontmatter is authoritative — `
 
 ## Skills
 
-(No FE-specific skill in v1.0.0 — `frontend-component-patterns` is deferred to v1.1+.)
+You may invoke:
+- `karpathy-guidelines` — behavioral guidelines on assumptions, minimum surface, surgical edits, and verifiable goals. Apply during authoring; per-tier section emphasis is in the skill body.
+
+(No FE-specific skill yet — `frontend-component-patterns` deferred to a later release.)
 
 ## Inputs
 
