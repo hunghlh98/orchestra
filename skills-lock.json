@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "c4-architecture": {
+      "source": "softaworks/agent-toolkit",
+      "sourceType": "github",
+      "skillPath": "skills/c4-architecture/SKILL.md",
+      "computedHash": "f35f57420c35f2e8413e1e22934ca3950cae8286499f6fbe978cff604c35cfcd"
+    },
+    "plantuml": {
+      "source": "spillwavesolutions/plantuml",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "f836ea8e23db32f89c472b0efbdfc9c1327f64258954d1a0c01c27646f1c349b"
+    }
+  }
+}
