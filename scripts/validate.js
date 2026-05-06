@@ -3,6 +3,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { resolve, dirname, basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "../hooks/lib/yaml-mini.js";
+import { hashFile } from "../hooks/lib/section-hash.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const errors = [];
@@ -259,6 +260,228 @@ function walkLeakyCites(dir) {
 walkLeakyCites(resolve(root, "agents"));
 walkLeakyCites(resolve(root, "commands"));
 walkLeakyCites(resolve(root, "skills"));
+
+// === Pipeline artifact validation (PR #3 / DESIGN-005 §S-VALIDATOR-001) ===
+// Pure functions — testable in isolation, not auto-walked by validate.js's
+// main flow (the consumer-side walker lives in scripts/validate-drift.js).
+// Each function returns errs[]; callers decide how to surface.
+
+// Anchor sets per artifact type. Mirrors scripts/scaffold-artifact.js TYPE_SPEC;
+// the duplication is deliberate — validate.js enforces, scaffold produces, and
+// they share the same source-of-truth (DESIGN-005 §S-SCHEMAS-001).
+export const REQUIRED_ANCHORS = {
+  CHARTER_full: ["S-PROBLEM-001", "S-SCOPE-001", "S-FEASIBILITY-001", "S-DECISION-001"],
+  CHARTER_brief: ["S-INTENT-001", "S-DECISION-001"],
+  PRD: ["S-PROBLEM-001", "S-USERS-001", "S-GOALS-001", "S-NON-GOALS-001", "S-METRICS-001", "S-OPEN-001"],
+  FRS: ["S-FRS-001", "S-ACCEPTANCE-001", "S-ERRORS-001", "S-USECASE-001"],
+  SAD: ["S-VISION-001", "S-CONTEXT-001", "S-CONTAINERS-001", "S-ADR-INDEX-001"],
+  TDD: ["S-COMPONENTS-001", "S-SEQUENCE-001", "S-DATA-MODEL-001", "S-STATE-001", "S-ERROR-HANDLING-001", "S-CONFIG-001", "S-RISKS-001"],
+  CONTRACT: ["S-INTERFACE-001", "S-SERVICE-CONTRACT-001", "S-SCORING-001", "S-CRITERIA-001"],
+  TASKS: ["S-DAG-001", "S-TASKS-001"],
+  TEST: ["S-COVERAGE-001"],
+  TSR: ["S-EVAL-VERDICT-001", "S-EVAL-TABLE-001", "S-REV-VERDICT-001", "S-REV-FINDINGS-001", "S-SHIP-001"],
+  RELEASE: ["S-WHATSNEW-001", "S-ENDPOINTS-001", "S-CONFIG-001", "S-BREAKING-001", "S-GATES-001", "S-KNOWN-001", "S-ANNOUNCEMENT-001"],
+  RUNBOOK: ["S-OVERVIEW-001", "S-LIFECYCLE-001", "S-DEPLOY-001", "S-ROLLBACK-001", "S-HEALTH-001", "S-FAILURE-001", "S-LOGS-001", "S-ENVVARS-001"],
+  ADR: ["S-STATUS-001", "S-CONTEXT-001", "S-DECISION-001", "S-CONSEQUENCES-001", "S-ALTERNATIVES-001"],
+};
+
+export const SOFT_CAPS = {
+  CHARTER_full: 50, CHARTER_brief: 25,
+  PRD: 120, FRS: 100, SAD: 200, TDD: 250, CONTRACT: 300,
+  TASKS: 60, TEST: 200, TSR: 150, RELEASE: 120, RUNBOOK: 180, ADR: 100,
+};
+
+// Filename patterns that v2 .orchestra/ MUST NOT contain (folded / dropped per DESIGN-005 §1).
+export const ORPHAN_PATTERNS = [
+  { pattern: /\d+-VERDICT\.md$/, reason: "VERDICT folded into TSR per v2.0" },
+  { pattern: /\d+-CODE-REVIEW\.md$/, reason: "CODE-REVIEW folded into TSR per v2.0" },
+  { pattern: /^ANNOUNCEMENT-/, reason: "ANNOUNCEMENT folded into RELEASE §S-ANNOUNCEMENT-001 per v2.0" },
+  { pattern: /\d+-IMPL-NOTES\.md$/, reason: "IMPL-NOTES dropped per v2.0 (never routed)" },
+  { pattern: /\d+-IMPL-(BE|FE)\.md$/, reason: "IMPL-BE/FE dropped per v2.0 (never routed)" },
+  { pattern: /\d+-CODE-DESIGN-(BE|FE)\.md$/, reason: "CODE-DESIGN-BE/FE dropped per v2.0 (never routed)" },
+];
+
+// Fold-correctness invariants: certain types must carry specific anchor combinations.
+export const FOLD_REQUIREMENTS = {
+  TSR: ["S-EVAL-VERDICT-001", "S-REV-VERDICT-001"],
+  RELEASE: ["S-ANNOUNCEMENT-001"],
+};
+
+// Multi-segment anchor extraction (mirrors hooks/lib/section-hash.js ANCHOR_RE).
+const ANCHOR_RE_GLOBAL = /<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/g;
+function extractAnchors(body) {
+  const ids = [];
+  let m;
+  while ((m = ANCHOR_RE_GLOBAL.exec(body)) !== null) ids.push(m[1]);
+  return ids;
+}
+
+// Type detection from filename. Returns null when the filename is not in the v2 canon.
+export function typeFromFilename(filePath) {
+  const base = basename(filePath);
+  if (base === "SAD.md") return "SAD";
+  if (/^ADR-\d{4}/.test(base)) return "ADR";
+  if (/^RELEASE-v/.test(base)) return "RELEASE";
+  if (/^RUNBOOK-v/.test(base)) return "RUNBOOK";
+  let m;
+  if ((m = base.match(/^\d+-([A-Z]+)\.md$/))) {
+    return Object.hasOwn(REQUIRED_ANCHORS, m[1]) ? m[1] : null;
+  }
+  if (/^\d+-API\.openapi\.yaml$/.test(base)) return "API";
+  return null;
+}
+
+function resolveAnchorKey(type, mode) {
+  if (type === "CHARTER") return mode === "brief" ? "CHARTER_brief" : "CHARTER_full";
+  return type;
+}
+
+// --- structural-diff: artifact body anchors vs canonical REQUIRED_ANCHORS ---
+export function validateStructuralDiff(relPath, body, type, mode) {
+  const errs = [];
+  const key = resolveAnchorKey(type, mode);
+  const expected = REQUIRED_ANCHORS[key];
+  if (!expected) return errs; // unknown type or whole-file artifact (API)
+  const found = extractAnchors(body);
+  const expectedSet = new Set(expected);
+  const foundSet = new Set(found);
+  const missing = expected.filter(a => !foundSet.has(a));
+  const extra = found.filter(a => !expectedSet.has(a));
+  if (missing.length > 0 || extra.length > 0) {
+    errs.push(`${relPath}: structural-drift — missing-anchors=[${missing.join(",")}] extra-anchors=[${extra.join(",")}]`);
+  }
+  return errs;
+}
+
+// --- lockfile-presence + paired path resolution ---
+export function lockfilePathFor(artifactPath) {
+  if (artifactPath.endsWith(".openapi.yaml")) return artifactPath.slice(0, -".openapi.yaml".length) + ".lock.yaml";
+  if (artifactPath.endsWith(".md")) return artifactPath.slice(0, -".md".length) + ".lock.yaml";
+  return null;
+}
+
+export function validateLockfilePresence(artifactPath) {
+  const errs = [];
+  const lockPath = lockfilePathFor(artifactPath);
+  if (!lockPath) return errs;
+  if (!existsSync(lockPath)) errs.push(`${artifactPath}: missing-lockfile (expected ${lockPath})`);
+  return errs;
+}
+
+// --- lockfile-grammar: yaml-mini round-trip + required keys + correct shapes ---
+export function validateLockfileGrammar(relPath, lockText) {
+  const errs = [];
+  let parsed;
+  try { parsed = parseYaml(lockText); }
+  catch (e) { errs.push(`${relPath}: lockfile-grammar — parse error: ${e.message}`); return errs; }
+  if (!parsed || typeof parsed !== "object") {
+    errs.push(`${relPath}: lockfile-grammar — top-level not a map`);
+    return errs;
+  }
+  for (const k of ["artifact_id", "artifact_path", "schema_revision", "sections"]) {
+    if (!Object.hasOwn(parsed, k)) errs.push(`${relPath}: lockfile-grammar — missing required key '${k}'`);
+  }
+  if (parsed.sections !== null && parsed.sections !== undefined &&
+      (Array.isArray(parsed.sections) || typeof parsed.sections !== "object")) {
+    errs.push(`${relPath}: lockfile-grammar — 'sections' must be a map`);
+  }
+  if (parsed.references !== undefined && parsed.references !== null && !Array.isArray(parsed.references)) {
+    errs.push(`${relPath}: lockfile-grammar — 'references' must be a list`);
+  }
+  if (parsed.diagrams !== undefined && parsed.diagrams !== null && !Array.isArray(parsed.diagrams)) {
+    errs.push(`${relPath}: lockfile-grammar — 'diagrams' must be a list`);
+  }
+  return errs;
+}
+
+// --- diagram-hash: source/.svg files exist; hashes match recomputed (when --with-diagrams) ---
+export function validateDiagramHashes(relPath, lockfile, artifactDir, opts = {}) {
+  const errs = [];
+  const withDiagrams = !!opts.withDiagrams;
+  if (!Array.isArray(lockfile?.diagrams)) return errs;
+  for (const d of lockfile.diagrams) {
+    if (!d || typeof d !== "object") continue;
+    if (d.omit === true) continue;
+    if (typeof d.source === "string") {
+      const sp = join(artifactDir, d.source);
+      if (!existsSync(sp)) {
+        errs.push(`${relPath}: diagram-source-drift kind=${d.kind || "?"} — source file missing (${d.source})`);
+      } else if (withDiagrams) {
+        const recomputed = hashFile(sp);
+        if (d.source_hash && d.source_hash !== "TBD" && d.source_hash !== recomputed) {
+          errs.push(`${relPath}: diagram-source-drift kind=${d.kind || "?"} — recorded ${d.source_hash.slice(0,16)}... != computed ${recomputed.slice(0,16)}...`);
+        }
+      }
+    }
+    if (typeof d.rendered === "string") {
+      const rp = join(artifactDir, d.rendered);
+      const allowSentinel = d.rendered_hash === "sha256:UNRENDERED" || d.rendered_hash === "sha256:OMIT";
+      if (!existsSync(rp) && !allowSentinel) {
+        errs.push(`${relPath}: diagram-rendered-drift kind=${d.kind || "?"} — rendered file missing (${d.rendered}); set rendered_hash='sha256:UNRENDERED' if intentional`);
+      } else if (existsSync(rp) && withDiagrams) {
+        const recomputed = hashFile(rp);
+        if (d.rendered_hash && d.rendered_hash !== "TBD" && !allowSentinel && d.rendered_hash !== recomputed) {
+          errs.push(`${relPath}: diagram-rendered-drift kind=${d.kind || "?"} — recorded ${d.rendered_hash.slice(0,16)}... != computed ${recomputed.slice(0,16)}...`);
+        }
+      }
+    }
+  }
+  return errs;
+}
+
+// --- orphan-types: walk pipeline/ + architecture/ + releases/ + runbooks/ for dropped/folded type filenames ---
+export function validateOrphanTypes(orchestraDir) {
+  const errs = [];
+  if (!existsSync(orchestraDir)) return errs;
+  function walk(dir) {
+    let entries;
+    try { entries = readdirSync(dir); } catch { return; }
+    for (const entry of entries) {
+      const full = join(dir, entry);
+      let st;
+      try { st = statSync(full); } catch { continue; }
+      if (st.isDirectory()) walk(full);
+      else if (st.isFile()) {
+        for (const { pattern, reason } of ORPHAN_PATTERNS) {
+          if (pattern.test(entry)) {
+            const rel = full.startsWith(orchestraDir) ? full.slice(orchestraDir.length + 1) : full;
+            errs.push(`${rel}: orphan-type — ${reason}`);
+          }
+        }
+      }
+    }
+  }
+  walk(orchestraDir);
+  return errs;
+}
+
+// --- fold-correctness: TSR has both halves; RELEASE has §Announcement ---
+export function validateFoldCorrectness(relPath, body, type) {
+  const errs = [];
+  const required = FOLD_REQUIREMENTS[type];
+  if (!required) return errs;
+  const found = new Set(extractAnchors(body));
+  for (const anchor of required) {
+    if (!found.has(anchor)) {
+      errs.push(`${relPath}: fold-violation — missing ${anchor} (${type} fold required this anchor per v2.0)`);
+    }
+  }
+  return errs;
+}
+
+// --- soft-cap: per-type body line cap; warning by default, error in --strict mode ---
+export function validateSoftCap(relPath, body, type, mode, opts = {}) {
+  const errs = [];
+  const key = resolveAnchorKey(type, mode);
+  const cap = SOFT_CAPS[key];
+  if (!cap) return errs;
+  const lines = body.split("\n").length;
+  if (lines > cap) {
+    const msg = `${relPath}: soft-cap — ${lines} lines > ${cap} for type ${key}`;
+    errs.push(opts.strict ? msg : `WARN ${msg}`);
+  }
+  return errs;
+}
 
 // === Inline mutation tests for the rule + command validators (PR #7 T-716) ===
 // Run only when invoked directly (not when imported).
