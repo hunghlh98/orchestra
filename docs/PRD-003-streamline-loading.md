@@ -2,7 +2,8 @@
 id: PRD-003-streamline-loading
 title: orchestra — Streamline plugin loading (token-cost reduction)
 created: 2026-05-05
-status: planned
+status: shipped
+shipped_in: 2.0.0
 version: 1.0.1
 revision: 2
 sections:
@@ -169,7 +170,4 @@ These are the binding design decisions; rationale and trade-offs live in DESIGN-
 
 ## 11. Backlog (deferred) <a id="S-BACKLOG-001"></a>
 
-- Automated token-cost regression in CI (compare `wc -w` of consumer surface against a tracked baseline; fail PR on >+5% drift).
-- Migrate `<example>` blocks in agents from H2 prose to `examples/` files under each agent's notional skill (would require schema for agent→skill linkage; v1.2+).
-- Audit and trim `references/calibration-examples.md` itself if it has grown beyond the 8 boundary cases.
-- Compress the autonomy-classifier 3-axis decomposition table further (e.g., emoji glyphs for Human/AI/Both) — defer until lived-with for one release cycle.
+> **Migrated to canonical site.** See [`docs/BACKLOG.md`](BACKLOG.md). The token-cost-regression item has been reshaped per PRD-004 D-6 (γ-C: consumer-observed cost via `metrics-collector` + `/orchestra metrics`); supporting infrastructure already shipped in v2.0.0+ (per DESIGN-007 §S-INFRA-DELTA-001), with presentation-layer additions landing in v2.2.0 PR #5. Other speculative items from this section (agent `<example>` migration, `calibration-examples.md` audit, autonomy-classifier emoji compression) have been dropped per CLAUDE.md "Simplicity First — Nothing speculative."

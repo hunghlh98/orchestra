@@ -126,10 +126,9 @@ Two-commit shape per `/release-plugin`:
 
 ## 8. Risks & follow-ups
 
-- **License clarification**: if upstream adds an explicit license, our frontmatter and CHANGELOG attribution should be updated in a follow-up patch.
 - **Token budget**: v2.0.0 streamline brought mean `agents/*.md` from 785 → ~660 words (-16%). v2.1.0's +1 line per agent costs ~10 words across 5 agents — well within budget but worth re-measuring during the next streamline pass.
-- **Stale README status line**: `> **Status:** v1.0.0 released 2026-05-03.` at the bottom of README.md is unrelated to v2.1.0. Out of scope for this release; flag for the next docs touch.
-- **Future deferred FE skill**: `agents/frontend.md` still references `frontend-component-patterns` as deferred. v2.1.0 doesn't ship it; that remains a future motion.
+- **Stale README status line**: `> **Status:** v1.0.0 released 2026-05-03.` at the bottom of README.md is addressed in v2.2.0 PR #3 (Sweep 2 consumer-surface cleanup; PRD-004 §4.1.B).
+- **Deferred items migrated**: `frontend-component-patterns` skill is tracked at BL-0016 (deferred). License-clarification is contingent reactive maintenance — no backlog entry needed.
 
 ## 9. Decision log
 

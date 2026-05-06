@@ -611,7 +611,6 @@ Strict linear; each PR's tests need the prior PR's primitives.
 | F-3 | PR #1 author task | Decide hash-stamper handling for `.openapi.yaml`: current v1.0 PR-#2 comment in source says "passthrough until API artifacts ship in PR #5+". For v2.0, this is the moment — implement whole-file hash for OpenAPI lockfiles. |
 | F-4 | PR #2 author task | `scaffold-artifact.js`'s ADR `--global` mode reads `architecture/decisions/ADR-*.md` to compute next NNNN. Concurrent invocations could race. Out of scope for v2.0 (single-writer assumption per existing `commands/orchestra.md` pipeline plumbing); document as a known limitation. |
 | F-5 | future v2.1 | Auto-render hook for `.puml` writes (rejected for v2.0 to keep authoring explicit; revisit if agents prove unreliable at remembering to invoke `/plantuml`). |
-| F-6 | future v2.1 | ADR-tooling integration — `adr-tools` / `log4brains` interop. Naming convention `ADR-<NNNN>-<slug>.md` is already compatible; explicit support deferred. |
 
 ---
 

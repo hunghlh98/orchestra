@@ -224,7 +224,7 @@ References ship **only when SKILL.md cites them** AND the depth genuinely doesn'
 
 ### 2.4 PR #8 — Autonomy config (Small-Medium, ~5 files)
 
-Implements PRD §8.14 + DESIGN-002 §10. v1.0.0 ships `DRAFT_AND_GATE` as the hard-coded default, sync-pause via `AskUserQuestion` at four transitions, and a suggestion-only auto-classifier in `@lead`. Async `PAUSE-<phase>-<id>.md` artifacts and full `OPTION_SYNTHESIS` (`PROPOSAL-<id>.md`) are deferred to v1.1+ / v1.2+.
+Implements PRD §8.14 + DESIGN-002 §10. v1.0.0 ships `DRAFT_AND_GATE` as the hard-coded default, sync-pause via `AskUserQuestion` at four transitions, and a suggestion-only auto-classifier in `@lead`. Async `PAUSE-<phase>-<id>.md` artifacts (BL-0021) and full `OPTION_SYNTHESIS` / `PROPOSAL-<id>.md` (BL-0020) are tracked in [`docs/BACKLOG.md`](BACKLOG.md).
 
 #### Stream A — schema + bootstrap
 
@@ -263,7 +263,7 @@ Implements PRD §8.14 + DESIGN-002 §10. v1.0.0 ships `DRAFT_AND_GATE` as the ha
 - `@lead` produces a Consultant-shaped suggestion in a smoke fixture (architecture-proposal prompt → suggested `OPTION_SYNTHESIS`)
 - All previous validators stay green
 
-**Pre-merge gate:** R12 (auto-classifier accuracy) — diagnostic suggestions are advisory; bad suggestions don't block runs (user always has final say). Mitigation: ship suggestion-only in v1.0.0; revisit auto-accept thresholds in v1.1+ when telemetry data accumulates.
+**Pre-merge gate:** R12 (auto-classifier accuracy) — diagnostic suggestions are advisory; bad suggestions don't block runs (user always has final say). Mitigation: ship suggestion-only.
 
 **Estimated scope:** Small-Medium (~5 files of moderate prose + dispatcher wiring, ~1 contributor-day).
 
@@ -314,8 +314,8 @@ T-PA-01 (PRD §8.7 amendment) ──► PR #5 (skills)
 | **R8** Rule ≤40-line cap | PR #7 implementation | **Possibly blocking** | Aggressive multi-file split (already 4 per language). If still tight, amend PRD §8.8 to allow rule references/ |
 | **R9** Calibration source quality | PR #5 review | Informational | Walk through ≥1 boundary case using calibration-examples.md as judgment lens |
 | ~~R10~~ PRD §8.7 inconsistency | ~~Pre-flight~~ | **Resolved by T-PA-01** | done before PR #5 |
-| **R11** test-bash-strip name-set hard-coded | v1.1+ refactor | Out of scope | Acceptable for v1.0.0 |
-| **R12** Auto-classifier accuracy on novel intents | PR #8 review | Informational | Suggestion-only in v1.0.0 — bad suggestions don't block runs (user always has final say). Telemetry per PRD §8.14.5 (`runs/<id>.autonomy_level`) feeds v1.1+ refinement |
+| **R11** test-bash-strip name-set hard-coded | future refactor | Out of scope | Acceptable as-is |
+| **R12** Auto-classifier accuracy on novel intents | PR #8 review | Informational | Suggestion-only — bad suggestions don't block runs (user always has final say). |
 
 **No PR-blocking merge-gate**: R7 and R8 are "possibly blocking" only if a specific implementation overruns the cap; both have escape hatches (PRD amendment with justification). R6, R9, R12 are advisory.
 
@@ -385,7 +385,7 @@ Within a single PR, the streams in §3.2 can run as separate commits on the same
 
 - **Source code or prose** — every task in §2 specifies *what* file to write and *how it must validate*; the actual *content* lands in `/sc:sc-implement`.
 - **Release-time polish** — `RELEASE-v1.0.0.md`, distribution scripts, README expansion, install verification on clean machines. Separate workflow doc covers these.
-- **v1.1+ items** — specialist agents (`@architect`, `@ux`, `@security`, `@debugger`, `@pm`), 9 deferred skills, full Go/Python/Kotlin rule content, `/save`, `/load`, `/orchestra-disagree`, `/orchestra legacy`.
+- **Deferred features** — see [`docs/BACKLOG.md`](BACKLOG.md). Specialist agents (BL-0013), `migration-extraction` + `/orchestra legacy` (BL-0015), `/save`/`/load`/`/orchestra-disagree` (BL-0028), and other items are tracked there.
 
 ---
 

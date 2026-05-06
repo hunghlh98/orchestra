@@ -1,6 +1,6 @@
 # PRD-002 — Mid-run visibility & team shutdown
 
-**Status:** planned
+**Status:** shipped (v1.0.0; commit `a43bbb8`)
 **Author:** hunghlh@vng.com.vn
 **Date:** 2026-05-05
 **Source:** `/sc:sc-brainstorm` session, this repo
@@ -158,7 +158,4 @@ The `metrics-collector` hook emits a `team.shutdown` event to `events.jsonl` on 
 
 ## 8. Out of scope (deferred to future PRDs)
 
-- Heartbeat / stall detection (G2 from brainstorm — deferred per Q2).
-- Sprint-level rollup (G4 from brainstorm — deferred).
-- External sinks (Slack, CI, web dashboard — out of scope per Q3).
-- Replacing `runs/*.json` with SUMMARY-based digest (rejected per Q5 "thin enough").
+> **Migrated to canonical site.** See [`docs/BACKLOG.md`](BACKLOG.md). Heartbeat / stall-detection → BL-0007 (killed per PRD-004 §3.1). Sprint-level rollup → BL-0022 (deferred). External sinks → BL-0008 (killed). The `runs/*.json` SUMMARY-based-digest rejection (per Q5 "thin enough") is documented in §3 non-goals; not a backlog item.
