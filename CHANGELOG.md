@@ -6,7 +6,44 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-2.1.0 work)
+(no entries yet — placeholder for post-2.2.0 work)
+
+## [2.2.0] — 2026-05-06
+
+Minor release shipping three coordinated themes from `docs/PRD-004` + `docs/DESIGN-007` + `docs/WORKFLOW-004` (5 PRs):
+
+- **Theme α — backlog mechanism + curation pass.** Replaces five scattered "deferred to v1.1+" sites (PRD-001 §14, PRD-002 §8, PRD-003 §11, DESIGN-005 §14, DESIGN-006 §8, WORKFLOW-002 §5.5 + risk rows) with a single canonical `docs/BACKLOG.md` (28 entries: 12 killed + 16 deferred). Adds `scripts/validate-backlog.js` enforcing the grammar on every `npm test`. Drops consumer-surface roadmap leaks (`agents/backend.md`, `agents/frontend.md`, `commands/orchestra.md`, `skills/task-breakdown/SKILL.md`, `README.md`).
+- **Theme β — opt-in design fork.** Adds `--think` and `--delegate` flags to the dispatcher, plus the **PLAN** pipeline-artifact type (5 anchors: Problem / Options ≥3 / Trade-offs / Recommendation / Open). `--think` triggers a one-shot scaffold at `<feature-dir>/planning/<NNN>-PLAN.md` before the first `@lead` spawn; `--delegate` (implies `--think`) adds one user-facing AskUserQuestion gate on `S-OPTIONS-001`, persisting the choice at `planning/PLAN.choice.yaml`. Both flags are no-ops on docs/template/hotfix/review-only intents.
+- **Theme γ — consumer-observed cost.** Adds USD cost surfaces to the existing token telemetry. `hooks/lib/rate-card.js` is the single source of truth (Opus 4.7 list price); `metrics-collector.js` computes USD at write-time and persists into `tokens.jsonl` rows (`usd`) + `runs/<id>.json` (`cost_usd`). `scripts/metrics-summary.py` adds three columns (`Cost`, `Δ avg`, `Heaviest`) + cost-trend footer; `scripts/aggregate-metrics.py --cost` adds 30-day daily trend / per-intent distribution / top-5 most-expensive runs. Optional one-line cost banner at `/orchestra` Step 7 closure (default off; opt-in via `ORCHESTRA_METRICS_COST_BANNER=on`).
+
+Net consumer-surface delta: 1 new pipeline-artifact type (PLAN), 2 new dispatcher flags (`--think`, `--delegate`), 1 new env-var toggle (`ORCHESTRA_METRICS_COST_BANNER`). Schema revision `pipeline-artifact.schema.md` 4 → 5. Word counts on the consumer surface decrease net `−37` after Sweep 2 cleanup. `npm test` green: 13/13 chain entries (`validate / hooks / hash-stamper / scaffold / extensions / backlog / agents / bash-strip / drift / removability / metrics / bootstrap / probe`), 122 scaffold + 101 metrics assertions.
+
+### Added
+
+- **Theme α** — `docs/BACKLOG.md` (canonical site for deferred/killed proposals; 28 entries with `BL-NNNN-<slug>` IDs, status enum `proposed | accepted | in-flight | shipped | killed | deferred`); `scripts/validate-backlog.js` (180 lines; hard-fails on missing-body / orphan-section / bad-status / bad-ID / schema-version; soft-warns on ID gaps; wired into `npm test`).
+- **Theme β** — `schemas/templates/PLAN.template.md` (new template, slim frontmatter: `id / type / created / revision / feature_id / option_count / recommendation`); PLAN entry in `scripts/scaffold-artifact.js` `TYPE_SPEC` (feature-scoped, `folder=planning`, 5 anchors, no diagrams); PLAN row in `schemas/pipeline-artifact.schema.md` (revision 4 → 5: `planning/` folder layout, type→folder map, no-diagram-required list, type-specific frontmatter section); `agents/lead.md` Workflow step 7 fills the scaffolded PLAN under `--think` (subsequent steps renumbered 7→8 ... 10→11); `commands/orchestra.md` Step 4b intent gate, Step 5(a') one-shot scaffold, Step 5(a'') `--delegate` AskUserQuestion + `PLAN.choice.yaml` sidecar.
+- **Theme γ** — `hooks/lib/rate-card.js` (NEW; `RATES_USD_PER_MTOK` constant — Opus 4.7 list price `input $15` / `output $75` / `cache_read $1.50` / `cache_create $18.75` per MTok — and `computeUsd(tokens)` helper); `manifests/runtime-toggles.json` entry `config.metrics-cost-banner` (envVar `ORCHESTRA_METRICS_COST_BANNER`, default off; reserves the `config.*` namespace for dispatcher-side display toggles with no `install-modules` counterpart); `commands/orchestra.md` Step 7 sub-step 2 emits a one-line banner reading `tokens.jsonl` filtered by `run_id` (banner is subagent-only — parent dispatcher cost lands later in `runs/<id>.json` after the Stop hook fires; timing constraint documented inline).
+- `docs/PRD-004-backlog-mechanism-and-v2-curation.md`, `docs/DESIGN-007-backlog-and-v2-curation.md`, `docs/WORKFLOW-004-backlog-and-v2-curation.md` — dev-trace for the v2.2.0 motion (none ship to consumers).
+
+### Changed
+
+- **Theme α — dev-surface cleanup (Sweep 1).** `docs/PRD-001.md §14` 50-item body → 1-line pointer to BACKLOG; `docs/PRD-002` + `docs/PRD-003` frontmatter `status: planned` → `shipped` with `shipped_in:`; `docs/DESIGN-005 §14` F-6 row removed (already in BACKLOG); `docs/DESIGN-006 §8` license-clarification + frontend-component-patterns bullets dropped; `docs/WORKFLOW-002` four multi-touch edits (§5.5 list → pointer; line ~227 async PROPOSAL/PAUSE → `BL-0020`/`BL-0021`; line ~266 R12 telemetry promise dropped; lines ~317-318 R11 + R12 risk rows reworded). Net dev-surface diff: 13 insertions, 290 deletions across 7 files.
+- **Theme α — consumer-surface cleanup (Sweep 2).** `agents/backend.md` ~L18 + `agents/frontend.md` ~L19 — drop `(deferred to v1.1+)` parentheticals from FE/BE separation rules (active rules retained); `agents/frontend.md` ~L27 — delete orphan FE-skill roadmap line (now `BL-0016`); `skills/task-breakdown/SKILL.md` ~L116 — reword `v1.0.0 / v1.1+` version refs to "current agent role / needs-future-specialist" preserving the defer semantic; `commands/orchestra.md` ~L257 — delete orphan `Deferred (v1.1+):` line that leaked roadmap into `/orchestra help` (`/save`, `/load`, `/orchestra-disagree` → `BL-0028`; `/orchestra legacy` → `BL-0015`); `README.md` bottom — replace `Status: v1.0.0 released 2026-05-03` with `Status: v2.1.0 (current). See CHANGELOG.md`.
+- **Theme γ — metrics surfaces.** `hooks/scripts/metrics-collector.js` — `emitSubagentTokens` row gains `usd` field; `emitRunSummary` summary gains `cost_usd` field. `scripts/metrics-summary.py` — three new columns (`Cost`, `Δ avg`, `Heaviest`) + two-line cost-trend footer (median/p90 tokens + USD over last-10 + 15%-warn threshold); older runs without `cost_usd` render `—`. `scripts/aggregate-metrics.py` — new `--cost` flag triggers 30-day daily trend / per-intent distribution / top-5 most-expensive runs; reads pre-computed `cost_usd` (no rate-card duplication on the read side).
+- **Theme β/γ schema additions.** `schemas/runtime-toggles.schema.json` — description docs the `config.*` namespace carve-out; `scripts/test-removability.js` skips bidirectional check on `config.*` toggles (no `install-modules` entry expected).
+- **Test coverage.** `scripts/test-scaffold.js` — PLAN added to `EXPECTED_ANCHORS`, `EXPECTED_DIAGRAM_KINDS`, `typeFolder` map, `FEATURE_TYPES`, M9 anchor parity loop (113 → 122 assertions). `scripts/test-metrics.js` — 10 new assertions on `computeUsd()` unit shape + `cost_usd` integration shape (91 → 101 assertions).
+
+### Removed
+
+- `docs/optimization-pr-gamma-plan.md` — stale; v2.0 PR #5 already trimmed `commands/orchestra.md` beyond this plan's targets.
+- Five scattered "deferred to v1.1+" sections (PRD-001 §14 body, PRD-002 §8 body, PRD-003 §11 body, DESIGN-005 §14 F-6 row, DESIGN-006 §8 follow-up bullets, WORKFLOW-002 §5.5 list) — content reconciled into `docs/BACKLOG.md` (canonical) or dropped where shipped/killed.
+- Consumer-surface inline `(deferred to v1.1+)` parentheticals + roadmap lines on `agents/backend.md`, `agents/frontend.md`, `commands/orchestra.md`, `skills/task-breakdown/SKILL.md`, `README.md` (all reconciled into BACKLOG entries).
+
+### Dev-trace
+
+- `docs/PRD-004-backlog-mechanism-and-v2-curation.md` — `/sc:sc-brainstorm` output: problem / decisions / curation / FRS / non-goals / open Qs.
+- `docs/DESIGN-007-backlog-and-v2-curation.md` — `/sc:sc-design` output: scope / infra delta / BACKLOG schema / cleanup / PLAN artifact / cost-visibility / OQ resolutions / PR sequencing / risks.
+- `docs/WORKFLOW-004-backlog-and-v2-curation.md` — `/sc:sc-workflow` output: 5-PR dependency graph with task IDs, exit gates, smoke gates, risk attachments, release motion §8 hand-off.
 
 ## [2.1.0] — 2026-05-06
 
