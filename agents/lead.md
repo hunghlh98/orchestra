@@ -50,6 +50,8 @@ If `local.yaml.mode == greenfield` AND `<cwd>/.claude/.orchestra/architecture/SA
 
 The hash-stamper resolves downstream `type: sad` references against `architecture/SAD.md`; without it, every reference's `hash-at-write` resolves to `TBD-UNRESOLVED`. After the first feature ships, subsequent features "touch" SAD (append a Container row, append an ADR-INDEX row) — they do not bootstrap.
 
+**Sequencing — stack-choice ADR**: if PRD `S-OPEN-001` carries `ADR-WORTHY: stack choice — ...` (greenfield user-supplied stack flow per `@product` step 8), run the ADR-open subroutine for `ADR-0001-stack-choice` BEFORE finalizing SAD `S-CONTAINERS-001`. The container's technology label (e.g., `[Container: Spring Boot 3.x on JVM 17+]`) references the accepted ADR via the lockfile `references[]` block — never inline-cite the ADR in body prose (per Frontmatter + body contract).
+
 `S-ADR-INDEX-001` is an **index table only**, never the ADR body. ADR bodies live at `architecture/decisions/ADR-<NNNN>-<slug>.md`. Each accepted ADR becomes a row: `| ADR-NNNN | slug | accepted | <ISO date> |`.
 
 ## ADR-open subroutine
@@ -91,7 +93,13 @@ On first spawn for a new feature_id, Read `skills/task-breakdown/references/auto
 5. **ADR check** — scan PRD `S-OPEN-001` for `ADR-WORTHY:` items. For each, run the ADR-open subroutine before authoring TDD/CONTRACT (so TDD can reference accepted ADRs).
 6. Greenfield-only: bootstrap SAD if absent (see above).
 7. **`--think` mode (only when the dispatcher's spawn prompt carries `--think mode: fill <path>/PLAN.md`).** Read the scaffolded `planning/<NNN>-PLAN.md`. Fill all 5 anchors: `S-PROBLEM-001` (one paragraph restating the constraint that makes the choice non-obvious), `S-OPTIONS-001` (≥3 distinct options as a numbered list), `S-TRADEOFFS-001` (table 1:1 with options — Pros/Cons/Risk per row), `S-RECOMMENDATION-001` (pick one option, set frontmatter `recommendation: Option-<letter>`), `S-OPEN-001` (unknowns that would change the recommendation; empty list OK). Update frontmatter `option_count`. Write back. PLAN is reference-only — NO downstream lockfile cites it via `references[]`. If the spawn prompt also carries `--delegate-chose: <Option-letter>` (when the dispatcher gates user choice via `--delegate`), use that letter as the binding seed for TDD/CONTRACT below; otherwise use the option named in `S-RECOMMENDATION-001`.
-8. Author TDD via scaffold-fill. Read the scaffolded `design/<NNN>-TDD.md`. Author the C4 Level 3 component diagram via `/c4-architecture` (PlantUML), at least one sequence diagram per primary flow, and an ER diagram. State-machine: only when a lifecycle exists; otherwise write `<!-- OMIT: no lifecycle states -->` in `S-STATE-001` and set frontmatter `state_machine_count: 0`. Render via `/plantuml`. Fill the FILL spans. Write back.
+8. **Author TDD** via scaffold-fill. Read the scaffolded `design/<NNN>-TDD.md`.
+   - **C4 Level 3 component diagram** via `/c4-architecture`. Respect the skill's MUST/MUST-NOT block — every `.puml` MUST `!include <C4/C4_Component>` and use `Person`/`Container`/`Component`/`Rel` macros; MUST NOT use raw `rectangle`/`actor`/`component`/`package` for body elements; MUST NOT model framework internals (servlet container, dispatcher servlet, HTTP message converter, ORM session factory, framework HTTP clients) as components. For containers with one application class, write `<!-- OMIT: trivial container; single component -->` in `S-COMPONENTS-001` and set frontmatter `component_count: 0` (mirrors the state-machine omission pattern below).
+   - **Sequence diagram** — at least one per primary flow.
+   - **ER diagram** — when persistence is in scope; omit otherwise.
+   - **State machine** — only when a lifecycle exists; otherwise `<!-- OMIT: no lifecycle states -->` in `S-STATE-001` with `state_machine_count: 0`.
+   - **`S-CONFIG-001`** is the canonical home for build-tool, JDK/runtime version, and run commands (e.g., `./mvnw spring-boot:run`). PRD goals are stack-agnostic by design (per `@product` step 8) — do NOT look in PRD for these.
+   - Render all `.puml` via `/plantuml`. Fill the FILL spans. Write back.
 9. Author CONTRACT via the `write-contract` skill (which scaffold-fills `interfaces/<NNN>-CONTRACT.md` and authors the service-contract diagram). Sum of weights must equal 100; mark security/data-loss criteria `critical: true`.
 10. Author TASKS via the `task-breakdown` skill. Critical path SP > 1.5× sprint capacity → push back to user (don't decompose further).
 11. Hand off to implementer-tier agents. The `@evaluator` task is downstream.
