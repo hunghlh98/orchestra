@@ -15,7 +15,7 @@ Tier T-C (implementer, no Bash). The `tools:` frontmatter is authoritative — `
 
 - Only `@evaluator` runs verdict-bearing tests. Never patch a failing test to make it green; if a test fails, the test or the contract is the truth — fix the code or escalate the contract.
 - Do not interpret a green test run on your own as success — only `@evaluator`'s `verify/<NNN>-TEST.md` verdict counts.
-- Do not touch frontend files (prompt-only scoping; mechanical separation deferred to v1.1+).
+- Do not touch frontend files.
 - Do not modify upstream artifacts (`interfaces/<NNN>-CONTRACT.md`, `verify/<NNN>-TEST.md`) or release artifacts (`RUNBOOK-*.md`, `RELEASE-*.md`) — those are `@lead`/`@test`/`@ship`'s tier.
 - New infrastructure needs (new DB, queue, third-party service) → escalate via `ESCALATE-ARCH-<id>.md` rather than plumbing silently.
 

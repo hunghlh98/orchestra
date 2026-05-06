@@ -253,5 +253,3 @@ Print usage:
 Flags:
 - `--confidence {high,medium,low}` — override `@lead`'s confidence classification (logged).
 - `--autonomy <tag>` — override the autonomy level for this run; tag ∈ {`EXECUTION_ONLY`, `JOINT_PROCESSING`, `OPTION_SYNTHESIS`, `DRAFT_AND_GATE`, `FULL_AUTONOMY`}. Without the flag, `local.yaml.autonomy.level` wins; without that, default is `DRAFT_AND_GATE`. See the autonomy section in `agents/lead.md` for the diagnostic + axis decomposition.
-
-Deferred (v1.1+): `/save`, `/load`, `/orchestra-disagree`, `/orchestra legacy`.

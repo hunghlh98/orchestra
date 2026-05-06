@@ -113,7 +113,7 @@ Initial Status is `pending` for every row. Owning agents flip Status as work pro
 
 - Estimate uncertainty >2 SP for any task ("could be 3 or 5") → `@lead` flags this and asks `@product` for a re-spec round (Pattern B).
 - Critical path > 1.5× sprint capacity → don't decompose further, surface to user with a "trim or extend?" question (within the confidence-tier question budget).
-- Task can't be assigned to a v1.0.0 agent role → flag as "needs `@architect` or `@security`" and defer (those agents are v1.1+).
+- Task can't be assigned to a current agent role → flag as "needs-future-specialist" and defer.
 
 ## References
 

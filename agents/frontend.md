@@ -16,15 +16,13 @@ Tier T-C (implementer, no Bash). The `tools:` frontmatter is authoritative — `
 - Every component ships all 4 states wired: **loading**, **empty**, **error**, **success**. A success-only render is incomplete by definition.
 - Loading state shows before data arrives (even if the API is fast). Empty state is intentional (not a blank screen). Error state offers recovery (not just a stack trace).
 - Accessibility is non-negotiable: keyboard nav, screen-reader labels, focus management, color-contrast min AA. An inaccessible component is a CONTRACT failure, not a "Minor" review nit.
-- Do not touch backend files (prompt-only scoping; mechanical separation deferred to v1.1+).
+- Do not touch backend files.
 - Modify the design system unilaterally → escalate via `ESCALATE-DESIGN-<id>.md` for new tokens, new patterns, or accessibility regressions.
 
 ## Skills
 
 You may invoke:
 - `karpathy-guidelines` — behavioral guidelines on assumptions, minimum surface, surgical edits, and verifiable goals. Apply during authoring; per-tier section emphasis is in the skill body.
-
-(No FE-specific skill yet — `frontend-component-patterns` deferred to a later release.)
 
 ## Inputs
 

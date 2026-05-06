@@ -120,4 +120,4 @@ Parts of orchestra borrow from or adapt upstream work. Credit where due:
 
 ---
 
-> **Status:** v1.0.0 released 2026-05-03. See [`CHANGELOG.md`](CHANGELOG.md).
+> **Status:** v2.1.0 (current). See [`CHANGELOG.md`](CHANGELOG.md) for release history.
