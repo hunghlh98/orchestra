@@ -1,13 +1,18 @@
 ---
 name: release-plugin
-description: Plugin-developer release workflow — bump VERSION, run smoke chain, author CHANGELOG, commit, tag, push. Use when cutting a new orchestra plugin release. Not for consumer projects.
+description: Plugin-maintainer release workflow — bump VERSION via script, run 5-step smoke chain, author CHANGELOG, two-commit shape, then manual tag + push. Project-level command; orchestra repo only.
 ---
 
-# /release-plugin dispatcher
+# /release-plugin — orchestra plugin maintainer release workflow
 
-Twelve-step procedure for cutting an orchestra plugin release. Mirrors what `/orchestra release` does for consumer-project releases, but operates on the plugin repo itself.
-
-> **Audience:** orchestra plugin maintainers. If you are a CONSUMER of the plugin (using `/orchestra <intent>` to develop your own project), use `/orchestra release` for your project's release flow — this command is for releasing the plugin itself.
+> **Project-level Claude Code command** at `.claude/commands/release-plugin.md`. Invokable as `/release-plugin` ONLY when working inside the orchestra plugin repo itself. Does NOT ship to consumers — `.claude-plugin/plugin.json`'s `commands` array does not list it; only `commands/orchestra.md` is registered for consumer install.
+>
+> Two release flows exist in this repo and they are intentionally distinct:
+>
+> | Audience | Flow | Where it lives | Surface |
+> |---|---|---|---|
+> | **Consumer project releases** (orchestra users cutting their own project's release) | `/orchestra release` → `cut-release` skill → `@ship` | `commands/orchestra.md` + `skills/cut-release/` | Consumer surface (ships) |
+> | **Orchestra plugin releases** (maintainers cutting an orchestra plugin release) | `/release-plugin` (this command) | `.claude/commands/release-plugin.md` | Dev surface (project-local; never ships) |
 
 ## Invariants
 
@@ -141,10 +146,13 @@ If the plugin is registered in a public marketplace, the publish step depends on
 
 ## Cross-references
 
-- `scripts/bump-version.js` — atomic 3-file version updater (Step 6).
+- `scripts/bump-version.js` — atomic 3-file version updater (Step 6). Memory: `feedback_bump-version-via-script`.
 - `scripts/test-streamline-fixture.sh` — orphan-type smoke gate (Step 3).
 - `commands/orchestra.md` `/orchestra release` subcommand — analogous flow but for CONSUMER project releases (delegates to the `cut-release` skill, which spawns `@ship` to author RELEASE/RUNBOOK + CHANGELOG entries inside the consumer's `<cwd>/.claude/.orchestra/`).
 - `skills/cut-release/SKILL.md` — `@ship`-orchestrated release artifact authoring (consumer-project flow).
+- `docs/DESIGN-005-doc-output-overhaul.md` §S-PRPLAN-001 — the v2.0.0 release was the first to use this twelve-step procedure end-to-end (PR #7-bump + #7b + this workflow doc).
+- `runbooks/RUNBOOK-v2.0.0.md` — consumer-side install runbook (the doc this workflow's smoke chain in Step 4 verifies still represents reality).
+- Memory `feedback_smoke-before-release-docs` — load-bearing rule that gates Step 7 (CHANGELOG) on Step 4 (smoke chain) success.
 
 ## Failure handling
 
