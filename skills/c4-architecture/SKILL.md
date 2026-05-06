@@ -18,18 +18,13 @@ Generate software architecture documentation using C4 model diagrams in PlantUML
 ## MUST / MUST-NOT (binding)
 
 Every C4 `.puml` file authored under this skill MUST:
-- Start with one of: `!include <C4/C4_Context>`, `!include <C4/C4_Container>`, `!include <C4/C4_Component>`, `!include <C4/C4_Dynamic>`, `!include <C4/C4_Deployment>` (after `@startuml`).
-- Use the C4 stdlib macros for elements: `Person`, `System`, `Container`, `Component` (plus `*_Ext`, `*Db`, `*Queue`, `*_Boundary` variants).
-- Use `Rel(...)` macros for relationships — never raw arrows.
-- Carry a `title` line.
+- Start with `!include <C4/C4_Context|C4_Container|C4_Component|C4_Dynamic|C4_Deployment>` (after `@startuml`), and carry a `title` line.
+- Use stdlib macros: `Person`/`System`/`Container`/`Component` (plus `*_Ext`/`*Db`/`*Queue`/`*_Boundary` variants) for elements; `Rel(...)` for relationships.
 
 Every C4 `.puml` file MUST NOT:
-- Use raw PlantUML primitives (`rectangle`, `actor`, `component`, `package`, `node`, `database`) for diagram-body elements. They have no C4 type semantics — the element type (Person | Software System | Container | Component) becomes invisible to the reader.
-- Use raw arrow syntax (`-->`, `->`, `..>`) for relationships. Use `Rel(...)` — it enforces the labeled-unidirectional rule.
+- Use raw PlantUML primitives (`rectangle`/`actor`/`component`/`package`/`node`/`database`) for body elements — they have no C4 type semantics, so the element type (Person | Software System | Container | Component) becomes invisible to the reader.
+- Use raw arrow syntax (`-->`/`->`/`..>`) or generic relationship verbs ("Uses", "Calls"). `Rel(...)` enforces the labeled-unidirectional rule; action verbs ("Sends payment intent via HTTPS/JSON") carry the meaning.
 - Use `skinparam` for body styling. Use `UpdateElementStyle()` / `UpdateRelStyle()` instead, or accept the stdlib defaults.
-- Use generic relationship verbs ("Uses", "Calls"). Be specific: "Sends payment intent via HTTPS/JSON".
-
-Self-check before writing: scan your draft for the forbidden tokens above. If any appear in the body, switch to stdlib macros first.
 
 ## C4 Diagram Levels
 
@@ -292,7 +287,7 @@ The arrow chain `Tomcat → DispatcherServlet → MyController → Jackson → C
 
 A Component diagram should answer a specific question (e.g., "How does retry vs fail-fast work inside the Payment API?"). If no such question exists, do not draw one.
 
-- **Container with one application class** (e.g., a single `@RestController`): the Component diagram would be one box. Skip it. Write `<!-- OMIT: trivial container; single component -->` in the TDD §S-COMPONENTS section and set frontmatter `component_count: 0`. Mirrors the existing pattern for omitted state-machines (`<!-- OMIT: no lifecycle states -->` with `state_machine_count: 0`).
+- **Container with one application class** (e.g., a single `@RestController`): the Component diagram would be one box. Skip it. Write `<!-- OMIT: trivial container; single component -->` in the TDD `S-COMPONENTS-001` section and set frontmatter `component_count: 0`. Mirrors the existing pattern for omitted state-machines (`<!-- OMIT: no lifecycle states -->` with `state_machine_count: 0`).
 - **Long-lived containers**: prefer auto-generation (Structurizr DSL or annotation-driven). Hand-drawn component diagrams rot.
 
 ## Microservices guidelines
@@ -387,32 +382,18 @@ The hash-stamper hook tracks both `.puml` source hash and rendered `.svg` hash i
 | Developers | All levels as needed |
 | DevOps | Container + Deployment |
 
-## Self-check checklist (run before rendering)
+## Self-check before rendering
 
-Before invoking `/plantuml` to render `.puml` → `.svg`, walk this checklist. Any "no" → fix the source, do not render.
+Before invoking `/plantuml`, walk this checklist. Any "no" → fix the source, do not render.
 
-**General**
-- [ ] Title present, naming the diagram type and scope (e.g., `title C4 Level 2 — Containers — hello-world`)?
-- [ ] Diagram uses a C4 stdlib `!include` (no raw `rectangle`/`actor`/`component`/`package` for body elements)?
+- [ ] **Title** present (e.g., `title C4 Level 2 — Containers — hello-world`).
+- [ ] **Stdlib `!include`** used; no raw `rectangle`/`actor`/`component`/`package` in the body.
+- [ ] **Every element** has name (1st arg), type-by-macro (`Person`/`System`/`Container`/`Component`, not just hinted in the label), description (last arg), and technology (3rd arg, for Container/Component).
+- [ ] **L1 Context**: no transport protocols on relationships. **L3 Component**: no framework internals (see forbidden table above).
+- [ ] **Every `Rel(...)`** has a label, plus a technology arg at Container/Component level, action verb (no "Uses"/"Calls"/"Talks to"), unidirectional (no `BiRel` unless genuinely peer-to-peer).
+- [ ] **Stand-alone test**: handed the rendered `.svg` to a stranger — can they tell what the system does, who uses it, and how it's built, without your narration?
 
-**Elements**
-- [ ] Every element has a `name` (1st macro arg)?
-- [ ] Every element's `type` is encoded by the macro itself (`Person`/`System`/`Container`/`Component`) — not just hinted in the label string?
-- [ ] Every element has a `description` (last macro arg)?
-- [ ] Every Container/Component has a `technology` (3rd macro arg)?
-- [ ] L1 Context: NO transport protocols on relationships (move to L2).
-- [ ] L3 Component: NO framework internals (see "Framework internals are NOT components").
-
-**Relationships**
-- [ ] Every `Rel(...)` has a label?
-- [ ] No "Uses", "Calls", "Talks to" — replaced with action verbs (e.g., "Sends payment intent via HTTPS/JSON")?
-- [ ] Container/Component-level: technology/protocol on every `Rel(from, to, "<label>", "<technology>")`?
-- [ ] All arrows unidirectional (no `BiRel` unless genuinely peer-to-peer)?
-
-**Stand-alone test**
-- [ ] If you handed the rendered `.svg` to someone unfamiliar with the system, could they tell what it does, who uses it, and how it's built — without your narration? If no, redraw.
-
-If any check fails: fix the `.puml` first. Rendering does not fix violations; it only makes them harder to spot.
+If any check fails: fix the `.puml` first. Rendering does not fix violations.
 
 ## Summary
 
