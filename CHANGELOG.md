@@ -6,7 +6,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-2.0.0 work)
+(no entries yet — placeholder for post-2.1.0 work)
+
+## [2.1.0] — 2026-05-06
+
+Minor release. Adds a single consumer-surface skill that packages Andrej Karpathy's observations on LLM coding pitfalls (via [`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills)) and wires it into the five orchestra agents whose workflows benefit. Skipped for `@evaluator`, `@reviewer`, and `@ship` — their tier-A/B invariants supersede or conflict with the rules.
+
+Net consumer-surface delta: 1 new skill, +5 lines across 5 agent files. Zero behavior change in existing flows; consumers opting into the new skill receive light behavioral nudges during artifact authoring and code editing. See [`docs/DESIGN-006-karpathy-guidelines.md`](docs/DESIGN-006-karpathy-guidelines.md) for the full design rationale.
+
+### Added
+
+- `skills/karpathy-guidelines/SKILL.md` — new consumer-surface skill packaging four behavioral guidelines (*think before authoring*, *minimum surface*, *surgical edits*, *verifiable goals*) rephrased in orchestra's tier vocabulary (scaffolded artifact spans, AskUserQuestion confidence cap, `ESCALATE-<id>.md` gaps, CONTRACT criteria, structural-diff anchors). Includes a tier-by-tier applicability table so the canonical site stays single (per project `CLAUDE.md` "no annotation creep"). No license claim in frontmatter — upstream repository carries `license: null` at GitHub at time of import; text rewritten in orchestra's voice rather than copied verbatim.
+- `agents/product.md`, `agents/lead.md`, `agents/backend.md`, `agents/frontend.md`, `agents/test.md` — one-line invocation entry under each agent's `## Skills` block. The same invocation text is used uniformly; per-agent emphasis lives in the skill body's applicability table, NOT duplicated into agent files.
+- `README.md` — `## Acknowledgments` section crediting karpathy-guidelines, plantuml, and c4-architecture upstream sources.
+- `docs/DESIGN-006-karpathy-guidelines.md` — dev-trace document persisting `/sc:sc-brainstorm` decisions (shape B + adapted-per-tier + skip-3), the tier-mapping rationale per agent, and the file-level change manifest.
+
+### Unchanged (deliberate skip-3)
+
+- `agents/evaluator.md`, `agents/reviewer.md`, `agents/ship.md` — these three agents do NOT invoke `karpathy-guidelines`. `@evaluator`'s `≥80% calibration-anchor` rule supersedes the new skill's "ask if uncertain" guidance; `@reviewer`'s `code-review` severity rubric is the canonical site for review wisdom and conflicts with the diff-shaped rules; `@ship`'s gate-driven release flow + `commit-work`'s "one coherent commit per logical feature" already encode the same ground. Layering the new skill on these tiers would create rule-against-rule noise.
+
+### Attribution
+
+- Andrej Karpathy's original observations on LLM coding pitfalls: <https://x.com/karpathy/status/2015883857489522876>
+- forrestchang's compilation: <https://github.com/forrestchang/andrej-karpathy-skills>
 
 ## [2.0.0] — 2026-05-06
 
