@@ -12,6 +12,7 @@
   },
   "scripts": {
     "validate": "node scripts/validate.js",
+    "bump-version": "node scripts/bump-version.js",
     "test:hooks": "node scripts/test-hooks.js",
     "test:hash-stamper": "node scripts/test-hash-stamper.js",
     "test:scaffold": "node scripts/test-scaffold.js",
