@@ -22,6 +22,7 @@ Two model-emitted dispatcher channels (NOT hook output): single-line status upda
 | After parent `Read(<path>)` returns | `[orchestra] read  @<role> wrote <filename>` |
 | Before `AskUserQuestion` pause | `[orchestra] pause PAUSE-<N>: <one-line question>` |
 | Terminal state (Step 7) | `[orchestra] shutdown <terminal_state> feature=<feature-id> duration=<Ns>` |
+| Cost banner (Step 7, opt-in via `ORCHESTRA_METRICS_COST_BANNER=on`) | `[orchestra] [cost] <tokens-K> / $<usd> (subagents only; full total in metrics/runs/<id>.json after Stop hook fires)` |
 
 Banner template — fires after parent `Read` returns an artifact whose basename matches `DEADLOCK-*.md`, `ESCALATE-*.md`, or `ESCALATE-ARCH-*.md` (at every autonomy level):
 
@@ -188,8 +189,9 @@ Full per-intent artifact whitelist lives in `schemas/routing-taxonomy.md`. Agent
 On terminal state:
 
 1. Parent `Write(<feature-dir>/SUMMARY-<feature-id>.md, ...)` per `schemas/pipeline-artifact.schema.md` SUMMARY shape: `team_name`, `started_at` (the team.created timestamp from earlier in this run; fallback to first matching `team.created` in events.jsonl), `ended_at` (now), `duration_seconds`, `terminal_state`, `artifact_count`. Body: 1–3 line plain-text closing note. SUMMARY is parent-authored bookkeeping at terminal state — narrowly carved exception to the Coordination-protocol "no parent artifact writes" rule, because no agent is in scope after teardown begins.
-2. Parent `TeamDelete()` (zero-param primitive — team is implicit from current session context; failure mode: throws on active members, but Orchestra's filesystem-coupled flow has SubagentStop drain members synchronously by the time terminal state is detected).
-3. Emit closing status line per `## Status output`.
+2. **Cost banner (opt-in; v2.2.0+).** If `ORCHESTRA_METRICS_COST_BANNER=on`, the dispatcher reads `<cwd>/.claude/.orchestra/metrics/tokens.jsonl`, filters rows where `run_id == <current-session-id>`, sums `tokens` and `usd` across them, and emits one status line per `## Status output`. The dispatcher does NOT read `runs/<id>.json` — that file is written by the Stop hook AFTER the dispatcher returns, so it is not yet on disk at this point. The banner therefore reflects subagent cost only; the full total (subagents + parent dispatcher) lands in `runs/<id>.json` after Stop fires. `tokens.jsonl` rows already carry pre-computed `usd` per subagent emit (the metrics-collector hook calls `computeUsd` from `hooks/lib/rate-card.js` at write time — single source of truth for the rate card).
+3. Parent `TeamDelete()` (zero-param primitive — team is implicit from current session context; failure mode: throws on active members, but Orchestra's filesystem-coupled flow has SubagentStop drain members synchronously by the time terminal state is detected).
+4. Emit closing status line per `## Status output`.
 
 ### Runtime hooks
 

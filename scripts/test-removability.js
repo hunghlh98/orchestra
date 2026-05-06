@@ -21,6 +21,7 @@ for (const m of im.modules) {
 }
 
 for (const t of rt.toggles) {
+  if (t.module.startsWith("config.")) continue;
   if (!moduleNames.has(t.module)) {
     errors.push(`runtime-toggles entry '${t.module}' has no matching install-modules entry`);
   }

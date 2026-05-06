@@ -22,6 +22,7 @@ import {
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { gzipSync } from "node:zlib";
+import { computeUsd } from "../lib/rate-card.js";
 
 const NAME = "ORCHESTRA_HOOK_METRICS_COLLECTOR";
 
@@ -387,6 +388,7 @@ function emitSubagentTokens(input, sub) {
     agent_role: sub.role,
     agent_turn: sub.ord,
     tokens,
+    usd: computeUsd(tokens),
   };
 
   const dir = join(cwd, ".claude/.orchestra/metrics");
@@ -568,6 +570,7 @@ function emitRunSummary(input) {
     artifacts_produced: artifactsProduced,
     gates,
     tokens,
+    cost_usd: computeUsd(tokens),
     insights_count: insightsCount,
     deadlocked,
     plugin_version: readPluginVersion(),

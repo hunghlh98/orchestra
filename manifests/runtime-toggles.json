@@ -90,6 +90,12 @@
       "envVar": "ORCHESTRA_SKILL_JAVA_SOURCE_INTEL",
       "default": "on",
       "description": "Java ripgrep + impact patterns consumed by @backend on Java/Spring projects."
+    },
+    {
+      "module": "config.metrics-cost-banner",
+      "envVar": "ORCHESTRA_METRICS_COST_BANNER",
+      "default": "off",
+      "description": "Emit a one-line token + USD cost banner at the end of every /orchestra run (Step 7 closure). Reads cost_usd persisted by the metrics-collector hook from runs/<id>.json. config.* namespace has no install-modules counterpart — it's a dispatcher-side display toggle only."
     }
   ]
 }

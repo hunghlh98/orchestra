@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { computeUsd, RATES_USD_PER_MTOK } from "../hooks/lib/rate-card.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const collector = resolve(root, "hooks/scripts/metrics-collector.js");
@@ -532,6 +533,38 @@ console.log("metrics-collector autonomy_level in run summary:");
     if (existsSync(runPath2)) {
       const summary2 = JSON.parse(readFileSync(runPath2, "utf8"));
       check(summary2.autonomy_level === null, `autonomy_level=null when YAML omits it (got ${summary2.autonomy_level})`);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 4e. Rate card + cost_usd persistence (T-04-38; theme γ) ---
+console.log("metrics-collector cost_usd persistence:");
+{
+  // Unit: rate-card pure function. 1M input under Opus 4.7 = $15 exactly.
+  check(computeUsd({ input: 1_000_000 }) === 15.0, `1M input = $15`);
+  check(computeUsd({ output: 1_000_000 }) === 75.0, `1M output = $75`);
+  check(computeUsd({}) === 0, `empty tokens = $0`);
+  check(computeUsd(null) === 0, `null tokens = $0 (no throw)`);
+  // Mixed: 100K input + 50K output = (0.1 × $15) + (0.05 × $75) = $1.50 + $3.75 = $5.25
+  check(computeUsd({ input: 100_000, output: 50_000 }) === 5.25, `100K input + 50K output = $5.25`);
+  check(typeof RATES_USD_PER_MTOK.input === "number" && RATES_USD_PER_MTOK.input > 0,
+    `RATES_USD_PER_MTOK.input is exported and positive`);
+
+  // Integration: run summary contains cost_usd field.
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-cost-"));
+  try {
+    const sid = "cost-1";
+    runHook({ session_id: sid, cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "/orchestra build z" });
+    runHook({ session_id: sid, cwd: tmp, hook_event_name: "Stop" });
+    const runPath = join(tmp, ".claude/.orchestra/metrics/runs", `${sid}.json`);
+    check(existsSync(runPath), `runs/${sid}.json created`);
+    if (existsSync(runPath)) {
+      const summary = JSON.parse(readFileSync(runPath, "utf8"));
+      check("cost_usd" in summary, `cost_usd present in run summary (got keys: ${Object.keys(summary).join(",")})`);
+      check(typeof summary.cost_usd === "number", `cost_usd is a number (got ${typeof summary.cost_usd})`);
+      check(summary.cost_usd >= 0, `cost_usd >= 0 (got ${summary.cost_usd})`);
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });

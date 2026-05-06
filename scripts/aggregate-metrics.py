@@ -61,7 +61,123 @@ def total_tokens(run: dict) -> int:
             t.get("cache_read", 0) + t.get("cache_create", 0))
 
 
-def render_html(folders, runs_per_folder, all_runs, manifests):
+def total_usd(run: dict) -> float:
+    """Read cost_usd persisted by the metrics-collector hook (single source of
+    truth lives at hooks/lib/rate-card.js). Older runs without the field
+    contribute 0 to aggregate sums — they're treated as unknown rather than
+    fabricated, so the rendered tables understate real cost when older runs
+    are mixed in (callout in the rate-card note explains this)."""
+    v = run.get("cost_usd")
+    return float(v) if isinstance(v, (int, float)) else 0.0
+
+
+def fmt_usd(v: float) -> str:
+    if v >= 100:
+        return f"${v:.0f}"
+    if v >= 10:
+        return f"${v:.1f}"
+    return f"${v:.2f}"
+
+
+def render_cost_section(all_runs):
+    """Cost-focused HTML section (rendered only when --cost is set).
+    Three views: 30-day trend by date, per-intent cost distribution,
+    top-5 most-expensive runs in window. Privacy-respecting — uses only
+    runs/<id>.json fields (no tokens.jsonl, no events.jsonl)."""
+    from html import escape
+
+    def fmt(n):
+        return f"{int(n):,}"
+
+    def row(cells, tag="td"):
+        return "<tr>" + "".join(f"<{tag}>{c}</{tag}>" for c in cells) + "</tr>"
+
+    # 30-day trend by date — both tokens and USD.
+    by_date_tokens = defaultdict(int)
+    by_date_usd = defaultdict(float)
+    for r in all_runs:
+        started = (r.get("started_at") or "")[:10]  # YYYY-MM-DD
+        if not started:
+            continue
+        by_date_tokens[started] += total_tokens(r)
+        by_date_usd[started] += total_usd(r)
+    date_rows = "\n".join(
+        row([escape(d), fmt(by_date_tokens[d]), fmt_usd(by_date_usd[d])])
+        for d in sorted(by_date_tokens.keys(), reverse=True)[:30]
+    )
+
+    # per-intent cost distribution — tokens and USD.
+    intent_tokens = defaultdict(list)
+    intent_usd = defaultdict(list)
+    for r in all_runs:
+        k = r.get("intent") or "unknown"
+        intent_tokens[k].append(total_tokens(r))
+        intent_usd[k].append(total_usd(r))
+    intent_rows = []
+    for intent, toks in sorted(intent_tokens.items(),
+                                key=lambda kv: sum(kv[1]), reverse=True):
+        usd_list = intent_usd[intent]
+        median = statistics.median(toks) if toks else 0
+        median_u = statistics.median(usd_list) if usd_list else 0
+        intent_rows.append(row([
+            f"<strong>{escape(intent)}</strong>",
+            fmt(len(toks)),
+            fmt(int(median)),
+            fmt(sum(toks)),
+            fmt_usd(median_u),
+            fmt_usd(sum(usd_list)),
+        ]))
+
+    # top-5 most-expensive runs (rank by USD, since that is what consumers pay).
+    top5 = sorted(all_runs, key=total_usd, reverse=True)[:5]
+    top5_rows = "\n".join(
+        row([
+            escape((r.get("started_at") or "—")[:19]),
+            escape(r.get("feature_id") or "—"),
+            escape(r.get("intent") or "—"),
+            fmt(total_tokens(r)),
+            fmt_usd(total_usd(r)),
+        ])
+        for r in top5
+    )
+
+    rate_note = (
+        "USD source: cost_usd is computed by the metrics-collector hook at "
+        "write-time using the rate card in hooks/lib/rate-card.js (Opus 4.7 "
+        "list price). Older runs without the field contribute 0 to USD sums."
+    )
+
+    return f"""
+<h2>Cost analysis</h2>
+<p class="lede">Token-cost trend across the aggregated window. Privacy-safe — totals only. {escape(rate_note)}</p>
+
+<h3>Daily cost trend (last 30 days)</h3>
+<table>
+<thead>{row(["Date", "Total tokens", "Total USD"], tag="th")}</thead>
+<tbody>
+{date_rows}
+</tbody>
+</table>
+
+<h3>Per-intent cost distribution</h3>
+<table>
+<thead>{row(["Intent", "Runs", "Median tokens", "Total tokens", "Median USD", "Total USD"], tag="th")}</thead>
+<tbody>
+{''.join(intent_rows)}
+</tbody>
+</table>
+
+<h3>Top-5 most-expensive runs</h3>
+<table>
+<thead>{row(["Started at", "Feature", "Intent", "Tokens", "USD"], tag="th")}</thead>
+<tbody>
+{top5_rows}
+</tbody>
+</table>
+"""
+
+
+def render_html(folders, runs_per_folder, all_runs, manifests, cost_section=None):
     def fmt(n):
         return f"{int(n):,}"
 
@@ -237,6 +353,8 @@ artifact name, token totals) — no user prompt text or tool output.
 
     body = (summary_table + callout + folder_table + intent_table +
             sub_tables + agent_table)
+    if cost_section:
+        body += cost_section
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -264,6 +382,8 @@ def main():
                     help="One or more <project>/.claude/.orchestra/metrics directories.")
     ap.add_argument("--out", default="docs/aggregated-metrics.html",
                     help="Output HTML path (default: docs/aggregated-metrics.html).")
+    ap.add_argument("--cost", action="store_true",
+                    help="Add a cost-focused section: 30-day daily trend, per-intent distribution, top-5 most-expensive runs.")
     args = ap.parse_args()
 
     folders = [Path(d).resolve() for d in args.metrics_dirs]
@@ -286,7 +406,8 @@ def main():
         print("error: no runs found across input folders", file=sys.stderr)
         sys.exit(1)
 
-    html = render_html(folders, runs_per_folder, all_runs, manifests)
+    cost_section = render_cost_section(all_runs) if args.cost else None
+    html = render_html(folders, runs_per_folder, all_runs, manifests, cost_section)
     out_path = Path(args.out).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html)
