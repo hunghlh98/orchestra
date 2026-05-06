@@ -64,7 +64,7 @@ python scripts/check_setup.py
 |-----------|---------|--------------|
 | Java JRE/JDK 8+ | Runtime | https://www.oracle.com/java/technologies/downloads/ |
 | plantuml.jar | Diagram generator | https://plantuml.com/download (place in `~/plantuml.jar` or set `PLANTUML_JAR`) |
-| Graphviz (optional) | Complex layouts | https://graphviz.org/download/ |
+| Graphviz | Complex layouts (REQUIRED for C4 Container/Component diagrams) | https://graphviz.org/download/ |
 
 ## Creating Diagrams
 

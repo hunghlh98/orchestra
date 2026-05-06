@@ -15,6 +15,22 @@ Generate software architecture documentation using C4 model diagrams in PlantUML
 3. **Generate diagrams** — Create C4-PlantUML diagrams at appropriate abstraction levels.
 4. **Render** — Convert `.puml` source to `.svg` via the `/plantuml` skill (`scripts/convert_puml.py`).
 
+## MUST / MUST-NOT (binding)
+
+Every C4 `.puml` file authored under this skill MUST:
+- Start with one of: `!include <C4/C4_Context>`, `!include <C4/C4_Container>`, `!include <C4/C4_Component>`, `!include <C4/C4_Dynamic>`, `!include <C4/C4_Deployment>` (after `@startuml`).
+- Use the C4 stdlib macros for elements: `Person`, `System`, `Container`, `Component` (plus `*_Ext`, `*Db`, `*Queue`, `*_Boundary` variants).
+- Use `Rel(...)` macros for relationships — never raw arrows.
+- Carry a `title` line.
+
+Every C4 `.puml` file MUST NOT:
+- Use raw PlantUML primitives (`rectangle`, `actor`, `component`, `package`, `node`, `database`) for diagram-body elements. They have no C4 type semantics — the element type (Person | Software System | Container | Component) becomes invisible to the reader.
+- Use raw arrow syntax (`-->`, `->`, `..>`) for relationships. Use `Rel(...)` — it enforces the labeled-unidirectional rule.
+- Use `skinparam` for body styling. Use `UpdateElementStyle()` / `UpdateRelStyle()` instead, or accept the stdlib defaults.
+- Use generic relationship verbs ("Uses", "Calls"). Be specific: "Sends payment intent via HTTPS/JSON".
+
+Self-check before writing: scan your draft for the forbidden tokens above. If any appear in the body, switch to stdlib macros first.
+
 ## C4 Diagram Levels
 
 | Level | Diagram type | Audience | Shows | When to create |
@@ -253,6 +269,31 @@ UpdateRelStyle("from", "to", $textColor="blue", $lineColor="blue", $offsetX="5",
 - Showing message brokers as a single container instead of individual topics.
 - Adding undefined abstraction levels like "subcomponents".
 - Removing type labels to "simplify" diagrams.
+- Modeling **framework internals as components** (servlet container, dispatcher servlet, HTTP message converter, ORM session factory, framework HTTP clients). See "Framework internals are NOT components" below.
+- Drawing a Component diagram for a single-component container — write `<!-- OMIT: trivial container; single component -->` in the TDD instead and set `component_count: 0`.
+- Mixing transport/protocol detail into a **System Context (L1)** relationship label. L1 is for execs/PMs — strip protocols (`(HTTP, loopback)`, `JDBC`, etc.) and move them to L2 Container.
+- Putting load balancers, replicas, K8s pods on a **Container** diagram — that's Deployment territory. Container = logical, not physical.
+
+### Framework internals are NOT components
+
+A Component is "a grouping of related functionality encapsulated behind a well-defined interface" — i.e., **your application's** groupings, not the framework's. The following are forbidden as components on a C4 Component diagram:
+
+| Forbidden as component | Why |
+|---|---|
+| Servlet container (Tomcat, Jetty, Undertow) | Runtime infrastructure. If it matters at all, it's a Container. |
+| `DispatcherServlet`, `FrontController` | Framework routing — implicit in any Spring/Rails/Flask/Express app. |
+| HTTP message converters (Jackson, Gson, `MappingJackson2HttpMessageConverter`) | Serialization plumbing. |
+| ORM `SessionFactory` / `EntityManagerFactory` | Framework-supplied infrastructure. |
+| Framework HTTP clients (`RestTemplate`, `WebClient`, `OkHttpClient`) used as standalone boxes | These are libraries used inside your component, not components themselves. |
+
+The arrow chain `Tomcat → DispatcherServlet → MyController → Jackson → Client` is request-flow narration, not structure. If you need to show that flow, draw it with `!include <C4/C4_Dynamic>` and numbered `Rel`s — not on a Component diagram.
+
+### Component diagrams are optional
+
+A Component diagram should answer a specific question (e.g., "How does retry vs fail-fast work inside the Payment API?"). If no such question exists, do not draw one.
+
+- **Container with one application class** (e.g., a single `@RestController`): the Component diagram would be one box. Skip it. Write `<!-- OMIT: trivial container; single component -->` in the TDD §S-COMPONENTS section and set frontmatter `component_count: 0`. Mirrors the existing pattern for omitted state-machines (`<!-- OMIT: no lifecycle states -->` with `state_machine_count: 0`).
+- **Long-lived containers**: prefer auto-generation (Structurizr DSL or annotation-driven). Hand-drawn component diagrams rot.
 
 ## Microservices guidelines
 
@@ -346,10 +387,37 @@ The hash-stamper hook tracks both `.puml` source hash and rendered `.svg` hash i
 | Developers | All levels as needed |
 | DevOps | Container + Deployment |
 
+## Self-check checklist (run before rendering)
+
+Before invoking `/plantuml` to render `.puml` → `.svg`, walk this checklist. Any "no" → fix the source, do not render.
+
+**General**
+- [ ] Title present, naming the diagram type and scope (e.g., `title C4 Level 2 — Containers — hello-world`)?
+- [ ] Diagram uses a C4 stdlib `!include` (no raw `rectangle`/`actor`/`component`/`package` for body elements)?
+
+**Elements**
+- [ ] Every element has a `name` (1st macro arg)?
+- [ ] Every element's `type` is encoded by the macro itself (`Person`/`System`/`Container`/`Component`) — not just hinted in the label string?
+- [ ] Every element has a `description` (last macro arg)?
+- [ ] Every Container/Component has a `technology` (3rd macro arg)?
+- [ ] L1 Context: NO transport protocols on relationships (move to L2).
+- [ ] L3 Component: NO framework internals (see "Framework internals are NOT components").
+
+**Relationships**
+- [ ] Every `Rel(...)` has a label?
+- [ ] No "Uses", "Calls", "Talks to" — replaced with action verbs (e.g., "Sends payment intent via HTTPS/JSON")?
+- [ ] Container/Component-level: technology/protocol on every `Rel(from, to, "<label>", "<technology>")`?
+- [ ] All arrows unidirectional (no `BiRel` unless genuinely peer-to-peer)?
+
+**Stand-alone test**
+- [ ] If you handed the rendered `.svg` to someone unfamiliar with the system, could they tell what it does, who uses it, and how it's built — without your narration? If no, redraw.
+
+If any check fails: fix the `.puml` first. Rendering does not fix violations; it only makes them harder to spot.
+
 ## Summary
 
 1. **Pick level** — start with C4_Context (Level 1) and C4_Container (Level 2).
 2. **Write `.puml`** — `!include <C4/C4_Container>` then macros (`Person`, `Container`, `Rel`).
 3. **Render** — `python skills/plantuml/scripts/convert_puml.py <path>.puml --format svg`.
 4. **Embed** — image link `![<alt>](diagrams/<file>.svg)` in the owning artifact.
-5. **Stay disciplined** — one level per file; under 20 elements; technology labels everywhere.
+5. **Stay disciplined** — one level per file; under 20 elements; technology labels everywhere; run the self-check checklist before render.
