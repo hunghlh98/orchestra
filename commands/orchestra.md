@@ -139,7 +139,17 @@ Agent({
 
 **Step 4 — Confidence override (optional).** If `--confidence` flag in `$ARGUMENTS`, override @lead's feature-confidence classification before downstream agents read it.
 
-**Step 5 — Spawn the workflow agents per the routing taxonomy.** Spawn ONLY the agents listed for the classified intent, in order. Each transition: spawn agent, wait for idle, Read its output file, decide next.
+**Step 5 — Spawn the workflow agents per the routing taxonomy.** Spawn ONLY the agents listed for the classified intent, in order. Each transition:
+
+(a) **Pre-spawn scaffold (v2.0+).** For each artifact in the next agent's whitelist that does NOT yet exist on disk, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js <type> <feature-id-or-flag> [<slug>] [--mode=full|brief])`. Examples: `scaffold-artifact CHARTER 001-foo foo --mode=full` for `@product` on a feature intent; `scaffold-artifact PRD 001-foo foo` next; `scaffold-artifact FRS 001-foo foo` next. The dispatcher (this context) has Bash; agents do not. Each scaffold call writes the artifact body (with locked anchors + FILL placeholders), the paired `<artifact>.lock.yaml` (with seeded sections + diagrams[]), and stub `.puml` source files for any required diagrams. Idempotent — re-running on an existing artifact exits 2 unless `--force` is passed.
+
+(b) **Spawn agent.** Pass the scaffolded artifact path(s) in the agent's prompt so the agent can Read them. Agents fill `<!-- FILL: ... -->` spans and Write the artifact back; the hash-stamper hook fires on Write and stamps hashes into the paired lockfile.
+
+(c) Wait for idle.
+
+(d) Read agent's output file.
+
+(e) Decide next.
 
 | Intent | Agents (in order) | Whitelist anchor |
 |---|---|---|
@@ -156,15 +166,17 @@ Full per-intent artifact whitelist lives in `schemas/routing-taxonomy.md`. Agent
 
 > `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent> (1-line summary: <agents-and-key-artifacts>). Out-of-whitelist requests → write ESCALATE-<feature_id>.md at the feature-dir root and end your turn.`
 
-**Step 5b — Pause integration during the spawn loop.** When resolved autonomy is `DRAFT_AND_GATE`, fire `AskUserQuestion` at three transitions inside Step 5 (in addition to PAUSE-1 already fired in Step 3): **→ PAUSE-2** after `@product` writes PRD + FRS, before spawning `@lead`/builder; **→ PAUSE-3** after `@lead` writes CONTRACT, before spawning the implementer/`@test`; **→ PAUSE-4** after `@reviewer` writes CODE-REVIEW, before spawning `@ship`. Question shapes per the Pause transitions table above. On reject → write `DEADLOCK-<id>.md` and halt. For `feature` intent all 4 pauses fire; lighter intents (`docs`/`hotfix`/`template`/`refactor`/`review-only`) fire only the pauses whose preceding step actually ran (e.g., `hotfix` skips PAUSE-2 because there is no `@product` PRD/FRS).
+**Step 5b — Pause integration during the spawn loop.** When resolved autonomy is `DRAFT_AND_GATE`, fire `AskUserQuestion` at three transitions inside Step 5 (in addition to PAUSE-1 already fired in Step 3): **→ PAUSE-2** after `@product` writes PRD + FRS, before spawning `@lead`/builder; **→ PAUSE-3** after `@lead` writes CONTRACT, before spawning the implementer/`@test`; **→ PAUSE-4** after `@reviewer` fills the rev halves of TSR, before spawning `@ship`. Question shapes per the Pause transitions table above. On reject → write `DEADLOCK-<id>.md` and halt. For `feature` intent all 4 pauses fire; lighter intents (`docs`/`hotfix`/`template`/`refactor`/`review-only`) fire only the pauses whose preceding step actually ran (e.g., `hotfix` skips PAUSE-2 because there is no `@product` PRD/FRS).
 
-**Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/`.** Agents author their artifact frontmatter (sections, references) per `schemas/pipeline-artifact.schema.md`. The parent does NOT copy/edit those artifacts — each agent owns its outputs.
+**Step 5c — ADR open subroutine (v2.0+).** When `@reviewer` writes `ESCALATE-ADR-<slug>.md` at the feature-dir root, OR `@product` flagged a PRD `S-OPEN-001` item with `ADR-WORTHY:`, the dispatcher runs `Bash(scaffold-artifact ADR --global <slug>)` (auto-numbers next NNNN) before re-spawning `@lead` with the scaffolded ADR path in its prompt. After `@lead` Writes the proposed ADR, spawn `@reviewer` for review (3-round circuit per the `agents/lead.md` ADR-open subroutine).
+
+**Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/` (or singletons under `architecture/`, `releases/`, `runbooks/`, `architecture/decisions/`).** v2.0+: the dispatcher scaffolds via Step 5(a); agents fill `<!-- FILL: -->` placeholders and Write the artifact back. Provenance auto-emits to the paired `<artifact>.lock.yaml` via the hash-stamper hook (only-when-paired). The parent does NOT copy/edit agent-authored content — each agent owns its sections per `schemas/pipeline-artifact.schema.md` and the single-writer-per-section discipline in `verify/<NNN>-TSR.md`.
 
 **Step 7 — Terminal-state detection + closure.** After every parent `Read` in Step 5, evaluate the just-read artifact's basename:
 
 - `RELEASE-vX.Y.Z.md` → `terminal_state = "success"`
-- `DEADLOCK-*.md` → `terminal_state = "deadlock"`
-- `ESCALATE(-ARCH)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
+- `DEADLOCK-*.md` (incl. `DEADLOCK-ADR-*.md`) → `terminal_state = "deadlock"`
+- `ESCALATE(-ARCH|-ADR)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
 - otherwise → continue Step 5 spawn loop
 
 On terminal state:

@@ -11,7 +11,18 @@ cd "$(cd "$(dirname "$0")/.." && pwd)"
 
 node scripts/test-agents.js > /dev/null || { echo "✗ test-agents.js FAILED"; exit 1; }
 node scripts/validate.js > /dev/null 2>&1 || { echo "✗ validate.js FAILED:"; node scripts/validate.js; exit 1; }
-echo "✓ validators (test-agents.js, validate.js)"
+node scripts/test-validate-extensions.js > /dev/null 2>&1 || { echo "✗ test-validate-extensions.js FAILED:"; node scripts/test-validate-extensions.js; exit 1; }
+echo "✓ validators (test-agents.js, validate.js, test-validate-extensions.js)"
+
+# v2.0+ orphan-type smoke gate (DESIGN-005-doc-output-overhaul §S-VALIDATOR-001):
+# the plugin repo MUST NOT contain v1 orphan filenames anywhere (folded or
+# dropped types per v2.0 canon). Excludes .git, node_modules, and
+# docs/ (dev-trace cites in commit log examples are allowed there).
+ORPHANS=$(find . \( -path ./.git -o -path ./node_modules -o -path ./docs \) -prune -o -type f \
+  \( -name '*-VERDICT.md' -o -name '*-CODE-REVIEW.md' -o -name 'ANNOUNCEMENT-*.md' \
+     -o -name '*-IMPL-NOTES.md' -o -name '*-IMPL-BE.md' -o -name '*-IMPL-FE.md' \
+     -o -name '*-CODE-DESIGN-BE.md' -o -name '*-CODE-DESIGN-FE.md' \) -print 2>/dev/null || true)
+[ -z "$ORPHANS" ] && echo "✓ no v1-orphan filenames in repo" || { echo "✗ v1 orphan filenames found (folded/dropped per v2.0):"; echo "$ORPHANS"; exit 1; }
 [ "$(ls agents/*.md | wc -l)" -eq 8 ] || { echo "✗ agent count drift"; exit 1; }
 echo "✓ 8 agents present"
 node -e "JSON.parse(require('fs').readFileSync('.claude-plugin/plugin.json'))" 2>/dev/null || { echo "✗ plugin.json corrupt"; exit 1; }
