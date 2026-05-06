@@ -103,6 +103,15 @@ discovery:
 
 Successive `/orchestra` runs read this and skip discovery unless the user passes `--rediscover`.
 
+## Hand-off to CHARTER (v2.0)
+
+After discovery completes, the dispatcher scaffolds `pipeline/<feature_id>/charter/<NNN>-CHARTER.md`. Mode dispatch:
+
+- `intent.yaml`.intent is `feature` or `hotfix` → `--mode=full` (problem / scope / feasibility / decision).
+- `intent.yaml`.intent is `template` / `docs` / `review-only` → `--mode=brief` (intent + decision; replaces v1's `INTENT-<id>.md`).
+
+`@product` fills the FILL spans using the discovery snapshot above (mode, language, framework, scope_hints) as Feasibility-section evidence.
+
 ## When to escalate
 
 - Top-2 languages within 5% of each other AND configs disagree → ask the user (1 question, MEDIUM confidence).

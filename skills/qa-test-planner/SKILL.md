@@ -80,42 +80,36 @@ Document the *expected* behavior in the criterion. The point of an adversarial p
 
 ### Step 4 — Write verify/<NNN>-TEST.md
 
-Path: `<project>/.claude/.orchestra/pipeline/<feature_id>/verify/<NNN>-TEST.md`. Shape per `schemas/pipeline-artifact.schema.md`:
+Read the dispatcher-scaffolded `pipeline/<feature_id>/verify/<NNN>-TEST.md`. The scaffold has slim frontmatter (v2.0.0 provenance lives in the paired `<artifact>.lock.yaml`), one locked anchor `S-COVERAGE-001`, and a FILL placeholder for the matrix.
+
+v2.0.0 changes vs v1: TEST.md is coverage-matrix-ONLY. No probe DSL re-statement (probes live in CONTRACT `S-CRITERIA-001`; reference by criterion id). No verdict block (folded into TSR-NNN.md per v2.0 — `@evaluator` writes `S-EVAL-VERDICT-001` + `S-EVAL-TABLE-001`, `@reviewer` writes `S-REV-VERDICT-001` + `S-REV-FINDINGS-001`).
+
+Frontmatter shape (v2.0.0, slim):
 
 ```yaml
 ---
 id: <NNN>-TEST
 type: TEST
+created: <ISO-8601>
 revision: 1
-sections:
-  S-PLAN-001:    { hash: "TBD", confirmed: true }
-  S-VERDICT-001: { hash: "TBD", confirmed: true }
-references:
-  - type: contract
-    id: "<id>"
-    section: S-CRITERIA-001
-    hash-at-write: "TBD"
+plan_author: "@test"
+adversarial_input_count: <int>
 ---
-
-## Test plan <a id="S-PLAN-001"></a>
-
-### Coverage matrix
-
-| Criterion | Happy | Boundary | Error | Idempotency | Adversarial |
-|---|---|---|---|---|---|
-| C1: transfer.persists | ✓ | ✓ | ✓ | ✓ | replay, oversized |
-| C2: ... | ... | ... | ... | ... | ... |
-
-### Probes by criterion
-
-(per-criterion `probes:` list; same shape as in CONTRACT)
-
-## Verdict <a id="S-VERDICT-001"></a>
-
-(filled by @evaluator after running probes)
 ```
 
-The verdict block is left empty for `@evaluator` to populate. Do not pre-grade.
+Body:
+
+```markdown
+## Coverage <a id="S-COVERAGE-001"></a>
+
+| Criterion | Source | Axis | Pytest fixture | Live probe (driven by @evaluator) |
+|---|---|---|---|---|
+| C-001 — transfer.persists | CONTRACT C-001 / FR-1 | happy | `tests/test_transfer.py::test_persists` | `http_probe POST /v1/transfer` → 201 |
+| C-002 — transfer.idempotent | CONTRACT C-002 / FR-2 | idempotency | `tests/test_transfer.py::test_idempotent` | `http_probe POST` 2× same key → 1 row in db_state |
+| ... | ... | ... | ... | ... |
+```
+
+Each row references a CONTRACT criterion id (e.g., `C-001`), the source (CONTRACT criterion + FRS FR), the axis (happy/boundary/error/idempotency), the in-suite pytest fixture if any, and the live probe `@evaluator` runs. Probe DSL itself is NOT re-stated — it lives in CONTRACT.
 
 ## When to escalate
 

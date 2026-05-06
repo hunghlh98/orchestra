@@ -69,32 +69,45 @@ The longest dependency chain by SP sum is the critical path. Total sprint durati
 
 ### Step 6 — Write the task graph
 
-Output to `<project>/.claude/.orchestra/pipeline/<feature_id>/plan/<NNN>-TASKS.md` with shape:
+Read the dispatcher-scaffolded `pipeline/<feature_id>/plan/<NNN>-TASKS.md`. The scaffold has slim frontmatter (no inline `sections:` — v2.0.0 provenance lives in the paired `<artifact>.lock.yaml`), the locked anchors `S-DAG-001` and `S-TASKS-001`, FILL placeholders, and an empty diagram stub at `diagrams/tasks-dag.puml`.
+
+Frontmatter shape (v2.0.0, slim):
 
 ```yaml
 ---
 id: <NNN>-TASKS
 type: TASKS
+created: <ISO-8601>
 revision: 1
-sections:
-  S-TASKS-001: { hash: "TBD", confirmed: false }   # mutable by design — agents update Status column
-references:
-  - type: prd
-    id: "<id>"
-    section: S-FEATURE-001
-    hash-at-write: "TBD"
+task_graph_node_count: <int>
+estimated_sp: <int>
+tasks_pending: <int>
+tasks_in_progress: 0
+tasks_done: 0
 ---
-
-## Task list <a id="S-TASKS-001"></a>
-
-| ID | Owner | SP | Blocks | Blocked by | Exit criteria | Status | Updated by | Updated at |
-|---|---|---|---|---|---|---|---|---|
-| T-001 | @backend | 3 | T-002, T-003 | — | endpoint at /v1/foo returns 201; CONTRACT criterion `foo.persists` PASS | pending | — | — |
-| T-002 | @test | 2 | T-005 | T-001 | adversarial fuzz: malformed JSON returns 400 | pending | — | — |
-| ... | ... | ... | ... | ... | ... | ... | ... | ... |
 ```
 
-Initial Status is `pending` for every row. The owning agent flips Status as work progresses per the per-tier rules in `schemas/pipeline-artifact.schema.md` PLAN-<id> section: implementer-tier (`@backend`, `@frontend`) self-reports `pending → in_progress → done`; read-only-tier (`@evaluator`, `@reviewer`) status is derived from verdict frontmatter and rows stay `pending` in TASKS.md. `S-TASKS-001` is `confirmed: false` so the drift validator skips the inevitable mutations.
+Body:
+
+```markdown
+## DAG <a id="S-DAG-001"></a>
+
+<one-line description of work shape: waves, fan-out, critical path>
+
+![Task DAG](diagrams/tasks-dag.svg)
+
+## Tasks <a id="S-TASKS-001"></a>
+
+| ID | Owner | SP | Blocks | Blocked by | Exit criteria | Status |
+|---|---|---|---|---|---|---|
+| T-001 | @backend | 3 | T-002, T-003 | — | endpoint at /v1/foo returns 201; CONTRACT criterion `foo.persists` PASS | pending |
+| T-002 | @test | 2 | T-005 | T-001 | adversarial fuzz: malformed JSON returns 400 | pending |
+| ... | ... | ... | ... | ... | ... | ... |
+```
+
+Author the DAG `.puml` source at `diagrams/tasks-dag.puml` (PlantUML activity-diagram shape: nodes for each T-NNN, edges for dependencies, swimlanes optional per owner). Invoke `/plantuml` to render to `.svg`.
+
+Initial Status is `pending` for every row. Owning agents flip Status as work progresses per the per-tier rules in `schemas/pipeline-artifact.schema.md` TASKS-<id> section: implementer-tier (`@backend`, `@frontend`) self-reports `pending → in_progress → done`; read-only-tier (`@evaluator`, `@reviewer`) status is derived from TSR frontmatter (`eval_verdict`, `rev_verdict`) and rows stay `pending` in TASKS.md. The lockfile entry for `S-TASKS-001` carries `confirmed: false` so the drift validator skips the inevitable mutations.
 
 ## When to escalate
 
@@ -122,8 +135,8 @@ User says: *"Add a /v1/users/:id/transfer endpoint that records to the ledger an
 | T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit | pending |
 | T-003 | @test | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
 | T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic | pending |
-| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `verify/001-TEST.md` verdict block: all 4 criteria PASS or pending | pending |
-| T-006 | @reviewer | 2 | T-007 | T-005 | `verify/001-CODE-REVIEW.md` APPROVED | pending |
-| T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes if applicable | pending |
+| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `verify/001-TSR.md S-EVAL-VERDICT-001`: all 4 criteria PASS | pending |
+| T-006 | @reviewer | 2 | T-007 | T-005 | `verify/001-TSR.md S-REV-VERDICT-001`: APPROVED | pending |
+| T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes (with `S-ANNOUNCEMENT-001`) if applicable | pending |
 
 Total: 13 SP. Critical path: T-001 → T-002 → T-005 → T-006 → T-007 = 9 SP. Parallelism on T-002/T-003/T-004 saves 4 SP of wall time.

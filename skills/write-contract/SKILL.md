@@ -98,43 +98,59 @@ Document the rationale in the body; don't change `passing_score` casually.
 
 ### Step 6 — Write interfaces/<NNN>-CONTRACT.md
 
-Path: `<project>/.claude/.orchestra/pipeline/<feature_id>/interfaces/<NNN>-CONTRACT.md`. Shape:
+Read the dispatcher-scaffolded `pipeline/<feature_id>/interfaces/<NNN>-CONTRACT.md`. The scaffold has slim frontmatter (v2.0.0 provenance lives in the paired `<artifact>.lock.yaml`), the locked anchors `S-INTERFACE-001`, `S-SERVICE-CONTRACT-001`, `S-SCORING-001`, `S-CRITERIA-001`, FILL placeholders, and an empty service-contract diagram stub at `diagrams/contract-service.puml`.
+
+Frontmatter shape (v2.0.0, slim):
 
 ```yaml
 ---
 id: <NNN>-CONTRACT
 type: CONTRACT
+created: <ISO-8601>
 revision: 1
+signed: false
+weighted_criteria_total: 100
 passing_score: 80
-sections:
-  S-CRITERIA-001: { hash: "TBD", confirmed: true }
-  S-PROBES-001:   { hash: "TBD", confirmed: true }
-references:
-  - type: prd
-    id: "<id>"
-    section: S-FEATURE-001
-    hash-at-write: "TBD"
-  - type: frs
-    id: "<id>"
-    section: S-API-001
-    hash-at-write: "TBD"
+probe_count: <int>
+critical_failure_conditions: <int>
 ---
+```
+
+Body anchors and content:
+
+- `S-INTERFACE-001` — enumerate the interface surface (HTTP endpoints / events / messages). Reference `<NNN>-API.openapi.yaml` for HTTP shape; this section names them.
+- `S-SERVICE-CONTRACT-001` — per-method/topic contract: trigger, payload shape, success/error responses, idempotency, ordering. Embed image link `![Service contract](diagrams/contract-service.svg)`.
+- `S-SCORING-001` — integer weights summing to 100; `passing_score` (default 80); critical-fail veto rules. Mirror frontmatter `weighted_criteria_total` / `passing_score` / `critical_failure_conditions`.
+- `S-CRITERIA-001` — one C-NNN block per criterion. Each block: weight, `critical: true|false`, probe DSL (orchestra-probe.http_probe / db_state), PASS/FAIL conditions.
+
+Author the service-contract diagram source at `diagrams/contract-service.puml` (PlantUML class/component shape: HTTP table + event/message table if any). For each critical-path criterion, ALSO author `diagrams/contract-sequence-<criterion-id>.puml` showing the interaction sequence. Add the corresponding `diagrams[]` entries to the lockfile when scaffold-time defaults are insufficient. Invoke `/plantuml` to render `.svg` for each.
+
+Final body shape (after FILL):
+
+```markdown
+## Interface <a id="S-INTERFACE-001"></a>
+
+(enumeration of HTTP/event/message surface)
+
+## Service contract <a id="S-SERVICE-CONTRACT-001"></a>
+
+(per-method contract prose)
+
+![Service contract](diagrams/contract-service.svg)
+
+## Scoring policy <a id="S-SCORING-001"></a>
+
+Weights sum to 100. Passing score: 80. Critical-fail veto: any FAIL on a `critical: true` criterion auto-fails regardless of total.
 
 ## Criteria <a id="S-CRITERIA-001"></a>
 
-| ID | Description | Weight | Critical |
-|---|---|---|---|
-| transfer.persists | POST /v1/transfer records to ledger | 30 | false |
-| transfer.idempotent | Same key produces single ledger row | 25 | false |
-| transfer.emits_event | event_log contains 'transfer' topic | 20 | false |
-| transfer.rejects_replay | Adversarial replay returns 409 | 15 | true |
-| transfer.under_500ms | p95 latency below 500ms under N=100 | 10 | false |
+### C-001 — transfer.persists (FR-1) — weight 30
 
-Sum of weights: 100. ✓
+(probe block + PASS/FAIL conditions)
 
-## Probes <a id="S-PROBES-001"></a>
+### C-002 — transfer.idempotent (FR-2) — weight 25
 
-(per-criterion probes block as in Step 3)
+...
 ```
 
 ## Probe DSL — quick reference
