@@ -6,48 +6,51 @@ origin: orchestra
 
 # commit-work
 
-Reads `git diff --staged` and produces a Conventional Commits 1.0.0 message: `<type>(<scope>): <subject>` with optional body and trailers. Used directly by `/orchestra commit` (no team) and by `@ship` during release work.
+Reads `git diff --staged` and produces a Conventional Commits 1.0.0 message: `<type>(<scope>): <subject>` with optional body and trailers. Used by `/orchestra commit` and by `@ship` during release work.
 
 ## When to use
 
 - User invoked `/orchestra commit` — the smart commit-message subcommand.
-- `@ship` is finalizing a feature and needs a commit (or several) for the release diff. `@ship` reads gate status from `verify/<NNN>-TSR.md` frontmatter (`eval_verdict`, `rev_verdict`) before invoking this skill.
+- `@ship` is finalizing a feature and needs a commit (or several) for the release diff. `@ship` reads gate status from `verify/<NNN>-TSR.md` frontmatter (`eval_verdict`, `rev_verdict`) before invoking.
 - Any agent has just modified files and wants to land them as a single coherent commit.
 
-You do **not** invoke this skill for amending or rebasing — those are destructive and require explicit user approval per the global CLAUDE.md "executing actions with care" guidance. Generate fresh commits, not history rewrites.
+Skip for amending or rebasing — those are destructive and require explicit user approval. Generate fresh commits, never history rewrites.
 
 ## Approach
 
 ### Step 1 — Read the staged diff
 
-Run `git diff --staged --stat` to get the file list and size. Then `git diff --staged` (without --stat) to read the actual changes. Keep both in working memory.
+```bash
+git diff --staged --stat   # file list + size
+git diff --staged          # actual changes
+```
 
-If the diff is empty: stop. Do not create empty commits. Tell the user there's nothing staged.
+If the diff is empty: stop. Tell the user there's nothing staged.
 
 ### Step 2 — Choose the type
 
-Conventional Commits 1.0.0 vocabulary. Pick exactly one:
+Pick exactly one from Conventional Commits 1.0.0 vocabulary:
 
 | Type | Use when |
 |---|---|
-| `feat` | New user-facing functionality (an endpoint, a flag, a UI behavior). |
-| `fix` | A bug fix that changes observable behavior toward correctness. |
-| `refactor` | Internal code change with no behavior delta. (Tests still pass; no API changes.) |
-| `test` | Adds or updates tests only. No source code changed. |
-| `docs` | Docs only. README, CHANGELOG, design docs, code comments-only changes. |
+| `feat` | New user-facing functionality (endpoint, flag, UI behavior). |
+| `fix` | Bug fix that changes observable behavior toward correctness. |
+| `refactor` | Internal change with no behavior delta (tests pass; no API changes). |
+| `test` | Tests only. No source code changed. |
+| `docs` | Docs only (README, CHANGELOG, design docs, comments-only). |
 | `chore` | Tooling, build config, dependency bumps. No behavior delta. |
 | `perf` | Behavior-preserving change with a measurable performance improvement. |
 | `ci` | CI configuration only (`.github/workflows/`, `.gitlab-ci.yml`, etc.). |
-| `style` | Formatting only (whitespace, semicolons). Avoid in this codebase — style is autoformat-managed. |
+| `style` | Formatting only (whitespace, semicolons). Avoid here — autoformat-managed. |
 | `build` | Build system changes (Webpack, esbuild, Maven, Gradle config). |
 
-If the diff spans multiple types ("feat + docs + tests for the same feature") — choose the **dominant** type. Multi-type commits are still single-type-tagged; the body lists the rest.
+Multi-type diffs ("feat + docs + tests for the same feature") → choose the **dominant** type; body lists the rest.
 
 ### Step 3 — Choose the scope
 
-Scope is the sub-area touched. v1.0.0 conventions for this repo:
+Sub-area touched. v1.0.0 conventions for this repo:
 
-- `infra` — manifests, validators, CI scaffolding (PR #1).
+- `infra` — manifests, validators, CI scaffolding.
 - `hooks` — anything in `hooks/`.
 - `mcp` — anything in `scripts/mcp-servers/`.
 - `agents` — anything in `agents/`.
@@ -57,45 +60,43 @@ Scope is the sub-area touched. v1.0.0 conventions for this repo:
 - `spec` — `docs/PRD-*.md`, `docs/DESIGN-*.md`, `docs/WORKFLOW-*.md`.
 - `validators` — `scripts/validate*.js`, `scripts/test-*.js`.
 
-Multi-scope diffs: pick the *load-bearing* scope. If a hook change is the point and you also bumped CHANGELOG, scope is `hooks`. The CHANGELOG belongs in the body or trailer.
+Multi-scope diffs: pick the *load-bearing* scope. CHANGELOG bumps alongside a hook change → scope is `hooks`; CHANGELOG belongs in body or trailer.
 
 ### Step 4 — Write the subject
 
 Format: `<type>(<scope>): <subject>`.
 
-Subject rules (Conventional Commits 1.0.0 + this repo's preferences):
-
-- Imperative mood: "add", "fix", "rename" — not "added", "fixes", "renaming".
+- Imperative mood: "add", "fix", "rename" (not "added", "fixes", "renaming").
 - Lowercase. No trailing period.
 - ≤72 chars total including type/scope.
 - State the **why-shaped what**: not "update file" but "drop redundant null check from ledger.ts".
-- Reference task IDs from the workflow doc if applicable: `feat(skills): T-501 task-breakdown SKILL.md`.
+- Reference task IDs when applicable: `feat(skills): T-501 task-breakdown SKILL.md`.
 
 ### Step 5 — Write the body (optional)
 
-Use the body when the subject can't carry the full meaning. Patterns:
+Use when the subject can't carry the full meaning:
 
-- **Why** the change matters (not what — the diff shows what).
+- **Why** the change matters (not what — diff shows what).
 - **Trade-offs** considered, options not taken.
 - **Follow-up** work spawned by this commit.
-- **References** to PRD/DESIGN/WORKFLOW sections by ID.
+- **References** to PRD/DESIGN/WORKFLOW sections by id.
 
 Wrap at 72 chars. Separate body from subject with one blank line.
 
 ### Step 6 — Add trailers (optional)
 
-Trailers go at the bottom, separated from body by one blank line. Common trailers:
+Trailers go at the bottom, separated from body by one blank line:
 
-- `BREAKING CHANGE:` — if the diff breaks an existing contract. Triggers a major version bump per SemVer.
+- `BREAKING CHANGE:` — diff breaks an existing contract. Triggers major version bump.
 - `Closes #NN` — GitHub issue reference.
-- `Refs: SPEC-<id> sec-<n>` — internal artifact reference (PRD/FRS/TDD section).
+- `Refs: SPEC-<id> sec-<n>` — internal artifact reference.
 - `Co-Authored-By: <name> <email>` — pair-programming credit.
 
 ### Step 7 — Run the commit
 
-Use `git commit -m "<subject>" -m "<body>"` (one `-m` per paragraph) or via HEREDOC for clean formatting. **Never** use `--amend` or `--no-verify` unless the user explicitly asks. Pre-commit hooks exist for a reason.
+`git commit -m "<subject>" -m "<body>"` (one `-m` per paragraph) or HEREDOC for clean formatting. **Never** `--amend` or `--no-verify` unless the user explicitly asks. Pre-commit hooks exist for a reason.
 
-If a hook fails: investigate the failure, fix the underlying issue, re-stage, create a NEW commit. Do not bypass.
+If a hook fails: investigate, fix the underlying issue, re-stage, create a NEW commit. Do not bypass.
 
 ## Output shape
 
@@ -111,21 +112,18 @@ If a hook fails: investigate the failure, fix the underlying issue, re-stage, cr
 
 ## When to escalate
 
-- Diff spans 4+ logical changes that don't share a scope → ask the user to split into separate commits before generating.
-- Diff includes a file that *might* contain a secret (.env, credentials.json) → refuse and warn; let `pre-write-check` adjudicate.
-- Changes touch multiple PR-scoped areas (e.g., agents + rules + command in one diff) → suggest splitting per the WORKFLOW doc's PR boundaries.
+- Diff spans 4+ logical changes that don't share a scope → ask user to split before generating.
+- Diff includes a file that *might* contain a secret (`.env`, `credentials.json`) → refuse and warn; let `pre-write-check` adjudicate.
+- Changes touch multiple PR-scoped areas (agents + rules + command in one diff) → suggest splitting into separate commits per scope.
 
 ## References
 
-For depth, see:
 - `references/commit-types.md` — extended type vocabulary with anchored examples per type.
-- `references/scoping-guide.md` — repo-specific scope picking heuristics.
-
-(References are conditional; this body suffices for v1.0.0.)
+- `references/scoping-guide.md` — repo-specific scope-picking heuristics.
 
 ## Worked example
 
-User runs `/orchestra commit`. `git diff --staged --stat` shows:
+User runs `/orchestra commit`. `git diff --staged --stat`:
 
 ```
  src/api/users.ts          | 78 +++++++++++++++++
@@ -133,12 +131,9 @@ User runs `/orchestra commit`. `git diff --staged --stat` shows:
  docs/api/users.md         | 22 +++++
 ```
 
-Analysis:
 - Type: `feat` (new endpoint).
 - Scope: `api` (load-bearing area).
-- Subject: state the why-shaped what; reference the spec/issue ID this resolves.
-
-Output:
+- Subject: state the why-shaped what; reference the spec/issue id this resolves.
 
 ```
 feat(api): T-204 add /v1/users CRUD with cursor pagination

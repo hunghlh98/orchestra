@@ -30,4 +30,9 @@ The `<feature-id>` argument form is rejected — the current session has at most
 
 ## Return contract
 
-The skill returns to the dispatcher with `{terminal_state: "aborted", feature_id}` after step 5 emits, or `{terminal_state: "no-op"}` after step 1's no-team early exit. The dispatcher does NOT need to run Step 7 closure separately — this skill performs the SUMMARY write + TeamDelete inline.
+Returns to the dispatcher with:
+
+- `{terminal_state: "aborted", feature_id}` after step 5 emits.
+- `{terminal_state: "no-op"}` after step 1's no-team early exit.
+
+The dispatcher does NOT need to run Step 7 closure separately — this skill performs the SUMMARY write + TeamDelete inline.

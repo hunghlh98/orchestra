@@ -4,43 +4,83 @@ description: Generates C4-model architecture diagrams (Context / Container / Com
 origin: orchestra-internal (structure adapted from .agents/skills/c4-architecture; output rewritten Mermaid → C4-PlantUML stdlib)
 ---
 
-# C4 Architecture Documentation (PlantUML)
+# c4-architecture
 
-Generate software architecture documentation using C4 model diagrams in PlantUML syntax via the C4-PlantUML standard library.
+Generates C4-model diagrams (Context / Container / Component / Deployment / Dynamic) in PlantUML via the C4-PlantUML stdlib. `@lead` invokes when authoring SAD or TDD diagrams.
 
-## Workflow
+## When to use
 
-1. **Understand scope** — Determine which C4 level(s) are needed based on audience.
-2. **Analyze codebase** — Explore the system to identify components, containers, and relationships.
-3. **Generate diagrams** — Create C4-PlantUML diagrams at appropriate abstraction levels.
-4. **Render** — Convert `.puml` source to `.svg` via the `/plantuml` skill (`scripts/convert_puml.py`).
+- `@lead` authoring `architecture/SAD.md` — needs Context (L1) + Container (L2).
+- `@lead` authoring `pipeline/<NNN>-<slug>/design/<NNN>-TDD.md` — needs Component (L3) and/or Dynamic flow diagrams.
+- `@lead` authoring `pipeline/<NNN>-<slug>/interfaces/<NNN>-CONTRACT.md` — needs sequence diagrams for critical-path criteria.
 
-## MUST / MUST-NOT (binding)
+## Approach
 
-Every C4 `.puml` file authored under this skill MUST:
-- Start with `!include <C4/C4_Context|C4_Container|C4_Component|C4_Dynamic|C4_Deployment>` (after `@startuml`), and carry a `title` line.
-- Use stdlib macros: `Person`/`System`/`Container`/`Component` (plus `*_Ext`/`*Db`/`*Queue`/`*_Boundary` variants) for elements; `Rel(...)` for relationships.
+### Step 1 — Pick C4 level by audience
 
-Every C4 `.puml` file MUST NOT:
-- Use raw PlantUML primitives (`rectangle`/`actor`/`component`/`package`/`node`/`database`) for body elements — they have no C4 type semantics, so the element type (Person | Software System | Container | Component) becomes invisible to the reader.
-- Use raw arrow syntax (`-->`/`->`/`..>`) or generic relationship verbs ("Uses", "Calls"). `Rel(...)` enforces the labeled-unidirectional rule; action verbs ("Sends payment intent via HTTPS/JSON") carry the meaning.
-- Use `skinparam` for body styling. Use `UpdateElementStyle()` / `UpdateRelStyle()` instead, or accept the stdlib defaults.
-
-## C4 Diagram Levels
-
-| Level | Diagram type | Audience | Shows | When to create |
-|-------|-------------|----------|-------|----------------|
+| Level | Diagram | Audience | Shows | When to create |
+|---|---|---|---|---|
 | 1 | **C4_Context** | Everyone | System + external actors | Always (required for SAD) |
 | 2 | **C4_Container** | Technical | Apps, databases, services | Always (required for SAD) |
 | 3 | **C4_Component** | Developers | Internal components | Required for TDD |
-| 4 | **C4_Deployment** | DevOps | Infrastructure nodes | For production systems |
-| — | **C4_Dynamic** | Technical | Request flows (numbered) | For complex workflows; required for TDD critical-path sequences |
+| 4 | **C4_Deployment** | DevOps | Infrastructure nodes | Production systems |
+| — | **C4_Dynamic** | Technical | Numbered request flows | Complex workflows; required for TDD critical-path sequences |
 
-**Key insight:** "Context + Container diagrams are sufficient for most software development teams." Only generate Component/Deployment diagrams when they add genuine value.
+Context + Container suffice for most teams. Generate Component / Deployment only when they answer a specific question.
 
-## Quick Start Examples
+### Step 2 — Apply MUST / MUST-NOT (binding)
 
-Each example uses the C4-PlantUML stdlib via `!include` directives. The stdlib ships with PlantUML; no extra install needed.
+Every C4 `.puml` MUST:
+
+- Start with `!include <C4/C4_Context|C4_Container|C4_Component|C4_Dynamic|C4_Deployment>` after `@startuml`, plus a `title` line.
+- Use stdlib macros: `Person` / `System` / `Container` / `Component` (plus `*_Ext` / `*Db` / `*Queue` / `*_Boundary` variants) for elements; `Rel(...)` for relationships.
+
+Every C4 `.puml` MUST NOT:
+
+- Use raw PlantUML primitives (`rectangle` / `actor` / `component` / `package` / `node` / `database`) for body elements — they have no C4 type semantics.
+- Use raw arrow syntax (`-->` / `->` / `..>`) or generic verbs ("Uses" / "Calls"). `Rel(...)` enforces unidirectional + labeled.
+- Use `skinparam` for body styling. Use `UpdateElementStyle()` / `UpdateRelStyle()` instead, or accept stdlib defaults.
+
+### Step 3 — Author from quick-start templates
+
+Five quick-start fenced templates below: Context, Container, Component, Dynamic, Deployment. Use as starting points; element-syntax + styling-macro tables follow.
+
+### Step 4 — Apply mandatory rules
+
+Five essentials (extended discussion in `references/c4-rules.md`):
+
+1. **Every element** has name, type-by-macro, technology (where applicable), description.
+2. **Unidirectional arrows only** — `Rel(from, to, ...)`. No `BiRel` unless genuinely peer-to-peer.
+3. **Action verbs** on labels — "Sends payment intent via" not "Uses".
+4. **Technology labels** — "JSON/HTTPS", "JDBC", "gRPC".
+5. **≤20 elements per diagram** — split when dense.
+
+Component diagrams answer ONE specific question (e.g., "How does retry vs fail-fast work inside the Payment API?"). For trivial single-component containers, omit and write `<!-- OMIT: trivial container; single component -->` in TDD `S-COMPONENTS-001` with `component_count: 0`.
+
+For framework internals (Tomcat, DispatcherServlet, Jackson, ORM `SessionFactory`, `RestTemplate` / `WebClient` as standalone boxes) — these are NOT components. See `references/c4-rules.md`. If you need to show that flow, draw it with `C4_Dynamic` and numbered `Rel`s.
+
+For microservices ownership patterns (single-team / multi-team / event-driven), see `references/c4-rules.md`.
+
+### Step 5 — Render via /plantuml
+
+```bash
+python ${CLAUDE_PLUGIN_ROOT}/skills/plantuml/scripts/convert_puml.py <path>.puml --format svg
+```
+
+The hash-stamper hook tracks both `.puml` source hash and rendered `.svg` hash in the artifact's paired `<artifact>.lock.yaml` `diagrams[]` block.
+
+### Step 6 — Self-check before declaring done
+
+Walk this checklist; any "no" → fix the source, do not render:
+
+- [ ] **Title** present (e.g., `title C4 Level 2 — Containers — hello-world`).
+- [ ] **Stdlib `!include`** used; no raw `rectangle` / `actor` / `component` / `package` / `node` / `database` in body.
+- [ ] **Every element**: name (1st arg), type-by-macro (`Person` / `System` / `Container` / `Component`, not just hinted in label), description (last arg), technology (3rd arg for Container / Component).
+- [ ] **L1 Context**: no transport protocols on relationships. **L3 Component**: no framework internals (see `references/c4-rules.md`).
+- [ ] **Every `Rel(...)`**: label, technology arg at Container / Component level, action verb (no "Uses" / "Calls" / "Talks to"), unidirectional (no `BiRel` unless genuinely peer-to-peer).
+- [ ] **Stand-alone test**: handed the rendered `.svg` to a stranger — can they tell what the system does, who uses it, how it's built, without your narration?
+
+## Quick-start templates
 
 ### System Context (Level 1)
 
@@ -153,9 +193,7 @@ Rel(api, db, "Reads/writes", "file I/O")
 @enduml
 ```
 
-## Element Syntax
-
-C4-PlantUML stdlib macros:
+## Element syntax — C4-PlantUML stdlib macros
 
 ### People and systems
 
@@ -163,10 +201,10 @@ C4-PlantUML stdlib macros:
 Person(alias, "Label", "Description")
 Person_Ext(alias, "Label", "Description")          ' External person
 System(alias, "Label", "Description")
-System_Ext(alias, "Label", "Description")           ' External system
-SystemDb(alias, "Label", "Description")             ' Database system
-SystemQueue(alias, "Label", "Description")          ' Queue system
-SystemDb_Ext(alias, "Label", "Description")         ' External DB
+System_Ext(alias, "Label", "Description")          ' External system
+SystemDb(alias, "Label", "Description")            ' Database system
+SystemQueue(alias, "Label", "Description")         ' Queue system
+SystemDb_Ext(alias, "Label", "Description")        ' External DB
 ```
 
 ### Containers
@@ -214,15 +252,15 @@ Deployment_Node(alias, "Label", "Type", "Description") { ... }
 Node(alias, "Label", "Type", "Description") { ... }     ' Shorthand (alias of Deployment_Node)
 ```
 
-## Styling and Layout
+## Styling and layout
 
-### Layout direction (PlantUML stdlib)
+### Layout direction
 
 ```
 LAYOUT_TOP_DOWN()                ' default
 LAYOUT_LEFT_RIGHT()
 LAYOUT_LANDSCAPE()
-LAYOUT_AS_SKETCH()               ' hand-drawn look
+LAYOUT_AS_SKETCH()              ' hand-drawn look
 ```
 
 ### Element-level styling
@@ -239,124 +277,9 @@ UpdateRelStyle("from", "to", $textColor="blue", $lineColor="blue", $offsetX="5",
 
 `$offsetX` / `$offsetY` fix overlapping relationship labels.
 
-## Best Practices
-
-### Essential rules
-
-1. **Every element MUST have**: name, type, technology (where applicable), description.
-2. **Use unidirectional arrows only** — bidirectional arrows create ambiguity.
-3. **Label arrows with action verbs** — "Sends email using", "Reads from", not just "uses".
-4. **Include technology labels** — "JSON/HTTPS", "JDBC", "gRPC".
-5. **Stay under 20 elements per diagram** — split complex systems into multiple diagrams.
-
-### Clarity guidelines
-
-1. **Start at Level 1** — context diagrams help frame the system scope.
-2. **One diagram per file** — keep diagrams focused on a single abstraction level.
-3. **Meaningful aliases** — use descriptive aliases (`orderService` not `s1`).
-4. **Concise descriptions** — keep descriptions under 50 characters when possible.
-5. **Always include a title** — `title System Context — <System Name>`.
-
-### What to avoid
-
-- Confusing containers (deployable) vs components (non-deployable).
-- Modeling shared libraries as containers.
-- Showing message brokers as a single container instead of individual topics.
-- Adding undefined abstraction levels like "subcomponents".
-- Removing type labels to "simplify" diagrams.
-- Modeling **framework internals as components** (servlet container, dispatcher servlet, HTTP message converter, ORM session factory, framework HTTP clients). See "Framework internals are NOT components" below.
-- Drawing a Component diagram for a single-component container — write `<!-- OMIT: trivial container; single component -->` in the TDD instead and set `component_count: 0`.
-- Mixing transport/protocol detail into a **System Context (L1)** relationship label. L1 is for execs/PMs — strip protocols (`(HTTP, loopback)`, `JDBC`, etc.) and move them to L2 Container.
-- Putting load balancers, replicas, K8s pods on a **Container** diagram — that's Deployment territory. Container = logical, not physical.
-
-### Framework internals are NOT components
-
-A Component is "a grouping of related functionality encapsulated behind a well-defined interface" — i.e., **your application's** groupings, not the framework's. The following are forbidden as components on a C4 Component diagram:
-
-| Forbidden as component | Why |
-|---|---|
-| Servlet container (Tomcat, Jetty, Undertow) | Runtime infrastructure. If it matters at all, it's a Container. |
-| `DispatcherServlet`, `FrontController` | Framework routing — implicit in any Spring/Rails/Flask/Express app. |
-| HTTP message converters (Jackson, Gson, `MappingJackson2HttpMessageConverter`) | Serialization plumbing. |
-| ORM `SessionFactory` / `EntityManagerFactory` | Framework-supplied infrastructure. |
-| Framework HTTP clients (`RestTemplate`, `WebClient`, `OkHttpClient`) used as standalone boxes | These are libraries used inside your component, not components themselves. |
-
-The arrow chain `Tomcat → DispatcherServlet → MyController → Jackson → Client` is request-flow narration, not structure. If you need to show that flow, draw it with `!include <C4/C4_Dynamic>` and numbered `Rel`s — not on a Component diagram.
-
-### Component diagrams are optional
-
-A Component diagram should answer a specific question (e.g., "How does retry vs fail-fast work inside the Payment API?"). If no such question exists, do not draw one.
-
-- **Container with one application class** (e.g., a single `@RestController`): the Component diagram would be one box. Skip it. Write `<!-- OMIT: trivial container; single component -->` in the TDD `S-COMPONENTS-001` section and set frontmatter `component_count: 0`. Mirrors the existing pattern for omitted state-machines (`<!-- OMIT: no lifecycle states -->` with `state_machine_count: 0`).
-- **Long-lived containers**: prefer auto-generation (Structurizr DSL or annotation-driven). Hand-drawn component diagrams rot.
-
-## Microservices guidelines
-
-### Single-team ownership
-
-Model each microservice as a **container** (or container group) inside one System_Boundary:
-
-```plantuml
-@startuml
-!include <C4/C4_Container>
-
-title E-commerce Platform — single team
-
-System_Boundary(platform, "E-commerce Platform") {
-  Container(orderApi, "Order Service", "Spring Boot", "Order processing")
-  ContainerDb(orderDb, "Order DB", "PostgreSQL", "Order data")
-  Container(inventoryApi, "Inventory Service", "Node.js", "Stock management")
-  ContainerDb(inventoryDb, "Inventory DB", "MongoDB", "Stock data")
-}
-@enduml
-```
-
-### Multi-team ownership
-
-Promote microservices to **software systems** when owned by separate teams:
-
-```plantuml
-@startuml
-!include <C4/C4_Context>
-
-title E-commerce Platform — multi-team
-
-Person(customer, "Customer", "Places orders")
-System(orderSystem, "Order System", "Team Alpha")
-System(inventorySystem, "Inventory System", "Team Beta")
-System(paymentSystem, "Payment System", "Team Gamma")
-
-Rel(customer, orderSystem, "Places orders")
-Rel(orderSystem, inventorySystem, "Checks stock")
-Rel(orderSystem, paymentSystem, "Processes payment")
-@enduml
-```
-
-### Event-driven architecture
-
-Show individual topics/queues as containers, NOT a single "Kafka" box:
-
-```plantuml
-@startuml
-!include <C4/C4_Container>
-
-title Event-driven — order/stock
-
-Container(orderService, "Order Service", "Java", "Creates orders")
-Container(stockService, "Stock Service", "Java", "Manages inventory")
-ContainerQueue(orderTopic, "order.created", "Kafka", "Order events")
-ContainerQueue(stockTopic, "stock.reserved", "Kafka", "Stock events")
-
-Rel(orderService, orderTopic, "Publishes to")
-Rel(stockService, orderTopic, "Subscribes to")
-Rel(stockService, stockTopic, "Publishes to")
-Rel(orderService, stockTopic, "Subscribes to")
-@enduml
-```
-
 ## Output location
 
-Write `.puml` source under the **owning artifact's `diagrams/` directory**, then render to `.svg` with the `/plantuml` skill:
+Write `.puml` source under the **owning artifact's `diagrams/` directory**, then render to `.svg`:
 
 | Owning artifact | Diagram source path |
 |---|---|
@@ -364,41 +287,33 @@ Write `.puml` source under the **owning artifact's `diagrams/` directory**, then
 | `pipeline/<NNN>-<slug>/design/<NNN>-TDD.md` | `pipeline/<NNN>-<slug>/design/diagrams/tdd-c4-component.puml` |
 | `pipeline/<NNN>-<slug>/interfaces/<NNN>-CONTRACT.md` | `pipeline/<NNN>-<slug>/interfaces/diagrams/contract-sequence-<crit>.puml` |
 
-Render command (one-shot):
-
-```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/plantuml/scripts/convert_puml.py <path>.puml --format svg
-```
-
-The hash-stamper hook tracks both `.puml` source hash and rendered `.svg` hash in the artifact's paired `<artifact>.lock.yaml diagrams[]` block.
-
 ## Audience-appropriate detail
 
 | Audience | Recommended diagrams |
-|----------|---------------------|
-| Executives | System Context only |
+|---|---|
+| Executives | Context only |
 | Product Managers | Context + Container |
 | Architects | Context + Container + key Components |
 | Developers | All levels as needed |
 | DevOps | Container + Deployment |
 
-## Self-check before rendering
+## When to escalate
 
-Before invoking `/plantuml`, walk this checklist. Any "no" → fix the source, do not render.
+- Microservice ownership crosses team lines mid-render → consult `references/c4-rules.md` for the multi-team pattern.
+- Component diagram has nothing to show beyond a single class → omit per Step 4 protocol.
+- Client requests a "subcomponent" or 5th-level abstraction → C4 forbids it; clarify scope or split into multiple Component diagrams.
 
-- [ ] **Title** present (e.g., `title C4 Level 2 — Containers — hello-world`).
-- [ ] **Stdlib `!include`** used; no raw `rectangle`/`actor`/`component`/`package` in the body.
-- [ ] **Every element** has name (1st arg), type-by-macro (`Person`/`System`/`Container`/`Component`, not just hinted in the label), description (last arg), and technology (3rd arg, for Container/Component).
-- [ ] **L1 Context**: no transport protocols on relationships. **L3 Component**: no framework internals (see forbidden table above).
-- [ ] **Every `Rel(...)`** has a label, plus a technology arg at Container/Component level, action verb (no "Uses"/"Calls"/"Talks to"), unidirectional (no `BiRel` unless genuinely peer-to-peer).
-- [ ] **Stand-alone test**: handed the rendered `.svg` to a stranger — can they tell what the system does, who uses it, and how it's built, without your narration?
+## References
 
-If any check fails: fix the `.puml` first. Rendering does not fix violations.
+- `references/c4-rules.md` — extended "what to avoid", framework-internals deep table, microservices ownership patterns (single-team / multi-team / event-driven examples).
 
-## Summary
+## Worked example
 
-1. **Pick level** — start with C4_Context (Level 1) and C4_Container (Level 2).
-2. **Write `.puml`** — `!include <C4/C4_Container>` then macros (`Person`, `Container`, `Rel`).
-3. **Render** — `python skills/plantuml/scripts/convert_puml.py <path>.puml --format svg`.
-4. **Embed** — image link `![<alt>](diagrams/<file>.svg)` in the owning artifact.
-5. **Stay disciplined** — one level per file; under 20 elements; technology labels everywhere; run the self-check checklist before render.
+`@lead` authoring `architecture/SAD.md` for a URL-shortener:
+
+1. **Pick levels**: Context (L1) + Container (L2) — required for SAD. No L3 yet (TDD owns Components).
+2. **Author** `architecture/diagrams/sad-c4-context.puml` from the Level 1 quick-start; swap in URL-shortener actors.
+3. **Author** `architecture/diagrams/sad-c4-container.puml` from the Level 2 quick-start.
+4. **Render**: `python ${CLAUDE_PLUGIN_ROOT}/skills/plantuml/scripts/convert_puml.py architecture/diagrams/sad-c4-context.puml --format svg` (and again for container).
+5. **Embed** both `.svg` files in `architecture/SAD.md` `S-LANDSCAPE-001` (`![Context](diagrams/sad-c4-context.svg)`) and `S-CONTAINERS-001`.
+6. **Self-check**: walk Step 6's checklist for both sources. Any "no" → fix the `.puml`, re-render.

@@ -6,51 +6,43 @@ origin: orchestra
 
 # write-contract
 
-Produces interfaces/<NNN>-CONTRACT.md: the artifact that binds a feature's success criteria to executable probes. `@lead` writes it after PRD/FRS are confirmed; `@test` consumes it to write the test plan; `@evaluator` uses the criteria + probes to grade. The CONTRACT is where ambiguous spec becomes machine-gradable.
+Produces `interfaces/<NNN>-CONTRACT.md`. `@lead` writes; `@test` and `@evaluator` consume.
 
 ## When to use
 
-- A `requirements/<NNN>-PRD.md` or `requirements/<NNN>-FRS.md` is `confirmed: true` and the next step is execution.
+- A `requirements/<NNN>-PRD.md` or `<NNN>-FRS.md` is `confirmed: true` and execution is next.
 - An existing CONTRACT needs revision because criteria proved unclear during testing.
-- `@lead` is bootstrapping a brownfield migration and needs to lock acceptance criteria before refactor work begins.
+- Brownfield migration needs locked acceptance criteria before refactor.
 
 ## Approach
 
 ### Step 1 — List candidate criteria
 
-Extract every "must"-shaped statement from the PRD/FRS. Each becomes a candidate criterion. Patterns to look for:
+Extract every "must"-shaped statement from PRD/FRS. Each becomes one criterion. Aim for 3–8; fewer means under-specified, more means over-specified.
 
-- "X must return Y" → criterion: `endpoint.x_returns_y`.
-- "After Z, the database state shows W" → criterion: `persistence.w_after_z`.
-- "Adversarial input A is rejected with B" → criterion: `security.rejects_a_with_b`.
-- "Latency p95 < 500ms under load N" → criterion: `performance.latency_under_n`.
+Patterns:
 
-Aim for 3–8 criteria per feature. Fewer than 3 — likely under-specified, ask for re-spec. More than 8 — likely over-specified, consolidate.
+- "X must return Y" → `endpoint.x_returns_y`.
+- "After Z, DB shows W" → `persistence.w_after_z`.
+- "Adversarial input A → reject with B" → `security.rejects_a_with_b`.
+- "Latency p95 < N" → `performance.latency_under_n`.
 
 ### Step 2 — Assign weights
 
-Weights sum to 100. Distribute by **business impact**, not implementation difficulty. Pattern:
+Weights sum to 100. Distribute by **business impact**, not implementation difficulty.
 
 | Criterion shape | Typical weight |
 |---|---|
-| Core behavior (the feature does the thing) | 30–40 |
+| Core behavior | 30–40 |
 | Persistence / consistency | 15–25 |
 | Security / authentication | 15–25 |
 | Performance | 10–15 |
-| Idempotency / replay safety | 10–15 |
-| Observability / metrics | 5–10 |
-
-If two criteria have the same weight, that's a signal you might be able to merge them. If one criterion dominates (>60), the feature is probably under-decomposed — consider splitting into multiple features.
+| Idempotency / replay | 10–15 |
+| Observability | 5–10 |
 
 ### Step 3 — Define probes per criterion
 
-Each criterion gets a `probes:` list. Use orchestra-probe MCP tools (`http_probe`, `db_state`) — the same shape `qa-test-planner` uses. Probes must be:
-
-- **Deterministic** — same probe twice on the same state returns the same result.
-- **Self-contained** — no manual setup required beyond what the test plan documents.
-- **Asserting the criterion, not the implementation** — `body.contains("ok")` not `response time was 187ms because of cache hit`.
-
-Probe shape:
+Each criterion gets a `probes:` list using `http_probe` / `db_state`. Probes must be deterministic, self-contained, and assert the criterion (not the implementation).
 
 ```yaml
 criteria:
@@ -78,29 +70,17 @@ criteria:
 
 ### Step 4 — Mark critical criteria
 
-A criterion with `critical: true` triggers feature-level FAIL on its own miss. Use sparingly:
-
-- Security criteria where a leak is unacceptable.
-- Data-loss paths where partial-credit is meaningless.
-- Compliance-mandated behavior.
-
-A non-critical criterion contributes to the weighted score; failing one drops the score but doesn't auto-FAIL the feature.
+`critical: true` triggers feature-level FAIL on miss. Reserve for: security leaks, data-loss paths, compliance-mandated behavior.
 
 ### Step 5 — Set passing_score
 
-Default: 80 (out of 100). Override per CONTRACT if:
-
-- Compliance requires 100 (any FAIL = no ship).
-- Beta feature where 70 is acceptable for limited rollout.
-- Migration where 90 reflects the higher bar for production data work.
-
-Document the rationale in the body; don't change `passing_score` casually.
+Default 80. Override only with rationale in body: compliance → 100; beta → 70; migration → 90.
 
 ### Step 6 — Write interfaces/<NNN>-CONTRACT.md
 
-Read the dispatcher-scaffolded `pipeline/<feature_id>/interfaces/<NNN>-CONTRACT.md`. The scaffold has slim frontmatter (v2.0.0 provenance lives in the paired `<artifact>.lock.yaml`), the locked anchors `S-INTERFACE-001`, `S-SERVICE-CONTRACT-001`, `S-SCORING-001`, `S-CRITERIA-001`, FILL placeholders, and an empty service-contract diagram stub at `diagrams/contract-service.puml`.
+Read the dispatcher-scaffolded `pipeline/<feature_id>/interfaces/<NNN>-CONTRACT.md`. Anchors are locked.
 
-Frontmatter shape (v2.0.0, slim):
+Frontmatter (slim, v2.0.0; provenance lives in the paired `<artifact>.lock.yaml`):
 
 ```yaml
 ---
@@ -116,16 +96,16 @@ critical_failure_conditions: <int>
 ---
 ```
 
-Body anchors and content:
+Body anchors (locked):
 
-- `S-INTERFACE-001` — enumerate the interface surface (HTTP endpoints / events / messages). Reference `<NNN>-API.openapi.yaml` for HTTP shape; this section names them.
-- `S-SERVICE-CONTRACT-001` — per-method/topic contract: trigger, payload shape, success/error responses, idempotency, ordering. Embed image link `![Service contract](diagrams/contract-service.svg)`.
-- `S-SCORING-001` — integer weights summing to 100; `passing_score` (default 80); critical-fail veto rules. Mirror frontmatter `weighted_criteria_total` / `passing_score` / `critical_failure_conditions`.
-- `S-CRITERIA-001` — one C-NNN block per criterion. Each block: weight, `critical: true|false`, probe DSL (orchestra-probe.http_probe / db_state), PASS/FAIL conditions.
+- `S-INTERFACE-001` — HTTP endpoints / events / messages enumerated; reference `<NNN>-API.openapi.yaml` for shape.
+- `S-SERVICE-CONTRACT-001` — per-method contract: trigger, payload, success/error, idempotency, ordering. Embed `![Service contract](diagrams/contract-service.svg)`.
+- `S-SCORING-001` — integer weights = 100; `passing_score`; critical-fail veto rules. Mirror frontmatter `weighted_criteria_total` / `passing_score` / `critical_failure_conditions`.
+- `S-CRITERIA-001` — one C-NNN block per criterion: weight, `critical: true|false`, probe DSL, PASS/FAIL.
 
-Author the service-contract diagram source at `diagrams/contract-service.puml` (PlantUML class/component shape: HTTP table + event/message table if any). For each critical-path criterion, ALSO author `diagrams/contract-sequence-<criterion-id>.puml` showing the interaction sequence. Add the corresponding `diagrams[]` entries to the lockfile when scaffold-time defaults are insufficient. Invoke `/plantuml` to render `.svg` for each.
+Author `diagrams/contract-service.puml` (HTTP + event tables). For each critical-path criterion, author `diagrams/contract-sequence-<criterion-id>.puml`. Add `diagrams[]` entries to the lockfile when scaffold-time defaults are insufficient. Invoke `/plantuml` to render `.svg` for each.
 
-Final body shape (after FILL):
+Final body shape after FILL:
 
 ```markdown
 ## Interface <a id="S-INTERFACE-001"></a>
@@ -155,40 +135,32 @@ Weights sum to 100. Passing score: 80. Critical-fail veto: any FAIL on a `critic
 
 ## Probe DSL — quick reference
 
-The DSL is intentionally narrow. v1.0.0 supports:
+`tool:` — `http_probe` | `db_state`. `args:` — passed verbatim. `assertions:` — declarative:
 
-- `tool:` — `http_probe` | `db_state`.
-- `args:` — passed to the MCP tool verbatim.
-- `assertions:` — declarative; each assertion either holds or fails.
-  - `status: <int>` — HTTP status equality.
-  - `body_contains: ["str1", "str2"]` — substring matches in response body (post-redaction).
-  - `body_equals: "..."` — full-body equality (use sparingly; brittle).
-  - `header.<key>: <value>` — header value match.
-  - `rows_count: <int>` — db_state row count.
-  - `rows[N].<field>: <value>` — db_state row field equality.
-  - `rows_count_at_least: <int>` — db_state minimum row count.
+- `status: <int>` — HTTP status equality.
+- `body_contains: ["str", ...]` — substring match (post-redaction).
+- `body_equals: "..."` — full-body equality (brittle; use sparingly).
+- `header.<key>: <value>` — header equality.
+- `rows_count: <int>` — db_state row count.
+- `rows[N].<field>: <value>` — db_state row field equality.
+- `rows_count_at_least: <int>` — db_state minimum row count.
 
-Anything not in this list is documentation, not a machine-gradable assertion. Document it as prose in the criterion description and let `@reviewer` grade it manually.
+Anything else is documentation, not a machine-gradable assertion. Mark as `manual_evaluation: true`; let `@reviewer` grade.
 
 ## When to escalate
 
-- Sum of weights ≠ 100 → recompute or surface to `@product` (likely a missing criterion).
-- A criterion can't be probed via http_probe or db_state → flag as "manual evaluation" and add to `@reviewer`'s checklist; don't fake a probe.
-- `passing_score < 70` requested → push back; the feature is likely under-scoped.
+- Sum of weights ≠ 100 → surface to `@product` (likely missing criterion).
+- A criterion can't be probed via `http_probe` / `db_state` → mark `manual_evaluation: true`; never fake a probe.
+- `passing_score < 70` requested → push back; feature likely under-scoped.
 
 ## References
 
-For depth, see:
 - `references/probe-dsl.md` — full assertion grammar with edge cases.
-- `references/criteria-examples.md` — worked CONTRACTs across feature shapes (CRUD, batch, streaming, migration).
-
-(References are conditional; this body covers v1.0.0.)
+- `references/criteria-examples.md` — worked CONTRACTs across CRUD, batch, streaming, migration.
 
 ## Worked example
 
-`requirements/001-PRD.md` says: *"Add `POST /v1/users/:id/transfer`. Records to ledger. Idempotent on `idempotency_key`. Emits a `transfer` event. Replay attacks rejected. p95 < 500ms at 100 RPS."*
-
-Decompose into 5 criteria. Assign weights by impact:
+`requirements/001-PRD.md`: *"Add `POST /v1/users/:id/transfer`. Records to ledger. Idempotent on `idempotency_key`. Emits `transfer` event. Replay rejected. p95 < 500ms at 100 RPS."*
 
 | ID | Description | Weight | Critical |
 |---|---|---|---|
@@ -198,6 +170,4 @@ Decompose into 5 criteria. Assign weights by impact:
 | transfer.rejects_replay | replay → 409 | 15 | **true** |
 | transfer.under_500ms | p95 < 500ms at N=100 | 10 | false |
 
-Total: 100. `passing_score: 80` (default). transfer.rejects_replay is **critical** because a replay vulnerability is a security regression — single FAIL = feature does not ship.
-
-Write `interfaces/001-CONTRACT.md` per Step 6 shape. Hand off to `@test` for `verify/001-TEST.md` design via `qa-test-planner`.
+Total 100. `passing_score: 80`. `transfer.rejects_replay` is critical: a replay vulnerability is a security regression — single FAIL = no ship. Write per Step 6 shape. Hand to `@test` for `verify/001-TEST.md` via `qa-test-planner`.

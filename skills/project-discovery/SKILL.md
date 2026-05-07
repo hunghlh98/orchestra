@@ -6,18 +6,18 @@ origin: orchestra
 
 # project-discovery
 
-Returns a structured snapshot of the working directory's shape: `{ has_source, primary_language, framework, scope_hints, mode }`. Runs before any agent decision so `@product` and `@lead` aren't guessing. Cheap, deterministic, never destructive.
+Returns a structured snapshot of the working directory's shape: `{ has_source, primary_language, framework, scope_hints, mode }`. Cheap, deterministic, never destructive — runs before any agent decision.
 
 ## When to use
 
 - `/orchestra` is invoked and there's no `.claude/.orchestra/local.yaml` yet (greenfield/brownfield bootstrap).
 - `@product` or `@lead` needs to size a refactor and hasn't read the source tree yet.
-- `@reviewer` needs to know which language ruleset (`rules/<lang>/`) to load before grading code.
+- `@reviewer` needs to know which language ruleset (`rules/<lang>/`) to load.
 - Any agent is about to invoke a language-specific skill (e.g., `java-source-intel`) and needs to confirm Java is the primary stack.
 
-## Approach
+## Algorithm
 
-Run the checks below in order. Stop at the first decisive signal per category — don't over-discover. The whole pass should take <2 seconds via `Glob` and `Read`.
+Run checks in order. Stop at first decisive signal per category — don't over-discover. Whole pass should take <2 seconds via `Glob` + `Read`.
 
 ### Check 1 — has_source
 
@@ -43,7 +43,7 @@ Walk by file-extension count. Highest count wins. Tie-breakers go to the languag
 | Ruby | `.rb` | `Gemfile`, `*.gemspec` |
 | Rust | `.rs` | `Cargo.toml` |
 
-If the top-2 languages are within 20% of each other → record as `primary_language: <top>`, `secondary_language: <second>`. Example: a project with .ts and .py at near-parity is full-stack; both rulesets activate per `paths:` glob in `rules/`.
+Top-2 within 20% of each other → record `primary_language: <top>` + `secondary_language: <second>`. Both rulesets activate per `paths:` glob in `rules/`.
 
 ### Check 3 — framework
 
@@ -54,24 +54,24 @@ Match on dependency manifest first (deterministic), then on directory shape (heu
 | React | `package.json` lists `react` | `src/components/`, `src/hooks/` |
 | Vue | `package.json` lists `vue` | `src/components/*.vue` |
 | Next.js | `package.json` lists `next` | `pages/` or `app/` at root |
-| Express | `package.json` lists `express` | `routes/`, `app.js` with express() |
+| Express | `package.json` lists `express` | `routes/`, `app.js` with `express()` |
 | Spring Boot | `pom.xml` has `spring-boot-starter` | `src/main/java/.../*Application.java` |
 | Django | `requirements.txt` has `Django` | `manage.py`, `settings.py` |
 | Flask | `requirements.txt` has `Flask` | `app.py` with `Flask(__name__)` |
 | Rails | `Gemfile` has `rails` | `app/controllers/`, `config/routes.rb` |
 | FastAPI | `requirements.txt` has `fastapi` | `main.py` with `FastAPI()` |
 
-If multiple frameworks match → record all. The router uses the highest-confidence match.
+Multiple matches → record all. Router uses the highest-confidence match.
 
 ### Check 4 — scope_hints
 
-Quick brownfield-quality signal. None of these block anything; they shape the UX.
+Quick brownfield-quality signal. None block; they shape UX.
 
 - **scope_hints.has_tests** — `*.test.*`, `*_test.*`, `test_*.py`, `*Test.java` count > 0.
 - **scope_hints.has_ci** — `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`, `.circleci/` exists.
 - **scope_hints.has_docker** — `Dockerfile`, `docker-compose.yml` exists.
-- **scope_hints.git_age_days** — days since first commit (read `git log --reverse --format=%cd | head -1`); helps gauge codebase maturity.
-- **scope_hints.file_count** — total tracked files; >5000 = "large" (confidence signal).
+- **scope_hints.git_age_days** — days since first commit (`git log --reverse --format=%cd | head -1`).
+- **scope_hints.file_count** — total tracked files; >5000 = "large".
 
 ### Check 5 — mode
 
@@ -80,7 +80,7 @@ mode = "greenfield" if has_source == false
      | "brownfield" if has_source == true
 ```
 
-This is the only categorical mode in v1.0.0. Greenfield triggers `@product` + `@lead` Pattern B negotiation; brownfield triggers section inference (the `inferred: true` flag on synthesized sections).
+Greenfield → `@product` + `@lead` Pattern B negotiation. Brownfield → section inference (`inferred: true` flag on synthesized sections).
 
 ## Output shape
 
@@ -107,32 +107,26 @@ Successive `/orchestra` runs read this and skip discovery unless the user passes
 
 After discovery completes, the dispatcher scaffolds `pipeline/<feature_id>/charter/<NNN>-CHARTER.md`. Mode dispatch:
 
-- `intent.yaml`.intent is `feature` or `hotfix` → `--mode=full` (problem / scope / feasibility / decision).
-- `intent.yaml`.intent is `template` / `docs` / `review-only` → `--mode=brief` (intent + decision; replaces v1's `INTENT-<id>.md`).
+- `intent.yaml.intent` is `feature` or `hotfix` → `--mode=full` (problem / scope / feasibility / decision).
+- `intent.yaml.intent` is `template` / `docs` / `review-only` → `--mode=brief` (intent + decision; replaces v1's `INTENT-<id>.md`).
 
-`@product` fills the FILL spans using the discovery snapshot above (mode, language, framework, scope_hints) as Feasibility-section evidence.
+`@product` fills FILL spans using the discovery snapshot above (mode, language, framework, scope_hints) as Feasibility-section evidence.
 
 ## When to escalate
 
-- Top-2 languages within 5% of each other AND configs disagree → ask the user (1 question, MEDIUM confidence).
-- Multiple frameworks at parity → ask the user.
-- `has_source: true` but no recognized language → mode = brownfield, primary_language: unknown. Flag for `@product` to negotiate a manual classification.
-
-## References
-
-(No references files in v1.0.0 — extension lists fit in this body.)
+- Top-2 languages within 5% AND configs disagree → ask user (1 question, MEDIUM confidence).
+- Multiple frameworks at parity → ask user.
+- `has_source: true` but no recognized language → mode = brownfield, `primary_language: unknown`. Flag for `@product` to negotiate manual classification.
 
 ## Worked example
 
 Run on `/Users/x/playwithclaude/orchestra` itself:
 
 1. `has_source` — `scripts/`, `hooks/`, `manifests/` exist + `*.js` files. → `true`.
-2. `primary_language` — count: `.js` ≈ 15, `.json` ≈ 10, `.md` ≈ 8. Tie-break: `package.json` exists with `"type": "module"`. → JavaScript (Node ESM). No `tsconfig.json`, so not TypeScript.
-3. `framework` — `package.json` has no React/Vue/Express deps. No framework — this is a pure Node tooling project.
-4. `scope_hints` — `.github/workflows/` exists → `has_ci: true`. No Dockerfile. Tests exist (`scripts/test-*.js`). git_age ≈ 1 day.
+2. `primary_language` — `.js` ≈ 15, `.json` ≈ 10, `.md` ≈ 8. Tie-break: `package.json` with `"type": "module"`. → JavaScript (Node ESM). No `tsconfig.json`.
+3. `framework` — `package.json` has no React / Vue / Express deps. No framework — pure Node tooling.
+4. `scope_hints` — `.github/workflows/` → `has_ci: true`. No Dockerfile. Tests exist (`scripts/test-*.js`). git_age ≈ 1 day.
 5. `mode` — brownfield.
-
-Output:
 
 ```yaml
 discovery:
@@ -143,4 +137,4 @@ discovery:
   scope_hints: { has_tests: true, has_ci: true, has_docker: false, file_count: ~50 }
 ```
 
-`@lead` reads this and routes language-agnostic tasks (no Java/TS specialization needed).
+`@lead` reads this and routes language-agnostic tasks (no Java / TS specialization needed).

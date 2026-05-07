@@ -6,7 +6,7 @@ origin: orchestra
 
 # task-breakdown
 
-Turns a confirmed intent (PRD or natural-language request) into a directed acyclic task graph: each task has an owner agent, a story-point estimate, blocking dependencies, and exit criteria. `@lead` invokes this when classifying a routed intent into the appropriate execution pattern.
+Turns a confirmed intent (PRD or natural-language request) into a directed acyclic task graph: each task has an owner agent, a story-point estimate, blocking dependencies, and exit criteria. `@lead` invokes when classifying a routed intent into the appropriate execution pattern.
 
 ## When to use
 
@@ -19,14 +19,15 @@ Turns a confirmed intent (PRD or natural-language request) into a directed acycl
 
 ### Step 1 — Identify deliverables
 
-Read the PRD/FRS and list every artifact that must ship. Each deliverable is a task or task cluster. Examples:
+Read the PRD/FRS and list every artifact that must ship. Each deliverable is a task or task cluster:
+
 - "API endpoint exists" → 1 task (impl) + 1 task (test) + 1 task (CONTRACT).
 - "Frontend button wired" → 1 task (component) + 1 task (state slice) + 1 task (visual test).
 - "Migration script" → 1 task (script) + 1 task (rollback) + 1 task (dry-run verification).
 
 ### Step 2 — Assign owners
 
-Use the v1.0.0 agent roster. One owner per task; cross-tier handoffs become explicit edges.
+One owner per task; cross-tier handoffs become explicit edges.
 
 | Task shape | Owner |
 |---|---|
@@ -39,22 +40,22 @@ Use the v1.0.0 agent roster. One owner per task; cross-tier handoffs become expl
 
 ### Step 3 — Story-point estimate
 
-Use the SP rubric (Fibonacci-ish). Calibrate against the *vertical depth* of work, not its breadth.
+SP rubric (Fibonacci-ish). Calibrate against *vertical depth* of work, not breadth.
 
 | SP | Meaning | Examples |
 |---|---|---|
 | 1 | Trivial — single file, no new logic | Rename, add comment, simple stub |
 | 2 | Small — one component, known patterns | Add field, simple endpoint, basic test |
 | 3 | Medium — multiple files, light coordination | New endpoint with DB + test, refactor a module |
-| 5 | Large — several components, moderate uncertainty | Migration, new feature with FE+BE, integration test |
+| 5 | Large — several components, moderate uncertainty | Migration, FE+BE feature, integration test |
 | 8 | Big — significant uncertainty or coordination | Cross-cutting refactor, novel domain, migration with rollback |
-| 13 | **Decompose this further.** | If you reach 13, break the task into smaller tasks before assigning. |
+| 13 | **Decompose this further.** | If you reach 13, split before assigning. |
 
-Rule: any single task ≥13 SP gets split. Sprint capacity caps at the team's velocity; overshoot triggers a re-spec round.
+Any single task ≥13 SP gets split. Sprint capacity caps at team velocity; overshoot triggers a re-spec round.
 
 ### Step 4 — Map dependencies
 
-Edges are unidirectional: `A → B` means B starts after A completes. Use these patterns:
+Edges are unidirectional: `A → B` means B starts after A completes.
 
 - **Spec → impl** — PRD/FRS/CONTRACT precede backend/frontend/test code.
 - **Impl → verdict** — implementer-tier task → `@evaluator` task that grades it.
@@ -65,13 +66,13 @@ Avoid implicit ordering ("backend ships before frontend by tradition"). Make eve
 
 ### Step 5 — Identify the critical path
 
-The longest dependency chain by SP sum is the critical path. Total sprint duration ≥ critical path. If critical path > sprint capacity, surface this to the user *before* execution starts — better to re-scope than overrun.
+Longest dependency chain by SP sum is the critical path. Total sprint duration ≥ critical path. If critical path > sprint capacity, surface to user *before* execution starts — better to re-scope than overrun.
 
 ### Step 6 — Write the task graph
 
-Read the dispatcher-scaffolded `pipeline/<feature_id>/plan/<NNN>-TASKS.md`. The scaffold has slim frontmatter (no inline `sections:` — v2.0.0 provenance lives in the paired `<artifact>.lock.yaml`), the locked anchors `S-DAG-001` and `S-TASKS-001`, FILL placeholders, and an empty diagram stub at `diagrams/tasks-dag.puml`.
+Read the dispatcher-scaffolded `pipeline/<feature_id>/plan/<NNN>-TASKS.md`. Slim frontmatter (provenance in paired `<artifact>.lock.yaml`); locked anchors `S-DAG-001` and `S-TASKS-001`; FILL placeholders; empty diagram stub at `diagrams/tasks-dag.puml`.
 
-Frontmatter shape (v2.0.0, slim):
+Frontmatter (v2.0 slim):
 
 ```yaml
 ---
@@ -107,27 +108,22 @@ Body:
 
 Author the DAG `.puml` source at `diagrams/tasks-dag.puml` (PlantUML activity-diagram shape: nodes for each T-NNN, edges for dependencies, swimlanes optional per owner). Invoke `/plantuml` to render to `.svg`.
 
-Initial Status is `pending` for every row. Owning agents flip Status as work progresses per the per-tier rules in `schemas/pipeline-artifact.schema.md` TASKS-<id> section: implementer-tier (`@backend`, `@frontend`) self-reports `pending → in_progress → done`; read-only-tier (`@evaluator`, `@reviewer`) status is derived from TSR frontmatter (`eval_verdict`, `rev_verdict`) and rows stay `pending` in TASKS.md. The lockfile entry for `S-TASKS-001` carries `confirmed: false` so the drift validator skips the inevitable mutations.
+Initial Status is `pending` for every row. Owning agents flip Status as work progresses per `schemas/pipeline-artifact.schema.md` TASKS-<id> rules: implementer-tier (`@backend`, `@frontend`) self-reports `pending → in_progress → done`; read-only-tier (`@evaluator`, `@reviewer`) status is derived from TSR frontmatter (`eval_verdict`, `rev_verdict`) and rows stay `pending` in TASKS.md. Lockfile entry for `S-TASKS-001` carries `confirmed: false` so the drift validator skips inevitable mutations.
 
 ## When to escalate
 
 - Estimate uncertainty >2 SP for any task ("could be 3 or 5") → `@lead` flags this and asks `@product` for a re-spec round (Pattern B).
-- Critical path > 1.5× sprint capacity → don't decompose further, surface to user with a "trim or extend?" question (within the confidence-tier question budget).
+- Critical path > 1.5× sprint capacity → don't decompose further; surface to user with "trim or extend?" question.
 - Task can't be assigned to a current agent role → flag as "needs-future-specialist" and defer.
 
 ## References
 
-For depth, see:
 - `references/sp-matrix.md` — extended SP rubric with anchored examples per language and per task shape.
 - `references/decomposition-patterns.md` — common task-cluster patterns (CRUD endpoint, migration, refactor) ready to clone.
 
-(References are conditional; this skill body is sufficient for v1.0.0 use without them.)
-
 ## Worked example
 
-User says: *"Add a /v1/users/:id/transfer endpoint that records to the ledger and emits an event."*
-
-`@lead` decomposes:
+User: *"Add a `/v1/users/:id/transfer` endpoint that records to the ledger and emits an event."*
 
 | ID | Owner | SP | Blocks | Blocked by | Exit | Status |
 |---|---|---|---|---|---|---|
@@ -139,4 +135,4 @@ User says: *"Add a /v1/users/:id/transfer endpoint that records to the ledger an
 | T-006 | @reviewer | 2 | T-007 | T-005 | `verify/001-TSR.md S-REV-VERDICT-001`: APPROVED | pending |
 | T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes (with `S-ANNOUNCEMENT-001`) if applicable | pending |
 
-Total: 13 SP. Critical path: T-001 → T-002 → T-005 → T-006 → T-007 = 9 SP. Parallelism on T-002/T-003/T-004 saves 4 SP of wall time.
+Total: 13 SP. Critical path: T-001 → T-002 → T-005 → T-006 → T-007 = 9 SP. Parallelism on T-002 / T-003 / T-004 saves 4 SP wall time.

@@ -6,7 +6,7 @@ origin: forrestchang/andrej-karpathy-skills (adapted; ideas attributed to Andrej
 
 # karpathy-guidelines
 
-Behavioral guidelines that reduce common LLM coding mistakes. Adapted from Andrej Karpathy's observations on LLM coding pitfalls, compiled by `forrestchang/andrej-karpathy-skills`. Rephrased here in orchestra's tier vocabulary so each agent knows when (and how) to apply them.
+Behavioral guidelines that reduce common LLM coding mistakes. Adapted from Karpathy's observations on LLM coding pitfalls; rephrased in orchestra's tier vocabulary so each agent knows when (and how) to apply them.
 
 **Tradeoff:** these guidelines bias toward caution over speed. Trivial mechanical edits (typo fixes, lockfile bumps, format-only changes) skip them.
 
@@ -18,7 +18,7 @@ Invoke at the start of any work that produces artifact text or source diffs:
 - `@backend` / `@frontend` — before editing any source file claimed by a `plan/<NNN>-TASKS.md` row.
 - `@test` — before authoring `verify/<NNN>-TEST.md` or test source.
 
-Skip for `@evaluator`, `@reviewer`, `@ship`. Their tier-A/B invariants (calibration anchor, severity rubric in `code-review`, gate-driven release flow) supersede these rules and would conflict if invoked. See *Tier-by-tier applicability* below for the rationale.
+Skip for `@evaluator`, `@reviewer`, `@ship`. Their tier-A/B invariants (calibration anchor, severity rubric in `code-review`, gate-driven release flow) supersede these rules. See *Tier-by-tier applicability* below.
 
 ## The four rules
 
@@ -38,7 +38,7 @@ Before writing the first character of an artifact span or source line:
 **Smallest artifact / diff that satisfies the criterion. Nothing speculative.**
 
 - No artifact sections beyond what the scaffold provides; the validator's `structural-diff` mode will reject extras.
-- No CONTRACT criteria you cannot probe via `orchestra-probe` MCP. Unprobable behavior → `manual_evaluation: true` for `@reviewer` to grade, never an unrunnable probe.
+- No CONTRACT criteria you cannot probe via `orchestra-probe` MCP. Unprobable behavior → `manual_evaluation: true` for `@reviewer`, never an unrunnable probe.
 - No abstractions for single-use code. No "flexibility" or "configurability" not requested by FRS / TDD.
 - No error handling for impossible scenarios. Trust the contract.
 - If you wrote 200 lines and 50 would do, rewrite it.
@@ -60,7 +60,7 @@ The trace test: every changed line should map to a task row, a CONTRACT criterio
 
 When editing artifact spans (`@product` / `@lead` / `@test`):
 
-- Preserve every `<a id="S-...">` anchor verbatim. The hash-stamper resolves them; structural-diff rejects deviation.
+- Preserve every `<a id="S-...">` anchor verbatim. Hash-stamper resolves them; structural-diff rejects deviation.
 - Replace `<!-- FILL: ... -->` placeholders with content. Don't add new H2 headers beyond the scaffold.
 
 ### 4. Verifiable goals
@@ -75,30 +75,30 @@ Transform soft asks into machine-gradable shapes:
 
 For multi-step tasks, write the verification points up front. `@lead`'s `plan/<NNN>-TASKS.md` is exactly this surface — exit criterion per row, owner per row, dependency edges.
 
-Strong success criteria let the implementer agent loop independently and let `@evaluator` grade decisively. Weak criteria ("make it work", "improve the UX") stall the pipeline at PAUSE-1 because nobody knows when to stop.
+Strong success criteria let the implementer agent loop independently and let `@evaluator` grade decisively. Weak criteria ("make it work", "improve the UX") stall the pipeline because nobody knows when to stop.
 
 ## Tier-by-tier applicability
 
-Different agents need different sections. Apply per the table; the rules you skip are covered by your tier-specific invariants elsewhere.
+Different agents need different rules. Apply per the table; rules you skip are covered by your tier-specific invariants elsewhere.
 
 | Agent | Tier | Apply | Skip | Why skip |
 |---|---|---|---|---|
-| `@product` | T-B | 1, 4 | 2, 3 | No source diffs (artifacts only); `2/3` are diff-shaped rules. |
+| `@product` | T-B | 1, 4 | 2, 3 | No source diffs (artifacts only); 2/3 are diff-shaped. |
 | `@lead` | T-B | 1, 2, 4 | 3 | Same — no diffs. CONTRACT-criterion authoring is exactly *minimum surface*; ADR triggers ARE the *tradeoffs* in rule 1. |
 | `@backend` | T-C | 1, 2, 3, 4 | — | Full set; rules were written for implementers. |
-| `@frontend` | T-C | 1, 2, 3, 4 | — | Full set. The 4-state rule (loading / empty / error / success) is itself goal-driven; reinforcement is welcome. |
+| `@frontend` | T-C | 1, 2, 3, 4 | — | Full set. The 4-state rule (loading / empty / error / success) is itself goal-driven. |
 | `@test` | T-C | 2, 3, 4 | 1 | `@test` doesn't dialogue — gaps go to `ESCALATE-<id>.md`, not AskUserQuestion. |
-| `@evaluator` | T-A | — | all | Calibration anchor's `≥80% confidence → pending` semantic supersedes "ask if uncertain". `@evaluator` never edits, so the diff rules don't apply. |
-| `@reviewer` | T-A | — | all | `code-review` skill's severity rubric is the canonical site for review wisdom. "Never patch the diff" tier rule conflicts with rule 3's "remove orphans your changes created" (the diff is empty by design). |
-| `@ship` | T-B | — | all | Gate-driven release flow already encodes verifiable goals; `commit-work`'s "one coherent commit per logical feature" already encodes minimum surface. |
+| `@evaluator` | T-A | — | all | Calibration anchor's `≥80% confidence → pending` semantic supersedes "ask if uncertain". `@evaluator` never edits. |
+| `@reviewer` | T-A | — | all | `code-review`'s severity rubric is canonical. "Never patch the diff" tier rule conflicts with rule 3's "remove orphans" (the diff is empty by design). |
+| `@ship` | T-B | — | all | Gate-driven release flow encodes verifiable goals; `commit-work`'s "one coherent commit per logical feature" encodes minimum surface. |
 
-If you're an agent listed under *Skip*, do **not** invoke this skill — the layered rule set will produce conflict noise. Stick to your tier discipline.
+If you're listed under *Skip*, do **not** invoke this skill — layered rules produce conflict noise. Stick to your tier discipline.
 
 ## Conflict resolution
 
 Where these guidelines collide with an orchestra-specific rule, the orchestra rule wins:
 
-- Rule 1 says "ask if uncertain". `@evaluator` and `@reviewer` say "below 80% confidence → `pending`, never ask". The threshold rule wins; downgrade to `pending`.
+- Rule 1 says "ask if uncertain". `@evaluator` and `@reviewer` say "below 80% confidence → `pending`, never ask". Threshold rule wins; downgrade to `pending`.
 - Rule 2 says "no error handling for impossible scenarios". CONTRACT `critical: true` security criteria override; defensive validation at trust boundaries is mandatory regardless.
 - Rule 3 says "match existing style". `rules/<lang>/coding-style.md` overrides if it disagrees; the path-activated rule is closer to project ground truth.
 
@@ -107,4 +107,4 @@ Where these guidelines collide with an orchestra-specific rule, the orchestra ru
 - Andrej Karpathy's original observations: <https://x.com/karpathy/status/2015883857489522876>
 - forrestchang's compilation: <https://github.com/forrestchang/andrej-karpathy-skills>
 
-Adapted for orchestra v2.1.0. The upstream repository carries no LICENSE file at the time of import; this skill's text is rewritten in orchestra's voice and tier vocabulary, not copied verbatim. If forrestchang or Karpathy publishes a license clarification later, frontmatter will be updated.
+Adapted for orchestra v2.1.0. Upstream carries no LICENSE at import time; this skill's text is rewritten in orchestra's voice and tier vocabulary, not copied verbatim. If a license clarification is later published, frontmatter will be updated.

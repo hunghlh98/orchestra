@@ -6,18 +6,18 @@ origin: orchestra
 
 # evaluator-tuning
 
-Anchors `@evaluator`'s judgment to consistent PASS/FAIL/pending semantics. The `val-calibration` hook reads `references/calibration-examples.md` on every `Task(subagent_type=evaluator)` spawn and prepends it as `<calibration-anchor>` — so calibration is automatic, not opt-in.
+Anchors `@evaluator`'s judgment to consistent PASS / FAIL / pending semantics. The `val-calibration` hook reads `references/calibration-examples.md` on every `Task(subagent_type=evaluator)` spawn and prepends it as `<calibration-anchor>` — so calibration is automatic, not opt-in.
 
 ## When to use
 
-- You are `@evaluator` grading the eval halves of `verify/<NNN>-TSR.md` (S-EVAL-VERDICT-001 + S-EVAL-TABLE-001) against `interfaces/<NNN>-CONTRACT.md` criteria.
+- You are `@evaluator` grading the eval halves of `verify/<NNN>-TSR.md` (`S-EVAL-VERDICT-001` + `S-EVAL-TABLE-001`) against `interfaces/<NNN>-CONTRACT.md` criteria.
 - A criterion's outcome is ambiguous and you're not sure whether it's PASS, FAIL, or pending.
 - A probe returned partial evidence (200 status but empty body, near-timeout, redacted field, redirect chain).
 - You're comparing this run against a prior verdict and want to ensure consistency.
 
-You do **not** need to invoke this skill manually as `@evaluator` — the val-calibration hook injects it. The skill exists so other agents can read the calibration semantics for cross-checks.
+You do **not** need to invoke this skill manually as `@evaluator` — the val-calibration hook injects it. The skill exists so other agents can read calibration semantics for cross-checks.
 
-## Approach
+## Algorithm
 
 The verdict space is closed: **PASS / FAIL / pending**. Nothing else.
 
@@ -32,7 +32,7 @@ Default to `pending` when uncertain. Escalating is cheap; a false PASS is expens
 
 ## Boundary case index
 
-The 8 worked cases in `references/calibration-examples.md` cover:
+The 8 worked cases in `references/calibration-examples.md`:
 
 | # | Shape | Verdict |
 |---|---|---|
@@ -45,23 +45,20 @@ The 8 worked cases in `references/calibration-examples.md` cover:
 | 7 | Critical-fail condition triggered, probes pass | FAIL |
 | 8 | Drift mid-test on `inferred:` upstream | per-criterion stands; warning logged |
 
-Match the shape of your situation to the closest case. If yours doesn't match any, document the new boundary case in your TSR `S-EVAL-VERDICT-001` rationale and flag it for `@reviewer` to add to calibration on the next iteration.
+Match the shape of your situation to the closest case. If yours doesn't match any, document the new boundary case in `S-EVAL-VERDICT-001` rationale and flag it for `@reviewer` to add to calibration on the next iteration.
 
 ## References
 
-For depth, see:
 - `references/calibration-examples.md` — full PASS/FAIL semantics + 8 boundary cases with rationale (load-bearing — the val-calibration hook reads this file directly).
 
 ## Worked example
 
-A `POST /payment/charge` probe expects status 201 + `body.transaction_id` non-empty. The server returns 201 with `body: {"transaction_id": ""}`. Criterion `payment.charges_record` lists this probe.
-
-Walk the path:
+A `POST /payment/charge` probe expects status 201 + `body.transaction_id` non-empty. Server returns 201 with `body: {"transaction_id": ""}`. Criterion `payment.charges_record` lists this probe.
 
 1. Critical-fail check: none triggered.
-2. Probe ran. Status 201 ✓. Body assertion `transaction_id non-empty` ✗ — empty string fails the assertion.
+2. Probe ran. Status 201 ✓. Body assertion `transaction_id non-empty` ✗ — empty string fails.
 3. Adversarial inputs: not run yet (this is the first probe).
 4. Confidence: 95% — clear empty-string assertion failure.
 5. Verdict: **FAIL**.
 
-Note this matches Case 1 in the calibration anchor (200 + empty body). The pattern generalizes: status passes don't compensate for body-assertion failures. Document this in `verify/<NNN>-TSR.md` `S-EVAL-TABLE-001` with the probe's literal response so `@reviewer` can see exactly why the FAIL stuck.
+Matches Case 1 (200 + empty body). The pattern generalizes: status passes don't compensate for body-assertion failures. Document in `verify/<NNN>-TSR.md S-EVAL-TABLE-001` with the literal response so `@reviewer` can see why the FAIL stuck.

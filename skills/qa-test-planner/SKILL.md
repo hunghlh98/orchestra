@@ -6,11 +6,11 @@ origin: orchestra
 
 # qa-test-planner
 
-Designs the verify/<NNN>-TEST.md artifact: which probes to run, what edge cases to cover, what adversarial inputs to send. Pairs with `write-contract` (criteria definition) and `evaluator-tuning` (verdict semantics). `@test` writes the plan; `@evaluator` runs it.
+Designs `verify/<NNN>-TEST.md`: which probes to run, what edge cases to cover, what adversarial inputs to send. `@test` writes the plan; `@evaluator` runs it. Pairs with `write-contract` (criteria definition) and `evaluator-tuning` (verdict semantics).
 
 ## When to use
 
-- A `interfaces/<NNN>-CONTRACT.md` has been written by `@lead` and you need a test plan that grades it.
+- An `interfaces/<NNN>-CONTRACT.md` has been written by `@lead` and you need a test plan that grades it.
 - A bug or regression was reported and you're capturing the reproduction as an adversarial fuzz input.
 - You're sizing test scope for a new endpoint, migration, or refactor.
 
@@ -20,8 +20,8 @@ Designs the verify/<NNN>-TEST.md artifact: which probes to run, what edge cases 
 
 Every CONTRACT criterion gets at least one probe. Use the orchestra-probe MCP tools:
 
-- `http_probe` — for HTTP-facing behavior (status, headers, body shape, redirects, timeouts).
-- `db_state` — for persistence verification (rows present/absent, field values, redaction-aware).
+- `http_probe` — HTTP-facing behavior (status, headers, body shape, redirects, timeouts).
+- `db_state` — persistence verification (rows present/absent, field values, redaction-aware).
 
 Probe shape (lives in CONTRACT under `criteria.<id>.probes`):
 
@@ -52,39 +52,35 @@ Cover 4 axes for every feature:
 
 | Axis | What to probe |
 |---|---|
-| **Happy path** | The canonical success case. Status 2xx, body shape, side effects present. |
+| **Happy path** | Canonical success case. Status 2xx, body shape, side effects present. |
 | **Boundary** | Off-by-one on numeric inputs; empty arrays; max-length strings; first/last item; zero amounts. |
-| **Error path** | Invalid auth, missing required field, wrong type, payload too large. Each error path should have a probe. |
-| **Idempotency / consistency** | Replay the same request; check that side effects are not duplicated; verify retry-safe contracts. |
+| **Error path** | Invalid auth, missing required field, wrong type, payload too large. Each error path has a probe. |
+| **Idempotency / consistency** | Replay same request; check side effects not duplicated; verify retry-safe contracts. |
 
-Skip an axis only if the CONTRACT explicitly says so (e.g., a read-only GET has no idempotency axis to probe).
+Skip an axis only if CONTRACT explicitly says so (e.g., a read-only GET has no idempotency axis to probe).
 
 ### Step 3 — Adversarial fuzz inputs
 
-Per the calibration's Case 4: adversarial inputs are first-class. Each one is a probe with an explicit `expected_result` of "handled cleanly".
-
-Standard adversarial set (apply where relevant):
+Each adversarial input is a probe with an explicit `expected_result` of "handled cleanly". The contract owns the answer; `@evaluator` doesn't guess, it grades against the documented expectation.
 
 | Pattern | Probe shape |
 |---|---|
-| **Replay attack** | Send the same request twice with identical idempotency key; expect second to be no-op or 409. |
+| **Replay attack** | Same request twice with identical idempotency key; expect second to be no-op or 409. |
 | **Malformed JSON** | `body: '{"amount":'` (truncated); expect 400 with structured error. |
 | **SQL injection** | Field value `'; DROP TABLE users; --`; expect parameterized handling, no schema change. |
 | **Oversized body** | Body 10× the max payload; expect 413 or graceful truncation. |
 | **Race condition** | Two concurrent requests on the same resource; expect serializable outcome. |
 | **Wrong content-type** | `Content-Type: text/xml` on a JSON endpoint; expect 415 or coerce-with-warning per contract. |
-| **Auth bypass** | Request without auth header; with expired token; with wrong scope. Each should fail per contract. |
-| **Boundary timeout** | Probe `timeout_ms` at 90% of the SLO; expect either response or graceful timeout per contract. |
-
-Document the *expected* behavior in the criterion. The point of an adversarial probe is **the contract owns the answer** — `@evaluator` doesn't guess; it grades against the documented expectation.
+| **Auth bypass** | Without auth header; with expired token; with wrong scope. Each fails per contract. |
+| **Boundary timeout** | `timeout_ms` at 90% of SLO; expect either response or graceful timeout per contract. |
 
 ### Step 4 — Write verify/<NNN>-TEST.md
 
-Read the dispatcher-scaffolded `pipeline/<feature_id>/verify/<NNN>-TEST.md`. The scaffold has slim frontmatter (v2.0.0 provenance lives in the paired `<artifact>.lock.yaml`), one locked anchor `S-COVERAGE-001`, and a FILL placeholder for the matrix.
+Read the dispatcher-scaffolded `pipeline/<feature_id>/verify/<NNN>-TEST.md`. Slim frontmatter (provenance lives in paired `<artifact>.lock.yaml`); one locked anchor `S-COVERAGE-001`; FILL placeholder for the matrix.
 
-v2.0.0 changes vs v1: TEST.md is coverage-matrix-ONLY. No probe DSL re-statement (probes live in CONTRACT `S-CRITERIA-001`; reference by criterion id). No verdict block (folded into TSR-NNN.md per v2.0 — `@evaluator` writes `S-EVAL-VERDICT-001` + `S-EVAL-TABLE-001`, `@reviewer` writes `S-REV-VERDICT-001` + `S-REV-FINDINGS-001`).
+v2.0 changes vs v1: TEST.md is coverage-matrix-ONLY. Probe DSL lives in CONTRACT `S-CRITERIA-001` (reference by criterion id, don't re-state). Verdict folded into TSR per v2.0 — `@evaluator` writes `S-EVAL-VERDICT-001` + `S-EVAL-TABLE-001`; `@reviewer` writes `S-REV-VERDICT-001` + `S-REV-FINDINGS-001`.
 
-Frontmatter shape (v2.0.0, slim):
+Frontmatter (v2.0 slim):
 
 ```yaml
 ---
@@ -109,30 +105,27 @@ Body:
 | ... | ... | ... | ... | ... |
 ```
 
-Each row references a CONTRACT criterion id (e.g., `C-001`), the source (CONTRACT criterion + FRS FR), the axis (happy/boundary/error/idempotency), the in-suite pytest fixture if any, and the live probe `@evaluator` runs. Probe DSL itself is NOT re-stated — it lives in CONTRACT.
+Each row references a CONTRACT criterion id (e.g., `C-001`), the source (CONTRACT criterion + FRS FR), the axis (happy/boundary/error/idempotency), the in-suite pytest fixture if any, and the live probe `@evaluator` runs. Probe DSL itself is NOT re-stated.
 
 ## When to escalate
 
 - A criterion is too vague to write a probe for → ask `@lead` to re-spec the criterion (Pattern B). Don't invent a probe and call it the test.
-- An adversarial input is impossible to test in the current environment (e.g., requires production data) → document the gap and flag for `@reviewer`.
+- An adversarial input is impossible in the current environment (e.g., requires production data) → document the gap, flag for `@reviewer`.
 - A CONTRACT has fewer than 3 criteria total → likely under-specified; surface to `@lead` before writing the plan.
 
 ## References
 
-For depth, see:
 - `references/coverage-strategies.md` — extended axis examples per feature shape (CRUD, batch, streaming).
 - `references/fuzz-input-patterns.md` — full adversarial input library beyond the 8 standard patterns.
 
-(References are conditional; this body is sufficient for v1.0.0.)
-
 ## Worked example
 
-`interfaces/001-CONTRACT.md` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test` builds the plan:
+`interfaces/001-CONTRACT.md` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test` builds:
 
 | Criterion | Probes |
 |---|---|
 | transfer.persists | (1) http_probe POST /v1/transfer 201 + transaction_id; (2) db_state SELECT FROM ledger; (3) **adversarial**: oversized body → 413 |
-| transfer.emits_event | (1) http_probe POST → expect 201; (2) db_state SELECT FROM event_log WHERE topic='transfer'; **boundary**: zero-amount transfer → still emit? (per contract: yes) |
+| transfer.emits_event | (1) http_probe POST → 201; (2) db_state SELECT FROM event_log WHERE topic='transfer'; **boundary**: zero-amount transfer → still emit? (per contract: yes) |
 | transfer.idempotent | (1) **adversarial replay**: POST twice with same key, expect second is no-op; (2) db_state SELECT count(*) FROM ledger WHERE key='k1' = 1 |
 
-`verify/001-TEST.md` is written with all probes laid out. `@evaluator` runs them, fills in the verdict block, and grades each criterion PASS/FAIL/pending per `evaluator-tuning` semantics.
+Write `verify/001-TEST.md` with all probes laid out. `@evaluator` runs them, fills `S-EVAL-*` halves of `verify/001-TSR.md` per `evaluator-tuning` semantics.
