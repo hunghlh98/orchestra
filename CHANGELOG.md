@@ -6,7 +6,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-2.2.2 work)
+(no entries yet — placeholder for post-3.0.0 work)
+
+## [3.0.0] — 2026-05-07
+
+Major release: coordinated prompt + artifact tightening sweep across 30+ consumer-surface files (8 agents, 14 skills, `commands/orchestra.md`, 7 schema manifests). Closes the v2.* release window. The surface is rewritten end-to-end against new canonical templates documented in `docs/v3.0-canonical-{agent,skill}-template.md` (dev-trace).
+
+Net consumer-pipeline delta: zero. Anchor IDs (`S-NAME-NNN`), frontmatter shapes, hook contracts, env-var toggles, pipeline-artifact types, and `<artifact>.lock.yaml` sidecar pairing all unchanged. `schemas/pipeline-artifact.schema.md` revision stays at `5`. Existing pipelines under `.claude/.orchestra/pipeline/<id>/` remain valid; no migration required. `claude plugin update orchestra` is a non-breaking upgrade.
+
+Behavior change is restorative: prompts normalized to canonical templates, dev-doc cite leaks dropped (phantom anchors for consumers — `docs/` doesn't ship with the plugin install), v1→v2 fold leftovers corrected (stale references to removed `verify/<NNN>-CODE-REVIEW.md` / `verify/<NNN>-VERDICT.md` artifacts now correctly point at TSR halves `S-REV-VERDICT-001` + `S-REV-FINDINGS-001` / `S-EVAL-VERDICT-001` + `S-EVAL-TABLE-001`). Every load-bearing rule preserved.
+
+### Changed
+
+- **`agents/{backend,frontend,evaluator,ship,test,reviewer,product,lead}.md` — canonical agent template applied to all 8.** Section sequence normalized to Identity / Tier / Skills / Inputs / Outputs / Workflow / Example. Drop list: "You may invoke:" / "You should/must" / "Action steps:" preambles + trailing rationale narration. "Tier discipline" → "Tier" rename. Path placeholders normalized to `<NNN>`. v1→v2 fold leftovers corrected on agents that referenced removed artifacts. 616 → 622 lines (+1%; rule preservation cost lines back — word/char drop is the win). First-draft `agents/backend.md` AFTER caught 7 high-severity rule-loss bugs in audit (path glob inconsistency, lost section-anchor prefix, lost collision-prevention rule, lost rule-activation mechanism, stale verdict-file ref preserved by elision, lost author attribution, lost skill timing); fixes propagated to remaining 7 agents.
+- **`skills/*/SKILL.md` × 14 + new `skills/c4-architecture/references/c4-rules.md` — canonical skill template applied to all 14.** Section sequence: Identity / When-to-use / Approach OR Algorithm / [Reference table] / [Output shape] / [Escalate] / Worked example / [References]. Bimodal reduction: `plantuml` 304 → 152 (-50%, deletion of duplicated content already in pre-existing `references/`); `c4-architecture` 404 → 319 (-21%, new `references/c4-rules.md` absorbs deep MUST/MUST-NOT framework-internals prose); `write-contract` 203 → 173 (-15%). Tool-shaped + procedure skills 1–5% line drop (rule preservation enforced). Total: 2063 → 1816 (-12%). `code-review` Step 6 corrected from removed `verify/<NNN>-CODE-REVIEW.md` to TSR halves `S-REV-VERDICT-001` + `S-REV-FINDINGS-001`. `commit-work` "per WORKFLOW PR boundaries" leaky cite dropped.
+- **`commands/orchestra.md` — Step 1 / Step 5(a,a',a'') / Step 7 cost banner tightened.** ~3% word drop; lines unchanged (load-bearing routing tables + canon enumerations dominate). PAUSE-4 narration corrected from "after `@reviewer` writes CODE-REVIEW" → "fills `S-REV-VERDICT-001` + `S-REV-FINDINGS-001` in TSR" (v1→v2 fold leftover; `verify/<NNN>-CODE-REVIEW.md` was retired in v2.0). `docs/HOOKS.md` leaky cite dropped.
+- **`schemas/pipeline-artifact.schema.md` — narrative tightening.** ~1% word drop. Dropped "per `docs/DESIGN-005-doc-output-overhaul.md` §S-CANON-001" leaky cite. Schema revision unchanged (still at `5`).
+- **`schemas/{routing-taxonomy.md, lockfile.schema.md, install-modules.schema.json, known-models.schema.json, runtime-toggles.schema.json, templates/ADR.template.md}` — 10 surgical leaky-cite cleanups.** Consumer-surface schemas referenced `docs/PRD-*.md` / `docs/DESIGN-*.md` sections by anchor — phantom anchors for consumers (the `docs/` folder doesn't ship). Defense-in-depth grep with stricter regex (`DESIGN-[0-9]+(-[a-z-]+)?\s*§`) caught patterns the streamline fixture's narrower regex missed.
+
+### Added
+
+- **`skills/c4-architecture/references/c4-rules.md`** — new (100 lines). Framework-internals table, Component-diagrams-optional protocol + omission pattern, microservices ownership-pattern examples (single-team / multi-team / event-driven). Absorbs deep prose previously inline in `SKILL.md`.
+- **`docs/v3.0-{prompt-tightening-brief, canonical-agent-template, canonical-skill-template}.md`** — new dev-surface planning artifacts (decision summary, per-section rules, drop list, worked BEFORE/AFTER examples, post-sweep reconciliation tables capturing predicted-vs-actual reduction gap). Not shipped to consumers — per project CLAUDE.md, `docs/` is dev-only.
+
+### Why no schema revision
+
+`schemas/pipeline-artifact.schema.md` revision stays at `5`. Anchor IDs (`S-NAME-NNN`), frontmatter shapes, hook contracts, env-var toggles, pipeline-artifact types, and `<artifact>.lock.yaml` sidecar pairing all unchanged. All 12 `npm test` suites (`validate / hooks / hash-stamper / scaffold / extensions / agents / bash-strip / drift / removability / metrics / bootstrap / probe`) green without modification.
+
+### Why MAJOR
+
+The sweep introduces no backwards-incompatible changes for consumer pipelines (no anchor renames, no frontmatter shape changes, no schema revision bump, no hook-contract changes, no removed env-var toggles, no removed pipeline-artifact types). MAJOR signal is maintainer prerogative — closes the v2.* release window per `docs/v3.0-prompt-tightening-brief.md` and signals a coordinated surface-wide refactor (30+ files touched, every agent + skill body rewritten against a new canonical template). Consumers upgrading from v2.x experience a non-breaking refactor: existing pipelines remain valid, every load-bearing rule preserved.
+
+### Migration
+
+1. Pre-upgrade: no action required. Existing pipelines under `.claude/.orchestra/pipeline/<id>/` remain valid.
+2. Upgrade: `claude plugin update orchestra` (or reinstall via marketplace).
+3. Post-upgrade: start new pipelines via `/orchestra <intent>`. Old artifacts continue to validate against `schemas/pipeline-artifact.schema.md` revision `5`.
+
+---
+*Release-time provenance: 12 internal validators + streamline fixture all green at commit time. Consumer-install smoke chain steps (b)–(e) (`/plugin marketplace add`, `/plugin install`, `/orchestra help`, `/orchestra <intent>` in throwaway dir) deferred at maintainer discretion. Step (a) (`claude plugin validate .` against `marketplace.json`) ran green prior to commit motion.*
 
 ## [2.2.2] — 2026-05-07
 
