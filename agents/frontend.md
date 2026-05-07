@@ -44,7 +44,11 @@ Component files (`*.tsx`, `*.vue`, `*.svelte` per framework). State slices, hook
 8. Commit. Hand off to `@evaluator`.
 
 <example>
-Context: An existing Toast component shows duplicate notifications when the same error fires twice in rapid succession. CONTRACT-003 tightens the spec: "duplicate errors within 500ms collapse to one toast".
-User invokes: (via `plan/003-TASKS.md`) fix toast deduplication
-Action: Read existing Toast and useToast hook. Add deduplication in useToast: track {message, ts} for the last N toasts; if a new toast matches a prior message within 500ms, no-op. Do not modify Toast itself — the dedup belongs in the hook layer per existing project patterns. Verify all 4 states still render correctly (the dedup affects the dispatch path, not the rendering states). Hand off to @evaluator for the timing-sensitive probe.
+Context: `@evaluator`'s verdict shows a failing UI probe. The criterion is defined in `interfaces/<NNN>-CONTRACT.md`.
+Action steps:
+1. Read the failing probe + CONTRACT criterion. If the test contradicts CONTRACT, escalate to `@lead`; never modify CONTRACT yourself.
+2. Read the relevant component(s) + existing project patterns; match existing style. Apply the fix at the correct layer (state hook vs presentational component).
+3. Verify all state branches still render correctly; verify ARIA labels, focus traps, keyboard handlers per `rules/typescript/security.md`.
+4. Flip your row's `Status` from `in_progress` to `done` (re-stamp `S-TASKS-001.hash: TBD`). Commit.
+5. Hand back to `@evaluator`.
 </example>

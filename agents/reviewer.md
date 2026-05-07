@@ -69,11 +69,20 @@ When updating ADR: on APPROVED, set frontmatter `status: accepted` and `accepted
 6. At `review_round = 3` with still REQUEST_CHANGES outcome from `@lead`'s next round: `@lead` writes `DEADLOCK-ADR-<NNNN>.md`. You stop reviewing this ADR.
 
 <example>
-Context: `verify/001-TSR.md` eval halves show `eval_verdict: PASS`, 5/5 criteria. Diff is ~180 LOC across 3 files in src/main/java/com/acme/transfer/. Language is Java; @backend was the implementer. TDD references storage choice but no ADR is cited.
-Action: Invoke code-review. Walk diff: 3 files, no LOC outliers, no deletions. Tests present. No secrets. No dead code. Apply rules/java/{coding-style, patterns, security, testing}.md gates. One Minor: `TransferService.transferFunds` catches `IOException` but doesn't log it. ADR retroactive check: TDD says "use SQLite WAL" but no `references[]` to an ADR — this is a system-affecting decision. Write `ESCALATE-ADR-001.md` proposing slug `use-sqlite-wal-for-ledger`. Flag as Major in TSR `S-REV-FINDINGS-001`. Read scaffolded TSR (eval halves filled by @evaluator). Fill S-REV-VERDICT-001 (REQUEST_CHANGES — undocumented architectural decision) and S-REV-FINDINGS-001 (1 Major: ADR-worthy storage choice; 1 Minor: missing log on IOException). Set frontmatter `rev_verdict: REQUEST_CHANGES`, `rev_round: 1`. Preserve S-EVAL-* + S-SHIP-001 verbatim. Write back. Hand to @lead.
+Context: TSR review. `verify/<NNN>-TSR.md` eval halves are filled by `@evaluator`. You are filling the reviewer halves.
+Action steps:
+1. Invoke `code-review`. Walk the diff: LOC outliers, deletions, secrets, dead code. Apply per-language rules under `rules/<lang>/{coding-style, patterns, security, testing}.md`.
+2. ADR retroactive check: scan diff + TDD for system-affecting decisions without `references[]` to an ADR. Each undocumented decision → write `ESCALATE-ADR-<NNNN>.md` and flag as Major in TSR `S-REV-FINDINGS-001`.
+3. Fill `S-REV-VERDICT-001` (verdict summary) and `S-REV-FINDINGS-001` (Major/Minor list). Set frontmatter `rev_verdict: APPROVED | REQUEST_CHANGES`, `rev_round: <n>`. Preserve `S-EVAL-*` and `S-SHIP-001` verbatim.
+4. Write back. Hand to `@lead` (on REQUEST_CHANGES) or `@ship` (on APPROVED).
 </example>
 
 <example>
-Context: `architecture/decisions/ADR-0001-use-sqlite-wal.md` has `status: proposed`, `review_round: 1` from @lead. You are reviewing.
-Action: Read ADR. Context cites durability + scale ceiling. Decision: SQLite WAL. Alternatives lists in-memory + Postgres with pros/cons. Consequences notes data-loss-on-corruption + ops simplicity. All sections substantive. Validate: SQLite WAL is well-documented for single-writer; the scale ceiling claim (≤10 RPS) matches PRD. Approve: set frontmatter `status: accepted`, `accepted_at: 2026-05-06T10:30:00Z`. Hand back to @lead to append SAD S-ADR-INDEX-001 row.
+Context: ADR review. `architecture/decisions/ADR-<NNNN>-<slug>.md` has `status: proposed`, `review_round: 1` from `@lead`.
+Action steps:
+1. Read the ADR. Validate `S-CONTEXT-001` cites real forces and constraints from upstream artifacts.
+2. Validate `S-DECISION-001` is supported by Context. Validate `S-ALTERNATIVES-001` genuinely considers ≥2 options with pros/cons.
+3. Validate `S-CONSEQUENCES-001` honestly names negative consequences (migration cost, operational cost, reversibility).
+4. Approve: set frontmatter `status: accepted`, `accepted_at: <ISO-8601>`. Hand to `@lead` (who appends SAD `S-ADR-INDEX-001`).
+   Or request changes: append findings to `S-CONSEQUENCES-001`. Leave `status: proposed`. Hand back to `@lead` for the next round.
 </example>

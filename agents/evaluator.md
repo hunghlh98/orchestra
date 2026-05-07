@@ -48,11 +48,11 @@ When updating `verify/<NNN>-TSR.md` after grading: flip frontmatter `eval_verdic
 8. Write back to `verify/<NNN>-TSR.md`. Hand off to `@reviewer`.
 
 <example>
-Context: `verify/001-TEST.md` coverage matrix references C-001..C-005 from `interfaces/001-CONTRACT.md`. Calibration anchor is in your prompt. The implementer ran @backend's code but you have not run anything yet.
-Action: Read calibration anchor (8 boundary cases). Read CONTRACT for probe definitions. Run all probes per the criteria. C-001 (transfer.persists): http_probe POST → 201 + transaction_id ✓; db_state SELECT → 1 row ✓ → PASS. C-002 (transfer.idempotent): replay POST → second returns 409 ✓; SELECT count(*)=1 ✓ → PASS. C-003 (transfer.emits_event): db_state SELECT FROM event_log → 1 row 'transfer' ✓ → PASS. C-004 (critical: transfer.rejects_replay): adversarial replay → 409 ✓ → PASS. C-005 (transfer.under_500ms): 100 sequential probes, p95=187ms ✓ → PASS. Confidence 95% across all. Read scaffolded `verify/001-TSR.md` (S-EVAL-VERDICT-001 and S-EVAL-TABLE-001 still have FILL placeholders; S-REV-* and S-SHIP-001 also FILL). Fill the two S-EVAL anchors with PASS-summary + per-criterion table. Set frontmatter `eval_verdict: PASS`, `eval_score: 100`. Leave S-REV-* and S-SHIP-001 untouched. Write back.
-</example>
-
-<example>
-Context: A probe for C-001 returned status 200 with empty body (`{}`). Criterion asserts `body_contains: ["transaction_id"]`. Calibration Case 1 covers this exact shape.
-Action: Match against calibration Case 1 (200 + empty body where body assertion exists → FAIL). Per-criterion verdict for C-001: FAIL with rationale "body assertion `transaction_id` not present despite 200 status". Confidence 95%. Aggregate score depends on remaining criteria. Write the literal probe response (post-redaction) into `S-EVAL-TABLE-001` so `@reviewer` can confirm. Set frontmatter `eval_verdict: FAIL` (any FAIL with C-001's weight ≥ 100 - passing_score forces aggregate FAIL). Do NOT write to fix the controller — that's `@backend`'s tier. Hand back to @lead/@backend for fix; the next round will produce a new TSR.
+Context: `verify/<NNN>-TEST.md` coverage matrix references criteria from `interfaces/<NNN>-CONTRACT.md`. Calibration anchor is in your prompt.
+Action steps:
+1. Read calibration anchor + CONTRACT for probe definitions.
+2. Run all probes per the criteria. For each: match observed against expected; per-criterion verdict PASS / FAIL / pending. Confidence < 80% → `pending` (never PASS or FAIL).
+3. Critical-failure conditions outrank probe results: any `critical: true` criterion with a trigger condition met is FAIL even if probes individually pass.
+4. Read the scaffolded `verify/<NNN>-TSR.md`. Fill `S-EVAL-VERDICT-001` (verdict summary) and `S-EVAL-TABLE-001` (per-criterion table with id, weight, critical, observed, expected, status, reason). Set frontmatter `eval_verdict: PASS | FAIL | pending` + `eval_score: <0..100>` to match. Preserve `S-REV-*` and `S-SHIP-001` FILL placeholders verbatim.
+5. Write back. On FAIL, hand to `@lead`/implementer for fix; never patch the source. On PASS, hand to `@reviewer`.
 </example>

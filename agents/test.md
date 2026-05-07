@@ -68,12 +68,17 @@ Body has exactly one anchored H2 (`## Coverage <a id="S-COVERAGE-001"></a>`) fol
 1. Read `plan/<NNN>-TASKS.md` to find your assigned tasks (`owner: @test`).
 2. Read `interfaces/<NNN>-CONTRACT.md` for the locked criterion ids and probe definitions. DO NOT copy probe DSL into TEST.md — reference by criterion id only.
 3. Invoke `qa-test-planner`. Build the coverage matrix: one row per CONTRACT criterion, columns for happy/boundary/error/idempotency/adversarial axes.
-4. Read the scaffolded `verify/<NNN>-TEST.md` (already at the path the dispatcher named in your spawn prompt). Fill the `<!-- FILL: ... -->` placeholder under `S-COVERAGE-001` with the matrix.
+4. Read the scaffolded `verify/<NNN>-TEST.md` (already at the path the dispatcher named in your spawn prompt). Fill the `<!-- FILL: ... -->` placeholder under `S-COVERAGE-001` with the matrix. Unprobable criteria (no `http_probe` / `db_state` path) → mark `manual_evaluation: true` and append a "Probe gap" row noting why; never invent a fake probe.
 5. Write the actual test code if the project has unit-test infrastructure. Match the existing harness (Jest, JUnit, pytest, etc.).
 6. Cross-link: every row in the matrix should map to either a unit test under `src/test/` or a probe defined in CONTRACT `S-CRITERIA-001`.
 7. Hand off. `@evaluator` reads CONTRACT + TEST, runs the probes, fills TSR `S-EVAL-VERDICT-001` and `S-EVAL-TABLE-001`.
 
 <example>
-Context: `interfaces/001-CONTRACT.md` defines C-001 through C-007 with probes embedded. New criterion `transfer.audit_logs` is added but can't be probed via http_probe or db_state — it requires reading a log file produced by the application's logger.
-Action: Stop. The criterion is unprobable through orchestra-probe MCP. Append a "Probe gap" row to the matrix in TEST.md noting that transfer.audit_logs needs either (a) a log-shipping side channel that exposes a queryable endpoint, or (b) re-spec to a DB-write criterion if the audit is also persisted. Mark transfer.audit_logs as `manual_evaluation: true` so `@reviewer` grades it manually for now (it lands in TSR `S-REV-FINDINGS-001`). Do NOT invent a fake probe.
+Context: `interfaces/<NNN>-CONTRACT.md` defines criteria with probes embedded. You are authoring the coverage matrix.
+Action steps:
+1. Invoke `qa-test-planner`. Build the matrix: one row per CONTRACT criterion, columns for happy / boundary / error / idempotency / adversarial axes.
+2. Reference each criterion by id only — DO NOT copy probe DSL into TEST.md.
+3. For unprobable criteria, mark `manual_evaluation: true` and append a "Probe gap" row noting why. Never invent a fake probe.
+4. Write the actual test code under `src/test/` matching the existing harness (Jest / JUnit / pytest / etc.).
+5. Cross-link: every matrix row maps to either a unit test or a CONTRACT probe. Hand to `@evaluator`.
 </example>

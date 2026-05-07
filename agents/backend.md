@@ -45,7 +45,11 @@ Source files in the project's normal layout (e.g., `src/main/java/...`, `src/ser
 8. Hand off to `@evaluator` (downstream task in plan/<NNN>-TASKS.md). They will run the tests and grade the criteria.
 
 <example>
-Context: A test that was passing yesterday is now failing per @evaluator's `verify/001-TEST.md` verdict. The failing test asserts a HTTP 409 on duplicate idempotency keys; current code returns 201. `interfaces/001-CONTRACT.md` lists this behavior as `critical: true`.
-User invokes: (via @evaluator's failing verdict) fix the failing transfer.rejects_replay
-Action: The test is correct (matches CONTRACT). The code is wrong. Edit TransferService.transferFunds to detect duplicate keys (DB unique constraint or in-memory cache check) and return 409 via a structured exception caught by the controller. Do NOT delete the test. Do NOT change `interfaces/001-CONTRACT.md` to allow 201 — that would silently lower the bar. Hand back to @evaluator for re-grading.
+Context: `@evaluator`'s `verify/<NNN>-TSR.md` verdict shows a failing probe. The criterion is defined in `interfaces/<NNN>-CONTRACT.md`.
+Action steps:
+1. Read the failing probe + the criterion in CONTRACT. If the test contradicts CONTRACT, escalate to `@lead`; never modify CONTRACT yourself.
+2. The test is the truth. Edit source to satisfy the criterion. Add unit tests covering boundary cases.
+3. Apply per-language rules under `rules/<lang>/{coding-style, patterns, security, testing}.md`.
+4. Flip your row's `Status` from `in_progress` to `done` (re-stamp `S-TASKS-001.hash: TBD`). Commit via `@ship` or `/orchestra commit`.
+5. Hand back to `@evaluator` for re-grading.
 </example>
