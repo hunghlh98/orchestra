@@ -14,7 +14,7 @@ The 5 hooks (see "Runtime hooks" table below) own their events and side effects.
 
 ## Status output
 
-Two model-emitted dispatcher channels (NOT hook output): single-line status updates at filesystem-coupled transitions, and multi-line banners on exception artifacts. No ANSI, no emoji.
+Two model-emitted channels (NOT hook output): single-line status updates at filesystem-coupled transitions, and multi-line banners on exception artifacts. No ANSI, no emoji.
 
 | Event | Format |
 |---|---|
@@ -55,9 +55,9 @@ Default path. Spawn the 8-agent team and route per intent.
 
 ### Coordination protocol (read this before the steps)
 
-**The 8 orchestra agents are filesystem-coupled, not message-coupled.** Each agent's tools list is a strict tier set (T-A: `Bash/Glob/Grep/Read/Write`; T-B: `Glob/Grep/Read/Write`; T-C: `Edit/Glob/Grep/MultiEdit/Read/Write`). **`SendMessage` is not in any tier set** — adding it would break `test-agents.js` tier validation. Spawned agents therefore communicate by writing to designated paths under `<cwd>/.claude/.orchestra/`, and the parent (this dispatcher) reads those paths after each idle notification.
+**The 8 orchestra agents are filesystem-coupled, not message-coupled.** Tier tools sets (T-A: `Bash/Glob/Grep/Read/Write`; T-B: `Glob/Grep/Read/Write`; T-C: `Edit/Glob/Grep/MultiEdit/Read/Write`) deliberately omit `SendMessage` — adding it would break `test-agents.js` tier validation. Spawned agents communicate by writing to designated paths under `<cwd>/.claude/.orchestra/`; the parent reads those paths after each idle notification.
 
-The handoff pattern is:
+The handoff pattern:
 
 ```
 1. Parent: Agent({ team_name, name, subagent_type, prompt: "Write your output to <designated path>. End your turn." })
@@ -66,7 +66,7 @@ The handoff pattern is:
 4. Parent: optionally Agent again (or the same teammate via a follow-up Agent call) for the next stage.
 ```
 
-Do NOT instruct spawned agents to call `SendMessage` — they cannot. Do NOT poll for messages — Claude Code's idle notification fires automatically when the spawned agent's turn ends. Do NOT write artifacts from the parent context — every pipeline artifact must be authored inside its assigned agent's context per the tier discipline.
+Do NOT instruct spawned agents to call `SendMessage` (not in any tier). Do NOT poll for messages — idle notification fires automatically when an agent's turn ends. Do NOT write artifacts from the parent context — every pipeline artifact must be authored inside its assigned agent's context per the tier discipline.
 
 ### Autonomy resolution + pause transitions
 
@@ -78,14 +78,14 @@ When you reach a step marked `→ PAUSE-N` below, call `AskUserQuestion` per thi
 
 | # | Fires after | Question shape |
 |---|---|---|
-| 1 | Step 3 (intent + autonomy classification) | "intent=`<intent>`, confidence=`<conf>`, pattern=`<A\|B\|C>`, autonomy=`<tag>` — proceed?" Also surfaces @lead's auto-classified suggestion if it differs from the resolved default. |
+| 1 | Step 3 (intent + autonomy classification) | "intent=`<intent>`, confidence=`<conf>`, pattern=`<A\|B\|C>`, autonomy=`<tag>` — proceed?" Surfaces @lead's auto-classified suggestion if it differs from the resolved default. |
 | 2 | Step 5 (after `@product` writes PRD + FRS) | "Spec captures: `<one-line summary>`. Proceed to architecture/contract?" |
 | 3 | Step 5 (after `@lead` writes CONTRACT) | "Gate is `<criteria summary>`. Kick off implementation?" |
-| 4 | Step 5 (after `@reviewer` writes CODE-REVIEW) | "Review verdict: `<APPROVED\|REQUEST_CHANGES>` (`<N minor, M blockers>`). Ship?" |
+| 4 | Step 5 (after `@reviewer` fills `S-REV-VERDICT-001` + `S-REV-FINDINGS-001` in TSR) | "Review verdict: `<APPROVED\|REQUEST_CHANGES>` (`<N minor, M blockers>`). Ship?" |
 
 ### Model actions (numbered = you must do these)
 
-**Step 1 — Resolve autonomy + create the team.** Resolve the autonomy tag per the precedence above (CLI flag → `local.yaml.autonomy.level` → `DRAFT_AND_GATE`); include it in TeamCreate's `description` and pass it into every spawned agent's prompt. Then `TeamCreate` (container) + `Agent` calls (members joined on demand).
+**Step 1 — Resolve autonomy + create the team.** Resolve per the precedence above; include the tag in TeamCreate's `description` and every spawned agent's prompt. Then `TeamCreate` (container) + `Agent` calls (members joined on demand).
 
 ```
 TeamCreate({
@@ -144,13 +144,13 @@ Agent({
 
 **Step 5 — Spawn the workflow agents per the routing taxonomy.** Spawn ONLY the agents listed for the classified intent, in order. Each transition:
 
-(a) **Pre-spawn scaffold (v2.0+).** For each artifact in the next agent's whitelist that does NOT yet exist on disk, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js <type> <feature-id-or-flag> [<slug>] [--mode=full|brief])`. Examples: `scaffold-artifact CHARTER 001-foo foo --mode=full` for `@product` on a feature intent; `scaffold-artifact PRD 001-foo foo` next; `scaffold-artifact FRS 001-foo foo` next. The dispatcher (this context) has Bash; agents do not. Each scaffold call writes the artifact body (with locked anchors + FILL placeholders), the paired `<artifact>.lock.yaml` (with seeded sections + diagrams[]), and stub `.puml` source files for any required diagrams. Idempotent — re-running on an existing artifact exits 2 unless `--force` is passed.
+(a) **Pre-spawn scaffold (v2.0+).** For each artifact in the next agent's whitelist that does NOT yet exist, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js <type> <feature-id> [<slug>] [--mode=full|brief])`. Examples: `scaffold-artifact CHARTER 001-foo foo --mode=full`, then `PRD 001-foo foo`, then `FRS 001-foo foo`. The dispatcher has Bash; agents do not. Each call writes the artifact body (locked anchors + FILL placeholders), the paired `<artifact>.lock.yaml` (seeded sections + diagrams[]), and stub `.puml` files for any required diagrams. Idempotent — re-running on an existing artifact exits 2 unless `--force`.
 
-(a') **PLAN scaffold (one-shot; only when `--think` is set, per Step 4b).** Before the FIRST `@lead` spawn for this feature, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js PLAN <feature-id>)`. This writes `<feature-dir>/planning/<NNN>-PLAN.md` with 5 anchored FILL spans (S-PROBLEM-001 / S-OPTIONS-001 / S-TRADEOFFS-001 / S-RECOMMENDATION-001 / S-OPEN-001). The first `@lead` spawn prompt gains the directive: `--think mode: fill <feature-dir>/planning/<NNN>-PLAN.md BEFORE TDD/CONTRACT. Author ≥3 distinct options; populate Trade-offs 1:1 with Options; pick one as the Recommendation.` PLAN scaffold runs once per `--think` cycle — re-runs are no-op (existing-artifact exit code; we do NOT pass `--force`).
+(a') **PLAN scaffold (one-shot; only when `--think` is set, per Step 4b).** Before the FIRST `@lead` spawn for this feature, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js PLAN <feature-id>)`. Writes `<feature-dir>/planning/<NNN>-PLAN.md` with 5 anchored FILL spans (S-PROBLEM-001 / S-OPTIONS-001 / S-TRADEOFFS-001 / S-RECOMMENDATION-001 / S-OPEN-001). The first `@lead` spawn prompt gains: `--think mode: fill <feature-dir>/planning/<NNN>-PLAN.md BEFORE TDD/CONTRACT. Author ≥3 distinct options; populate Trade-offs 1:1 with Options; pick one as Recommendation.` Re-runs are no-op (existing-artifact exit code; we do NOT pass `--force`).
 
-(a'') **`--delegate` user choice (when `--delegate` is set, after `@lead` Writes PLAN.md).** Read `<feature-dir>/planning/<NNN>-PLAN.md`. Call `AskUserQuestion` ONCE: each numbered Option from the `S-OPTIONS-001` anchor becomes a choice; the option named in `S-RECOMMENDATION-001` is highlighted as the default. Write the user's accepted choice to `<feature-dir>/planning/PLAN.choice.yaml` as `{ chosen: <Option-letter-or-number>, source: user-delegate, accepted_at: <ISO-8601> }`. The next `@lead` spawn (TDD authorship) carries `--delegate-chose: <Option-letter>` in its prompt as the binding seed. This single AskUserQuestion call is the documented carve-out from the per-tier confidence budget (see the `AskUserQuestion budget` heading below).
+(a'') **`--delegate` user choice (when `--delegate` is set, after `@lead` Writes PLAN.md).** Read `<feature-dir>/planning/<NNN>-PLAN.md`. Call `AskUserQuestion` ONCE: each numbered Option from `S-OPTIONS-001` becomes a choice; the `S-RECOMMENDATION-001` option is the default. Write user's accepted choice to `<feature-dir>/planning/PLAN.choice.yaml` as `{ chosen: <Option-letter-or-number>, source: user-delegate, accepted_at: <ISO-8601> }`. The next `@lead` spawn (TDD authorship) carries `--delegate-chose: <Option-letter>` in its prompt. This single AskUserQuestion is the documented carve-out from the per-tier confidence budget (see `AskUserQuestion budget` below).
 
-(b) **Spawn agent.** Pass the scaffolded artifact path(s) in the agent's prompt so the agent can Read them. Agents fill `<!-- FILL: ... -->` spans and Write the artifact back; the hash-stamper hook fires on Write and stamps hashes into the paired lockfile.
+(b) **Spawn agent.** Pass the scaffolded artifact path(s) in the prompt so the agent can Read them. Agents fill `<!-- FILL: ... -->` spans and Write the artifact back; the hash-stamper hook fires on Write and stamps hashes into the paired lockfile.
 
 (c) Wait for idle.
 
@@ -177,7 +177,7 @@ Full per-intent artifact whitelist lives in `schemas/routing-taxonomy.md`. Agent
 
 **Step 5c — ADR open subroutine (v2.0+).** When `@reviewer` writes `ESCALATE-ADR-<slug>.md` at the feature-dir root, OR `@product` flagged a PRD `S-OPEN-001` item with `ADR-WORTHY:`, the dispatcher runs `Bash(scaffold-artifact ADR --global <slug>)` (auto-numbers next NNNN) before re-spawning `@lead` with the scaffolded ADR path in its prompt. After `@lead` Writes the proposed ADR, spawn `@reviewer` for review (3-round circuit per the `agents/lead.md` ADR-open subroutine).
 
-**Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/` (or singletons under `architecture/`, `releases/`, `runbooks/`, `architecture/decisions/`).** v2.0+: the dispatcher scaffolds via Step 5(a); agents fill `<!-- FILL: -->` placeholders and Write the artifact back. Provenance auto-emits to the paired `<artifact>.lock.yaml` via the hash-stamper hook (only-when-paired). The parent does NOT copy/edit agent-authored content — each agent owns its sections per `schemas/pipeline-artifact.schema.md` and the single-writer-per-section discipline in `verify/<NNN>-TSR.md`.
+**Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/`** (or singletons under `architecture/`, `releases/`, `runbooks/`, `architecture/decisions/`). v2.0+: the dispatcher scaffolds via Step 5(a); agents fill `<!-- FILL: -->` placeholders and Write the artifact back. Provenance auto-emits to the paired `<artifact>.lock.yaml` via the hash-stamper hook (only-when-paired). The parent does NOT copy/edit agent-authored content — each agent owns its sections per `schemas/pipeline-artifact.schema.md` and the single-writer-per-section discipline in `verify/<NNN>-TSR.md`.
 
 **Step 7 — Terminal-state detection + closure.** After every parent `Read` in Step 5, evaluate the just-read artifact's basename:
 
@@ -189,13 +189,13 @@ Full per-intent artifact whitelist lives in `schemas/routing-taxonomy.md`. Agent
 On terminal state:
 
 1. Parent `Write(<feature-dir>/SUMMARY-<feature-id>.md, ...)` per `schemas/pipeline-artifact.schema.md` SUMMARY shape: `team_name`, `started_at` (the team.created timestamp from earlier in this run; fallback to first matching `team.created` in events.jsonl), `ended_at` (now), `duration_seconds`, `terminal_state`, `artifact_count`. Body: 1–3 line plain-text closing note. SUMMARY is parent-authored bookkeeping at terminal state — narrowly carved exception to the Coordination-protocol "no parent artifact writes" rule, because no agent is in scope after teardown begins.
-2. **Cost banner (opt-in; v2.2.0+).** If `ORCHESTRA_METRICS_COST_BANNER=on`, the dispatcher reads `<cwd>/.claude/.orchestra/metrics/tokens.jsonl`, filters rows where `run_id == <current-session-id>`, sums `tokens` and `usd` across them, and emits one status line per `## Status output`. The dispatcher does NOT read `runs/<id>.json` — that file is written by the Stop hook AFTER the dispatcher returns, so it is not yet on disk at this point. The banner therefore reflects subagent cost only; the full total (subagents + parent dispatcher) lands in `runs/<id>.json` after Stop fires. `tokens.jsonl` rows already carry pre-computed `usd` per subagent emit (the metrics-collector hook calls `computeUsd` from `hooks/lib/rate-card.js` at write time — single source of truth for the rate card).
+2. **Cost banner (opt-in; v2.2.0+).** If `ORCHESTRA_METRICS_COST_BANNER=on`, read `<cwd>/.claude/.orchestra/metrics/tokens.jsonl`, filter rows where `run_id == <current-session-id>`, sum `tokens` and `usd`, emit one status line per `## Status output`. Reflects subagent cost only — the parent-dispatcher total lands in `runs/<id>.json` AFTER the Stop hook fires (runs.json doesn't exist on disk yet at this point). Per-row `usd` is pre-computed by the metrics-collector hook via `hooks/lib/rate-card.js` (single source for the rate card).
 3. Parent `TeamDelete()` (zero-param primitive — team is implicit from current session context; failure mode: throws on active members, but Orchestra's filesystem-coupled flow has SubagentStop drain members synchronously by the time terminal state is detected).
 4. Emit closing status line per `## Status output`.
 
 ### Runtime hooks
 
-5 hooks registered in `hooks/hooks.json`; full event taxonomy in `docs/HOOKS.md` (dev-surface). Hooks own their events per `## Invariants` above — do not replicate hook side effects.
+5 hooks registered in `hooks/hooks.json`. Hooks own their events per `## Invariants` above — do not replicate hook side effects.
 
 | Hook | Events (matchers) | Side effect |
 |---|---|---|

@@ -96,7 +96,7 @@ Type → folder map:
 | `RELEASE`, `RUNBOOK` | `releases/`, `runbooks/` | `RELEASE-vX.Y.Z.md` | version singletons; ANNOUNCEMENT folded into RELEASE §S-ANNOUNCEMENT-001 |
 | `ESCALATE`, `ESCALATE-ARCH`, `ESCALATE-ADR`, `DEADLOCK`, `DEADLOCK-ADR`, `SUMMARY`, `INTENT` | feature-dir root | `ESCALATE-001.md` | exception types |
 
-**Removed in v2.0.0** (folded or dropped per `docs/DESIGN-005-doc-output-overhaul.md` §S-CANON-001):
+**Removed in v2.0.0** (folded or dropped):
 
 - `VERDICT`, `CODE-REVIEW` → folded into `TSR`
 - `ANNOUNCEMENT` → folded into `RELEASE` §S-ANNOUNCEMENT-001
@@ -327,7 +327,7 @@ Brief classification artifact for `template` / `docs` / `review-only` intents (p
 
 ## Validation
 
-- `validate.js` (the plugin's static checker) walks plugin-internal dirs; PR #3 added pure functions for pipeline-artifact validation (`validateStructuralDiff`, `validateLockfilePresence`, `validateLockfileGrammar`, `validateDiagramHashes`, `validateOrphanTypes`, `validateFoldCorrectness`, `validateSoftCap`).
+- `validate.js` (the plugin's static checker) walks plugin-internal dirs and exposes pure functions for pipeline-artifact validation: `validateStructuralDiff`, `validateLockfilePresence`, `validateLockfileGrammar`, `validateDiagramHashes`, `validateOrphanTypes`, `validateFoldCorrectness`, `validateSoftCap`.
 - `validate-drift.js` walks consumer `.claude/.orchestra/` artifacts; reads hashes from lockfile when paired (v2), falls back to inline frontmatter for v1 legacy fixtures.
 - The `hash-stamper` hook writes hashes into the lockfile only when one is paired — see `schemas/lockfile.schema.md` §S-FILENAME-001.
 - Any artifact frontmatter that violates the type-specific shape fails with `frontmatter-grammar-violation`. Any artifact whose `lockfile.sections.<id>.hash` differs from the recomputed body-section hash fails with `frontmatter-out-of-sync`.
