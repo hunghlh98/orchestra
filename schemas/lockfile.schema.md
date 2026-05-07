@@ -17,7 +17,7 @@ references:
 
 ## When a lockfile exists
 
-A lockfile is created by `scripts/scaffold-artifact.js` at the moment an artifact is scaffolded. The hash-stamper hook (`hooks/scripts/hash-stamper.js`) operates **only when paired** (per `DESIGN-005-doc-output-overhaul §S-HASHSTAMPER-001`): if `<artifact>.lock.yaml` exists adjacent to the artifact being written, hashes are stamped into the lockfile; otherwise the hook passes through untouched. Hand-authored or pre-v2 artifacts are not auto-upgraded.
+A lockfile is created by `scripts/scaffold-artifact.js` at the moment an artifact is scaffolded. The hash-stamper hook (`hooks/scripts/hash-stamper.js`) operates **only when paired**: if `<artifact>.lock.yaml` exists adjacent to the artifact being written, hashes are stamped into the lockfile; otherwise the hook passes through untouched. Hand-authored or pre-v2 artifacts are not auto-upgraded.
 
 ## Filename + folder convention <a id="S-FILENAME-001"></a>
 
@@ -111,7 +111,7 @@ Lockfiles MUST round-trip through `hooks/lib/yaml-mini.js`:
 - String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) MUST be JSON-quoted (`"..."`).
 - Hash strings ALWAYS quoted (e.g., `"sha256:abc..."`) — they contain `:`.
 
-Any divergence is a `lockfile-grammar` validator failure (per `DESIGN-005 §S-VALIDATOR-001`).
+Any divergence is a `lockfile-grammar` validator failure.
 
 ## Bidirectional invariant with body <a id="S-INVARIANT-001"></a>
 
@@ -146,7 +146,7 @@ created: <ISO-8601>
 revision: <integer ≥ 1>
 status: <type-specific enum, where applicable>
 version: <semver, where applicable>
-# (plus type-specific minimal fields per DESIGN-005 §S-SCHEMAS-001 §2.3)
+# (plus type-specific minimal fields per `pipeline-artifact.schema.md`)
 ---
 ```
 
@@ -154,7 +154,7 @@ version: <semver, where applicable>
 - `sections:`
 - `references:`
 
-Validator failure on inline `sections:` or `references:` blocks in v2-scaffolded artifacts: `frontmatter-slim-violation` (per `DESIGN-005 §S-VALIDATOR-001`, deferred to PR #3).
+Validator failure on inline `sections:` or `references:` blocks in v2-scaffolded artifacts: `frontmatter-slim-violation`.
 
 ## Versioning
 

@@ -2,13 +2,13 @@
 
 > Normative consumer-surface document mapping `intent.yaml.intent` to authorized agents and the artifact whitelist for each intent. The dispatcher's spawn prompts (per `commands/orchestra.md` Step 5) reference this file by intent anchor (`#feature`, `#hotfix`, etc.); agents Read the relevant section on demand to verify their authorized outputs. Each spawn prompt also carries a 1-line backstop summary inline so agents do not need to Read this file for the common path.
 
-> **v2.0.0 changes** (per `docs/DESIGN-005-doc-output-overhaul.md` §S-CANON-001 / §S-ROUTING-001): folded `VERDICT` + `CODE-REVIEW` → `TSR`; folded `ANNOUNCEMENT` into `RELEASE §S-ANNOUNCEMENT-001`; added `<NNN>-CHARTER.md` (mode: full | brief) and conditional `ADR-<NNNN>-<slug>.md`; dropped 6 routing-orphan types (`DOC`, `IMPL-NOTES`, `IMPL-BE/FE`, `CODE-DESIGN-BE/FE`, `COMMIT-MSG-as-file`).
+> **v2.0.0 changes**: folded `VERDICT` + `CODE-REVIEW` → `TSR`; folded `ANNOUNCEMENT` into `RELEASE §S-ANNOUNCEMENT-001`; added `<NNN>-CHARTER.md` (mode: full | brief) and conditional `ADR-<NNNN>-<slug>.md`; dropped 6 routing-orphan types (`DOC`, `IMPL-NOTES`, `IMPL-BE/FE`, `CODE-DESIGN-BE/FE`, `COMMIT-MSG-as-file`).
 
 ## How agents use this file
 
 - Spawn prompt mandate: every `Agent({ subagent_type, prompt })` call from the dispatcher embeds `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent>` plus a 1-line summary. Agents may Read this file when the inline summary is insufficient (e.g., an artifact name they're uncertain about).
 - Out-of-whitelist enforcement: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `ESCALATE-<feature_id>.md` at the feature-dir root with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
-- ADR sub-flow: feature and refactor intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces (per `docs/DESIGN-005-doc-output-overhaul.md` §S-ADR-001). `@lead` is sole author; `@reviewer` reviews. 3-round circuit breaker → `DEADLOCK-ADR-<NNNN>.md`. ADRs are referenced bidirectionally via the lockfile's `references[]` block, never inline-cited in PRD/FRS/TDD bodies.
+- ADR sub-flow: feature and refactor intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@lead` is sole author; `@reviewer` reviews. 3-round circuit breaker → `DEADLOCK-ADR-<NNNN>.md`. ADRs are referenced bidirectionally via the lockfile's `references[]` block, never inline-cited in PRD/FRS/TDD bodies.
 
 ---
 

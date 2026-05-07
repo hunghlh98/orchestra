@@ -20,7 +20,7 @@ option_count: 0
 
 ## Context <a id="S-CONTEXT-001"></a>
 
-<!-- FILL (@lead): What forces this decision? What constraints / risks / unknowns surfaced upstream (PRD §Open / FRS / TDD §Risks)? -->
+<!-- FILL (@lead): What forces this decision? What constraints / risks / unknowns surfaced upstream (PRD's Open Questions / FRS / TDD's Risks section)? -->
 
 ## Decision <a id="S-DECISION-001"></a>
 

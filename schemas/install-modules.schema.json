@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "orchestra:install-modules",
   "title": "orchestra install-modules manifest",
-  "description": "Inventory of plugin components grouped by module with installation defaults. See PRD §8.6 / DESIGN-001-infra §2.2.",
+  "description": "Inventory of plugin components grouped by module with installation defaults.",
   "type": "object",
   "required": ["modules"],
   "additionalProperties": false,

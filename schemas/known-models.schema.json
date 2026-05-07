@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "orchestra:known-models",
   "title": "orchestra known-models manifest",
-  "description": "Closed list of Anthropic model ids that agent frontmatter may reference. Real ids only — no project-local aliases. See PRD §8.10 / DESIGN-001-infra §2.4.",
+  "description": "Closed list of Anthropic model ids that agent frontmatter may reference. Real ids only — no project-local aliases.",
   "type": "object",
   "required": ["models"],
   "additionalProperties": false,
