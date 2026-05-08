@@ -486,6 +486,114 @@ console.log("metrics-collector insight extraction:");
   }
 }
 
+// --- 4c-bis. v4 sibling-dir subagent layout: tokens.jsonl + agent_role from .meta.json + dedup ---
+console.log("metrics-collector v4 sibling-dir layout:");
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-v4layout-"));
+  const homeBase = join(tmp, "home");
+  const project = join(tmp, "proj");
+  mkdirSync(project, { recursive: true });
+  const realProj = realpathSync(project);
+  const encoded = realProj.replace(/\//g, "-");
+  const parentSid = "parent-v4-layout";
+
+  // v4 layout: ~/.claude/projects/<encoded>/<parentSid>/subagents/agent-*.jsonl
+  // paired with agent-*.meta.json carrying {agentType: "orchestra:<role>"}.
+  const subDir = join(homeBase, ".claude/projects", encoded, parentSid, "subagents");
+  mkdirSync(subDir, { recursive: true });
+
+  const subAgentId = "agent-abc123def456";
+  const subPath = join(subDir, `${subAgentId}.jsonl`);
+  const metaPath = join(subDir, `${subAgentId}.meta.json`);
+
+  // Synthesize 3 streamed assistant turns, two with the same message.id
+  // (streaming dupe — should count once after dedup).
+  const usage = { input_tokens: 10, output_tokens: 100, cache_read_input_tokens: 1000, cache_creation_input_tokens: 50 };
+  const lines = [
+    JSON.stringify({ type: "user", message: { role: "user", content: "go" }}),
+    JSON.stringify({ type: "assistant", message: { id: "msg_001", role: "assistant", content: [{ type: "text", text: "first" }], usage }}),
+    JSON.stringify({ type: "assistant", message: { id: "msg_001", role: "assistant", content: [{ type: "text", text: "first (streamed dupe)" }], usage }}),
+    JSON.stringify({ type: "assistant", message: { id: "msg_002", role: "assistant", content: [{ type: "text", text: "second" }], usage }}),
+  ];
+  writeFileSync(subPath, lines.join("\n") + "\n");
+  writeFileSync(metaPath, JSON.stringify({ agentType: "orchestra:product", description: "@product authors PRD" }));
+
+  try {
+    const r = runHook(
+      { hook_event_name: "SubagentStop", session_id: parentSid, cwd: realProj },
+      { HOME: homeBase },
+    );
+    check(r.status === 0, `hook exited 0 (status=${r.status} stderr=${r.stderr})`);
+
+    const tokensPath = join(realProj, ".orchestra/metrics/tokens.jsonl");
+    check(existsSync(tokensPath), `tokens.jsonl created (stderr=${r.stderr})`);
+    if (existsSync(tokensPath)) {
+      const rows = readFileSync(tokensPath, "utf8").split("\n").filter(Boolean).map(JSON.parse);
+      check(rows.length === 1, `1 tokens row emitted (got ${rows.length})`);
+      check(rows[0].event === "subagent.tokens", `event field = subagent.tokens`);
+      check(rows[0].run_id === parentSid, `run_id = parent's session_id`);
+      check(rows[0].subagent_session_id === subAgentId, `subagent_session_id = agent-id from filename (got ${rows[0].subagent_session_id})`);
+      check(rows[0].agent_role === "product", `agent_role lifted from .meta.json's agentType (got ${rows[0].agent_role})`);
+      // Dedup by message.id: 3 usage rows in input, but msg_001 dupes — should count 2 unique turns.
+      check(rows[0].tokens.input === 20, `dedup: input_tokens = 2 turns × 10 = 20 (got ${rows[0].tokens.input})`);
+      check(rows[0].tokens.output === 200, `dedup: output_tokens = 2 turns × 100 = 200 (got ${rows[0].tokens.output})`);
+      check(rows[0].tokens.cache_read === 2000, `dedup: cache_read = 2 turns × 1000 = 2000 (got ${rows[0].tokens.cache_read})`);
+      check(rows[0].usd > 0, `usd computed`);
+    }
+
+    // insight extraction should also pick the v4 path (zero insights here — body has no ★ Insight blocks)
+    const insightsPath = join(realProj, ".orchestra/metrics/insights.jsonl");
+    if (existsSync(insightsPath)) {
+      const irows = readFileSync(insightsPath, "utf8").split("\n").filter(Boolean).map(JSON.parse);
+      check(irows.length === 0, `no insights emitted when subagent body has no ★ Insight blocks (got ${irows.length})`);
+    } else {
+      check(true, `insights.jsonl absent (zero blocks → no file) — acceptable`);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 4c-ter. agents_spawned aggregation uses agent_role (not agent_name which is null) ---
+console.log("metrics-collector agents_spawned uses agent_role:");
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-spawned-"));
+  try {
+    const sid = "spawn-1";
+    runHook({ session_id: sid, cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "/orchestra build x" });
+    // Three task.subagent.invoked events with subagent_type but no name —
+    // agent_role is populated by deriveAgentRole, agent_name stays null.
+    for (const role of ["orchestra:lead", "orchestra:product", "orchestra:lead"]) {
+      runHook({
+        session_id: sid, cwd: tmp,
+        hook_event_name: "PreToolUse", tool_name: "Agent",
+        tool_input: { subagent_type: role, prompt: "..." },
+      });
+    }
+    runHook({
+      session_id: sid, cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: {
+        file_path: `${tmp}/.orchestra/pipeline/001-x/intent.yaml`,
+        content: "feature_id: 001-x\nintent: feature\nconfidence: HIGH\n",
+      },
+    });
+    runHook({ session_id: sid, cwd: tmp, hook_event_name: "Stop" });
+
+    const summaryPath = join(tmp, `.orchestra/metrics/runs/${sid}.json`);
+    check(existsSync(summaryPath), `run summary written`);
+    if (existsSync(summaryPath)) {
+      const s = JSON.parse(readFileSync(summaryPath, "utf8"));
+      check(Array.isArray(s.agents_spawned), `agents_spawned is an array`);
+      check(s.agents_spawned.includes("lead"), `agents_spawned includes "lead" (got ${JSON.stringify(s.agents_spawned)})`);
+      check(s.agents_spawned.includes("product"), `agents_spawned includes "product"`);
+      check(s.agents_spawned.length === 2, `agents_spawned dedupes (2 unique from 3 invocations, got ${s.agents_spawned.length})`);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // --- 4d. Autonomy_level propagation into run summary (T-806/T-807) ---
 console.log("metrics-collector autonomy_level in run summary:");
 {

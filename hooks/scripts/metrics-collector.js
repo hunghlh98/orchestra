@@ -372,40 +372,83 @@ function deriveAgentRole(subagentType, agentName) {
 }
 
 // === Token emission on SubagentStop ===
-// On SubagentStop, find the just-stopped subagent's session jsonl in
-// ~/.claude/projects/<encoded-cwd>/, sum its tokens, and append one row to
-// <cwd>/.orchestra/metrics/tokens.jsonl. Heuristic: the most recently
-// modified jsonl that is NOT the parent's session_id is the one that stopped.
-// Orchestra's filesystem-coupled handoff means subagents don't run concurrently
-// per parent run, so the heuristic is reliable in practice.
-// Identify the just-stopped subagent's session jsonl. Used by both
-// emitSubagentTokens and the insight emission flow at SubagentStop, so
-// they're decoupled (insight extraction works even when token usage is 0).
+// On SubagentStop, find the just-stopped subagent's session jsonl, sum its
+// tokens, and append one row to <cwd>/.orchestra/metrics/tokens.jsonl.
+//
+// Two transcript layouts are supported (current Claude Code first, older
+// builds as fallback) so the hook stays robust across platform changes:
+//   v4 layout: ~/.claude/projects/<encoded-cwd>/<parent_sid>/subagents/agent-*.jsonl
+//              + sibling agent-*.meta.json with {agentType: "orchestra:<role>"}
+//   v3 layout: ~/.claude/projects/<encoded-cwd>/<sub_sid>.jsonl at project root
+//              (most-recent-mtime that isn't the parent and identifies as a
+//              real subagent — sidecar/permission-mode files are rejected)
 function findJustStoppedSubagent(input) {
   const cwd = input.cwd || process.cwd();
   const parentId = input.session_id || "";
-  const sessionsDir = getProjectSessionsDir(cwd);
+  if (!parentId) return null;
+  return findSubagentInSiblingDir(cwd, parentId)
+      || findSubagentInProjectRoot(cwd, parentId);
+}
 
+// v4 layout: <proj>/<parent_sid>/subagents/agent-*.jsonl (paired with
+// agent-*.meta.json carrying {agentType: "orchestra:<role>"}). The .meta.json
+// is the canonical role source — subagent jsonls don't contain the
+// "You are @<name> in the orchestra pipeline" header that identifyAgent looks
+// for, so text-grep returns "unknown" and the meta is the only reliable lift.
+function findSubagentInSiblingDir(cwd, parentId) {
+  const subDir = join(getProjectSessionsDir(cwd), parentId, "subagents");
+  let entries;
+  try { entries = readdirSync(subDir).filter(f => /^agent-[a-f0-9]+\.jsonl$/i.test(f)); }
+  catch { return null; }
+  if (entries.length === 0) return null;
+
+  let mostRecent = null, mostRecentMtime = 0;
+  for (const f of entries) {
+    const path = join(subDir, f);
+    let mtime; try { mtime = statSync(path).mtimeMs; } catch { continue; }
+    if (mtime > mostRecentMtime) { mostRecentMtime = mtime; mostRecent = { f, path }; }
+  }
+  if (!mostRecent) return null;
+
+  const sid = mostRecent.f.replace(/\.jsonl$/, "");
+  const metaPath = join(subDir, `${sid}.meta.json`);
+  let role = "unknown";
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+    if (typeof meta.agentType === "string" && meta.agentType.length > 0) {
+      role = meta.agentType.replace(/^orchestra:/, "") || "unknown";
+    }
+  } catch { /* meta missing/unreadable — leave role as "unknown" */ }
+  return { sid, path: mostRecent.path, role, ord: null };
+}
+
+// v3 fallback: <proj>/<sid>.jsonl at project root. Iterate by mtime desc,
+// pick the first candidate that identifies as a real subagent (rejecting
+// "unknown" sidecar files and the parent's "dispatcher" caveat-marker file).
+function findSubagentInProjectRoot(cwd, parentId) {
+  const sessionsDir = getProjectSessionsDir(cwd);
   let entries;
   try { entries = readdirSync(sessionsDir).filter(f => f.endsWith(".jsonl")); }
   catch { return null; }
 
-  let mostRecent = null;
-  let mostRecentMtime = 0;
+  const candidates = [];
   for (const f of entries) {
     const sid = f.replace(/\.jsonl$/, "");
     if (sid === parentId) continue;
     const path = join(sessionsDir, f);
-    let mtime;
-    try { mtime = statSync(path).mtimeMs; } catch { continue; }
-    if (mtime > mostRecentMtime) {
-      mostRecentMtime = mtime;
-      mostRecent = { sid, path };
+    let mtime; try { mtime = statSync(path).mtimeMs; } catch { continue; }
+    candidates.push({ sid, path, mtime });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.mtime - a.mtime);
+
+  for (const c of candidates) {
+    const agent = identifyAgent(c.path);
+    if (agent.role && agent.role !== "unknown" && agent.role !== "dispatcher") {
+      return { sid: c.sid, path: c.path, role: agent.role, ord: agent.ord };
     }
   }
-  if (!mostRecent) return null;
-  const agent = identifyAgent(mostRecent.path);
-  return { sid: mostRecent.sid, path: mostRecent.path, role: agent.role, ord: agent.ord };
+  return null;
 }
 
 function emitSubagentTokens(input, sub) {
@@ -441,8 +484,14 @@ function getProjectSessionsDir(cwd) {
   return join(homedir(), ".claude", "projects", encoded);
 }
 
+// Streaming writes the same assistant turn 2-3 times to the jsonl (each
+// progress event re-serializes the in-flight message). Dedup by message.id
+// or per-row totals come out 2-3x inflated. Rows without a message.id
+// (legacy / synthetic fixtures) fall through unchanged — the Set is a no-op
+// when no id is present.
 function sumTokensInJsonl(jsonlPath) {
   const result = { input: 0, output: 0, cache_read: 0, cache_create: 0, turns: 0 };
+  const seen = new Set();
   let content;
   try { content = readFileSync(jsonlPath, "utf8"); } catch { return result; }
   for (const line of content.split("\n")) {
@@ -451,6 +500,9 @@ function sumTokensInJsonl(jsonlPath) {
       const d = JSON.parse(line);
       const u = d?.message?.usage;
       if (!u) continue;
+      const mid = d?.message?.id;
+      if (mid && seen.has(mid)) continue;
+      if (mid) seen.add(mid);
       result.input += u.input_tokens || 0;
       result.output += u.output_tokens || 0;
       result.cache_read += u.cache_read_input_tokens || 0;
@@ -532,11 +584,14 @@ function emitRunSummary(input) {
   const autonomyLevel = intentEvent?.autonomy_level || null;
   const featureId = intentEvent?.feature_id || null;
 
-  // Agents spawned: unique agent_names from task.subagent.invoked events.
+  // Agents spawned: unique agent_roles from task.subagent.invoked events.
+  // agent_role is populated by deriveAgentRole() from subagent_type / @name,
+  // so it's reliably present even when agent_name is null (the typical case
+  // for orchestra:<role> spawns that don't pass an explicit `name`).
   const agentsSpawned = [...new Set(
     runEvents
-      .filter(e => e.event === "task.subagent.invoked" && e.agent_name)
-      .map(e => e.agent_name)
+      .filter(e => e.event === "task.subagent.invoked" && e.agent_role)
+      .map(e => e.agent_role)
   )];
 
   // Artifacts produced: unique file names from artifact.written.
