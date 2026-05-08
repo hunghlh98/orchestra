@@ -46,6 +46,12 @@
         "hooks": [
           { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-bash-lint.js" }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-write-puml.js" }
+        ]
       }
     ],
     "UserPromptSubmit": [

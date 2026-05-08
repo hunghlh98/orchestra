@@ -57,7 +57,20 @@ For `feature`: `docs/<feature-id>/PRD-<NNN>.md` + `docs/<feature-id>/FRS-<NNN>.m
 
 ## Frontmatter contract
 
-Per `schemas/pipeline-artifact.schema.md`. Body frontmatter carries `status:`, `verdict:`, `readers:`, `sections:` directly. Every H2 anchor in `<a id="S-...">` must equal a key in `sections:`. PRD frontmatter additionally carries `mode: full | brief`. FRS frontmatter additionally carries `fr_count:`, `usecase_count:`, `business_state_count:`.
+Per `schemas/pipeline-artifact.schema.md`. Body frontmatter carries `status:`, `verdict:`, `readers:`, `sections:` directly. Every H2 anchor in `<a id="S-...">` must equal a key in `sections:`. PRD frontmatter additionally carries `mode: full | brief`, `open_questions: <int>` (count of unresolved Qs in `S-OPEN-Q-001`). FRS frontmatter additionally carries `fr_count:`, `usecase_count:`, `business_state_count:`, `inherited_open_questions: <int>` (Qs lifted from PRD), `resolved_open_questions: <int>` (Qs resolved during this FRS revision).
+
+## Open-question lifecycle
+
+PRD `S-OPEN-Q-001` is the project's open-question ledger for this feature. FRS authoring is the resolution surface — every PRD open Q must either be resolved in FRS, escalated to ADR (when system-affecting), or carried forward with a tracked rationale.
+
+1. **PRD authorship**: list each open Q on its own line. Set `open_questions: N` in PRD frontmatter (count matches the line count). System-affecting Qs (data model, persistence, auth, rate limit, cross-feature contract) get the `ADR-WORTHY:` prefix so `@architect` opens a formal ADR.
+2. **FRS authorship**: read PRD `S-OPEN-Q-001`. For each Q:
+   - Resolved by an FR/AC choice → record the resolution in FRS `S-OPEN-Q-001` with the form `Q-<N>: resolved — <rationale>`. Increment `resolved_open_questions:`.
+   - Still open after FRS draft → carry forward in FRS `S-OPEN-Q-001` with `Q-<N>: deferred — <rationale>`. Counts against `inherited_open_questions:` but not `resolved_open_questions:`.
+   - System-affecting → leave PRD entry intact (`@architect` will lift); do NOT replicate in FRS unless FRS shape depends on the answer.
+3. **FRS lock gate**: do NOT flip `status: locked` while `inherited_open_questions: > 0` AND `resolved_open_questions: < inherited_open_questions`. Either resolve, defer with rationale, or escalate with `ESCALATE-<feature_id>.md`.
+
+The Stream 7 reporter surfaces unresolved counts at `/orchestra report` time so they don't silently rot.
 
 ## Reverse-doc path (brownfield bootstrap)
 

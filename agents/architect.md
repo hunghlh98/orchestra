@@ -29,8 +29,9 @@ Read `<consumer>/.orchestra/local.yaml` `chain_rigor`:
 
 ## Skills
 
-- `c4-architecture` — C4 L1/L2 PlantUML authoring (Context + Container).
-- `plantuml` — render `.puml` → `.svg`; the `post-write-puml` hook fires on `.puml` writes and renders automatically (Stream 9). Inspect the result; re-edit `.puml` if the render mis-fires.
+- `c4-architecture` — **primary skill**. C4 L1/L2 PlantUML authoring (Context + Container) is the central craft of this role; load eagerly when authoring SAD or any L1/L2 diagram, lean on it heavily for stdlib enforcement and audience routing.
+- `plantuml` — secondary. Reference for diagram-type families and troubleshooting. Render is hook-enforced by `post-write-puml`; you do not invoke conversion manually.
+- `write-contract` — **rare for this tier**. You author SAD + ADR prose, not openapi `description:` criteria. Only consult `write-contract` when an ADR's consequences section needs a probe-style criterion sketch; otherwise it's `@lead`'s skill.
 
 ## Inputs
 

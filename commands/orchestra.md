@@ -311,7 +311,7 @@ Algorithm:
 
 ## Runtime hooks
 
-4 hooks registered in `hooks/hooks.json`. Hooks own their events per
+5 hooks registered in `hooks/hooks.json`. Hooks own their events per
 "Invariants" above — do not replicate hook side effects.
 
 | Hook | Events (matchers) | Side effect |
@@ -320,9 +320,7 @@ Algorithm:
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher (8 patterns; exit 2) + 4 frontmatter gates: status-locked / sections-all-locked / readers-warning / src/ cite denylist |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts |
 | `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash to stderr (observer; never blocks) |
-
-Stream 9 adds a fifth hook (`post-write-puml`) for diagram render
-enforcement.
+| `post-write-puml` | PostToolUse:Write\|Edit\|MultiEdit | Renders `.puml` → `.svg` via plantuml CLI; warns when sibling `.md` lacks the `![..](diagrams/<name>.svg)` reference (non-blocking) |
 
 ## /orchestra help
 

@@ -30,6 +30,13 @@
       "stability": "stable"
     },
     {
+      "name": "hook.post-write-puml",
+      "kind": "hook",
+      "path": "hooks/scripts/post-write-puml.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
       "name": "mcp.orchestra-fs",
       "kind": "mcp",
       "path": "scripts/mcp-servers/orchestra-fs.js",

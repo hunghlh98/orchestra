@@ -51,6 +51,7 @@ Three rules apply to every diff regardless of language:
 - Are there tests (or a test plan) covering the change?
 - Are there secrets, credentials, or PII in the diff? (`pre-write-check` should have caught; double-check.)
 - Is dead code introduced or left behind?
+- **Diagram render parity**: any `.puml` file in the diff has a paired `.svg` next to it AND the owning markdown body cites `![..](diagrams/<name>.svg)`. The `post-write-puml` hook normally enforces this on write; this gate is the failsafe when the hook is disabled. Missing paired `.svg` → **Major** auto-`REQUEST_CHANGES` (cannot review what isn't rendered).
 
 **Per-language gates** (when a per-language `*-development` skill is loaded for `local.yaml.primary_language`): apply that skill's convention checklist to changed files. Otherwise fall back to `<consumer>` repo's existing conventions (formatter config, lint rules, test harness).
 

@@ -46,31 +46,47 @@ python scripts/check_setup.py
 
 Universal elements (delimiters, comments, notes, metadata): `references/common_format.md`. Modern styling: `references/styling_guide.md`.
 
-### Step 2 — Author the .puml file
+### Step 2 — Author the .puml file using v4.0 fixed-name conventions
 
-Path shape: `<owner-artifact-dir>/diagrams/<markdown-name>_<num>_<type>_<title>.puml`. Example: `architecture/diagrams/architecture_001_sequence_user_auth.puml`.
+Orchestra v4.0 uses **fixed-name diagram files** so the chain artifacts can reference them by stable name. Author at one of these canonical paths — never invent a new name unless it falls outside this set.
 
-### Step 3 — Convert with retry (max 3 attempts)
+**Project-level (singletons under `docs/diagrams/`):**
 
-```bash
-python scripts/convert_puml.py <path>.puml --format svg
-# Markdown extraction (handles ```puml blocks AND ![](path.puml) links):
-python scripts/process_markdown_puml.py <path>.md --format svg
-```
+| File | Owner | Trigger |
+|---|---|---|
+| `c4-context.puml` | `@architect` | SAD bootstrap (greenfield) |
+| `c4-container.puml` | `@architect` | SAD bootstrap |
+| `erd-logical.puml` | `@architect` | persistence-affecting ADR accepted |
+| `sequence-inter-<flow>.puml` | `@architect` | per cross-service flow |
 
-If conversion fails:
+**Per-feature (under `docs/<feature-id>/diagrams/`):**
 
-1. Run `java -jar ~/plantuml.jar --check-syntax <path>.puml` for the explicit error.
+| File | Owner | Trigger |
+|---|---|---|
+| `frs-usecase.puml` | `@product` | every FRS |
+| `state-business.puml` | `@product` | when feature has user-facing lifecycle |
+| `c4-component.puml` | `@lead` | every TDD |
+| `sequence-intra-<usecase>.puml` | `@lead` | per primary use case |
+| `state-technical.puml` | `@lead` | when component has internal lifecycle |
+| `erd-physical.puml` | `@lead` | when persistence touched |
+
+The owning markdown embeds the rendered `.svg` via `![<alt>](diagrams/<filename>.svg)`.
+
+### Step 3 — Render is hook-enforced (do not run conversion manually)
+
+Writing a `.puml` file under any of the conventional paths triggers the `post-write-puml` PostToolUse hook, which invokes the plantuml CLI to produce the paired `.svg`. The hook is **mandatory enforcement**: render-on-write is an invariant, not a courtesy. If the hook is disabled (`ORCHESTRA_HOOK_POST_WRITE_PUML=off`), code-review will fail any commit containing a `.puml` without its paired `.svg`.
+
+If the hook reports render failure (stderr line: `post-write-puml: render failed for <path> — <reason>`):
+
+1. Read the explicit error: `java -jar ~/plantuml.jar --check-syntax <path>.puml`.
 2. Look up the error in `references/troubleshooting/toc.md` (215+ errors across 12 category guides).
 3. Cross-check `references/common_syntax_errors.md` for the diagram type.
 
-Full retry / recovery process: `references/workflows/resilient-execution-guide.md`.
+Do not invoke `convert_puml.py` or `process_markdown_puml.py` manually unless the hook is intentionally disabled (e.g., during plugin development under `ORCHESTRA_HOOK_POST_WRITE_PUML=off`); the hook handles render on every write.
 
-### Step 4 — Validate and integrate
+### Step 4 — Embed and integrate (markdown side)
 
-1. Verify the rendered file exists.
-2. Add the image link in the owning markdown: `![<alt>](diagrams/<file>.svg)`.
-3. Keep the `.puml` source committed alongside the rendered image.
+After the hook produces the `.svg`, the owning markdown must contain `![<alt>](diagrams/<filename>.svg)`. The hook also scans sibling `.md` files for this reference and emits a non-blocking warning when missing — fix the warning by adding the link to the owning artifact's body. Keep both `.puml` source and `.svg` render committed.
 
 ## Conversion scripts — reference
 

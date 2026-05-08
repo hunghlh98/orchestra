@@ -375,6 +375,49 @@ console.log("val-calibration:");
   check(agentR.status === 0, `val-calibration: exits 0 for tool_name=Agent`);
 }
 
+// ---------- post-write-puml (Renderer; PostToolUse) ----------
+// Stream 9 R9.5 — render-enforcement on .puml writes.
+// CI doesn't have plantuml.jar; the hook must exit 0 with a stderr warning
+// (graceful degradation) rather than blocking the write.
+console.log("post-write-puml:");
+{
+  const script = resolve(root, "hooks/scripts/post-write-puml.js");
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-puml-"));
+  try {
+    // Write a .puml fixture so the hook has a real file to act on.
+    const pumlPath = join(tmp, "diagrams", "c4-context.puml");
+    mkdirSync(dirname(pumlPath), { recursive: true });
+    writeFileSync(pumlPath, "@startuml\nactor User\n@enduml\n");
+
+    // 1. Non-puml file path: hook is no-op.
+    const nonPuml = runHook(script, {
+      session_id: "test", hook_event_name: "PostToolUse", tool_name: "Write",
+      tool_input: { file_path: join(tmp, "README.md") },
+    });
+    check(nonPuml.status === 0, `post-write-puml: exits 0 on non-puml path`);
+    check(nonPuml.stderr === "", `post-write-puml: silent on non-puml path`);
+
+    // 2. .puml file: hook never blocks. With PLANTUML_JAR forced to a
+    // nonexistent path, the jar branch is skipped; the PATH fallback may
+    // succeed or fail depending on the host (some dev machines have
+    // `plantuml` installed) — but EITHER WAY the hook must exit 0.
+    const pumlR = runHook(script, {
+      session_id: "test", hook_event_name: "PostToolUse", tool_name: "Write",
+      tool_input: { file_path: pumlPath },
+    }, { PLANTUML_JAR: "/nonexistent/plantuml.jar" });
+    check(pumlR.status === 0, `post-write-puml: exits 0 on .puml write (PostToolUse never blocks regardless of render outcome)`);
+
+    // 3. Opt-out via env var.
+    const offR = runHook(script, {
+      session_id: "test", hook_event_name: "PostToolUse", tool_name: "Write",
+      tool_input: { file_path: pumlPath },
+    }, { ORCHESTRA_HOOK_POST_WRITE_PUML: "off" });
+    check(offR.status === 0 && offR.stderr === "", `post-write-puml opt-out: exits 0, no stderr`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // ---------- hooks.json matcher validation ----------
 console.log("hooks.json matcher validation:");
 {

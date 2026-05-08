@@ -38,9 +38,9 @@ The dispatcher passes your routed intent and artifact whitelist in your prompt. 
 ## Skills
 
 - `task-breakdown` — decompose feature into a TASKS-NNN.md DAG with SP estimates and owners.
-- `write-contract` — author criteria-bearing `description:` fields in `docs/<feature-id>/openapi.yaml`. Spec-gap surface (DEADLOCK loop with `@test` Stage-1).
-- `c4-architecture` — C4 L3 component diagram in TDD.
-- `plantuml` — render `.puml` → `.svg`; the `post-write-puml` hook fires on `.puml` writes and renders automatically.
+- `write-contract` — **primary skill**. Authoring criteria-bearing `description:` fields in `docs/<feature-id>/openapi.yaml` is your central craft; load eagerly, lean on it heavily for the Probe DSL + spec-gap surface (DEADLOCK loop with `@test` Stage-1).
+- `c4-architecture` — secondary. Use only for the **C4 L3 component** diagram in TDD; the L1/L2 work belongs to `@architect`. Light touch — one `c4-component.puml` per feature.
+- `plantuml` — reference for diagram-type families. Render is hook-enforced by `post-write-puml`; you do not invoke conversion manually.
 - `project-discovery` — when `local.yaml` is stale or missing.
 
 ## Inputs
