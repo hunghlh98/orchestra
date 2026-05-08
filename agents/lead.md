@@ -65,6 +65,7 @@ The single most important transition: when `docs/<feature-id>/openapi.yaml` flip
 - A scoped Read allowlist. `@test` Stage-1 spawns with `<consumer>/src/**` excluded from Read (per-stage tool scoping; mechanism in `agents/test.md` Stage-1 contract).
 - The locked decisions from `local.yaml` (`mode`, `depth`, `chain_rigor`, `language`).
 - A pointer to TASKS-`<NNN>.md` rows owned by their tier (`owner: @backend|@frontend|@test`).
+- **Telemetry markers** — every spawn prompt MUST carry a leading `phase: <chain-layer>` line on its own (e.g., `phase: implement-be`, `phase: implement-fe`, `phase: verify-plan`). The `metrics-collector.js` PreToolUse hook parses this line into the `task.subagent.invoked` event so reporters can pivot tokens by phase. The chain-layer enum: `business`, `architecture`, `component`, `boundary`, `implement-be`, `implement-fe`, `verify-plan`, `verify-evaluate`, `verify-review`, `release`. `agent_role` is auto-derived from `subagent_type` by the hook (no extra payload needed) — but pass `subagent_type` honestly (`@backend`-routed spawns use `subagent_type: orchestra:backend`, etc.).
 
 Do NOT spawn before the openapi flips locked. Until locked, openapi is mutable — implementer fan-out against a draft openapi causes re-work the moment a `description:` shifts.
 

@@ -116,13 +116,16 @@ function classify(input) {
   }
   if (hookEvent === "PreToolUse" && (toolName === "Task" || toolName === "Agent")) {
     const ti = input?.tool_input || {};
+    const promptText = typeof ti.prompt === "string" ? ti.prompt : "";
     return {
       ts, event: "task.subagent.invoked",
       subagent_type: ti.subagent_type || "unknown",
+      agent_role: deriveAgentRole(ti.subagent_type, ti.name),
+      phase: matchField(promptText, /^phase:\s*([a-z-]+)/m) || null,
       agent_name: ti.name || null,                       // e.g. "@lead" — present when invoked via TeamCreate flow
       team_name: ti.team_name || null,                   // present when joined to a team
       tool: toolName,                                    // distinguishes legacy Task from canonical Agent
-      prompt_summary: typeof ti.prompt === "string" ? ti.prompt.slice(0, 200) : "",
+      prompt_summary: promptText.slice(0, 200),
       run_id,
     };
   }
@@ -182,6 +185,7 @@ function classify(input) {
         ts, event: "artifact.written", run_id,
         feature_id: pipelineMatch[1],
         artifact_type: artifactType,
+        artifact_id: deriveArtifactId(artifactType, fileName),
         file_name: fileName,
         tool: toolName,
       };
@@ -208,7 +212,15 @@ function classify(input) {
     return null; // other Write/Edit calls aren't logged here (no behavioral capture)
   }
   if (hookEvent === "SubagentStop") {
-    return { ts, event: "subagent.stopped", run_id };
+    // Enriched per Stream 7 R7.3: events↔tokens.jsonl join is direct via
+    // subagent_session_id. agent_role lifts from the subagent's session jsonl
+    // header (`You are @<name> in the orchestra pipeline`).
+    const sub = findJustStoppedSubagent(input);
+    return {
+      ts, event: "subagent.stopped", run_id,
+      subagent_session_id: sub?.sid || null,
+      agent_role: sub?.role || null,
+    };
   }
   if (hookEvent === "Stop") {
     return { ts, event: "session.stopped", run_id };
@@ -333,6 +345,30 @@ function inferArtifactType(fileName) {
   if (m) return m[1];
   if (fileName === "intent.yaml") return "intent";
   return "unknown";
+}
+
+// Stream 7 R7.4 helpers.
+//
+// deriveArtifactId — stable identifier ("PRD-001", "CODE-REVIEW-002-foo")
+// for the reporter's per-artifact token attribution. Intent.yaml has no
+// numeric suffix; emit "intent.yaml" as its own id.
+function deriveArtifactId(artifactType, fileName) {
+  if (fileName === "intent.yaml") return "intent.yaml";
+  const m = fileName.match(/^([A-Z][A-Z0-9-]*-\d+)/);
+  return m ? m[1] : (artifactType || "unknown");
+}
+
+// deriveAgentRole — strips the "orchestra:" prefix from subagent_type
+// (e.g., "orchestra:lead" → "lead"); falls back to ti.name without "@".
+// Used by the reporter to pivot tokens by role without re-parsing prompts.
+function deriveAgentRole(subagentType, agentName) {
+  if (typeof subagentType === "string" && subagentType.length > 0) {
+    return subagentType.replace(/^orchestra:/, "");
+  }
+  if (typeof agentName === "string" && agentName.startsWith("@")) {
+    return agentName.slice(1);
+  }
+  return null;
 }
 
 // === Token emission on SubagentStop ===
@@ -555,11 +591,15 @@ function emitRunSummary(input) {
     }
   }
 
+  const escalated = artifactsProduced.some(n => /^ESCALATE/.test(n));
+  const status = deadlocked ? "deadlocked" : (escalated ? "aborted" : "completed");
+
   const summary = {
     run_id: sessionId,
     started_at: startedAt,
     ended_at: endedAt,
     duration_seconds: durationSeconds,
+    status,                                                  // R7.5: enum {completed, deadlocked, aborted}
     intent,
     confidence,
     pattern,

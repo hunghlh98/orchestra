@@ -571,6 +571,80 @@ console.log("metrics-collector cost_usd persistence:");
   }
 }
 
+// --- 4f. Stream 7 enrichments — phase, agent_role, artifact_id, status ---
+console.log("metrics-collector Stream 7 enrichments:");
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-stream7-"));
+  const metricsDir = join(tmp, ".orchestra/metrics");
+  mkdirSync(metricsDir, { recursive: true });
+  writeFileSync(
+    join(metricsDir, "manifest.json"),
+    JSON.stringify({ schema_version: 1, redact_prompts: false, telemetry_optin: "explicit" }, null, 2),
+  );
+  try {
+    // 4f.1: agent_role + phase on task.subagent.invoked
+    runHook({
+      session_id: "s7", cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Agent",
+      tool_input: {
+        subagent_type: "orchestra:lead",
+        name: "@lead",
+        prompt: "phase: component\nRoute through Component layer.",
+      },
+    });
+    // 4f.2: agent_role-only fallback when subagent_type is bare
+    runHook({
+      session_id: "s7", cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Agent",
+      tool_input: { subagent_type: "evaluator", prompt: "no phase here" },
+    });
+    // 4f.3: artifact_id on artifact.written
+    runHook({
+      session_id: "s7", cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: {
+        file_path: `${tmp}/.orchestra/pipeline/001-x/PRD-001.md`,
+        content: "---\nid: PRD-001\n---\n",
+      },
+    });
+
+    const events = readFileSync(join(metricsDir, "events.jsonl"), "utf8")
+      .split("\n").filter(Boolean).map(l => JSON.parse(l));
+    const inv1 = events.find(e => e.event === "task.subagent.invoked" && e.subagent_type === "orchestra:lead");
+    check(inv1?.agent_role === "lead", `agent_role strips orchestra: prefix (got ${inv1?.agent_role})`);
+    check(inv1?.phase === "component", `phase parsed from prompt body (got ${inv1?.phase})`);
+    const inv2 = events.find(e => e.event === "task.subagent.invoked" && e.subagent_type === "evaluator");
+    check(inv2?.agent_role === "evaluator", `agent_role passes through bare subagent_type (got ${inv2?.agent_role})`);
+    check(inv2?.phase === null, `phase is null when prompt has no marker (got ${inv2?.phase})`);
+    const aw = events.find(e => e.event === "artifact.written" && e.file_name === "PRD-001.md");
+    check(aw?.artifact_id === "PRD-001", `artifact_id derived from filename (got ${aw?.artifact_id})`);
+
+    // 4f.4: status field in run summary — completed path (no DEADLOCK, no ESCALATE)
+    const sidOk = "s7-ok";
+    runHook({ session_id: sidOk, cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "/orchestra build" });
+    runHook({ session_id: sidOk, cwd: tmp, hook_event_name: "Stop" });
+    const okRun = JSON.parse(readFileSync(join(metricsDir, "runs", `${sidOk}.json`), "utf8"));
+    check(okRun.status === "completed", `status=completed when no failure markers (got ${okRun.status})`);
+
+    // 4f.5: status field — deadlocked path
+    const sidDl = "s7-dl";
+    runHook({ session_id: sidDl, cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "/orchestra build" });
+    runHook({
+      session_id: sidDl, cwd: tmp,
+      hook_event_name: "PreToolUse", tool_name: "Write",
+      tool_input: {
+        file_path: `${tmp}/.orchestra/pipeline/002-dl/DEADLOCK-002-dl.md`,
+        content: "deadlock: spec_gap",
+      },
+    });
+    runHook({ session_id: sidDl, cwd: tmp, hook_event_name: "Stop" });
+    const dlRun = JSON.parse(readFileSync(join(metricsDir, "runs", `${sidDl}.json`), "utf8"));
+    check(dlRun.status === "deadlocked", `status=deadlocked when DEADLOCK artifact written (got ${dlRun.status})`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // --- 5. Env-var opt-out ---
 console.log("metrics-collector opt-out:");
 {
