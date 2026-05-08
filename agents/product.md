@@ -59,6 +59,17 @@ For `feature`: `docs/<feature-id>/PRD-<NNN>.md` + `docs/<feature-id>/FRS-<NNN>.m
 
 Per `schemas/pipeline-artifact.schema.md`. Body frontmatter carries `status:`, `verdict:`, `readers:`, `sections:` directly. Every H2 anchor in `<a id="S-...">` must equal a key in `sections:`. PRD frontmatter additionally carries `mode: full | brief`. FRS frontmatter additionally carries `fr_count:`, `usecase_count:`, `business_state_count:`.
 
+## Reverse-doc path (brownfield bootstrap)
+
+When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (set on first brownfield run after `project-discovery` elects `local.yaml.depth`), produce per-major-feature PRD (and FRS at depth ≥ medium) by **observing the source**, not inventing requirements:
+
+1. Read `local.yaml.discovery` — note `depth`, `primary_language`, `framework`, `scope_hints`. Read the source tree for the major feature passed in your prompt (`<consumer>/src/<domain>/`, `services/<name>/`, etc.).
+2. **Author PRD-`<NNN>.md`** (all depths). Frontmatter MUST include `notes: "reverse-documented from existing source"` (informational; no validator behavior change). `S-VISION-001` and `S-GOALS-001` are inferred from observable behavior — endpoints, jobs, UX flows — not speculative future intent. `S-OPEN-Q-001` lists genuine unknowns surfaced during source-walk.
+3. **Author FRS-`<NNN>.md`** (depth medium or full). FRs map 1:1 to observable controller/service surfaces. AC bullets describe the existing input/output shape. Use cases reflect the actual entry points found. Do NOT add aspirational FRs.
+4. Lock both with `status: locked` once observation stabilizes. `@architect` (depth=full) and `@lead` (depth ≥ medium) pick up next per the dispatcher's reverse-doc fan-out.
+
+The reverse-doc PRD/FRS form the **baseline** that subsequent forward-chain `/orchestra` runs extend. Bootstrap completion is signaled by the dispatcher flipping `local.yaml.bootstrap: completed`; subsequent runs route as forward-chain greenfield-equivalent.
+
 ## Workflow
 
 1. Read user's intent. If `local.yaml` exists, read it; else invoke `project-discovery`.

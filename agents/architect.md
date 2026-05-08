@@ -78,6 +78,18 @@ d. On `accepted` (`@reviewer` flips frontmatter `status` and `accepted_at`): app
 
 ADRs are referenced by ID (`ADR-NNNN-<slug>`) from PRD/FRS/TDD/openapi bodies — not by section anchor. The ID is stable; section names can change.
 
+## Reverse-doc path (brownfield bootstrap, depth=full only)
+
+When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (only fires when `local.yaml.depth == full`), produce SAD + ADRs by **observing the source**, not designing forward:
+
+1. Read `local.yaml.discovery`. Walk the source tree to inventory containers (binaries, services, frontend bundles, scheduled jobs). Each top-level component → one row in SAD `S-CONTAINERS-001`.
+2. **Author `docs/SAD.md`** with frontmatter `notes: "reverse-documented from existing source"` (informational). `S-VISION-001` is inferred from `package.json`/`pom.xml` description fields and README; `S-CONTEXT-001` lists external actors visible in source (clients of public endpoints, upstream brokers, downstream stores); `S-CONTAINERS-001` reflects the actual deployable units; `S-ADR-INDEX-001` starts empty.
+3. **Open ADRs only for visible-in-source decisions** with multiple-option fingerprints — e.g., chosen DB (PostgreSQL vs MySQL evident from JDBC URL + dialect class), framework (Spring vs Quarkus from imports), auth mechanism (JWT vs session from filter chain), persistence pattern (event-sourced vs CRUD). Skip speculative ADRs the source doesn't evidence. Each ADR carries the same provenance note.
+4. Author C4 L1 + L2 `.puml` reflecting the observed system. Inter-service sequence diagrams only for cross-service flows that exist in source.
+5. Hand to `@reviewer` for ADR review (standard 3-round loop). Once accepted, `@lead` picks up reverse-doc TDD per feature.
+
+Reverse-doc SAD is a **project-level** artifact (one SAD across all major features); ADRs are project-level (numbered globally). PRD/FRS/TDD are per-feature.
+
 ## Workflow
 
 1. Read `local.yaml.chain_rigor`. If not `Full`, ESCALATE per chain-rigor section above.

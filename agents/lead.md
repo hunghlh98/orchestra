@@ -76,6 +76,18 @@ Do NOT spawn before the openapi flips locked. Until locked, openapi is mutable �
 2. Fix the layer that owns the gap. Re-Write the upstream artifact; flip openapi `status: draft` → re-fill → flip `locked` again.
 3. Re-spawn `@test` Stage-1. Loop ≤3 times. At round-3 still gapped, escalate to user via `ESCALATE-<feature_id>.md`.
 
+## Reverse-doc path (brownfield bootstrap, depth=medium or full)
+
+When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (fires at `local.yaml.depth ∈ {medium, full}`), produce TDD per major feature by **observing the source**, not designing forward:
+
+1. Read `local.yaml.discovery` + the source tree for the major feature passed in your prompt. Read the reverse-doc PRD-`<NNN>.md` + FRS-`<NNN>.md` already authored by `@product`. Under depth=full, also read reverse-doc SAD + accepted ADRs.
+2. **Author TDD-`<NNN>.md`** with frontmatter `notes: "reverse-documented from existing source"` (informational). `S-OVERVIEW-001` summarizes the feature's actual implementation shape; `S-COMPONENTS-001` reflects observed classes/modules (one row per primary service/repository/controller); `S-DATA-001` lists actual entities and their relations from source; `S-STATE-001` reflects observable lifecycle (or omits with `state_machine_count: 0`); `S-CONFIG-001` records actual build-tool, runtime version, run commands as found.
+3. C4 L3 component diagram reflects the observed component graph. Intra-service sequence one per primary use case as found in source. Physical ERD when persistence is touched (drawn from JPA/ORM annotations or migration files).
+4. **openapi.yaml authorship** (depth=full only): generate from existing controller signatures — reverse-doc each operation's path/method/params/responses; `description:` carries the observed contract, criteria weight defaults to 100/N for N criteria, `critical: true` only on operations that have explicit input-validation or auth gates in source. Lock to `status: locked` once the observation stabilizes.
+5. **No fan-out spawn during reverse-doc.** Implementer fan-out belongs to forward-chain runs. Reverse-doc TDD authoring ends with hand-back to dispatcher.
+
+Reverse-doc TDDs form the **baseline** that subsequent forward-chain `/orchestra` runs extend. Once the dispatcher has fanned out reverse-doc across all major features and flipped `local.yaml.bootstrap: completed`, subsequent runs route as forward-chain greenfield-equivalent.
+
 ## Workflow
 
 1. Read `local.yaml`. Parse `chain_rigor` and other locked decisions. If stale/missing, invoke `project-discovery`.

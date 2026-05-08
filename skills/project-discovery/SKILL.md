@@ -80,7 +80,29 @@ mode = "greenfield" if has_source == false
      | "brownfield" if has_source == true
 ```
 
-Greenfield → `@product` + `@lead` Pattern B negotiation. Brownfield → section inference (`inferred: true` flag on synthesized sections).
+Greenfield → `@product` + `@lead` Pattern B negotiation. Brownfield → reverse-doc election (Check 6) before forward chain.
+
+### Check 6 — depth (brownfield only)
+
+When `mode == "brownfield"` AND `local.yaml.depth` is unset, elect a depth preset. This decides which reverse-doc artifacts get authored before the forward chain takes over. Depth fires once per project; subsequent runs read `local.yaml.depth` and skip election.
+
+| Depth | Reverse-doc artifact set per major feature | Author roles | When to pick |
+|---|---|---|---|
+| `light` | `PRD-<NNN>.md` (summary only) | `@product` | Project is small, well-understood, or you only need a feature inventory before forward work begins |
+| `medium` | `PRD-<NNN>.md` + `FRS-<NNN>.md` + `TDD-<NNN>.md` | `@product`, `@lead` | Default for typical brownfield bootstraps; gives requirements + design baseline |
+| `full` | `PRD-<NNN>.md` + `FRS-<NNN>.md` + `SAD.md` + `TDD-<NNN>.md` + `openapi.yaml` | `@product`, `@architect` (SAD), `@lead` | Architecturally rich projects with multiple services or non-trivial system boundaries; matches `chain_rigor: Full` |
+
+**Major feature** = a top-level component / domain identifiable from the source tree (`src/<domain>/`, `services/<name>/`, `controllers/<resource>/`, `cmd/<binary>/`). Heuristic, not exhaustive — consumers can re-run with `--rediscover` after manual edits to feature scope.
+
+**Election logic.**
+
+- Default suggestion: `medium`. Most brownfield bootstraps don't need SAD reverse-doc to start moving; if it's needed later, run `--rediscover --depth=full`.
+- Auto-recommend `full` when: `framework: Spring Boot` AND `scope_hints.file_count > 5000` AND multiple `*Application.java` entry points (multi-service Spring monorepo).
+- Auto-recommend `light` when: `scope_hints.file_count < 200` (small project, low-cost full read).
+
+Always present the recommendation; consumer overrides via interactive prompt or `--depth=<preset>`.
+
+**Provenance.** Reverse-doc artifacts MUST carry frontmatter `notes: "reverse-documented from existing source"` (informational; no validator behavior change). Forward-chain artifacts authored post-bootstrap don't carry this note.
 
 ## Output shape
 
@@ -89,6 +111,7 @@ Write to (or update) `<project>/.orchestra/local.yaml`:
 ```yaml
 discovery:
   mode: brownfield
+  depth: medium                  # only set when mode == brownfield (Check 6)
   primary_language: typescript
   secondary_language: null
   framework: react
@@ -101,16 +124,25 @@ discovery:
     file_count: 1837
 ```
 
-Successive `/orchestra` runs read this and skip discovery unless the user passes `--rediscover`.
+Successive `/orchestra` runs read this and skip discovery unless the user passes `--rediscover`. Re-electing depth: pass `--rediscover --depth=<preset>`.
 
-## Hand-off to CHARTER (v2.0)
+## Hand-off
 
-After discovery completes, the dispatcher scaffolds `pipeline/<feature_id>/charter/<NNN>-CHARTER.md`. Mode dispatch:
+### Greenfield → CHARTER + forward chain
 
-- `intent.yaml.intent` is `feature` or `hotfix` → `--mode=full` (problem / scope / feasibility / decision).
-- `intent.yaml.intent` is `template` / `docs` / `review-only` → `--mode=brief` (intent + decision; replaces v1's `INTENT-<id>.md`).
+After discovery completes (greenfield), the dispatcher routes by `intent.yaml.intent` into the forward chain. `@product` fills CHARTER FILL spans using the discovery snapshot (mode, language, framework, scope_hints) as Feasibility-section evidence. Forward chain proceeds normally.
 
-`@product` fills FILL spans using the discovery snapshot above (mode, language, framework, scope_hints) as Feasibility-section evidence.
+### Brownfield → reverse-doc bootstrap, then forward chain
+
+After discovery completes (brownfield) AND `local.yaml.depth` was elected for the first time, the dispatcher fans out reverse-doc author paths per the Check 6 table:
+
+- `light` → spawn `@product` once per major feature with reverse-doc PRD task.
+- `medium` → spawn `@product` (PRD + FRS) and `@lead` (TDD) per major feature.
+- `full` → spawn `@architect` (project-level SAD), then per-feature `@product` (PRD + FRS) and `@lead` (TDD + openapi).
+
+Each reverse-doc artifact is written under `docs/<feature-id>/` with frontmatter `notes: "reverse-documented from existing source"`. Reverse-doc completion sets `local.yaml.bootstrap: completed`. Subsequent `/orchestra` runs detect `bootstrap: completed` and route as forward-chain greenfield-equivalent.
+
+Reverse-doc bootstrap is a Wave-C sequence that may take several hours of compute on `full` depth — consumers should expect a "first run is slow" cost amortized over the lifetime of the project.
 
 ## When to escalate
 
@@ -131,10 +163,11 @@ Run on `/Users/x/playwithclaude/orchestra` itself:
 ```yaml
 discovery:
   mode: brownfield
+  depth: light                                  # auto-recommended (file_count < 200)
   primary_language: javascript
   framework: null
   has_source: true
   scope_hints: { has_tests: true, has_ci: true, has_docker: false, file_count: ~50 }
 ```
 
-`@lead` reads this and routes language-agnostic tasks (no Java / TS specialization needed).
+`@lead` reads this and routes language-agnostic tasks (no Java / TS specialization needed). Depth `light` triggers a single `@product` reverse-doc PRD run for the orchestra plugin itself, then bootstrap completes — subsequent runs are forward-chain.

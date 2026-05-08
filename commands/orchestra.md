@@ -103,6 +103,7 @@ state. Ask only when you can't infer.
 ```yaml
 mode: greenfield | brownfield
 depth: light | medium | full         # brownfield only
+bootstrap: pending | completed       # brownfield only; pending until reverse-doc fan-out finishes
 chain_rigor: Full | Standard | Light
 primary_language: java | kotlin | go | python | typescript | <other>
 framework: <freeform>
@@ -195,16 +196,21 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
 
 ## Steps (smart router)
 
-1. **Decision tree.** Per "Decision tree" above. Cache to `local.yaml`.
-2. **Spawn @lead.** Pass locked decisions in prompt. If brownfield and depth-elected, @lead first invokes the `project-discovery` skill to reverse-doc to depth.
-3. **@lead routes through layers** per chain-rigor:
+1. **Decision tree.** Per "Decision tree" above. Cache to `local.yaml`. On first run with `mode: brownfield`, also invoke the `project-discovery` skill to populate `discovery:` (mode/depth/language/framework/scope_hints) and prompt for `depth` if unset; depth fires once and is cached.
+2. **Brownfield bootstrap branch (one-shot).** If `local.yaml.mode == brownfield` AND `local.yaml.bootstrap != completed`, fan out reverse-doc spawns per the elected `depth` BEFORE entering the forward chain:
+   - `light` — spawn `@product` per major feature with prompt-tag `mode: reverse-doc`. Output: PRD-`<NNN>.md` per feature.
+   - `medium` — spawn `@product` (PRD + FRS) and `@lead` (TDD) per major feature with prompt-tag `mode: reverse-doc`. Author paths run sequentially per feature (PRD → FRS → TDD); features run in parallel.
+   - `full` — first spawn `@architect` (project-level SAD + accepted ADRs based on visible-in-source decisions) with prompt-tag `mode: reverse-doc`. Then per major feature: `@product` (PRD + FRS) → `@lead` (TDD + openapi).
+   After all reverse-doc spawns idle, parent flips `local.yaml.bootstrap: completed` and proceeds to Step 3. On subsequent `/orchestra` runs, this step is a no-op (greenfield-equivalent forward chain).
+3. **Spawn @lead.** Pass locked decisions in prompt. @lead routes the forward chain.
+4. **@lead routes through layers** per chain-rigor:
    - **Business** (Full/Standard) — @product writes `docs/<feature-id>/PRD-<NNN>.md` then `docs/<feature-id>/FRS-<NNN>.md`. PRD `S-OPEN-Q-001` flags open questions; FRS lifts and resolves or escalates (BL-0029).
    - **Architecture** (Full only) — @architect writes `docs/SAD.md` (singleton; first-feature bootstrap) and `docs/adr/ADR-NNNN-<slug>.md` (per ADR trigger). C4 L1+L2 diagrams + Logical ERD + Inter-service Sequence as `.puml` under `docs/diagrams/`.
    - **Component** (always) — @lead writes `docs/<feature-id>/TDD-<NNN>.md` (C4 L3 + Intra-service Sequence + Technical State if applicable + Physical DB if schema touched).
    - **Boundary** (always) — @lead writes `docs/<feature-id>/openapi.yaml` (or asyncapi.yaml). CONTRACT narrative folds inline via `description:` fields and top-of-file `# orchestra:` comment block.
-4. **openapi locked → fan-out.** @lead spawns @backend ‖ @frontend ‖ @test (Stage-1) in a single Agent-tool-call message. Each spawn carries a scoped Read allowlist: @test Stage-1 excludes `<consumer>/src/**`.
-5. **Converge.** @backend writes server code + unit tests under `<consumer>/src/main/**` and `<consumer>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR test-plan section + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
-6. **TSR multi-writer.** `docs/<feature-id>/TSR-<NNN>.md` accretes per-writer sections enforced by `pre-write-check.js` Gate-B (per-section locks):
+5. **openapi locked → fan-out.** @lead spawns @backend ‖ @frontend ‖ @test (Stage-1) in a single Agent-tool-call message. Each spawn carries a scoped Read allowlist: @test Stage-1 excludes `<consumer>/src/**`.
+6. **Converge.** @backend writes server code + unit tests under `<consumer>/src/main/**` and `<consumer>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR test-plan section + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
+7. **TSR multi-writer.** `docs/<feature-id>/TSR-<NNN>.md` accretes per-writer sections enforced by `pre-write-check.js` Gate-B (per-section locks):
    - `S-TEST-PLAN-001` — @test Stage-1 (spec-bound; src/ blocked)
    - `S-TEST-RESULTS-001` — @test Stage-2 (impl-aware; runs the suite, records per-test PASS/FAIL)
    - `S-VERDICT-EVAL-001` — @evaluator (inspection over PRD/FRS/openapi/TSR test sections; no Bash)
@@ -213,11 +219,11 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
    - `S-SHIP-001` — `/orchestra ship` subcommand
 
    @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR test-plan + test-results sections); `<consumer>/src/**` is blocked. @test Stage-2 owns suite execution; @evaluator becomes pure inspection (no Bash) and grades the PASS/FAIL evidence Stage-2 records.
-7. **Terminal state.** After every parent `Read` in steps 5–6, evaluate:
+8. **Terminal state.** After every parent `Read` in steps 6–7, evaluate:
    - `RELEASE-vX.Y.Z.md` written → `terminal_state = "success"` (only via `/orchestra ship`)
    - `DEADLOCK-*.md` → `terminal_state = "deadlock"`
    - `ESCALATE(-ADR)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
-   - otherwise → continue Step 5–6 spawn loop
+   - otherwise → continue Step 6–7 spawn loop
 
    On terminal state: emit closing status line. The Stop hook fires `events.jsonl` event with the terminal state and `<run-id>.json.status` ∈ {`completed`, `aborted`, `deadlocked`}. No SUMMARY artifact write — observability is the source of truth (BL-0032).
 
