@@ -52,9 +52,10 @@ In the Claude session for that directory:
 
 **Expected runtime artifacts in `<project>/.orchestra/`.**
 - `local.yaml` with `mode: greenfield`, `bootstrap: completed`, `primary_language: java`
-- `metrics/events.jsonl` — non-empty; every `task.subagent.invoked` carries `agent_role` + `phase`; every `subagent.stopped` carries `subagent_session_id`
-- `metrics/tokens.jsonl` — every `subagent.tokens` carries `agent_role` + `subagent_session_id` (no `unknown`)
-- `metrics/runs/<run-id>.json` — `status: completed` (not `aborted`)
+- `metrics/events.jsonl` — non-empty; every `task.subagent.invoked` carries `agent_role` + `phase`; every `subagent.stopped` carries `subagent_session_id` matching an `agent-<hex>` filename in the sibling subagents dir
+- `metrics/tokens.jsonl` — exists; one row per spawned subagent; every row carries a real `agent_role` (lifted from `agent-<id>.meta.json` `agentType`) + `subagent_session_id` matching the sibling-dir filename. No `unknown` roles. Token totals are deduped by `message.id` (streaming dupes counted once).
+- `metrics/insights.jsonl` — dispatcher-role rows expected when the `/orchestra` session ran in Explanatory output style; subagent-role rows are absent today (BL-0029 — agent prompts don't emit `★ Insight` blocks).
+- `metrics/runs/<run-id>.json` — `status: completed` (not `aborted`); `agents_spawned` non-empty (matches the distinct `agent_role` values in `task.subagent.invoked`); `tokens` and `cost_usd` reflect parent + subagent contributions (was parent-only before the 2026-05-08 fix).
 
 **Gate verdicts.** Both `S-EVAL-VERDICT-001` and `S-REV-VERDICT-001` blocks in `001-TSR.md` resolve to **PASS**.
 

@@ -106,7 +106,10 @@ bootstrap: pending | completed       # brownfield only; pending until reverse-do
 chain_rigor: Full | Standard | Light
 primary_language: java | kotlin | go | python | typescript | <other>
 framework: <freeform>
+spawn_mode: subagent | teams         # default subagent; controls whether dispatcher creates a Claude Code Team at run start
 ```
+
+`spawn_mode: subagent` (default) — agents spawned via `Agent({subagent_type, ...})` with no team coordination. `spawn_mode: teams` — opt-in pattern where dispatcher calls `TeamCreate` at start, joins agents via `team_name`, calls `TeamDelete` at terminal state; the active dispatcher branch is not yet implemented, so the field is currently informational. The metrics hook reads both transcript layouts (sibling-dir `<parent_sid>/subagents/agent-*.jsonl` and project-root `<sid>.jsonl` fallback) regardless of mode, so observability is robust either way.
 
 `status: locked` MUST be set on `local.yaml` after first answer cache so
 `pre-write-check.js` Gate-A protects it from accidental rewrite. (Gate
