@@ -9,13 +9,6 @@
       "stability": "stable"
     },
     {
-      "name": "hook.hash-stamper",
-      "kind": "hook",
-      "path": "hooks/scripts/hash-stamper.js",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
       "name": "hook.post-bash-lint",
       "kind": "hook",
       "path": "hooks/scripts/post-bash-lint.js",
@@ -79,13 +72,6 @@
       "stability": "stable"
     },
     {
-      "name": "skill.commit-work",
-      "kind": "skill",
-      "path": "skills/commit-work/SKILL.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
       "name": "skill.write-contract",
       "kind": "skill",
       "path": "skills/write-contract/SKILL.md",
@@ -93,16 +79,23 @@
       "stability": "stable"
     },
     {
-      "name": "skill.evaluator-tuning",
+      "name": "skill.c4-architecture",
       "kind": "skill",
-      "path": "skills/evaluator-tuning/SKILL.md",
+      "path": "skills/c4-architecture/SKILL.md",
       "defaultEnabled": true,
       "stability": "stable"
     },
     {
-      "name": "skill.java-source-intel",
+      "name": "skill.plantuml",
       "kind": "skill",
-      "path": "skills/java-source-intel/SKILL.md",
+      "path": "skills/plantuml/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.java-development",
+      "kind": "skill",
+      "path": "skills/java-development/SKILL.md",
       "defaultEnabled": true,
       "stability": "stable"
     },
@@ -110,6 +103,13 @@
       "name": "agent.product",
       "kind": "agent",
       "path": "agents/product.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.architect",
+      "kind": "agent",
+      "path": "agents/architect.md",
       "defaultEnabled": true,
       "stability": "stable"
     },
@@ -156,100 +156,9 @@
       "stability": "stable"
     },
     {
-      "name": "agent.ship",
-      "kind": "agent",
-      "path": "agents/ship.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
       "name": "command.orchestra",
       "kind": "command",
       "path": "commands/orchestra.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.common-coding-style",
-      "kind": "rule",
-      "path": "rules/common/coding-style.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.java-coding-style",
-      "kind": "rule",
-      "path": "rules/java/coding-style.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.java-patterns",
-      "kind": "rule",
-      "path": "rules/java/patterns.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.java-security",
-      "kind": "rule",
-      "path": "rules/java/security.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.java-testing",
-      "kind": "rule",
-      "path": "rules/java/testing.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.typescript-coding-style",
-      "kind": "rule",
-      "path": "rules/typescript/coding-style.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.typescript-patterns",
-      "kind": "rule",
-      "path": "rules/typescript/patterns.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.typescript-security",
-      "kind": "rule",
-      "path": "rules/typescript/security.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.typescript-testing",
-      "kind": "rule",
-      "path": "rules/typescript/testing.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.go-coding-style",
-      "kind": "rule",
-      "path": "rules/go/coding-style.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.python-coding-style",
-      "kind": "rule",
-      "path": "rules/python/coding-style.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
-      "name": "rule.kotlin-coding-style",
-      "kind": "rule",
-      "path": "rules/kotlin/coding-style.md",
       "defaultEnabled": true,
       "stability": "stable"
     }

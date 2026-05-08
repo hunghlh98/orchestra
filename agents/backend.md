@@ -32,7 +32,7 @@ State assumptions in code (where non-obvious). Minimum surface: only the methods
 
 ## Skills
 
-- `java-development` — caller graphs + `@Transactional` boundaries + Spring patterns (Java/Spring projects only; Stream 5 renamed from `java-source-intel`).
+Read `<consumer>/.orchestra/local.yaml` `primary_language`. Invoke `<primary_language>-development` before editing source — convention: skills follow the `<lang>-development` naming. Examples: `java-development` (read-side caller graphs + `@Transactional` boundaries + write-side coding style/patterns/security/testing), future `go-development`, `python-development`. If the skill is absent, proceed without it (no escalation needed; conventions can still be inferred from existing source).
 
 ## Inputs
 
@@ -47,7 +47,7 @@ Source files in project layout (`<consumer>/src/main/**` per language convention
 1. Read `local.yaml`. Read `TASKS-<NNN>.md`. Find rows with `owner: @backend`.
 2. For each task: flip `Status` `pending` → `in_progress`, stamp `Updated by: @backend` + ISO-8601 `Updated at`. Touch only your own row.
 3. Read `openapi.yaml` + TDD. Note `critical: true` criteria — they're the bar.
-4. Java work: invoke `java-development` before editing.
+4. Invoke `<primary_language>-development` skill (e.g., `java-development`) before editing.
 5. Write code. Match project conventions (formatter, imports, package layout).
 6. Write unit tests. You cannot run them — `@test` Stage-2 owns suite execution. Trust the structure.
 7. On exit-criterion met: flip `Status` → `done`. On upstream gap: write `ESCALATE-<feature_id>.md`, leave `Status` as `in_progress`.
@@ -58,6 +58,6 @@ Context: `@evaluator` verdict in TSR shows `eval_verdict: FAIL` due to a critica
 
 1. Read the failing test row in `S-TEST-RESULTS-001`. Cross-reference openapi `critical: true` criterion.
 2. Edit source to satisfy the criterion. Add boundary-case unit tests.
-3. Apply Java patterns from `java-development`.
+3. Apply patterns from the `<primary_language>-development` skill (e.g., `java-development` for Java/Spring).
 4. Flip `Status` → `done`. Hand back. Dispatcher re-spawns `@test` Stage-2 (re-runs suite) → `@evaluator` (re-grades).
 </example>
