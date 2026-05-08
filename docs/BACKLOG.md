@@ -44,8 +44,6 @@ schema_version: 1
 | BL-0026-tiered-memory-memory | Tiered memory + memory consolidation | deferred | v4.0-brief §6 | 2026-05-06 | 2026-05-06 |
 | BL-0027-nosql-probes-mongo | NoSQL probes (Mongo / DynamoDB / Redis) | deferred | v4.0-brief §6 | 2026-05-06 | 2026-05-06 |
 | BL-0028-save-load-orchestra-disagree | `/save`, `/load`, `/orchestra-disagree` subcommands | deferred | commands/orchestra.md line ~257 | 2026-05-06 | 2026-05-06 |
-| BL-0029-subagent-insight-emission | Subagent-side `★ Insight` block emission | deferred | metrics-collector smoke 2026-05-08 | 2026-05-08 | 2026-05-08 |
-| BL-0030-teams-mode-dispatcher | Teams-mode dispatcher (TeamCreate at /orchestra start) | deferred | metrics-collector smoke 2026-05-08 | 2026-05-08 | 2026-05-08 |
 
 ## BL-0001-pm-haiku-tier-intent — `@pm` haiku-tier intent classifier <a id="BL-0001-pm-haiku-tier-intent"></a>
 
@@ -268,22 +266,6 @@ Out-of-scope for SQL-focused user; defer until asked.
 **Status:** deferred · **Source:** commands/orchestra.md line ~257 · **Created:** 2026-05-06
 
 Couple to telemetry / save-load skill — gated similarly.
-
----
-
-## BL-0029-subagent-insight-emission — Subagent-side `★ Insight` block emission <a id="BL-0029-subagent-insight-emission"></a>
-
-**Status:** deferred · **Source:** metrics-collector smoke 2026-05-08 · **Created:** 2026-05-08
-
-The metrics hook captures `★ Insight ─...─` blocks from any session jsonl into `metrics/insights.jsonl`. In v4.0 the parent dispatcher emits them (Explanatory output style) but no `agents/*.md` instructs the spawned agent to emit them, so subagent jsonls contain zero blocks and `insights.jsonl` is dispatcher-only. Decide whether the signal value of per-role reasoning capture justifies the token tax of asking every agent to render insight blocks on every consumer load. Test: empirical 2026-05-08 smoke produced 0 insights across 6 subagent jsonls.
-
----
-
-## BL-0030-teams-mode-dispatcher — Teams-mode dispatcher (TeamCreate at `/orchestra` start) <a id="BL-0030-teams-mode-dispatcher"></a>
-
-**Status:** deferred · **Source:** metrics-collector smoke 2026-05-08 · **Created:** 2026-05-08
-
-`local.yaml.spawn_mode: teams` is documented but currently informational — the dispatcher always operates in subagent mode regardless. Implementing the active branch means: at the start of a run, call `TeamCreate({team_name: "orchestra-<feature-id>", agent_type: "orchestra-coordinator"})` after `intent.yaml` is locked; pass `team_name` on every `Agent({...})` spawn; call `TeamDelete` at terminal state. The v3 baseline ran this exact pattern, and `events.jsonl` already classifies `team.created` / `team.shutdown` (hooks/scripts/metrics-collector.js:132,141), so the lift is dispatcher-prompt only. Risk: prompt-engineering change to consumer-shipping `commands/orchestra.md` with no automated regression test for LLM-driven dispatcher behavior.
 
 ---
 

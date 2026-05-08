@@ -109,7 +109,7 @@ framework: <freeform>
 spawn_mode: subagent | teams         # default subagent; controls whether dispatcher creates a Claude Code Team at run start
 ```
 
-`spawn_mode: subagent` (default) — agents spawned via `Agent({subagent_type, ...})` with no team coordination. `spawn_mode: teams` — opt-in pattern where dispatcher calls `TeamCreate` at start, joins agents via `team_name`, calls `TeamDelete` at terminal state; the active dispatcher branch is not yet implemented, so the field is currently informational. The metrics hook reads both transcript layouts (sibling-dir `<parent_sid>/subagents/agent-*.jsonl` and project-root `<sid>.jsonl` fallback) regardless of mode, so observability is robust either way.
+`spawn_mode: subagent` (default) — agents spawned via `Agent({subagent_type, prompt, ...})` with no team coordination; no `team_name` field on the call. `spawn_mode: teams` — dispatcher calls `TeamCreate({team_name: "orchestra-<run-id-short>", agent_type: "orchestra-coordinator", description: <one-line intent summary>})` immediately after `local.yaml` is locked and before any agent spawn; every subsequent `Agent({...})` call passes `team_name` matching that string; on terminal state the dispatcher calls `TeamDelete` after the closing status line. The metrics hook reads both transcript layouts (sibling-dir `<parent_sid>/subagents/agent-*.jsonl` and project-root `<sid>.jsonl` fallback) regardless of mode, so observability is robust either way.
 
 `status: locked` MUST be set on `local.yaml` after first answer cache so
 `pre-write-check.js` Gate-A protects it from accidental rewrite. (Gate
