@@ -1,6 +1,6 @@
 {
   "name": "orchestra",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Multi-agent SDLC pipeline behind /orchestra. One developer, generator/evaluator separation, document-driven gates.",
   "type": "module",
   "private": true,
