@@ -193,90 +193,6 @@ Rel(api, db, "Reads/writes", "file I/O")
 @enduml
 ```
 
-## Element syntax — C4-PlantUML stdlib macros
-
-### People and systems
-
-```
-Person(alias, "Label", "Description")
-Person_Ext(alias, "Label", "Description")          ' External person
-System(alias, "Label", "Description")
-System_Ext(alias, "Label", "Description")          ' External system
-SystemDb(alias, "Label", "Description")            ' Database system
-SystemQueue(alias, "Label", "Description")         ' Queue system
-SystemDb_Ext(alias, "Label", "Description")        ' External DB
-```
-
-### Containers
-
-```
-Container(alias, "Label", "Technology", "Description")
-Container_Ext(alias, "Label", "Technology", "Description")
-ContainerDb(alias, "Label", "Technology", "Description")
-ContainerQueue(alias, "Label", "Technology", "Description")
-```
-
-### Components
-
-```
-Component(alias, "Label", "Technology", "Description")
-Component_Ext(alias, "Label", "Technology", "Description")
-ComponentDb(alias, "Label", "Technology", "Description")
-```
-
-### Boundaries
-
-```
-Enterprise_Boundary(alias, "Label") { ... }
-System_Boundary(alias, "Label") { ... }
-Container_Boundary(alias, "Label") { ... }
-Boundary(alias, "Label", "type") { ... }
-```
-
-### Relationships
-
-```
-Rel(from, to, "Label")
-Rel(from, to, "Label", "Technology")
-BiRel(from, to, "Label")                            ' Bidirectional
-Rel_U(from, to, "Label")                            ' Upward
-Rel_D(from, to, "Label")                            ' Downward
-Rel_L(from, to, "Label")                            ' Leftward
-Rel_R(from, to, "Label")                            ' Rightward
-```
-
-### Deployment nodes
-
-```
-Deployment_Node(alias, "Label", "Type", "Description") { ... }
-Node(alias, "Label", "Type", "Description") { ... }     ' Shorthand (alias of Deployment_Node)
-```
-
-## Styling and layout
-
-### Layout direction
-
-```
-LAYOUT_TOP_DOWN()                ' default
-LAYOUT_LEFT_RIGHT()
-LAYOUT_LANDSCAPE()
-LAYOUT_AS_SKETCH()              ' hand-drawn look
-```
-
-### Element-level styling
-
-```
-UpdateElementStyle("alias", $bgColor="grey", $fontColor="red", $borderColor="red")
-```
-
-### Relationship styling
-
-```
-UpdateRelStyle("from", "to", $textColor="blue", $lineColor="blue", $offsetX="5", $offsetY="-10")
-```
-
-`$offsetX` / `$offsetY` fix overlapping relationship labels.
-
 ## Output location
 
 Write `.puml` source under the **owning artifact's `diagrams/` directory**, then render to `.svg`:
@@ -287,16 +203,6 @@ Write `.puml` source under the **owning artifact's `diagrams/` directory**, then
 | `pipeline/<NNN>-<slug>/design/<NNN>-TDD.md` | `pipeline/<NNN>-<slug>/design/diagrams/tdd-c4-component.puml` |
 | `pipeline/<NNN>-<slug>/interfaces/<NNN>-CONTRACT.md` | `pipeline/<NNN>-<slug>/interfaces/diagrams/contract-sequence-<crit>.puml` |
 
-## Audience-appropriate detail
-
-| Audience | Recommended diagrams |
-|---|---|
-| Executives | Context only |
-| Product Managers | Context + Container |
-| Architects | Context + Container + key Components |
-| Developers | All levels as needed |
-| DevOps | Container + Deployment |
-
 ## When to escalate
 
 - Microservice ownership crosses team lines mid-render → consult `references/c4-rules.md` for the multi-team pattern.
@@ -305,7 +211,7 @@ Write `.puml` source under the **owning artifact's `diagrams/` directory**, then
 
 ## References
 
-- `references/c4-rules.md` — extended "what to avoid", framework-internals deep table, microservices ownership patterns (single-team / multi-team / event-driven examples).
+- `references/c4-rules.md` — extended "what to avoid", framework-internals deep table, microservices ownership patterns (single-team / multi-team / event-driven examples), full element-syntax reference, styling and layout macros.
 
 ## Worked example
 

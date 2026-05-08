@@ -98,3 +98,91 @@ Rel(stockService, stockTopic, "Publishes to")
 Rel(orderService, stockTopic, "Subscribes to")
 @enduml
 ```
+
+## Element-syntax reference (C4-PlantUML stdlib macros)
+
+For edge cases not covered by `SKILL.md`'s 5 quick-start templates. Quick-start templates anchor typical use; this section is exhaustive.
+
+### People and systems
+
+```
+Person(alias, "Label", "Description")
+Person_Ext(alias, "Label", "Description")          ' External person
+System(alias, "Label", "Description")
+System_Ext(alias, "Label", "Description")          ' External system
+SystemDb(alias, "Label", "Description")            ' Database system
+SystemQueue(alias, "Label", "Description")         ' Queue system
+SystemDb_Ext(alias, "Label", "Description")        ' External DB
+```
+
+### Containers
+
+```
+Container(alias, "Label", "Technology", "Description")
+Container_Ext(alias, "Label", "Technology", "Description")
+ContainerDb(alias, "Label", "Technology", "Description")
+ContainerQueue(alias, "Label", "Technology", "Description")
+```
+
+### Components
+
+```
+Component(alias, "Label", "Technology", "Description")
+Component_Ext(alias, "Label", "Technology", "Description")
+ComponentDb(alias, "Label", "Technology", "Description")
+```
+
+### Boundaries
+
+```
+Enterprise_Boundary(alias, "Label") { ... }
+System_Boundary(alias, "Label") { ... }
+Container_Boundary(alias, "Label") { ... }
+Boundary(alias, "Label", "type") { ... }
+```
+
+### Relationships
+
+```
+Rel(from, to, "Label")
+Rel(from, to, "Label", "Technology")
+BiRel(from, to, "Label")                            ' Bidirectional
+Rel_U(from, to, "Label")                            ' Upward
+Rel_D(from, to, "Label")                            ' Downward
+Rel_L(from, to, "Label")                            ' Leftward
+Rel_R(from, to, "Label")                            ' Rightward
+```
+
+### Deployment nodes
+
+```
+Deployment_Node(alias, "Label", "Type", "Description") { ... }
+Node(alias, "Label", "Type", "Description") { ... }     ' Shorthand
+```
+
+## Styling and layout
+
+For when stdlib defaults don't match the diagram's needs.
+
+### Layout direction
+
+```
+LAYOUT_TOP_DOWN()                ' default
+LAYOUT_LEFT_RIGHT()
+LAYOUT_LANDSCAPE()
+LAYOUT_AS_SKETCH()              ' hand-drawn look
+```
+
+### Element-level styling
+
+```
+UpdateElementStyle("alias", $bgColor="grey", $fontColor="red", $borderColor="red")
+```
+
+### Relationship styling
+
+```
+UpdateRelStyle("from", "to", $textColor="blue", $lineColor="blue", $offsetX="5", $offsetY="-10")
+```
+
+`$offsetX` / `$offsetY` fix overlapping relationship labels when the auto-layout collides them.

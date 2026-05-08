@@ -12,12 +12,11 @@ fire; subcommands handle out-of-band release / observability / resume work.
 
 ## Invariants
 
-The 4 runtime hooks (see "Runtime hooks" table below) own their events and
+The 5 runtime hooks (see "Runtime hooks" table below) own their events and
 side effects. Do not write to `<cwd>/.orchestra/metrics/events.jsonl`
 directly, hash artifact frontmatter manually, or replicate any hook's
-work. The hash-stamper / lockfile model from v3 is gone — provenance and
-review state live in artifact frontmatter (`status`, `verdict`, `readers`,
-`sections`); drift detection is `git diff` in CI.
+work. Provenance and review state live in artifact frontmatter (`status`,
+`verdict`, `readers`, `sections`); drift detection is `git diff` in CI.
 
 ## Status output
 
