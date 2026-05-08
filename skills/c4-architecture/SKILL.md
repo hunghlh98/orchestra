@@ -67,7 +67,7 @@ For microservices ownership patterns (single-team / multi-team / event-driven), 
 python ${CLAUDE_PLUGIN_ROOT}/skills/plantuml/scripts/convert_puml.py <path>.puml --format svg
 ```
 
-The hash-stamper hook tracks both `.puml` source hash and rendered `.svg` hash in the artifact's paired `<artifact>.lock.yaml` `diagrams[]` block.
+The `post-write-puml` hook fires on `.puml` writes and renders the `.svg` automatically. Both files are committed together; CI parity check verifies every `.puml` has a paired `.svg`.
 
 ### Step 6 — Self-check before declaring done
 

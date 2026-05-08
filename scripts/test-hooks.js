@@ -8,7 +8,7 @@
 //       Gate-C — frontmatter readers: emits non-blocking warning to stderr
 //       Gate-D — §7.28 src/ cite denylist; exit 2 on hit when target is business src/
 //   - post-bash-lint (Observer)
-//   - val-calibration (Rewriter — depends on evaluator-tuning skill)
+//   - val-calibration (Rewriter — calibration source at scripts/evaluator-tuning/)
 //   - hooks.json matcher validation
 //   - orchestra.md v4.0 decision-tree + chain-rigor + subcommand fixture
 
@@ -331,13 +331,13 @@ console.log("post-bash-lint:");
 }
 
 // ---------- val-calibration (Rewriter) ----------
-// Depends on skills/evaluator-tuning/references/calibration-examples.md;
-// Stream 4 will move evaluator-tuning to scripts/, at which point this test
-// updates.
+// Calibration source lives at hooks/calibration/calibration-examples.md
+// (consumer-shipping placement next to the hook that reads it; relocated
+// from the deleted evaluator-tuning skill folder in Stream 4).
 console.log("val-calibration:");
 {
   const script = resolve(root, "hooks/scripts/val-calibration.js");
-  const calibrationPath = resolve(root, "skills/evaluator-tuning/references/calibration-examples.md");
+  const calibrationPath = resolve(root, "hooks/calibration/calibration-examples.md");
 
   const evalR = runHook(script, {
     session_id: "test", hook_event_name: "PreToolUse", tool_name: "Task",

@@ -233,9 +233,9 @@ and the TSR verdict sections — not in business code.
 
 ## /orchestra ship
 
-Folded from v3's `cut-release` + `commit-work` + `@ship`. Cuts release
-artifacts after gate verification. Smoke-test the consumer install path
-BEFORE invoking (`feedback_smoke-before-release-docs` discipline).
+Cuts release artifacts after gate verification. Smoke-test the consumer
+install path BEFORE invoking (`feedback_smoke-before-release-docs`
+discipline).
 
 Algorithm:
 

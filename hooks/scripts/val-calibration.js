@@ -18,7 +18,7 @@ if (process.env[NAME] === "off") {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CALIBRATION_PATH = resolve(
   __dirname,
-  "../../skills/evaluator-tuning/references/calibration-examples.md"
+  "../calibration/calibration-examples.md"
 );
 
 main();

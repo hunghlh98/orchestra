@@ -22,7 +22,7 @@
         "name": {
           "type": "string",
           "pattern": "^[a-z]+\\.[a-z][a-z0-9-]*$",
-          "description": "Canonical key, e.g. 'hook.hash-stamper' or 'agent.lead'."
+          "description": "Canonical key, e.g. 'hook.pre-write-check' or 'agent.lead'."
         },
         "kind": { "enum": ["agent", "hook", "skill", "rule", "command", "mcp"] },
         "path": { "type": "string" },

@@ -103,7 +103,7 @@ Body anchors (locked):
 - `S-SCORING-001` — integer weights = 100; `passing_score`; critical-fail veto rules. Mirror frontmatter `weighted_criteria_total` / `passing_score` / `critical_failure_conditions`.
 - `S-CRITERIA-001` — one C-NNN block per criterion: weight, `critical: true|false`, probe DSL, PASS/FAIL.
 
-Author `diagrams/contract-service.puml` (HTTP + event tables). For each critical-path criterion, author `diagrams/contract-sequence-<criterion-id>.puml`. Add `diagrams[]` entries to the lockfile when scaffold-time defaults are insufficient. Invoke `/plantuml` to render `.svg` for each.
+Author `diagrams/contract-service.puml` (HTTP + event tables). For each critical-path criterion, author `diagrams/contract-sequence-<criterion-id>.puml`. The `post-write-puml` hook renders each `.puml` to a paired `.svg` automatically.
 
 Final body shape after FILL:
 

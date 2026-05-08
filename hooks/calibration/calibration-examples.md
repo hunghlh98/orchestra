@@ -82,11 +82,11 @@ The 8 cases below are the v1.0.0 calibration baseline. `@evaluator` must judge s
 **Verdict:** **FAIL**
 **Why:** Critical-failure conditions outrank probe results. They exist precisely to catch PASSes-by-accident. PII leak in logs is FAIL even if every functional probe passed.
 
-### Case 8: `inferred:` upstream section drifts mid-test
-**Scenario:** Mid-evaluation, `validate-drift.js` fires and reports a `drift-on-inferred` warning on an upstream PRD section that this CONTRACT references.
-**Verdict for the criterion:** Continue the evaluation. The criterion's verdict stands on its own probes.
-**Verdict for the feature:** Note the drift in the verify/<NNN>-TEST.md verdict block. `@reviewer` sees the warning and decides whether to re-confirm the upstream section or accept the inference.
-**Why:** `inferred:` sections are warnings, not blockers. Drift on `confirmed:` upstream would FAIL the run; drift on `inferred:` is informational. Don't conflate the two.
+### Case 8: upstream artifact drifted under a `status: locked` reference
+**Scenario:** Mid-evaluation, `git diff` shows that an upstream PRD section this openapi criterion depends on has changed since the openapi was locked.
+**Verdict for the criterion:** Continue the evaluation. The criterion's verdict stands on its own test results.
+**Verdict for the feature:** Note the drift in the TSR verdict-evaluator section. `@reviewer` sees the note and decides whether to require an upstream re-lock + re-spawn or accept the drift.
+**Why:** v4.0 detects drift via `git diff` against `status: locked` artifacts (the v3 lockfile sidecars are gone). A locked-but-drifted artifact is a signal to re-spec, not an automatic FAIL — the criterion's evidence still binds.
 
 ---
 

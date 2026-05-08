@@ -6,7 +6,7 @@ origin: orchestra
 
 # qa-test-planner
 
-Designs `verify/<NNN>-TEST.md`: which probes to run, what edge cases to cover, what adversarial inputs to send. `@test` writes the plan; `@evaluator` runs it. Pairs with `write-contract` (criteria definition) and `evaluator-tuning` (verdict semantics).
+Designs the TSR test-plan section (S-TEST-PLAN-001): which black-box tests to author, what edge cases to cover, what adversarial inputs to send. `@test` Stage-1 writes the plan; `@test` Stage-2 executes it. Pairs with `write-contract` (criteria definition).
 
 ## When to use
 
@@ -128,4 +128,4 @@ Each row references a CONTRACT criterion id (e.g., `C-001`), the source (CONTRAC
 | transfer.emits_event | (1) http_probe POST → 201; (2) db_state SELECT FROM event_log WHERE topic='transfer'; **boundary**: zero-amount transfer → still emit? (per contract: yes) |
 | transfer.idempotent | (1) **adversarial replay**: POST twice with same key, expect second is no-op; (2) db_state SELECT count(*) FROM ledger WHERE key='k1' = 1 |
 
-Write `verify/001-TEST.md` with all probes laid out. `@evaluator` runs them, fills `S-EVAL-*` halves of `verify/001-TSR.md` per `evaluator-tuning` semantics.
+Write `docs/<feature-id>/TSR-001.md` `S-TEST-PLAN-001` with all probes laid out. `@test` Stage-2 runs them and fills `S-TEST-RESULTS-001`; `@evaluator` then grades the recorded evidence.

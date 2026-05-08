@@ -12,8 +12,8 @@ Returns a structured snapshot of the working directory's shape: `{ has_source, p
 
 - `/orchestra` is invoked and there's no `.orchestra/local.yaml` yet (greenfield/brownfield bootstrap).
 - `@product` or `@lead` needs to size a refactor and hasn't read the source tree yet.
-- `@reviewer` needs to know which language ruleset (`rules/<lang>/`) to load.
-- Any agent is about to invoke a language-specific skill (e.g., `java-source-intel`) and needs to confirm Java is the primary stack.
+- `@backend` needs to know which `*-development` skill to load via `local.yaml.primary_language`.
+- Any agent is about to invoke a language-specific skill and needs to confirm the primary stack.
 
 ## Algorithm
 
@@ -43,7 +43,7 @@ Walk by file-extension count. Highest count wins. Tie-breakers go to the languag
 | Ruby | `.rb` | `Gemfile`, `*.gemspec` |
 | Rust | `.rs` | `Cargo.toml` |
 
-Top-2 within 20% of each other → record `primary_language: <top>` + `secondary_language: <second>`. Both rulesets activate per `paths:` glob in `rules/`.
+Top-2 within 20% of each other → record `primary_language: <top>` + `secondary_language: <second>`. Both per-language `*-development` skills activate when `@backend` reads `local.yaml`.
 
 ### Check 3 — framework
 

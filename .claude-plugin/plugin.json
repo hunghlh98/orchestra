@@ -11,13 +11,13 @@
   "mcpServers": "./.claude-plugin/.mcp.json",
   "agents": [
     "./agents/product.md",
+    "./agents/architect.md",
     "./agents/lead.md",
     "./agents/backend.md",
     "./agents/frontend.md",
     "./agents/test.md",
     "./agents/evaluator.md",
-    "./agents/reviewer.md",
-    "./agents/ship.md"
+    "./agents/reviewer.md"
   ],
   "commands": [
     "./commands/orchestra.md"

@@ -31,7 +31,7 @@ Same election regardless of `chain_rigor` — `@evaluator` runs in `Full | Stand
 
 ## Skills
 
-Calibration is auto-injected via the `val-calibration` hook (reads `skills/evaluator-tuning/references/calibration-examples.md` — Stream 4 may relocate the source path; the hook's prepend behavior is unchanged). No explicit invocation needed.
+Calibration is auto-injected via the `val-calibration` hook (reads `hooks/calibration/calibration-examples.md`). No explicit invocation needed.
 
 ## Inputs
 

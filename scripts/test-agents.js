@@ -13,7 +13,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const agentsDir = resolve(root, "agents");
 
 const VALID_NAMES = new Set([
-  "product", "architect", "lead", "backend", "frontend", "test", "evaluator", "reviewer", "ship",
+  "product", "architect", "lead", "backend", "frontend", "test", "evaluator", "reviewer",
 ]);
 
 // Four valid tools-tier sets. Sorted for stable comparison.
