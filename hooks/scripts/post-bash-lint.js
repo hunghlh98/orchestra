@@ -2,7 +2,6 @@
 // hooks/scripts/post-bash-lint.js
 // Observer hook: detects source-modifying Bash commands and surfaces a
 // stderr finding. Exits 0 always.
-// See DESIGN-001-infra §3.4.
 
 const NAME = "ORCHESTRA_HOOK_POST_BASH_LINT";
 

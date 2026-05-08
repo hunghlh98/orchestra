@@ -10,7 +10,7 @@ Multi-agent SDLC pipeline. One entry surface; subcommands branch internally.
 
 ## Invariants
 
-The 5 hooks (see "Runtime hooks" table below) own their events and side effects. Do not write to `<cwd>/.claude/.orchestra/metrics/events.jsonl` directly, hash artifact frontmatter manually, or replicate any hook's work — every "do not do this manually" you might infer reduces to this one rule.
+The 5 hooks (see "Runtime hooks" table below) own their events and side effects. Do not write to `<cwd>/.orchestra/metrics/events.jsonl` directly, hash artifact frontmatter manually, or replicate any hook's work — every "do not do this manually" you might infer reduces to this one rule.
 
 ## Status output
 
@@ -55,7 +55,7 @@ Default path. Spawn the 8-agent team and route per intent.
 
 ### Coordination protocol (read this before the steps)
 
-**The 8 orchestra agents are filesystem-coupled, not message-coupled.** Tier tools sets (T-A: `Bash/Glob/Grep/Read/Write`; T-B: `Glob/Grep/Read/Write`; T-C: `Edit/Glob/Grep/MultiEdit/Read/Write`) deliberately omit `SendMessage` — adding it would break `test-agents.js` tier validation. Spawned agents communicate by writing to designated paths under `<cwd>/.claude/.orchestra/`; the parent reads those paths after each idle notification.
+**The 8 orchestra agents are filesystem-coupled, not message-coupled.** Tier tools sets (T-A: `Bash/Glob/Grep/Read/Write`; T-B: `Glob/Grep/Read/Write`; T-C: `Edit/Glob/Grep/MultiEdit/Read/Write`) deliberately omit `SendMessage` — adding it would break `test-agents.js` tier validation. Spawned agents communicate by writing to designated paths under `<cwd>/.orchestra/`; the parent reads those paths after each idle notification.
 
 The handoff pattern:
 
@@ -136,7 +136,7 @@ Agent({
     vii. 3 rejection rounds → DEADLOCK-bootstrap.md, halt.
 ```
 
-**Step 3 — Spawn `@lead` to classify feature intent** per the routing taxonomy (`docs` / `template` / `hotfix` / `feature` / `review-only` / `refactor`). @lead writes its classification to `<cwd>/.claude/.orchestra/pipeline/<feature-id>/intent.yaml` with `intent`, `confidence`, `pattern`, plus a suggested `autonomy_level` from the diagnostic in `agents/lead.md`'s `Autonomy classification` section. Parent reads on idle. **→ PAUSE-1** (intent + autonomy confirmation).
+**Step 3 — Spawn `@lead` to classify feature intent** per the routing taxonomy (`docs` / `template` / `hotfix` / `feature` / `review-only` / `refactor`). @lead writes its classification to `<cwd>/.orchestra/pipeline/<feature-id>/intent.yaml` with `intent`, `confidence`, `pattern`, plus a suggested `autonomy_level` from the diagnostic in `agents/lead.md`'s `Autonomy classification` section. Parent reads on idle. **→ PAUSE-1** (intent + autonomy confirmation).
 
 **Step 4 — Confidence override (optional).** If `--confidence` flag in `$ARGUMENTS`, override @lead's feature-confidence classification before downstream agents read it.
 
@@ -177,7 +177,7 @@ Full per-intent artifact whitelist lives in `schemas/routing-taxonomy.md`. Agent
 
 **Step 5c — ADR open subroutine (v2.0+).** When `@reviewer` writes `ESCALATE-ADR-<slug>.md` at the feature-dir root, OR `@product` flagged a PRD `S-OPEN-001` item with `ADR-WORTHY:`, the dispatcher runs `Bash(scaffold-artifact ADR --global <slug>)` (auto-numbers next NNNN) before re-spawning `@lead` with the scaffolded ADR path in its prompt. After `@lead` Writes the proposed ADR, spawn `@reviewer` for review (3-round circuit per the `agents/lead.md` ADR-open subroutine).
 
-**Step 6 — Each artifact lands in `<project>/.claude/.orchestra/pipeline/<feature-id>/`** (or singletons under `architecture/`, `releases/`, `runbooks/`, `architecture/decisions/`). v2.0+: the dispatcher scaffolds via Step 5(a); agents fill `<!-- FILL: -->` placeholders and Write the artifact back. Provenance auto-emits to the paired `<artifact>.lock.yaml` via the hash-stamper hook (only-when-paired). The parent does NOT copy/edit agent-authored content — each agent owns its sections per `schemas/pipeline-artifact.schema.md` and the single-writer-per-section discipline in `verify/<NNN>-TSR.md`.
+**Step 6 — Each artifact lands in `<project>/.orchestra/pipeline/<feature-id>/`** (or singletons under `architecture/`, `releases/`, `runbooks/`, `architecture/decisions/`). v2.0+: the dispatcher scaffolds via Step 5(a); agents fill `<!-- FILL: -->` placeholders and Write the artifact back. Provenance auto-emits to the paired `<artifact>.lock.yaml` via the hash-stamper hook (only-when-paired). The parent does NOT copy/edit agent-authored content — each agent owns its sections per `schemas/pipeline-artifact.schema.md` and the single-writer-per-section discipline in `verify/<NNN>-TSR.md`.
 
 **Step 7 — Terminal-state detection + closure.** After every parent `Read` in Step 5, evaluate the just-read artifact's basename:
 
@@ -189,7 +189,7 @@ Full per-intent artifact whitelist lives in `schemas/routing-taxonomy.md`. Agent
 On terminal state:
 
 1. Parent `Write(<feature-dir>/SUMMARY-<feature-id>.md, ...)` per `schemas/pipeline-artifact.schema.md` SUMMARY shape: `team_name`, `started_at` (the team.created timestamp from earlier in this run; fallback to first matching `team.created` in events.jsonl), `ended_at` (now), `duration_seconds`, `terminal_state`, `artifact_count`. Body: 1–3 line plain-text closing note. SUMMARY is parent-authored bookkeeping at terminal state — narrowly carved exception to the Coordination-protocol "no parent artifact writes" rule, because no agent is in scope after teardown begins.
-2. **Cost banner (opt-in; v2.2.0+).** If `ORCHESTRA_METRICS_COST_BANNER=on`, read `<cwd>/.claude/.orchestra/metrics/tokens.jsonl`, filter rows where `run_id == <current-session-id>`, sum `tokens` and `usd`, emit one status line per `## Status output`. Reflects subagent cost only — the parent-dispatcher total lands in `runs/<id>.json` AFTER the Stop hook fires (runs.json doesn't exist on disk yet at this point). Per-row `usd` is pre-computed by the metrics-collector hook via `hooks/lib/rate-card.js` (single source for the rate card).
+2. **Cost banner (opt-in; v2.2.0+).** If `ORCHESTRA_METRICS_COST_BANNER=on`, read `<cwd>/.orchestra/metrics/tokens.jsonl`, filter rows where `run_id == <current-session-id>`, sum `tokens` and `usd`, emit one status line per `## Status output`. Reflects subagent cost only — the parent-dispatcher total lands in `runs/<id>.json` AFTER the Stop hook fires (runs.json doesn't exist on disk yet at this point). Per-row `usd` is pre-computed by the metrics-collector hook via `hooks/lib/rate-card.js` (single source for the rate card).
 3. Parent `TeamDelete()` (zero-param primitive — team is implicit from current session context; failure mode: throws on active members, but Orchestra's filesystem-coupled flow has SubagentStop drain members synchronously by the time terminal state is detected).
 4. Emit closing status line per `## Status output`.
 
@@ -199,7 +199,7 @@ On terminal state:
 
 | Hook | Events (matchers) | Side effect |
 |---|---|---|
-| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-* / SubagentStop / Stop | Logs lifecycle events to `<cwd>/.claude/.orchestra/metrics/events.jsonl` |
+| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-* / SubagentStop / Stop | Logs lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl` |
 | `hash-stamper` | PreToolUse:Write\|Edit\|MultiEdit | Stamps `sections:` hashes + resolves `references[].hash-at-write: TBD` for pipeline artifacts |
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Blocks writes with detectable secrets (8 patterns); exits 2 |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts |
@@ -213,7 +213,7 @@ Each spawned agent applies its own confidence-tier question budget per its body.
 
 ## /orchestra sprint [--size N]
 
-1. Read `<project>/.claude/.orchestra/backlog/issues/`. Default `N=3`; respect `--size N` if provided.
+1. Read `<project>/.orchestra/backlog/issues/`. Default `N=3`; respect `--size N` if provided.
 2. For each of the top-N issues, run the smart router as if the user had typed the issue title + body verbatim.
 3. Sequence them; one feature per pipeline id; never parallel-write the same artifact (single-writer assumption).
 
@@ -227,10 +227,10 @@ No team. Direct invocation of the `commit-work` skill: produces a Conventional C
 
 ## /orchestra metrics [--limit N]
 
-Console summary of recent runs from `<cwd>/.claude/.orchestra/metrics/runs/`. Default `N=10`. Privacy-safe (per-run summary JSONs only).
+Console summary of recent runs from `<cwd>/.orchestra/metrics/runs/`. Default `N=10`. Privacy-safe (per-run summary JSONs only).
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/metrics-summary.py --metrics-dir <cwd>/.claude/.orchestra/metrics ${LIMIT_FLAG}
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/metrics-summary.py --metrics-dir <cwd>/.orchestra/metrics ${LIMIT_FLAG}
 ```
 
 ## /orchestra resume [<feature-id>]
@@ -251,10 +251,10 @@ Print usage:
 
 ```
 /orchestra <natural language>   Smart router. TeamCreate → @product + @lead classify → specialists work in waves.
-/orchestra sprint [--size N]    Pull N issues from .claude/.orchestra/backlog/issues/ and run as a batch (default N=3).
+/orchestra sprint [--size N]    Pull N issues from .orchestra/backlog/issues/ and run as a batch (default N=3).
 /orchestra release              Verify gates → write RELEASE / RUNBOOK / ANNOUNCEMENT artifacts and bump VERSION.
 /orchestra commit               Conventional Commits message from `git diff --staged`. No team.
-/orchestra metrics [--limit N]  Console summary of last N runs from .claude/.orchestra/metrics/runs/.
+/orchestra metrics [--limit N]  Console summary of last N runs from .orchestra/metrics/runs/.
 /orchestra resume [<feature-id>] Walk pipeline/* dirs, find non-terminal feature, respawn next non-done task in the DAG.
 /orchestra shutdown             In-session: write SUMMARY (terminal_state=aborted) and TeamDelete() the current run's team.
 /orchestra help                 This message.

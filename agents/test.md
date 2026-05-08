@@ -20,7 +20,7 @@ You are `@test`. Design `verify/<NNN>-TEST.md` (coverage matrix referencing CONT
 
 ## Routing-taxonomy guard
 
-Before writing `verify/<NNN>-TEST.md`, Read `<cwd>/.claude/.orchestra/pipeline/<feature_id>/intent.yaml`. Your upstream and behavior depend on the routed intent:
+Before writing `verify/<NNN>-TEST.md`, Read `<cwd>/.orchestra/pipeline/<feature_id>/intent.yaml`. Your upstream and behavior depend on the routed intent:
 
 | `intent.yaml`.intent | Upstream | Coverage source |
 |---|---|---|

@@ -3,7 +3,6 @@ import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { resolve, dirname, basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "../hooks/lib/yaml-mini.js";
-import { hashFile } from "../hooks/lib/section-hash.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const errors = [];
@@ -353,81 +352,12 @@ export function validateStructuralDiff(relPath, body, type, mode) {
   return errs;
 }
 
-// --- lockfile-presence + paired path resolution ---
-export function lockfilePathFor(artifactPath) {
-  if (artifactPath.endsWith(".openapi.yaml")) return artifactPath.slice(0, -".openapi.yaml".length) + ".lock.yaml";
-  if (artifactPath.endsWith(".md")) return artifactPath.slice(0, -".md".length) + ".lock.yaml";
-  return null;
-}
-
-export function validateLockfilePresence(artifactPath) {
-  const errs = [];
-  const lockPath = lockfilePathFor(artifactPath);
-  if (!lockPath) return errs;
-  if (!existsSync(lockPath)) errs.push(`${artifactPath}: missing-lockfile (expected ${lockPath})`);
-  return errs;
-}
-
-// --- lockfile-grammar: yaml-mini round-trip + required keys + correct shapes ---
-export function validateLockfileGrammar(relPath, lockText) {
-  const errs = [];
-  let parsed;
-  try { parsed = parseYaml(lockText); }
-  catch (e) { errs.push(`${relPath}: lockfile-grammar — parse error: ${e.message}`); return errs; }
-  if (!parsed || typeof parsed !== "object") {
-    errs.push(`${relPath}: lockfile-grammar — top-level not a map`);
-    return errs;
-  }
-  for (const k of ["artifact_id", "artifact_path", "schema_revision", "sections"]) {
-    if (!Object.hasOwn(parsed, k)) errs.push(`${relPath}: lockfile-grammar — missing required key '${k}'`);
-  }
-  if (parsed.sections !== null && parsed.sections !== undefined &&
-      (Array.isArray(parsed.sections) || typeof parsed.sections !== "object")) {
-    errs.push(`${relPath}: lockfile-grammar — 'sections' must be a map`);
-  }
-  if (parsed.references !== undefined && parsed.references !== null && !Array.isArray(parsed.references)) {
-    errs.push(`${relPath}: lockfile-grammar — 'references' must be a list`);
-  }
-  if (parsed.diagrams !== undefined && parsed.diagrams !== null && !Array.isArray(parsed.diagrams)) {
-    errs.push(`${relPath}: lockfile-grammar — 'diagrams' must be a list`);
-  }
-  return errs;
-}
-
-// --- diagram-hash: source/.svg files exist; hashes match recomputed (when --with-diagrams) ---
-export function validateDiagramHashes(relPath, lockfile, artifactDir, opts = {}) {
-  const errs = [];
-  const withDiagrams = !!opts.withDiagrams;
-  if (!Array.isArray(lockfile?.diagrams)) return errs;
-  for (const d of lockfile.diagrams) {
-    if (!d || typeof d !== "object") continue;
-    if (d.omit === true) continue;
-    if (typeof d.source === "string") {
-      const sp = join(artifactDir, d.source);
-      if (!existsSync(sp)) {
-        errs.push(`${relPath}: diagram-source-drift kind=${d.kind || "?"} — source file missing (${d.source})`);
-      } else if (withDiagrams) {
-        const recomputed = hashFile(sp);
-        if (d.source_hash && d.source_hash !== "TBD" && d.source_hash !== recomputed) {
-          errs.push(`${relPath}: diagram-source-drift kind=${d.kind || "?"} — recorded ${d.source_hash.slice(0,16)}... != computed ${recomputed.slice(0,16)}...`);
-        }
-      }
-    }
-    if (typeof d.rendered === "string") {
-      const rp = join(artifactDir, d.rendered);
-      const allowSentinel = d.rendered_hash === "sha256:UNRENDERED" || d.rendered_hash === "sha256:OMIT";
-      if (!existsSync(rp) && !allowSentinel) {
-        errs.push(`${relPath}: diagram-rendered-drift kind=${d.kind || "?"} — rendered file missing (${d.rendered}); set rendered_hash='sha256:UNRENDERED' if intentional`);
-      } else if (existsSync(rp) && withDiagrams) {
-        const recomputed = hashFile(rp);
-        if (d.rendered_hash && d.rendered_hash !== "TBD" && !allowSentinel && d.rendered_hash !== recomputed) {
-          errs.push(`${relPath}: diagram-rendered-drift kind=${d.kind || "?"} — recorded ${d.rendered_hash.slice(0,16)}... != computed ${recomputed.slice(0,16)}...`);
-        }
-      }
-    }
-  }
-  return errs;
-}
+// v3.x had lockfile-paired predicates here (validateLockfilePresence,
+// validateLockfileGrammar, validateDiagramHashes, lockfilePathFor). v4.0
+// drops the lockfile sidecar entirely — review-state lives in artifact
+// frontmatter (status/verdict/readers/sections), drift detection moves to
+// `git diff` in CI, and diagram-source/rendered presence is enforced by
+// hooks/scripts/post-write-puml.js (Stream 9). See v4.0-design §4.
 
 // --- orphan-types: walk pipeline/ + architecture/ + releases/ + runbooks/ for dropped/folded type filenames ---
 export function validateOrphanTypes(orchestraDir) {

@@ -59,6 +59,10 @@ The fix shape is **inline the rule, drop the cite**. Most leaky lines already st
 
 If the rule isn't already inline next to the cite, copy the relevant 1–3 sentences from `docs/<file>.md` into the consumer artifact, then drop the cite.
 
+### Authoring consumer surface from a dev-surface draft
+
+When lifting prose from `docs/v4.0-brief.md` (or any dev-surface draft) into `agents/` / `commands/` / `skills/`, scrub every `(see §X)` and `§X.Y` pointer and inline what the §-section actually says. The dev-surface anchor cannot resolve in a consumer install — pasting one creates the same phantom-anchor failure as writing a fresh leaky cite.
+
 ## Where dev-trace cites SHOULD go
 
 The PRD/DESIGN/WORKFLOW anchors are valuable — just not in shipped artifacts. Cite freely in:

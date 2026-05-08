@@ -43,7 +43,7 @@ console.log("metrics-collector append safety:");
         break;
       }
     }
-    const events = join(tmp, ".claude/.orchestra/metrics/events.jsonl");
+    const events = join(tmp, ".orchestra/metrics/events.jsonl");
     check(existsSync(events), `events.jsonl created`);
     if (existsSync(events)) {
       const lines = readFileSync(events, "utf8").split("\n").filter(Boolean);
@@ -72,7 +72,7 @@ console.log("metrics-collector rotation:");
     for (let i = 0; i < 5; i++) {
       runHook({ session_id: `s-${i}`, cwd: tmp, hook_event_name: "Stop" }, env);
     }
-    const dir = join(tmp, ".claude/.orchestra/metrics");
+    const dir = join(tmp, ".orchestra/metrics");
     const archives = readdirSync(dir).filter(f => /^events-.+\.jsonl\.gz$/.test(f));
     check(archives.length >= 1, `rotation produced at least one .jsonl.gz archive (got ${archives.length})`);
     const events = join(dir, "events.jsonl");
@@ -97,7 +97,7 @@ console.log("metrics-collector retention:");
     for (let i = 0; i < 30; i++) {
       runHook({ session_id: `s-${i}`, cwd: tmp, hook_event_name: "Stop" }, env);
     }
-    const dir = join(tmp, ".claude/.orchestra/metrics");
+    const dir = join(tmp, ".orchestra/metrics");
     const archives = readdirSync(dir).filter(f => /^events-.+\.jsonl\.gz$/.test(f));
     check(archives.length <= 5, `retention prunes to <= 5 archives (got ${archives.length})`);
   } finally {
@@ -112,7 +112,7 @@ console.log("metrics-collector event classification:");
   // Pre-seed manifest with redact_prompts:false so this test can verify the
   // underlying classification (prompt_summary, description, args_summary)
   // without redaction interference. Redaction has dedicated coverage below.
-  const metricsDir = join(tmp, ".claude/.orchestra/metrics");
+  const metricsDir = join(tmp, ".orchestra/metrics");
   mkdirSync(metricsDir, { recursive: true });
   writeFileSync(
     join(metricsDir, "manifest.json"),
@@ -195,7 +195,7 @@ console.log("metrics-collector event classification:");
           session_id: "s1", cwd: tmp,
           hook_event_name: "PreToolUse", tool_name: "Write",
           tool_input: {
-            file_path: `${tmp}/.claude/.orchestra/local.yaml`,
+            file_path: `${tmp}/.orchestra/local.yaml`,
             content: "mode: greenfield\nhas_source: false\nprimary_language: none\nframework: none\n",
           },
         },
@@ -208,7 +208,7 @@ console.log("metrics-collector event classification:");
           session_id: "s1", cwd: tmp,
           hook_event_name: "PreToolUse", tool_name: "Write",
           tool_input: {
-            file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/PRD-001.md`,
+            file_path: `${tmp}/.orchestra/pipeline/001-hello-world/PRD-001.md`,
             content: "---\nid: PRD-001\n---\n",
           },
         },
@@ -226,7 +226,7 @@ console.log("metrics-collector event classification:");
           session_id: "s1", cwd: tmp,
           hook_event_name: "PreToolUse", tool_name: "Edit",
           tool_input: {
-            file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/CODE-REVIEW-001-hello-world.md`,
+            file_path: `${tmp}/.orchestra/pipeline/001-hello-world/CODE-REVIEW-001-hello-world.md`,
             old_string: "verdict: pending",
             new_string: "verdict: APPROVE",
           },
@@ -247,7 +247,7 @@ console.log("metrics-collector event classification:");
           session_id: "s1", cwd: tmp,
           hook_event_name: "PreToolUse", tool_name: "Write",
           tool_input: {
-            file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/intent.yaml`,
+            file_path: `${tmp}/.orchestra/pipeline/001-hello-world/intent.yaml`,
             content: "feature_id: 001-hello-world\nintent: docs\nconfidence: HIGH\npattern: Pattern A\nautonomy_level: DRAFT_AND_GATE\n",
           },
         },
@@ -304,7 +304,7 @@ console.log("metrics-collector event classification:");
           session_id: "s1", cwd: tmp,
           hook_event_name: "PreToolUse", tool_name: "Write",
           tool_input: {
-            file_path: `${tmp}/.claude/.orchestra/pipeline/001-hello-world/SUMMARY-001-hello-world.md`,
+            file_path: `${tmp}/.orchestra/pipeline/001-hello-world/SUMMARY-001-hello-world.md`,
             content: "---\nteam_name: orchestra-001-hello-world\nstarted_at: 2026-05-05T10:00:00Z\nended_at: 2026-05-05T10:05:30Z\nduration_seconds: 330\nterminal_state: success\nartifact_count: 12\n---\nClosure receipt.\n",
           },
         },
@@ -322,7 +322,7 @@ console.log("metrics-collector event classification:");
     ];
     for (const c of cases) runHook(c.in);
 
-    const events = readFileSync(join(tmp, ".claude/.orchestra/metrics/events.jsonl"), "utf8")
+    const events = readFileSync(join(tmp, ".orchestra/metrics/events.jsonl"), "utf8")
       .split("\n").filter(Boolean).map(l => JSON.parse(l));
     check(events.length === cases.length, `${cases.length} events emitted (got ${events.length})`);
     for (let i = 0; i < cases.length; i++) {
@@ -349,7 +349,7 @@ console.log("metrics-collector manifest + redaction:");
       hook_event_name: "PreToolUse", tool_name: "Task",
       tool_input: { subagent_type: "orchestra:lead", name: "@lead", prompt: "build me a tiny URL shortener" },
     });
-    const manifestPath = join(tmp, ".claude/.orchestra/metrics/manifest.json");
+    const manifestPath = join(tmp, ".orchestra/metrics/manifest.json");
     check(existsSync(manifestPath), `manifest.json auto-created on first emission`);
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     check(manifest.redact_prompts === true, `default redact_prompts is true`);
@@ -357,7 +357,7 @@ console.log("metrics-collector manifest + redaction:");
     check(manifest.schema_version === 1, `schema_version is 1`);
 
     // 4b.2: prompt_summary redacted by default.
-    const events = readFileSync(join(tmp, ".claude/.orchestra/metrics/events.jsonl"), "utf8")
+    const events = readFileSync(join(tmp, ".orchestra/metrics/events.jsonl"), "utf8")
       .split("\n").filter(Boolean).map(l => JSON.parse(l));
     const e = events[0];
     check(/^<redacted, len=\d+>$/.test(e.prompt_summary), `prompt_summary redacted by default (got ${JSON.stringify(e.prompt_summary)})`);
@@ -370,7 +370,7 @@ console.log("metrics-collector manifest + redaction:");
       hook_event_name: "PreToolUse", tool_name: "Task",
       tool_input: { subagent_type: "orchestra:lead", name: "@lead", prompt: "VERBATIM USER TEXT" },
     });
-    const events2 = readFileSync(join(tmp, ".claude/.orchestra/metrics/events.jsonl"), "utf8")
+    const events2 = readFileSync(join(tmp, ".orchestra/metrics/events.jsonl"), "utf8")
       .split("\n").filter(Boolean).map(l => JSON.parse(l));
     const e2 = events2[1];
     check(e2.prompt_summary === "VERBATIM USER TEXT", `prompt_summary visible when redact_prompts:false`);
@@ -388,7 +388,7 @@ console.log("metrics-collector manifest + redaction:");
       hook_event_name: "PreToolUse", tool_name: "Skill",
       tool_input: { skill: "write-contract", args: "user-supplied skill args" },
     });
-    const events3 = readFileSync(join(tmp, ".claude/.orchestra/metrics/events.jsonl"), "utf8")
+    const events3 = readFileSync(join(tmp, ".orchestra/metrics/events.jsonl"), "utf8")
       .split("\n").filter(Boolean).map(l => JSON.parse(l));
     const teamEvent = events3.find(x => x.event === "team.created");
     const skillEvent = events3.find(x => x.event === "skill.invoked");
@@ -449,8 +449,8 @@ console.log("metrics-collector insight extraction:");
     );
     check(r.status === 0, `hook exited 0 (status=${r.status} stderr=${r.stderr})`);
 
-    const insightsPath = join(realProj, ".claude/.orchestra/metrics/insights.jsonl");
-    const tokensPath = join(realProj, ".claude/.orchestra/metrics/tokens.jsonl");
+    const insightsPath = join(realProj, ".orchestra/metrics/insights.jsonl");
+    const tokensPath = join(realProj, ".orchestra/metrics/tokens.jsonl");
     check(existsSync(insightsPath), `insights.jsonl created (tokens.jsonl exists=${existsSync(tokensPath)}; stderr=${r.stderr})`);
     if (!existsSync(insightsPath)) {
       // skip subsequent assertions to avoid noisy crash
@@ -468,7 +468,7 @@ console.log("metrics-collector insight extraction:");
       check(rows[0].char_count === insightBody1.length, `char_count matches body length`);
 
       // Flip capture_insight_text:false and re-trigger; new rows redact text.
-      const manifestPath = join(realProj, ".claude/.orchestra/metrics/manifest.json");
+      const manifestPath = join(realProj, ".orchestra/metrics/manifest.json");
       const m = JSON.parse(readFileSync(manifestPath, "utf8"));
       m.capture_insight_text = false;
       writeFileSync(manifestPath, JSON.stringify(m, null, 2));
@@ -503,13 +503,13 @@ console.log("metrics-collector autonomy_level in run summary:");
       session_id: sid, cwd: tmp,
       hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: {
-        file_path: `${tmp}/.claude/.orchestra/pipeline/001-x/intent.yaml`,
+        file_path: `${tmp}/.orchestra/pipeline/001-x/intent.yaml`,
         content: "feature_id: 001-x\nintent: feature\nconfidence: HIGH\npattern: Pattern A\nautonomy_level: FULL_AUTONOMY\n",
       },
     });
     runHook({ session_id: sid, cwd: tmp, hook_event_name: "Stop" });
 
-    const runPath = join(tmp, ".claude/.orchestra/metrics/runs", `${sid}.json`);
+    const runPath = join(tmp, ".orchestra/metrics/runs", `${sid}.json`);
     check(existsSync(runPath), `runs/${sid}.json created`);
     if (existsSync(runPath)) {
       const summary = JSON.parse(readFileSync(runPath, "utf8"));
@@ -524,12 +524,12 @@ console.log("metrics-collector autonomy_level in run summary:");
       session_id: sid2, cwd: tmp,
       hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: {
-        file_path: `${tmp}/.claude/.orchestra/pipeline/002-y/intent.yaml`,
+        file_path: `${tmp}/.orchestra/pipeline/002-y/intent.yaml`,
         content: "feature_id: 002-y\nintent: docs\nconfidence: HIGH\npattern: Pattern A\n",
       },
     });
     runHook({ session_id: sid2, cwd: tmp, hook_event_name: "Stop" });
-    const runPath2 = join(tmp, ".claude/.orchestra/metrics/runs", `${sid2}.json`);
+    const runPath2 = join(tmp, ".orchestra/metrics/runs", `${sid2}.json`);
     if (existsSync(runPath2)) {
       const summary2 = JSON.parse(readFileSync(runPath2, "utf8"));
       check(summary2.autonomy_level === null, `autonomy_level=null when YAML omits it (got ${summary2.autonomy_level})`);
@@ -558,7 +558,7 @@ console.log("metrics-collector cost_usd persistence:");
     const sid = "cost-1";
     runHook({ session_id: sid, cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "/orchestra build z" });
     runHook({ session_id: sid, cwd: tmp, hook_event_name: "Stop" });
-    const runPath = join(tmp, ".claude/.orchestra/metrics/runs", `${sid}.json`);
+    const runPath = join(tmp, ".orchestra/metrics/runs", `${sid}.json`);
     check(existsSync(runPath), `runs/${sid}.json created`);
     if (existsSync(runPath)) {
       const summary = JSON.parse(readFileSync(runPath, "utf8"));
@@ -581,7 +581,7 @@ console.log("metrics-collector opt-out:");
       { ORCHESTRA_HOOK_METRICS_COLLECTOR: "off" }
     );
     check(r.status === 0, `opt-out: exits 0`);
-    const events = join(tmp, ".claude/.orchestra/metrics/events.jsonl");
+    const events = join(tmp, ".orchestra/metrics/events.jsonl");
     check(!existsSync(events), `opt-out: no events file created`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });

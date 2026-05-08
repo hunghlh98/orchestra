@@ -16,7 +16,7 @@ Invoked by the dispatcher when the user types `/orchestra shutdown`. Signals "I 
 
 1. **Verify active orchestra team in this session.** If the current session did not invoke `/orchestra <intent>` and is not bound to an orchestra team, print `[orchestra] no active orchestra team in this session — shutdown is a no-op` and exit 0. No SUMMARY write.
 
-2. **Resolve `feature_id`** from the dispatcher's own conversation state (the in-flight `/orchestra <intent>` run that started in this session). Fallback if context was compacted: read the latest `intent.yaml` `artifact.written` event for the current `run_id` from `<cwd>/.claude/.orchestra/metrics/events.jsonl` and lift `feature_id`.
+2. **Resolve `feature_id`** from the dispatcher's own conversation state (the in-flight `/orchestra <intent>` run that started in this session). Fallback if context was compacted: read the latest `intent.yaml` `artifact.written` event for the current `run_id` from `<cwd>/.orchestra/metrics/events.jsonl` and lift `feature_id`.
 
 3. Parent `Write(<feature-dir>/SUMMARY-<feature-id>.md, ...)` with `terminal_state: aborted` per the Step 7 frontmatter shape in `commands/orchestra.md`. SUMMARY is parent-authored bookkeeping at terminal state — narrowly carved exception to the Coordination-protocol "no parent artifact writes" rule, because no agent is in scope after teardown begins.
 

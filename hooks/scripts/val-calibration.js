@@ -2,8 +2,7 @@
 // hooks/scripts/val-calibration.js
 // Rewriter hook: when @evaluator is spawned via Task, prepend the
 // calibration anchor block to the prompt. Graceful no-op if the
-// calibration source file is missing (it ships in PR #5).
-// See DESIGN-001-infra §3.5.
+// calibration source file is missing.
 
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";

@@ -62,7 +62,7 @@ runbook_required: true | false      # true when topology changed
 
 For RUNBOOK: `type: RUNBOOK` plus `topology_change_summary:`, `deploy_steps_count:`, `rollback_steps_count:`. No separate ANNOUNCEMENT artifact in v2.0+ — the public-facing announcement lives in RELEASE `S-ANNOUNCEMENT-001`; `validate.js`'s fold-correctness mode rejects a RELEASE missing it.
 
-CHANGELOG.md and commit messages do NOT carry orchestra frontmatter — they're outside `<project>/.claude/.orchestra/`, so `validate-drift` doesn't walk them and `hash-stamper` doesn't fire on them.
+CHANGELOG.md and commit messages do NOT carry orchestra frontmatter — they're outside `<project>/.orchestra/`, so `validate-drift` doesn't walk them and `hash-stamper` doesn't fire on them.
 
 ## Workflow
 

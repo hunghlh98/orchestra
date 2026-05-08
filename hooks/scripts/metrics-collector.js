@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 // hooks/scripts/metrics-collector.js
 // Observer hook (multi-event): appends one JSONL line per hook trigger to
-// <cwd>/.claude/.orchestra/metrics/events.jsonl. Rotates at 50MB
+// <cwd>/.orchestra/metrics/events.jsonl. Rotates at 50MB
 // (configurable via ORCHESTRA_METRICS_ROTATE_BYTES for tests).
 // Subscribed events: UserPromptSubmit, PreToolUse(Task),
 // PreToolUse(mcp__orchestra-*), PreToolUse(Write|Edit|MultiEdit),
 // SubagentStop, Stop.
-// See DESIGN-001-infra §3.6 / PRD §9.9.
 //
 // PreToolUse(Write|Edit|MultiEdit) is filtered to local.yaml writes only —
-// when something writes <cwd>/.claude/.orchestra/local.yaml, this hook parses
-// the proposed YAML content and emits `local.bootstrapped`. Per the PRD §9.9
-// hook-only invariant: events.jsonl is hook territory; the bootstrap script
+// when something writes <cwd>/.orchestra/local.yaml, this hook parses
+// the proposed YAML content and emits `local.bootstrapped`. events.jsonl
+// is hook territory: the bootstrap script
 // computes the YAML, the dispatcher uses Claude Code's Write tool to put it
 // in place, and this hook observes-and-emits. Agents do NOT emit events.
 
@@ -43,7 +42,7 @@ async function main() {
     const event = classify(input);
     if (event) {
       const cwd = input.cwd || process.cwd();
-      const dir = join(cwd, ".claude/.orchestra/metrics");
+      const dir = join(cwd, ".orchestra/metrics");
       const path = join(dir, "events.jsonl");
       try {
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -161,7 +160,7 @@ function classify(input) {
   if (hookEvent === "PreToolUse" && (toolName === "Write" || toolName === "Edit" || toolName === "MultiEdit")) {
     const filePath = input?.tool_input?.file_path || "";
     if (typeof filePath !== "string") return null;
-    if (filePath.endsWith("/.claude/.orchestra/local.yaml")) {
+    if (filePath.endsWith("/.orchestra/local.yaml")) {
       const fields = extractBootstrapFields(input?.tool_input);
       return {
         ts, event: "local.bootstrapped", run_id,
@@ -172,10 +171,10 @@ function classify(input) {
       };
     }
     // Pipeline-artifact observability: any write under
-    // <cwd>/.claude/.orchestra/pipeline/<feature-id>/<file> emits an
+    // <cwd>/.orchestra/pipeline/<feature-id>/<file> emits an
     // `artifact.written` event so events.jsonl alone reconstructs the artifact
     // tree without needing Claude Code's session jsonl.
-    const pipelineMatch = filePath.match(/\/\.claude\/\.orchestra\/pipeline\/([^/]+)\/([^/]+)$/);
+    const pipelineMatch = filePath.match(/\/\.orchestra\/pipeline\/([^/]+)\/([^/]+)$/);
     if (pipelineMatch) {
       const fileName = pipelineMatch[2];
       const artifactType = inferArtifactType(fileName);
@@ -339,7 +338,7 @@ function inferArtifactType(fileName) {
 // === Token emission on SubagentStop ===
 // On SubagentStop, find the just-stopped subagent's session jsonl in
 // ~/.claude/projects/<encoded-cwd>/, sum its tokens, and append one row to
-// <cwd>/.claude/.orchestra/metrics/tokens.jsonl. Heuristic: the most recently
+// <cwd>/.orchestra/metrics/tokens.jsonl. Heuristic: the most recently
 // modified jsonl that is NOT the parent's session_id is the one that stopped.
 // Orchestra's filesystem-coupled handoff means subagents don't run concurrently
 // per parent run, so the heuristic is reliable in practice.
@@ -391,7 +390,7 @@ function emitSubagentTokens(input, sub) {
     usd: computeUsd(tokens),
   };
 
-  const dir = join(cwd, ".claude/.orchestra/metrics");
+  const dir = join(cwd, ".orchestra/metrics");
   const path = join(dir, "tokens.jsonl");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   appendFileSync(path, JSON.stringify(row) + "\n");
@@ -461,7 +460,7 @@ function emitRunSummary(input) {
   const sessionId = input.session_id || "";
   if (!sessionId) return;
 
-  const metricsDir = join(cwd, ".claude/.orchestra/metrics");
+  const metricsDir = join(cwd, ".orchestra/metrics");
   const eventsPath = join(metricsDir, "events.jsonl");
   if (!existsSync(eventsPath)) return;
 
@@ -662,7 +661,7 @@ function emitInsightsForSession(input, sessionPath, sessionId, role) {
   if (!existsSync(sessionPath)) return 0;
   const cwd = input.cwd || process.cwd();
   const runId = input.session_id || "";
-  const metricsDir = join(cwd, ".claude/.orchestra/metrics");
+  const metricsDir = join(cwd, ".orchestra/metrics");
   if (!existsSync(metricsDir)) mkdirSync(metricsDir, { recursive: true });
   const manifest = ensureManifest(metricsDir);
 

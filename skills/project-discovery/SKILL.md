@@ -10,7 +10,7 @@ Returns a structured snapshot of the working directory's shape: `{ has_source, p
 
 ## When to use
 
-- `/orchestra` is invoked and there's no `.claude/.orchestra/local.yaml` yet (greenfield/brownfield bootstrap).
+- `/orchestra` is invoked and there's no `.orchestra/local.yaml` yet (greenfield/brownfield bootstrap).
 - `@product` or `@lead` needs to size a refactor and hasn't read the source tree yet.
 - `@reviewer` needs to know which language ruleset (`rules/<lang>/`) to load.
 - Any agent is about to invoke a language-specific skill (e.g., `java-source-intel`) and needs to confirm Java is the primary stack.
@@ -84,7 +84,7 @@ Greenfield → `@product` + `@lead` Pattern B negotiation. Brownfield → sectio
 
 ## Output shape
 
-Write to (or update) `<project>/.claude/.orchestra/local.yaml`:
+Write to (or update) `<project>/.orchestra/local.yaml`:
 
 ```yaml
 discovery:
