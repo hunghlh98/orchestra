@@ -85,17 +85,6 @@ const TYPE_SPEC = {
     ],
     ext: "md",
   },
-  CONTRACT: {
-    classification: "feature-scoped",
-    folder: "interfaces",
-    template: "CONTRACT.template.md",
-    anchors: ["S-INTERFACE-001", "S-SERVICE-CONTRACT-001", "S-SCORING-001", "S-CRITERIA-001"],
-    diagrams: [
-      // service-contract is universal; sequence-per-critical-criterion is added by the agent.
-      { kind: "service-contract", source: "diagrams/contract-service.puml", rendered: "diagrams/contract-service.svg" },
-    ],
-    ext: "md",
-  },
   API: {
     classification: "feature-scoped",
     folder: "interfaces",
@@ -117,14 +106,6 @@ const TYPE_SPEC = {
     folder: "planning",
     template: "PLAN.template.md",
     anchors: ["S-PROBLEM-001", "S-OPTIONS-001", "S-TRADEOFFS-001", "S-RECOMMENDATION-001", "S-OPEN-001"],
-    diagrams: [],
-    ext: "md",
-  },
-  TEST: {
-    classification: "feature-scoped",
-    folder: "verify",
-    template: "TEST.template.md",
-    anchors: ["S-COVERAGE-001"],
     diagrams: [],
     ext: "md",
   },

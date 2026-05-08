@@ -281,6 +281,9 @@ sections:
   S-TEST-PLAN-001:
     writer: "@test"
     status: locked
+  S-TEST-RESULTS-001:
+    writer: "@test"
+    status: pending
   S-VERDICT-EVAL-001:
     writer: "@evaluator"
     status: in_progress
@@ -295,7 +298,7 @@ sections:
     status: pending
 ```
 
-`@test` Stage-1 writes `S-TEST-PLAN-001` (spec-bound — sources allowlist excludes `src/**`). `@evaluator` writes `S-VERDICT-EVAL-*`. `@reviewer` writes `S-VERDICT-REVIEW-*` and `S-ADR-REVIEW-001` (replaces ADR-review's separate artifact). `/orchestra ship` writes `S-SHIP-001`. `validate.js` rejects a `locked` TSR missing any of `S-TEST-PLAN-001`, `S-VERDICT-EVAL-001`, `S-VERDICT-REVIEW-001`.
+`@test` Stage-1 writes `S-TEST-PLAN-001` (spec-bound — sources allowlist excludes `src/**`). `@test` Stage-2 writes `S-TEST-RESULTS-001` (impl-aware — runs the suite and records per-test PASS/FAIL with evidence pointers; supersedes v3's `@evaluator`-runs-tests model). `@evaluator` writes `S-VERDICT-EVAL-*` (inspection-only over PRD/FRS/openapi/TSR test sections; no Bash). `@reviewer` writes `S-VERDICT-REVIEW-*` and `S-ADR-REVIEW-001` (replaces ADR-review's separate artifact). `/orchestra ship` writes `S-SHIP-001`. `validate.js` rejects a `locked` TSR missing any of `S-TEST-PLAN-001`, `S-TEST-RESULTS-001`, `S-VERDICT-EVAL-001`, `S-VERDICT-REVIEW-001`.
 
 ### SAD.md (project singleton)
 

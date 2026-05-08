@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 // scripts/test-bash-strip.js
-// Implementer-tier Bash strip enforcement per DESIGN-002-leaves §2.3 (PR #6).
+// Implementer-tier Bash strip enforcement.
 // Hard-coded set: agents named in IMPLEMENTER_AGENTS MUST NOT have `Bash`
 // in their `tools` array. Mutation test verifies the validator fails red
-// when a T-C agent gains Bash.
+// when an implementer gains Bash.
 //
-// Why hard-coded names: v1.0.0 ships exactly 3 implementer-tier agents.
-// A name-based check is structurally simple and catches every regression
-// in CI. v1.1+ may switch to a `tier:` frontmatter field (PRD §10.1
-// amendment) and have this validator read tier from frontmatter instead.
+// v4.0: @test moved from T-C (no Bash) to T-D (Bash + Edit/MultiEdit) so
+// Stage-2 can execute the test suite. @backend and @frontend remain
+// strip-bashed — their authority stops at the source diff.
 
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -18,7 +17,7 @@ import { parseAgentFrontmatter } from "./test-agents.js";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const agentsDir = resolve(root, "agents");
 
-const IMPLEMENTER_AGENTS = new Set(["backend", "frontend", "test"]);
+const IMPLEMENTER_AGENTS = new Set(["backend", "frontend"]);
 
 let passes = 0;
 let failures = 0;

@@ -51,10 +51,8 @@ const EXPECTED_ANCHORS = {
   FRS: ["S-FRS-001", "S-ACCEPTANCE-001", "S-ERRORS-001", "S-USECASE-001"],
   SAD: ["S-VISION-001", "S-CONTEXT-001", "S-CONTAINERS-001", "S-ADR-INDEX-001"],
   TDD: ["S-COMPONENTS-001", "S-SEQUENCE-001", "S-DATA-MODEL-001", "S-STATE-001", "S-ERROR-HANDLING-001", "S-CONFIG-001", "S-RISKS-001"],
-  CONTRACT: ["S-INTERFACE-001", "S-SERVICE-CONTRACT-001", "S-SCORING-001", "S-CRITERIA-001"],
   TASKS: ["S-DAG-001", "S-TASKS-001"],
   PLAN: ["S-PROBLEM-001", "S-OPTIONS-001", "S-TRADEOFFS-001", "S-RECOMMENDATION-001", "S-OPEN-001"],
-  TEST: ["S-COVERAGE-001"],
   TSR: ["S-EVAL-VERDICT-001", "S-EVAL-TABLE-001", "S-REV-VERDICT-001", "S-REV-FINDINGS-001", "S-SHIP-001"],
   RELEASE: ["S-WHATSNEW-001", "S-ENDPOINTS-001", "S-CONFIG-001", "S-BREAKING-001", "S-GATES-001", "S-KNOWN-001", "S-ANNOUNCEMENT-001"],
   RUNBOOK: ["S-OVERVIEW-001", "S-LIFECYCLE-001", "S-DEPLOY-001", "S-ROLLBACK-001", "S-HEALTH-001", "S-FAILURE-001", "S-LOGS-001", "S-ENVVARS-001"],
@@ -66,10 +64,8 @@ const EXPECTED_DIAGRAM_KINDS = {
   FRS: ["usecase"],
   SAD: ["c4-context", "c4-container"],
   TDD: ["c4-component", "sequence", "er", "state"],
-  CONTRACT: ["service-contract"],
   TASKS: ["dag"],
   PLAN: [],
-  TEST: [],
   TSR: [],
   RELEASE: [],
   RUNBOOK: ["deploy", "rollback"],
@@ -102,7 +98,7 @@ withTmp("m1", (tmp) => {
 
 // ---------- M2: every type scaffolds with correct anchors + diagram counts ----------
 console.log("M2 every-type anchor + diagram parity:");
-const FEATURE_TYPES = ["PRD", "FRS", "TDD", "CONTRACT", "TASKS", "PLAN", "TEST", "TSR"];
+const FEATURE_TYPES = ["PRD", "FRS", "TDD", "TASKS", "PLAN", "TSR"];
 for (const TYPE of FEATURE_TYPES) {
   withTmp(`m2-${TYPE}`, (tmp) => {
     const r = runScaffold([TYPE, "001-foo", "foo"], tmp);
@@ -132,11 +128,11 @@ for (const TYPE of FEATURE_TYPES) {
 function typeFolder(type) {
   return ({
     PRD: "requirements", FRS: "requirements",
-    CONTRACT: "interfaces", API: "interfaces",
+    API: "interfaces",
     TDD: "design",
     TASKS: "plan",
     PLAN: "planning",
-    TEST: "verify", TSR: "verify",
+    TSR: "verify",
     CHARTER: "charter",
   })[type];
 }
@@ -267,7 +263,7 @@ withTmp("m8", (tmp) => {
 // ---------- M9: anchor parity (lockfile.sections keys === body anchors) ----------
 console.log("M9 anchor parity:");
 withTmp("m9", (tmp) => {
-  for (const TYPE of ["PRD", "FRS", "TDD", "CONTRACT", "TASKS", "PLAN", "TEST", "TSR"]) {
+  for (const TYPE of ["PRD", "FRS", "TDD", "TASKS", "PLAN", "TSR"]) {
     runScaffold([TYPE, "001-foo", "foo"], tmp);
     const artifactPath = join(tmp, `.claude/.orchestra/pipeline/001-foo/${typeFolder(TYPE)}/001-${TYPE}.md`);
     const lockPath = artifactPath.replace(/\.md$/, ".lock.yaml");

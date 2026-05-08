@@ -13,14 +13,20 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const agentsDir = resolve(root, "agents");
 
 const VALID_NAMES = new Set([
-  "product", "lead", "backend", "frontend", "test", "evaluator", "reviewer", "ship",
+  "product", "architect", "lead", "backend", "frontend", "test", "evaluator", "reviewer", "ship",
 ]);
 
-// Three valid tools-tier sets per DESIGN-002 §2.1. Sorted for stable comparison.
+// Four valid tools-tier sets. Sorted for stable comparison.
+//   T-A  read-only with Bash for static analysis (@reviewer).
+//   T-B  read-only inspection / artifact author (@product, @architect, @lead, @evaluator).
+//   T-C  implementer (@backend, @frontend) — Bash forbidden by test-bash-strip.
+//   T-D  implementer + Bash — v4.0 hybrid for @test Stage-2 suite execution
+//        (Stage-1 src/ block enforced at spawn-time, not in static frontmatter).
 const TIER_TOOLS = {
   "T-A": ["Bash", "Glob", "Grep", "Read", "Write"].sort(),
   "T-B": ["Glob", "Grep", "Read", "Write"].sort(),
   "T-C": ["Edit", "Glob", "Grep", "MultiEdit", "Read", "Write"].sort(),
+  "T-D": ["Bash", "Edit", "Glob", "Grep", "MultiEdit", "Read", "Write"].sort(),
 };
 
 const REQUIRED_KEYS = ["name", "description", "tools", "model", "context_mode", "color"];

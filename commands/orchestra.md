@@ -205,13 +205,14 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
 4. **openapi locked → fan-out.** @lead spawns @backend ‖ @frontend ‖ @test (Stage-1) in a single Agent-tool-call message. Each spawn carries a scoped Read allowlist: @test Stage-1 excludes `<consumer>/src/**`.
 5. **Converge.** @backend writes server code + unit tests under `<consumer>/src/main/**` and `<consumer>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR test-plan section + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
 6. **TSR multi-writer.** `docs/<feature-id>/TSR-<NNN>.md` accretes per-writer sections enforced by `pre-write-check.js` Gate-B (per-section locks):
-   - `S-TEST-PLAN-001` — @test Stage-1
-   - `S-VERDICT-EVAL-001` — @evaluator (empirical: test outputs, FRS-rule satisfaction)
-   - `S-VERDICT-REVIEW-001` — @reviewer (inspection: code review, ADR review)
+   - `S-TEST-PLAN-001` — @test Stage-1 (spec-bound; src/ blocked)
+   - `S-TEST-RESULTS-001` — @test Stage-2 (impl-aware; runs the suite, records per-test PASS/FAIL)
+   - `S-VERDICT-EVAL-001` — @evaluator (inspection over PRD/FRS/openapi/TSR test sections; no Bash)
+   - `S-VERDICT-REVIEW-001` — @reviewer (code review)
    - `S-ADR-REVIEW-001` — @reviewer (when ADRs touched)
    - `S-SHIP-001` — `/orchestra ship` subcommand
 
-   @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR test-plan section); `<consumer>/src/**` is blocked. Empirical-vs-inspection split preserves the rationale for both verifier roles.
+   @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR test-plan + test-results sections); `<consumer>/src/**` is blocked. @test Stage-2 owns suite execution; @evaluator becomes pure inspection (no Bash) and grades the PASS/FAIL evidence Stage-2 records.
 7. **Terminal state.** After every parent `Read` in steps 5–6, evaluate:
    - `RELEASE-vX.Y.Z.md` written → `terminal_state = "success"` (only via `/orchestra ship`)
    - `DEADLOCK-*.md` → `terminal_state = "deadlock"`
