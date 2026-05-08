@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-probe.js
+// scripts/tests/probe.test.js
 // MCP probe contract tests: http_probe round-trip, db_state SELECT-only +
 // secret redaction + timeout + row_cap. orchestra-fs treeImpl path-escape +
 // stdlib walker.
@@ -11,10 +11,10 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-import { httpProbeImpl, dbStateImpl, redact } from "../scripts/mcp-servers/orchestra-probe.js";
-import { treeImpl } from "../scripts/mcp-servers/orchestra-fs.js";
+import { httpProbeImpl, dbStateImpl, redact } from "../mcp-servers/orchestra-probe.js";
+import { treeImpl } from "../mcp-servers/orchestra-fs.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 let passes = 0, failures = 0;
 
 function check(cond, msg) {

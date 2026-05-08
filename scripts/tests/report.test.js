@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-report.js
+// scripts/tests/report.test.js
 // Stream 7 reporter smoke test: synthesize events.jsonl + tokens.jsonl +
 // runs/<id>.json, run orchestra-report.js against them, assert output files.
 
@@ -9,7 +9,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const reporter = resolve(root, "scripts/orchestra-report.js");
 let passes = 0, failures = 0;
 

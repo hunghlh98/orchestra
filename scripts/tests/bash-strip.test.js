@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-bash-strip.js
+// scripts/tests/bash-strip.test.js
 // Implementer-tier Bash strip enforcement.
 // Hard-coded set: agents named in IMPLEMENTER_AGENTS MUST NOT have `Bash`
 // in their `tools` array. Mutation test verifies the validator fails red
@@ -12,9 +12,9 @@
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseAgentFrontmatter } from "./test-agents.js";
+import { parseAgentFrontmatter } from "./agents.test.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const agentsDir = resolve(root, "agents");
 
 const IMPLEMENTER_AGENTS = new Set(["backend", "frontend"]);

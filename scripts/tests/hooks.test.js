@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-hooks.js
+// scripts/tests/hooks.test.js
 // Hook contract tests for v4.0:
 //   - yaml-mini round-trip (frontmatter parser, formerly lockfile parser)
 //   - pre-write-check.js: secrets matcher + 4 new gates
@@ -17,9 +17,9 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { parse, serialize } from "../hooks/lib/yaml-mini.js";
+import { parse, serialize } from "../../hooks/lib/yaml-mini.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 let failures = 0;
 let passes = 0;
 

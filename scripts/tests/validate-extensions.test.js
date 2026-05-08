@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-validate-extensions.js
+// scripts/tests/validate-extensions.test.js
 // Mutation suite for the v4.0 pipeline-artifact validators in validate.js.
 // v3.x's lockfile-paired predicates (validateLockfilePresence,
 // validateLockfileGrammar, validateDiagramHashes, lockfilePathFor) are
@@ -26,7 +26,7 @@ import {
   validateOrphanTypes,
   validateFoldCorrectness,
   validateSoftCap,
-} from "./validate.js";
+} from "../validate.js";
 
 let failures = 0;
 let passes = 0;

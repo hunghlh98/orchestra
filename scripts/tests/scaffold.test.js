@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-scaffold.js
+// scripts/tests/scaffold.test.js
 // Mutation suite for scripts/scaffold-artifact.js.
 // Covers: each type scaffolds with correct anchors + lockfile + diagrams[];
 // idempotency (refuse on existing); --force overrides; ADR auto-numbering;
@@ -13,9 +13,9 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { parse } from "../hooks/lib/yaml-mini.js";
+import { parse } from "../../hooks/lib/yaml-mini.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const SCAFFOLD = resolve(root, "scripts/scaffold-artifact.js");
 let failures = 0;
 let passes = 0;

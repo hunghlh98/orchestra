@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-bootstrap.js
+// scripts/tests/bootstrap.test.js
 // Contract tests for bootstrap-local.js: classification matrix + render shape.
 // Imports the module's exports directly (no subprocess) so we can assert on
 // the structured `decision` object instead of parsing JSON stdout.
@@ -10,7 +10,7 @@ import { join, resolve, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const mod = await import(join(root, "scripts/bootstrap-local.js"));
 const { inspect, classify, render } = mod;
 

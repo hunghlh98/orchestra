@@ -14,13 +14,12 @@ This repo has two surface classes. They look similar (both are markdown / JS in 
 - `README.md`, `CHANGELOG.md` (visible in install but informational)
 
 ### Developer surface — exists only in this repo, never ships
-- `docs/PRD-001.md`, `docs/DESIGN-001-infra.md`, `docs/DESIGN-002-leaves.md`
-- `docs/WORKFLOW-001-infra.md`, `docs/WORKFLOW-002-leaves.md`
-- `docs/optimization-pr-gamma-plan.md`
-- `docs/aggregated-metrics.html`
-- `scripts/test-*.js`, `scripts/validate.js`, `scripts/bootstrap-local.js` (build/CI tooling)
+- `docs/v4.0-brief.md`, `docs/v4.0-design.md` (current major-version planning)
+- `docs/BACKLOG.md`, `docs/HOOKS.md`, `docs/sdlc_knowledge.md` (living dev references)
+- `scripts/test-*.js`, `scripts/validate.js`, `scripts/orchestra-report.js`, `scripts/bootstrap-local.js`, `scripts/bump-version.js` (build/CI tooling)
+- `manifests/install-modules.json`, `manifests/runtime-toggles.json`, `manifests/known-models.json` (CI-validated registries; not loaded by Claude Code at runtime)
 
-A consumer who installs orchestra has **no `docs/` folder, no PRD-001.md, no DESIGN-NNN docs**. They have only the consumer surface.
+A consumer who installs orchestra has **no `docs/` folder, no `manifests/` folder, no `scripts/` folder**. They have only the consumer surface.
 
 ## The rule
 
@@ -28,7 +27,7 @@ A consumer who installs orchestra has **no `docs/` folder, no PRD-001.md, no DES
 
 ### Forbidden in `agents/`, `commands/`, `skills/`
 
-- `per PRD §8.11`, `(PRD §9.5)`, `per DESIGN-002 §10`, `per WORKFLOW-001 §3`, `per S-AUTONOMY-001`
+- `per v4.0-brief §6`, `(v4.0-design §7.16)`, `per S-AUTONOMY-001`, or any `§X.Y` pointer into a `docs/` file.
 - Anything that points the reader at `docs/<file>.md` they don't have.
 
 ### Allowed in `agents/`, `commands/`, `skills/`
@@ -48,13 +47,13 @@ A consumer who installs orchestra has **no `docs/` folder, no PRD-001.md, no DES
 
 The fix shape is **inline the rule, drop the cite**. Most leaky lines already state the rule next to the cite; the parenthetical is removable surgery.
 
-- ❌ `Confidence-tier the dialogue per PRD §8.11: HIGH = no questions, MEDIUM = 1, LOW = 2–3.`
+- ❌ `Confidence-tier the dialogue per v4.0-brief §7.4: HIGH = no questions, MEDIUM = 1, LOW = 2–3.`
 - ✅ `Confidence-tier the dialogue: HIGH = no questions, MEDIUM = 1, LOW = 2–3.`
 
-- ❌ `## Routing-taxonomy guard (PRD §9.5)`
+- ❌ `## Routing-taxonomy guard (v4.0-brief §7.5)`
 - ✅ `## Routing-taxonomy guard`
 
-- ❌ `Spawn agents per PRD §9.5 routing taxonomy.`
+- ❌ `Spawn agents per v4.0-design §3 routing taxonomy.`
 - ✅ `Spawn agents per the routing taxonomy below.` (when the table is in the same file)
 
 If the rule isn't already inline next to the cite, copy the relevant 1–3 sentences from `docs/<file>.md` into the consumer artifact, then drop the cite.
@@ -65,7 +64,7 @@ When lifting prose from `docs/v4.0-brief.md` (or any dev-surface draft) into `ag
 
 ## Where dev-trace cites SHOULD go
 
-The PRD/DESIGN/WORKFLOW anchors are valuable — just not in shipped artifacts. Cite freely in:
+The v4.0-brief / v4.0-design anchors (and any successor major-version planning docs) are valuable — just not in shipped artifacts. Cite freely in:
 
 - `CHANGELOG.md` entries
 - Commit messages and PR descriptions
@@ -77,7 +76,7 @@ These all have audiences who DO have access to `docs/`.
 
 ## Hook script comments — lower priority
 
-Code comments at the top of `hooks/scripts/*.js` and `hooks/lib/*.js` referencing PRD/DESIGN sections (e.g., `// See DESIGN-001-infra §3.2 / PRD §9.9.`) are read by **plugin maintainers reading source**, not by Claude at runtime. They're defensible as developer-trace inside source comments, similar to RFC references in library source. Trim if pursuing zero-leak; otherwise leave.
+Code comments at the top of `hooks/scripts/*.js` and `hooks/lib/*.js` referencing dev-design sections (e.g., `// See v4.0-design §3.2`) are read by **plugin maintainers reading source**, not by Claude at runtime. They're defensible as developer-trace inside source comments, similar to RFC references in library source. Trim if pursuing zero-leak; otherwise leave.
 
 ## Update discipline — no annotation creep
 

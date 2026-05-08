@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-metrics.js
+// scripts/tests/metrics.test.js
 // metrics-collector contract tests: append safety + rotation behavior.
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, statSync, realpathSync, utimesSync } from "node:fs";
@@ -7,9 +7,9 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { computeUsd, RATES_USD_PER_MTOK } from "../hooks/lib/rate-card.js";
+import { computeUsd, RATES_USD_PER_MTOK } from "../../hooks/lib/rate-card.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const collector = resolve(root, "hooks/scripts/metrics-collector.js");
 let passes = 0, failures = 0;
 

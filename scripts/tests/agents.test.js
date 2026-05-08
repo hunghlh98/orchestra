@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/test-agents.js
+// scripts/tests/agents.test.js
 // Full agent-frontmatter validation per DESIGN-002-leaves §2.3 (PR #6).
 // 7 checks: frontmatter shape, name in valid set, description ≤30 words,
 // tools tier match, model id known, context_mode supported, ≥1 <example>.
@@ -9,7 +9,7 @@ import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const agentsDir = resolve(root, "agents");
 
 const VALID_NAMES = new Set([
