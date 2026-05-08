@@ -1,30 +1,40 @@
 ---
 name: orchestra
-description: Multi-agent SDLC pipeline behind one entry point. Routes natural language to TeamCreate → @product + @lead classification, or dispatches sprint/release/commit/help subcommands.
+description: v4.0 multi-agent SDLC pipeline. Mode-detect → chain-rigor election → spec-to-code chain (PRD/FRS/SAD/ADR/TDD/openapi/code/TSR). Subcommands ship | report | resume.
 argument-hint: <subcommand|natural language>
 ---
 
-# /orchestra dispatcher
+# /orchestra dispatcher (v4.0)
 
-Multi-agent SDLC pipeline. One entry surface; subcommands branch internally.
+One entry surface for the spec-to-code chain. Mode-detect (greenfield vs
+brownfield) and chain-rigor (Full / Standard / Light) elect which layers
+fire; subcommands handle out-of-band release / observability / resume work.
 
 ## Invariants
 
-The 5 hooks (see "Runtime hooks" table below) own their events and side effects. Do not write to `<cwd>/.orchestra/metrics/events.jsonl` directly, hash artifact frontmatter manually, or replicate any hook's work — every "do not do this manually" you might infer reduces to this one rule.
+The 4 runtime hooks (see "Runtime hooks" table below) own their events and
+side effects. Do not write to `<cwd>/.orchestra/metrics/events.jsonl`
+directly, hash artifact frontmatter manually, or replicate any hook's
+work. The hash-stamper / lockfile model from v3 is gone — provenance and
+review state live in artifact frontmatter (`status`, `verdict`, `readers`,
+`sections`); drift detection is `git diff` in CI.
 
 ## Status output
 
-Two model-emitted channels (NOT hook output): single-line status updates at filesystem-coupled transitions, and multi-line banners on exception artifacts. No ANSI, no emoji.
+Two model-emitted channels (NOT hook output): single-line status updates
+at filesystem-coupled transitions, and multi-line banners on exception
+artifacts. No ANSI, no emoji.
 
 | Event | Format |
 |---|---|
 | Before `Agent({ subagent_type: "<role>" })` | `[orchestra] spawn @<role> → <artifact-target>` |
 | After parent `Read(<path>)` returns | `[orchestra] read  @<role> wrote <filename>` |
-| Before `AskUserQuestion` pause | `[orchestra] pause PAUSE-<N>: <one-line question>` |
-| Terminal state (Step 7) | `[orchestra] shutdown <terminal_state> feature=<feature-id> duration=<Ns>` |
-| Cost banner (Step 7, opt-in via `ORCHESTRA_METRICS_COST_BANNER=on`) | `[orchestra] [cost] <tokens-K> / $<usd> (subagents only; full total in metrics/runs/<id>.json after Stop hook fires)` |
+| Before `AskUserQuestion` pause | `[orchestra] pause: <one-line question>` |
+| Terminal state | `[orchestra] shutdown <terminal_state> feature=<feature-id> duration=<Ns>` |
+| Cost banner (opt-in via `ORCHESTRA_METRICS_COST_BANNER=on`) | `[orchestra] [cost] <tokens-K> / $<usd> (subagents only; full total in metrics/runs/<id>.json after Stop hook)` |
 
-Banner template — fires after parent `Read` returns an artifact whose basename matches `DEADLOCK-*.md`, `ESCALATE-*.md`, or `ESCALATE-ARCH-*.md` (at every autonomy level):
+Banner template — fires after parent `Read` returns an artifact whose
+basename matches `DEADLOCK-*.md`, `ESCALATE-*.md`, or `ESCALATE-ADR-*.md`:
 
 ```
 ============================================================
@@ -35,231 +45,289 @@ Banner template — fires after parent `Read` returns an artifact whose basename
 ============================================================
 ```
 
-The `metrics-collector` hook captures structurally-equivalent events for replay; status lines + banners are the user's live signal.
+`metrics-collector` captures structurally-equivalent events for replay;
+status lines + banners are the user's live signal.
 
 ## Parse arguments
 
 Look at the first whitespace-separated token of `$ARGUMENTS`:
 
-- `sprint`   → run **/orchestra sprint** flow (with optional `--size N`)
-- `release`  → run **/orchestra release** flow
-- `commit`   → run **/orchestra commit** flow (no team; uses `commit-work` skill directly)
-- `resume`   → run **/orchestra resume** flow (with optional `<feature-id>` argument)
-- `shutdown` → run **/orchestra shutdown** flow (in-session teardown)
+- `ship`     → run **/orchestra ship** (release authoring; gate-verified)
+- `report`   → run **/orchestra report** (observability — Gantt + cost pivots)
+- `resume`   → run **/orchestra resume** [<feature-id>] (resume interrupted feature)
 - `help`     → print usage block (defined below)
-- otherwise  → run **/orchestra <natural language>** smart router
+- otherwise  → run the **smart router** (decision tree → spawn @lead)
 
-## /orchestra <natural language> (smart router)
+## Decision tree (entry flow)
 
-Default path. Spawn the 8-agent team and route per intent.
+Bare `/orchestra` (no subcommand) — script-first detection, then
+`AskUserQuestion` only when the answer cannot be inferred. Cache locked
+decisions to `<cwd>/.orchestra/local.yaml` so re-runs don't re-prompt.
 
-### Coordination protocol (read this before the steps)
+```
+/orchestra <intent>
+  │
+  ├─ load <cwd>/.orchestra/local.yaml (if present, lift cached answers)
+  │
+  ├─ Detect mode:
+  │     no <cwd>/src/ AND no package.json/pom.xml/go.mod/Cargo.toml → greenfield
+  │     <cwd>/src/ exists OR build manifest exists                  → brownfield
+  │     ambiguous (e.g., docs/ exists but no source)                → AskUserQuestion (mode)
+  │
+  ├─ If brownfield AND local.yaml.depth missing → AskUserQuestion (depth):
+  │     light  | medium  | full
+  │     (drives reverse-doc artifact-set; see project-discovery skill)
+  │
+  ├─ If local.yaml.chain_rigor missing → AskUserQuestion (chain rigor):
+  │     Full      — all layers (PRD → FRS → SAD → ADR → TDD → openapi → code+tests → TSR)
+  │     Standard  — skip SAD / ADR  (PRD → FRS → TDD → openapi → code+tests → TSR)
+  │     Light     — TDD-only        (TDD → openapi → code+tests → TSR; component-internal change, no spec uplift)
+  │
+  ├─ If greenfield AND local.yaml.primary_language missing → AskUserQuestion (language + framework):
+  │     primary_language: java | kotlin | go | python | typescript | <other>
+  │     framework: <freeform>  (e.g., "spring-boot 3.x", "gin", "fastapi", "express")
+  │
+  ├─ Persist answered fields to <cwd>/.orchestra/local.yaml.
+  │
+  └─ Spawn @lead with locked decisions in prompt:
+       "mode=<mode> rigor=<rigor> primary_language=<lang>"
+       (chain-rigor selects which layers @lead routes through; see "Chain
+        execution" below.)
+```
 
-**The 8 orchestra agents are filesystem-coupled, not message-coupled.** Tier tools sets (T-A: `Bash/Glob/Grep/Read/Write`; T-B: `Glob/Grep/Read/Write`; T-C: `Edit/Glob/Grep/MultiEdit/Read/Write`) deliberately omit `SendMessage` — adding it would break `test-agents.js` tier validation. Spawned agents communicate by writing to designated paths under `<cwd>/.orchestra/`; the parent reads those paths after each idle notification.
+Each ask is **elidable** when its answer is inferable from prompt or repo
+state. Ask only when you can't infer.
+
+### local.yaml schema
+
+```yaml
+mode: greenfield | brownfield
+depth: light | medium | full         # brownfield only
+chain_rigor: Full | Standard | Light
+primary_language: java | kotlin | go | python | typescript | <other>
+framework: <freeform>
+```
+
+`status: locked` MUST be set on `local.yaml` after first answer cache so
+`pre-write-check.js` Gate-A protects it from accidental rewrite. (Gate
+overridable via `ORCHESTRA_HOOK_PRE_WRITE_CHECK=off` if the user wants to
+re-elicit.)
+
+## Coordination protocol
+
+**The 8 orchestra agents (`@product`, `@architect`, `@lead`, `@backend`,
+`@frontend`, `@test`, `@evaluator`, `@reviewer`) are filesystem-coupled,
+not message-coupled.** Tier tools omit `SendMessage` deliberately — agents
+communicate by writing to designated paths under `<cwd>/.orchestra/` (for
+agent-internal coordination) or `<cwd>/docs/` (for stakeholder-readable
+artifacts). The parent reads those paths after each idle notification.
 
 The handoff pattern:
 
 ```
 1. Parent: Agent({ team_name, name, subagent_type, prompt: "Write your output to <designated path>. End your turn." })
-2. Spawned agent runs; writes the file; turn ends; idle notification arrives at parent automatically.
+2. Spawned agent runs; writes the file; turn ends; idle notification.
 3. Parent: Read(<designated path>) to consume the agent's output.
-4. Parent: optionally Agent again (or the same teammate via a follow-up Agent call) for the next stage.
+4. Parent: optionally Agent again for the next stage.
 ```
 
-Do NOT instruct spawned agents to call `SendMessage` (not in any tier). Do NOT poll for messages — idle notification fires automatically when an agent's turn ends. Do NOT write artifacts from the parent context — every pipeline artifact must be authored inside its assigned agent's context per the tier discipline.
+Do NOT instruct spawned agents to call `SendMessage` (not in any tier).
+Do NOT poll for messages — idle notification fires automatically. Do NOT
+write artifacts from the parent context — every chain artifact must be
+authored inside its assigned agent's context per the tier discipline.
+**Carve-out**: parent writes `<cwd>/.orchestra/local.yaml` (decision-tree
+cache) and the terminal closing event (no SUMMARY artifact in v4.0; the
+`events.jsonl` Stop hook captures terminal state).
 
-### Autonomy resolution + pause transitions
+## Chain execution
 
-**Resolved level = `--autonomy=<tag>` in `$ARGUMENTS` > `local.yaml.autonomy.level` > hard-coded `DRAFT_AND_GATE`.** Tags: `EXECUTION_ONLY` | `JOINT_PROCESSING` | `OPTION_SYNTHESIS` | `DRAFT_AND_GATE` | `FULL_AUTONOMY`. Resolve at run start (Step 1); pass into TeamCreate description and `@lead`'s prompt; record in `runs/<run-id>.json.autonomy_level`.
-
-**Pauses fire ONLY when resolved level is `DRAFT_AND_GATE`.** Behavior at other levels: `FULL_AUTONOMY` skips all 4 pauses; `EXECUTION_ONLY` skips confidence classification; `JOINT_PROCESSING` adds per-stage dialogue; `OPTION_SYNTHESIS` halts after option set (v1.0.0 routes through `DRAFT_AND_GATE` PAUSE-1 with an explicit "you'll do the apply step yourself" message).
-
-When you reach a step marked `→ PAUSE-N` below, call `AskUserQuestion` per this table. On user reject → write `DEADLOCK-<id>.md` and halt:
-
-| # | Fires after | Question shape |
-|---|---|---|
-| 1 | Step 3 (intent + autonomy classification) | "intent=`<intent>`, confidence=`<conf>`, pattern=`<A\|B\|C>`, autonomy=`<tag>` — proceed?" Surfaces @lead's auto-classified suggestion if it differs from the resolved default. |
-| 2 | Step 5 (after `@product` writes PRD + FRS) | "Spec captures: `<one-line summary>`. Proceed to architecture/contract?" |
-| 3 | Step 5 (after `@lead` writes CONTRACT) | "Gate is `<criteria summary>`. Kick off implementation?" |
-| 4 | Step 5 (after `@reviewer` fills `S-REV-VERDICT-001` + `S-REV-FINDINGS-001` in TSR) | "Review verdict: `<APPROVED\|REQUEST_CHANGES>` (`<N minor, M blockers>`). Ship?" |
-
-### Model actions (numbered = you must do these)
-
-**Step 1 — Resolve autonomy + create the team.** Resolve per the precedence above; include the tag in TeamCreate's `description` and every spawned agent's prompt. Then `TeamCreate` (container) + `Agent` calls (members joined on demand).
+Once decisions are locked in `local.yaml`, @lead routes through layers
+per the elected chain rigor. Hard-sequential layers feed each other; the
+parallel fan-out happens once `openapi.yaml` is locked.
 
 ```
-TeamCreate({
-  team_name: "orchestra-<run-slug>",          // e.g. "orchestra-001-hello-world"
-  agent_type: "orchestra-coordinator",        // type of the team lead (parent context)
-  description: "Orchestra v1 run for <user-intent-summary>"
-})
+HARD-SEQUENTIAL (lift dependency)
+  PRD ──→ FRS ──→ SAD ──→ TDD ──→ openapi.yaml | asyncapi.yaml
+                  │
+                  └─ ADR-NNNN.md (parallel with TDD when independent of TDD content;
+                     sequential if TDD informs it)
+
+PARALLEL FAN-OUT (gated on openapi locked)
+  openapi ──┬──→ @backend     ──→ server code + unit tests
+            ├──→ @frontend    ──→ UI code + unit tests          (skipped if no UI layer)
+            └──→ @test Stage-1 ──→ TSR test-plan + black-box tests   (SPEC-BOUND; src/ blocked)
+
+CONVERGE
+  All three ──→ @test Stage-2 (impl-aware) + @evaluator + @reviewer
+            ──→ TSR-NNN.md (sections locked)
 ```
 
-Members spawn on demand: `@product` + `@lead` for bootstrap; the rest as the routing taxonomy demands.
+**Chain-rigor presets:**
 
-```
-Agent({
-  team_name: "orchestra-<run-slug>",          // same team
-  name: "@<role>",                            // human-readable id used in TaskUpdate.owner + SendMessage.to
-  subagent_type: "orchestra:<role>",          // matches plugin agent definition
-  prompt: "<task instructions ending with: write to <path>; end your turn>"
-})
-```
+| Layer | Full | Standard | Light |
+|---|---|---|---|
+| PRD | ✓ | ✓ | — |
+| FRS | ✓ | ✓ | — |
+| SAD | ✓ | — | — |
+| ADR | ✓ (when triggered) | — | — |
+| TDD | ✓ | ✓ | ✓ |
+| openapi.yaml | ✓ | ✓ | ✓ |
+| code + tests | ✓ | ✓ | ✓ |
+| TSR | ✓ | ✓ | ✓ |
 
-**Step 2 — Bootstrap if `local.yaml` is absent.** Script-first decision tree; Pattern B fallback only for ambiguous cases.
+@lead reads `local.yaml.chain_rigor` and skips elided layers. Light rigor
+is for component-internal changes that don't shift specs (e.g., refactor,
+internal-only behavior fix); the implementer still produces tests and TSR
+for verification.
 
-```
-2a. result=$(node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap-local.js "<cwd>")
-    Parse: { status, yaml_content, yaml_path, decision.confidence }
-    decision.confidence ∈ { HIGH, MEDIUM, LOW }
+**Stage-1 @test is spec-bound.** Authoring runs in parallel with @backend
+and @frontend. The agent reads only `openapi.yaml`/`asyncapi.yaml`, PRD,
+FRS — `<consumer>/src/**` is blocked at the tool-permission level
+(per-stage Read allowlist; mechanism in `agents/test.md`). If Stage-1
+cannot author tests because openapi is silent, the agent writes
+`<cwd>/.orchestra/pipeline/<id>/DEADLOCK-<id>.md` referencing the missing
+spec element — @lead picks up and re-spawns @architect or self to amend.
 
-2b. status === "exists" → skip to Step 3.
+**Within-agent parallelism (BL-0033).** @backend (and optionally
+@frontend, @test) splits large impl tasks into N parallel sub-runs via
+nested Agent calls when the task graph in `TASKS-NNN.md` has
+parallel-eligible nodes. Prompt-discipline only — no harness change.
 
-2c. confidence === "HIGH" or "MEDIUM" → Write yaml_content at yaml_path.
-    Continue to Step 3.
+## Steps (smart router)
 
-2d. confidence === "LOW" or status === "ambiguous" → Pattern B fallback:
-    i.   Spawn @product (subagent_type: orchestra:product). Prompt: run
-         project-discovery, write draft to
-         .orchestra/pipeline/bootstrap/local.yaml.draft, end turn.
-         (No SendMessage — filesystem-coupled per Coordination protocol above.)
-    ii.  On idle: Read draft. Missing/malformed → re-spawn once.
-         2nd failure → DEADLOCK.
-    iii. Spawn @lead with the draft. Prompt: validate; write
-         lead-verdict.yaml { agree: bool, suggested_revision? }. End turn.
-    iv.  On idle: Read verdict. agree:true → goto vi.
-         agree:false → one revision round only.
-    v.   Spawn @product with suggested_revision; rewrite draft. Treat next
-         draft as final (Pattern B is exactly one round).
-    vi.  Write final yaml_content at yaml_path with bootstrapped_by: listing
-         both agent ids.
-    vii. 3 rejection rounds → DEADLOCK-bootstrap.md, halt.
-```
+1. **Decision tree.** Per "Decision tree" above. Cache to `local.yaml`.
+2. **Spawn @lead.** Pass locked decisions in prompt. If brownfield and depth-elected, @lead first invokes the `project-discovery` skill to reverse-doc to depth.
+3. **@lead routes through layers** per chain-rigor:
+   - **Business** (Full/Standard) — @product writes `docs/<feature-id>/PRD-<NNN>.md` then `docs/<feature-id>/FRS-<NNN>.md`. PRD `S-OPEN-Q-001` flags open questions; FRS lifts and resolves or escalates (BL-0029).
+   - **Architecture** (Full only) — @architect writes `docs/SAD.md` (singleton; first-feature bootstrap) and `docs/adr/ADR-NNNN-<slug>.md` (per ADR trigger). C4 L1+L2 diagrams + Logical ERD + Inter-service Sequence as `.puml` under `docs/diagrams/`.
+   - **Component** (always) — @lead writes `docs/<feature-id>/TDD-<NNN>.md` (C4 L3 + Intra-service Sequence + Technical State if applicable + Physical DB if schema touched).
+   - **Boundary** (always) — @lead writes `docs/<feature-id>/openapi.yaml` (or asyncapi.yaml). CONTRACT narrative folds inline via `description:` fields and top-of-file `# orchestra:` comment block.
+4. **openapi locked → fan-out.** @lead spawns @backend ‖ @frontend ‖ @test (Stage-1) in a single Agent-tool-call message. Each spawn carries a scoped Read allowlist: @test Stage-1 excludes `<consumer>/src/**`.
+5. **Converge.** @backend writes server code + unit tests under `<consumer>/src/main/**` and `<consumer>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR test-plan section + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
+6. **TSR multi-writer.** `docs/<feature-id>/TSR-<NNN>.md` accretes per-writer sections enforced by `pre-write-check.js` Gate-B (per-section locks):
+   - `S-TEST-PLAN-001` — @test Stage-1
+   - `S-VERDICT-EVAL-001` — @evaluator (empirical: test outputs, FRS-rule satisfaction)
+   - `S-VERDICT-REVIEW-001` — @reviewer (inspection: code review, ADR review)
+   - `S-ADR-REVIEW-001` — @reviewer (when ADRs touched)
+   - `S-SHIP-001` — `/orchestra ship` subcommand
 
-**Step 3 — Spawn `@lead` to classify feature intent** per the routing taxonomy (`docs` / `template` / `hotfix` / `feature` / `review-only` / `refactor`). @lead writes its classification to `<cwd>/.orchestra/pipeline/<feature-id>/intent.yaml` with `intent`, `confidence`, `pattern`, plus a suggested `autonomy_level` from the diagnostic in `agents/lead.md`'s `Autonomy classification` section. Parent reads on idle. **→ PAUSE-1** (intent + autonomy confirmation).
+   @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR test-plan section); `<consumer>/src/**` is blocked. Empirical-vs-inspection split preserves the rationale for both verifier roles.
+7. **Terminal state.** After every parent `Read` in steps 5–6, evaluate:
+   - `RELEASE-vX.Y.Z.md` written → `terminal_state = "success"` (only via `/orchestra ship`)
+   - `DEADLOCK-*.md` → `terminal_state = "deadlock"`
+   - `ESCALATE(-ADR)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
+   - otherwise → continue Step 5–6 spawn loop
 
-**Step 4 — Confidence override (optional).** If `--confidence` flag in `$ARGUMENTS`, override @lead's feature-confidence classification before downstream agents read it.
+   On terminal state: emit closing status line. The Stop hook fires `events.jsonl` event with the terminal state and `<run-id>.json.status` ∈ {`completed`, `aborted`, `deadlocked`}. No SUMMARY artifact write — observability is the source of truth (BL-0032).
 
-**Step 4b — `--think` / `--delegate` flag gate.** If `$ARGUMENTS` contains `--think` or `--delegate`, require `intent.intent ∈ {feature, refactor}`. Otherwise emit `[orchestra] warn --think|--delegate ignored on intent=<intent>` and clear the flags before Step 5. (`--delegate` implies `--think` — both flags trigger the PLAN scaffold; `--delegate` adds the user-choice gate after `@lead` fills PLAN.) The flags are no-ops on `docs`, `template`, `hotfix`, `review-only` intents because those have no `@lead` design step to surface options for.
+### src/ purity (enforced)
 
-**Step 5 — Spawn the workflow agents per the routing taxonomy.** Spawn ONLY the agents listed for the classified intent, in order. Each transition:
+Implementer writes to `<consumer>/src/main/**`, `<consumer>/src/test/**`
+(or language equivalents) MUST NOT carry chain-artifact section-anchor
+cites — references like `PRD`/`FRS`/`TDD`/`CONTRACT`/`TSR`/`ADR-NNNN`
+followed by a section pointer, plus `FR-N`, `AC-N`, `C-N`, `NFR-N`,
+`S-XXX-NNN`, `openapi.yaml#/paths/`. `pre-write-check.js` Gate-D rejects
+at write time. Traceability lives in commit messages, PR descriptions,
+and the TSR verdict sections — not in business code.
 
-(a) **Pre-spawn scaffold (v2.0+).** For each artifact in the next agent's whitelist that does NOT yet exist, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js <type> <feature-id> [<slug>] [--mode=full|brief])`. Examples: `scaffold-artifact CHARTER 001-foo foo --mode=full`, then `PRD 001-foo foo`, then `FRS 001-foo foo`. The dispatcher has Bash; agents do not. Each call writes the artifact body (locked anchors + FILL placeholders), the paired `<artifact>.lock.yaml` (seeded sections + diagrams[]), and stub `.puml` files for any required diagrams. Idempotent — re-running on an existing artifact exits 2 unless `--force`.
+## /orchestra ship
 
-(a') **PLAN scaffold (one-shot; only when `--think` is set, per Step 4b).** Before the FIRST `@lead` spawn for this feature, run `Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-artifact.js PLAN <feature-id>)`. Writes `<feature-dir>/planning/<NNN>-PLAN.md` with 5 anchored FILL spans (S-PROBLEM-001 / S-OPTIONS-001 / S-TRADEOFFS-001 / S-RECOMMENDATION-001 / S-OPEN-001). The first `@lead` spawn prompt gains: `--think mode: fill <feature-dir>/planning/<NNN>-PLAN.md BEFORE TDD/CONTRACT. Author ≥3 distinct options; populate Trade-offs 1:1 with Options; pick one as Recommendation.` Re-runs are no-op (existing-artifact exit code; we do NOT pass `--force`).
+Folded from v3's `cut-release` + `commit-work` + `@ship`. Cuts release
+artifacts after gate verification. Smoke-test the consumer install path
+BEFORE invoking (`feedback_smoke-before-release-docs` discipline).
 
-(a'') **`--delegate` user choice (when `--delegate` is set, after `@lead` Writes PLAN.md).** Read `<feature-dir>/planning/<NNN>-PLAN.md`. Call `AskUserQuestion` ONCE: each numbered Option from `S-OPTIONS-001` becomes a choice; the `S-RECOMMENDATION-001` option is the default. Write user's accepted choice to `<feature-dir>/planning/PLAN.choice.yaml` as `{ chosen: <Option-letter-or-number>, source: user-delegate, accepted_at: <ISO-8601> }`. The next `@lead` spawn (TDD authorship) carries `--delegate-chose: <Option-letter>` in its prompt. This single AskUserQuestion is the documented carve-out from the per-tier confidence budget (see `AskUserQuestion budget` below).
+Algorithm:
 
-(b) **Spawn agent.** Pass the scaffolded artifact path(s) in the prompt so the agent can Read them. Agents fill `<!-- FILL: ... -->` spans and Write the artifact back; the hash-stamper hook fires on Write and stamps hashes into the paired lockfile.
+1. **Verify gates.** Walk artifacts; halt with the failing artifact path on:
+   - Open `DEADLOCK-*.md` or `DEADLOCK-ADR-*.md` anywhere under `<cwd>/.orchestra/pipeline/`.
+   - Any `docs/<feature-id>/TSR-*.md` with `eval_verdict: FAIL`, `rev_verdict: REQUEST_CHANGES`, or `eval_score < passing_score` from openapi description.
+   - `<cwd>/.orchestra/pipeline/<id>/ESCALATE*.md` with `resolution: pending`.
+   - `git diff`-detected drift on a `status: locked` artifact (use `git diff` since lockfile sidecars are gone).
+2. **Smoke-test the consumer install path.** Canonical 5-step chain:
+   - (a) `claude plugin validate .` — offline schema check.
+   - (b) `/plugin marketplace add /absolute/path` — register local marketplace.
+   - (c) `/plugin install <plugin>@<marketplace>` — deep-schema validate.
+   - (d) `/orchestra help` — command surface loads.
+   - (e) bootstrap test on `git init` directory — `/orchestra <intent>` writes `local.yaml` + `metrics/events.jsonl`.
+   Any step fails → STOP. CI validators check our invariants, not Claude Code's plugin schemas.
+3. **Author release artifacts** (parent context, narrowly carved exception):
+   - `docs/releases/RELEASE-vX.Y.Z.md` — version, date, summary, included features, gates cleared, plus `S-ANNOUNCEMENT-001`.
+   - `docs/runbooks/RUNBOOK-vX.Y.Z.md` — only when topology changed.
+   - `docs/<feature-id>/TSR-<NNN>.md` `S-SHIP-001` — `ALLOW` / `HOLD` plus rationale (SHIP frontmatter `ship:` mirror).
+4. **Draft release commit message** (Conventional Commits 1.0.0):
+   - Read `git diff --staged --stat` and `git diff --staged`.
+   - Type ∈ {`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`, `build`}; choose the dominant type.
+   - Scope: load-bearing area (`api`, `infra`, `hooks`, `agents`, `skills`, `command`, `validators`, etc.).
+   - Subject `≤72` chars, imperative mood, no trailing period.
+   - Optional body wrapped at 72; trailers (`BREAKING CHANGE:`, `Closes #NN`, `Refs:`, `Co-Authored-By:`).
+5. **Hand off to user.** User runs `git commit` / `git tag` / `git push`. This subcommand does NOT auto-commit, auto-tag, or push.
 
-(c) Wait for idle.
+Bump VERSION via `node scripts/bump-version.js` only — never edit
+`VERSION` / `package.json` / plugin manifest by hand.
 
-(d) Read agent's output file.
+## /orchestra report
 
-(e) Decide next.
-
-| Intent | Agents (in order) | Whitelist anchor |
-|---|---|---|
-| **feature** | `@product` → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` → `@ship` | `schemas/routing-taxonomy.md#feature` |
-| **hotfix** | `@lead` → builder → `@test` → `@evaluator` → `@ship` | `schemas/routing-taxonomy.md#hotfix` |
-| **template** | `@product` (intent only) → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` | `schemas/routing-taxonomy.md#template` |
-| **refactor** | `@reviewer` → `@lead` (TDD update) → builder → `@test` → `@evaluator` | `schemas/routing-taxonomy.md#refactor` |
-| **docs** | `@product` (intent only) → `@ship` → `@reviewer` | `schemas/routing-taxonomy.md#docs` |
-| **review-only** | `@reviewer` (assess only) | `schemas/routing-taxonomy.md#review-only` |
-
-Full per-intent artifact whitelist lives in `schemas/routing-taxonomy.md`. Agents Read the relevant anchor when the inline summary in their spawn prompt is insufficient.
-
-**Each spawned agent MUST be given the routed intent + whitelist pointer in its prompt.** Format:
-
-> `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent> (1-line summary: <agents-and-key-artifacts>). Out-of-whitelist requests → write ESCALATE-<feature_id>.md at the feature-dir root and end your turn.`
-
-**Step 5b — Pause integration during the spawn loop.** When resolved autonomy is `DRAFT_AND_GATE`, fire `AskUserQuestion` at three transitions inside Step 5 (in addition to PAUSE-1 already fired in Step 3): **→ PAUSE-2** after `@product` writes PRD + FRS, before spawning `@lead`/builder; **→ PAUSE-3** after `@lead` writes CONTRACT, before spawning the implementer/`@test`; **→ PAUSE-4** after `@reviewer` fills the rev halves of TSR, before spawning `@ship`. Question shapes per the Pause transitions table above. On reject → write `DEADLOCK-<id>.md` and halt. For `feature` intent all 4 pauses fire; lighter intents (`docs`/`hotfix`/`template`/`refactor`/`review-only`) fire only the pauses whose preceding step actually ran (e.g., `hotfix` skips PAUSE-2 because there is no `@product` PRD/FRS).
-
-**Step 5c — ADR open subroutine (v2.0+).** When `@reviewer` writes `ESCALATE-ADR-<slug>.md` at the feature-dir root, OR `@product` flagged a PRD `S-OPEN-001` item with `ADR-WORTHY:`, the dispatcher runs `Bash(scaffold-artifact ADR --global <slug>)` (auto-numbers next NNNN) before re-spawning `@lead` with the scaffolded ADR path in its prompt. After `@lead` Writes the proposed ADR, spawn `@reviewer` for review (3-round circuit per the `agents/lead.md` ADR-open subroutine).
-
-**Step 6 — Each artifact lands in `<project>/.orchestra/pipeline/<feature-id>/`** (or singletons under `architecture/`, `releases/`, `runbooks/`, `architecture/decisions/`). v2.0+: the dispatcher scaffolds via Step 5(a); agents fill `<!-- FILL: -->` placeholders and Write the artifact back. Provenance auto-emits to the paired `<artifact>.lock.yaml` via the hash-stamper hook (only-when-paired). The parent does NOT copy/edit agent-authored content — each agent owns its sections per `schemas/pipeline-artifact.schema.md` and the single-writer-per-section discipline in `verify/<NNN>-TSR.md`.
-
-**Step 7 — Terminal-state detection + closure.** After every parent `Read` in Step 5, evaluate the just-read artifact's basename:
-
-- `RELEASE-vX.Y.Z.md` → `terminal_state = "success"`
-- `DEADLOCK-*.md` (incl. `DEADLOCK-ADR-*.md`) → `terminal_state = "deadlock"`
-- `ESCALATE(-ARCH|-ADR)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
-- otherwise → continue Step 5 spawn loop
-
-On terminal state:
-
-1. Parent `Write(<feature-dir>/SUMMARY-<feature-id>.md, ...)` per `schemas/pipeline-artifact.schema.md` SUMMARY shape: `team_name`, `started_at` (the team.created timestamp from earlier in this run; fallback to first matching `team.created` in events.jsonl), `ended_at` (now), `duration_seconds`, `terminal_state`, `artifact_count`. Body: 1–3 line plain-text closing note. SUMMARY is parent-authored bookkeeping at terminal state — narrowly carved exception to the Coordination-protocol "no parent artifact writes" rule, because no agent is in scope after teardown begins.
-2. **Cost banner (opt-in; v2.2.0+).** If `ORCHESTRA_METRICS_COST_BANNER=on`, read `<cwd>/.orchestra/metrics/tokens.jsonl`, filter rows where `run_id == <current-session-id>`, sum `tokens` and `usd`, emit one status line per `## Status output`. Reflects subagent cost only — the parent-dispatcher total lands in `runs/<id>.json` AFTER the Stop hook fires (runs.json doesn't exist on disk yet at this point). Per-row `usd` is pre-computed by the metrics-collector hook via `hooks/lib/rate-card.js` (single source for the rate card).
-3. Parent `TeamDelete()` (zero-param primitive — team is implicit from current session context; failure mode: throws on active members, but Orchestra's filesystem-coupled flow has SubagentStop drain members synchronously by the time terminal state is detected).
-4. Emit closing status line per `## Status output`.
-
-### Runtime hooks
-
-5 hooks registered in `hooks/hooks.json`. Hooks own their events per `## Invariants` above — do not replicate hook side effects.
-
-| Hook | Events (matchers) | Side effect |
-|---|---|---|
-| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-* / SubagentStop / Stop | Logs lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl` |
-| `hash-stamper` | PreToolUse:Write\|Edit\|MultiEdit | Stamps `sections:` hashes + resolves `references[].hash-at-write: TBD` for pipeline artifacts |
-| `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Blocks writes with detectable secrets (8 patterns); exits 2 |
-| `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts |
-| `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash to stderr (observer; never blocks) |
-
-### AskUserQuestion budget
-
-Each spawned agent applies its own confidence-tier question budget per its body. Three rejection rounds in any review stage trip the circuit breaker → `DEADLOCK-<id>.md`, halt, escalate.
-
-**`--delegate` carve-out (v2.2.0+).** When `--delegate` is set on `/orchestra` or `/orchestra sprint` (per Step 4b), the dispatcher fires exactly one `AskUserQuestion` after `@lead` Writes PLAN.md (Step 5(a'')). This call is OUTSIDE the per-agent confidence budget — it is a user-elicited fork choice over the PLAN's `S-OPTIONS-001` anchor, not a clarification round. It does NOT count toward the 3-rejection circuit breaker. There is no other `--delegate` AskUserQuestion in the run.
-
-## /orchestra sprint [--size N]
-
-1. Read `<project>/.orchestra/backlog/issues/`. Default `N=3`; respect `--size N` if provided.
-2. For each of the top-N issues, run the smart router as if the user had typed the issue title + body verbatim.
-3. Sequence them; one feature per pipeline id; never parallel-write the same artifact (single-writer assumption).
-
-## /orchestra release
-
-Cuts release artifacts after gate verification. Algorithm: invoke the `cut-release` skill — it verifies gates (`confirmed: false` / drift-on-confirmed / failing CONTRACT criterion → halt), spawns `@ship` to author RELEASE / RUNBOOK / ANNOUNCEMENT, and drafts the release commit message via `commit-work`. User commits + tags manually. Smoke-test the consumer install path BEFORE this subcommand per `feedback_smoke-before-release-docs` discipline.
-
-## /orchestra commit
-
-No team. Direct invocation of the `commit-work` skill: produces a Conventional Commits message from `git diff --staged`. Empty staged diff → stop with "nothing is staged". User runs `git commit` themselves (no auto-commit).
-
-## /orchestra metrics [--limit N]
-
-Console summary of recent runs from `<cwd>/.orchestra/metrics/runs/`. Default `N=10`. Privacy-safe (per-run summary JSONs only).
+Observability subcommand (Stream 7). Reads `events.jsonl` + `tokens.jsonl`
++ `runs/*.json` from `<cwd>/.orchestra/metrics/`; emits Gantt timeline
+`.svg` + cost-by-role + cost-by-phase pivots, plus non-blocking
+readers-violations summary (Gate-C aggregation) and business-code-purity
+summary (Gate-D aggregation). Implementation: `scripts/orchestra-report.js`.
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/metrics-summary.py --metrics-dir <cwd>/.orchestra/metrics ${LIMIT_FLAG}
+node ${CLAUDE_PLUGIN_ROOT}/scripts/orchestra-report.js \
+  --metrics-dir <cwd>/.orchestra/metrics \
+  --out <cwd>/.orchestra/reports/<run-id>/
 ```
+
+Cadence: on invocation. Non-blocking — never causes a build to fail.
 
 ## /orchestra resume [<feature-id>]
 
-Resume an interrupted feature run. Algorithm: invoke the `resume-pipeline` skill with optional `<feature-id>`. The skill walks `pipeline/*/` dirs, finds the next non-`done` task (deriving T-A status from verdict frontmatter, T-B from artifact existence, T-C from row Status), and respawns the owner with idempotent re-write semantics. Returns `{terminal_state, feature_id}` to the dispatcher; on `terminal_state == "(continued)"` the dispatcher continues per Step 5 of the smart router. Otherwise the dispatcher runs Step 7 closure (SUMMARY + TeamDelete).
+Resume an interrupted feature run. Walks `<cwd>/.orchestra/pipeline/*/`
+dirs, finds the next non-`done` task, respawns the owner. Idempotent —
+respawning an owner whose prior turn partially completed is safe.
 
-Status lines per `## Status output`: `[orchestra] resume scanning pipeline/` → `[orchestra] resume target=<feature-id>` → `[orchestra] resume next-task=T-<id> owner=@<role>`, then the standard spawn/read lines for each subsequent agent.
+Algorithm:
 
-## /orchestra shutdown
+1. **Enumerate candidates.** List `<cwd>/.orchestra/pipeline/*/` dirs without a final `docs/<feature-id>/TSR-*.md.ship: ALLOW`. 0 candidates → emit `[orchestra] resume no in-flight features` and exit. 1 → auto-select. >1 → `AskUserQuestion`. If `<feature-id>` arg passed, validate against candidates; mismatch → write `DEADLOCK-resume-<id>.md` and halt.
+2. **Validate prerequisites.** Read `<cwd>/.orchestra/pipeline/<feature-id>/intent.yaml`. Missing → fail closed: write `DEADLOCK-resume-<feature-id>.md` and halt. Then scan:
+   - `DEADLOCK-*.md` present → emit banner; deadlocks need manual rescope.
+   - `ESCALATE*.md` with `resolution: pending` → emit banner + `AskUserQuestion` ("ESCALATE pending: `<reason>`. Resolved externally?"). Reject → halt; accept → proceed.
+3. **Find resume point.** Read `TASKS-NNN.md` and walk topologically. For each task in order:
+   - `Status = done` → skip.
+   - Owner is read-only-tier (`@evaluator` / `@reviewer`) — derive done status from TSR frontmatter (`eval_verdict ∈ {PASS, FAIL}`, `rev_verdict ∈ {APPROVED, REQUEST_CHANGES}`).
+   - Owner is artifact-tier — derive done from artifact existence with frontmatter `status: locked`.
+   - First non-done task → resume point.
+4. **REQUEST_CHANGES gate.** If resume point follows a TSR `rev_verdict: REQUEST_CHANGES`, do NOT auto-respawn. Emit banner + `AskUserQuestion` ("Last review verdict: REQUEST_CHANGES (`<N findings>`). Respawn @<owner> for revision, or halt?"). Accept → step 5; reject → halt.
+5. **Spawn.** Issue `Agent({ subagent_type, prompt })` with locked decisions from `local.yaml` plus a resume directive: "Your task is `T-<id>` in `TASKS-<NNN>.md`. Read existing artifacts before re-writing — idempotent re-write is acceptable."
+6. **Continue smart-router** from the resume point through terminal-state detection.
 
-In-session manual abort. Algorithm: invoke the `shutdown-team` skill. The skill writes `SUMMARY-<feature-id>.md` with `terminal_state: aborted` and calls `TeamDelete()` (zero-param primitive — team is implicit from current session). The `<feature-id>` argument form is rejected — current session has at most one active team. The skill performs Step 7 closure inline; the dispatcher does NOT need to run it separately.
+## Runtime hooks
 
-No active team in this session → skill emits `[orchestra] no active orchestra team in this session — shutdown is a no-op` and exits without a SUMMARY write.
+4 hooks registered in `hooks/hooks.json`. Hooks own their events per
+"Invariants" above — do not replicate hook side effects.
+
+| Hook | Events (matchers) | Side effect |
+|---|---|---|
+| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-* / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl` (Stream 7 retools for `agent_role` + `phase` + `subagent_session_id` join keys) |
+| `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher (8 patterns; exit 2) + 4 frontmatter gates: status-locked / sections-all-locked / readers-warning / src/ cite denylist |
+| `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts |
+| `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash to stderr (observer; never blocks) |
+
+Stream 9 adds a fifth hook (`post-write-puml`) for diagram render
+enforcement.
 
 ## /orchestra help
 
-Print usage:
-
 ```
-/orchestra <natural language>   Smart router. TeamCreate → @product + @lead classify → specialists work in waves.
-/orchestra sprint [--size N]    Pull N issues from .orchestra/backlog/issues/ and run as a batch (default N=3).
-/orchestra release              Verify gates → write RELEASE / RUNBOOK / ANNOUNCEMENT artifacts and bump VERSION.
-/orchestra commit               Conventional Commits message from `git diff --staged`. No team.
-/orchestra metrics [--limit N]  Console summary of last N runs from .orchestra/metrics/runs/.
-/orchestra resume [<feature-id>] Walk pipeline/* dirs, find non-terminal feature, respawn next non-done task in the DAG.
-/orchestra shutdown             In-session: write SUMMARY (terminal_state=aborted) and TeamDelete() the current run's team.
-/orchestra help                 This message.
+/orchestra <intent>           Smart router. Mode-detect → chain-rigor → spec-to-code chain (PRD/FRS/SAD/ADR/TDD/openapi/code+tests/TSR).
+/orchestra ship               Verify gates → smoke-test install → write RELEASE / RUNBOOK + TSR S-SHIP-001 → draft Conventional Commits message. User commits + tags manually.
+/orchestra report             Render Gantt + cost-by-role + cost-by-phase from events.jsonl/tokens.jsonl/runs.
+/orchestra resume [<feature-id>] Walk .orchestra/pipeline/* dirs; find non-terminal feature; respawn next non-done task.
+/orchestra help               This message.
 ```
 
 Flags:
-- `--confidence {high,medium,low}` — override `@lead`'s confidence classification (logged).
-- `--autonomy <tag>` — override the autonomy level for this run; tag ∈ {`EXECUTION_ONLY`, `JOINT_PROCESSING`, `OPTION_SYNTHESIS`, `DRAFT_AND_GATE`, `FULL_AUTONOMY`}. Without the flag, `local.yaml.autonomy.level` wins; without that, default is `DRAFT_AND_GATE`. See the autonomy section in `agents/lead.md` for the diagnostic + axis decomposition.
+- `--rigor {Full,Standard,Light}` — override `local.yaml.chain_rigor` for this run.
+- `--mode {greenfield,brownfield}` — override mode detection.
+- `--depth {light,medium,full}` — override depth (brownfield only).

@@ -10,7 +10,7 @@
 //   - post-bash-lint (Observer)
 //   - val-calibration (Rewriter — depends on evaluator-tuning skill)
 //   - hooks.json matcher validation
-//   - orchestra.md PAUSE-N + autonomy-tag fixture
+//   - orchestra.md v4.0 decision-tree + chain-rigor + subcommand fixture
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -438,23 +438,39 @@ console.log("hooks.json matcher validation:");
   check(ok3.length === 0, `inverse: matcher="mcp__orchestra-.*" passes clean`);
 }
 
-// ---------- orchestra.md autonomy + pause fixture ----------
-// Stream 2 rewrites commands/orchestra.md with the v4.0 decision tree;
-// these checks pin the v3.0 surface until that rewrite lands.
-console.log("orchestra.md autonomy + pause fixture:");
+// ---------- orchestra.md v4.0 decision-tree + chain-rigor + subcommand fixture ----------
+// Pins v4.0 surface: 4 locked decisions, chain-rigor presets, ship/report/resume
+// subcommands. Negative assertions guard against v3 vestiges being pasted back.
+console.log("orchestra.md v4.0 surface fixture:");
 {
   const orchestraPath = resolve(root, "commands/orchestra.md");
   const body = readFileSync(orchestraPath, "utf8");
-  for (let i = 1; i <= 4; i++) {
-    check(body.includes(`PAUSE-${i}`), `commands/orchestra.md references PAUSE-${i}`);
+
+  // v4.0 surface (must contain)
+  check(/Decision tree/i.test(body), `commands/orchestra.md has Decision tree section`);
+  for (const decision of ["mode", "depth", "chain_rigor", "language"]) {
+    check(new RegExp(`\\b${decision}\\b`).test(body),
+      `commands/orchestra.md mentions locked decision: ${decision}`);
   }
-  check(/--autonomy/.test(body), `commands/orchestra.md mentions --autonomy flag`);
-  for (const tag of ["EXECUTION_ONLY", "JOINT_PROCESSING", "OPTION_SYNTHESIS", "DRAFT_AND_GATE", "FULL_AUTONOMY"]) {
-    check(body.includes(tag), `commands/orchestra.md enumerates ${tag} tag`);
+  for (const rigor of ["Full", "Standard", "Light"]) {
+    check(body.includes(rigor), `commands/orchestra.md enumerates chain-rigor preset: ${rigor}`);
   }
   check(/AskUserQuestion/.test(body), `commands/orchestra.md references AskUserQuestion primitive`);
-  check(/local\.yaml.*autonomy/i.test(body) || /autonomy.*local\.yaml/i.test(body),
-    `commands/orchestra.md documents local.yaml.autonomy.level fallback`);
+  check(/local\.yaml/.test(body), `commands/orchestra.md documents local.yaml schema`);
+  check(/chain_rigor/.test(body), `commands/orchestra.md persists chain_rigor in local.yaml`);
+  for (const sub of ["/orchestra ship", "/orchestra report", "/orchestra resume", "/orchestra help"]) {
+    check(body.includes(sub), `commands/orchestra.md documents subcommand: ${sub}`);
+  }
+  check(/Coordination protocol/i.test(body), `commands/orchestra.md has Coordination protocol section`);
+
+  // v3 vestiges (must NOT contain — prevent regression)
+  for (let i = 1; i <= 4; i++) {
+    check(!body.includes(`PAUSE-${i}`), `commands/orchestra.md MUST NOT reference v3 PAUSE-${i}`);
+  }
+  check(!/--autonomy/.test(body), `commands/orchestra.md MUST NOT mention v3 --autonomy flag`);
+  for (const tag of ["EXECUTION_ONLY", "JOINT_PROCESSING", "OPTION_SYNTHESIS", "DRAFT_AND_GATE", "FULL_AUTONOMY"]) {
+    check(!body.includes(tag), `commands/orchestra.md MUST NOT enumerate v3 autonomy tag: ${tag}`);
+  }
 }
 
 if (failures > 0) {
