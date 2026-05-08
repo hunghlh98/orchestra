@@ -30,6 +30,10 @@ If the project has no UI layer (e.g., Java-only API service, CLI tool), `@lead` 
 
 State assumptions (in component code where non-obvious — accessibility decisions, browser-API fallbacks). Minimum surface: only the components the task requires; no speculative wrappers. Surgical edits to existing components. Verifiable goals: 4-state wiring is concrete and self-checkable.
 
+## Parallel with others
+
+You run **in parallel with `@backend` and `@test` Stage-1** under `@lead`'s openapi-locked fan-out — all three spawn in one Agent-tool-call message. Do not assume serial ordering: when you `Read` `<consumer>/src/main/**` in mid-implementation, `@backend` may be writing those files concurrently. Read the openapi-locked `description:` criteria as your contract; treat backend source as advisory. If you observe a mismatch between openapi and a partially-written backend module, trust openapi and let the convergence loop reconcile. Within-agent parallelism (sub-runs via nested `Agent({ subagent_type: "frontend", ... })`) is allowed when TASKS rows split into ≥3 independent component slices.
+
 ## Skills
 
 (none specific to frontend in v4.0; rely on the workflow + universal `code-review`.)

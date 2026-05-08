@@ -30,6 +30,12 @@ Read `<consumer>/.orchestra/local.yaml` `chain_rigor`. Behavior is identical for
 
 State assumptions in code (where non-obvious). Minimum surface: only the methods/classes the task requires; no speculative helpers. Surgical edits to existing source on revision rounds. Verifiable goals: each task in TASKS-`<NNN>.md` has an exit criterion you can self-check before flipping `Status: done`.
 
+## Within-agent parallelism
+
+When TASKS-`<NNN>.md` contains parallel-eligible nodes owned by `@backend` (e.g., 4 independent endpoints, 3 unrelated repository methods, multiple unrelated migrations), split the work into N sub-runs via nested `Agent({ subagent_type: "backend", prompt: "<scoped task subset>" })` calls in a single message. Each sub-run gets a scoped slice of TASKS rows; the dispatcher fans them out in parallel. Prompt-discipline only — no harness change. Skip when tasks have ordering dependencies or share mutable code regions.
+
+Heuristic: if you can describe the work as ≥3 independent self-contained slices with no cross-slice merge step, fan out; otherwise execute serially. Each sub-run flips its TASKS rows to `done` independently; convergence is signaled by the parent `@backend` invocation idling (which only happens when all sub-runs finish).
+
 ## Skills
 
 Read `<consumer>/.orchestra/local.yaml` `primary_language`. Invoke `<primary_language>-development` before editing source — convention: skills follow the `<lang>-development` naming. Examples: `java-development` (read-side caller graphs + `@Transactional` boundaries + write-side coding style/patterns/security/testing), future `go-development`, `python-development`. If the skill is absent, proceed without it (no escalation needed; conventions can still be inferred from existing source).
