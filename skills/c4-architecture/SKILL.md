@@ -34,6 +34,7 @@ Every C4 `.puml` MUST:
 
 - Start with `!include <C4/C4_Context|C4_Container|C4_Component|C4_Dynamic|C4_Deployment>` after `@startuml`, plus a `title` line.
 - Use stdlib macros: `Person` / `System` / `Container` / `Component` (plus `*_Ext` / `*Db` / `*Queue` / `*_Boundary` variants) for elements; `Rel(...)` for relationships.
+- Use short, business-domain `Person` labels — `Client`, `Web`, `App`, `API client`, `Integrator`, `Mobile app`, `Admin user`, `Customer`, `Driver`, `Merchant`, `Operator`. A `Person` is a role that uses the *running system*. Inherit from PRD `S-PERSONAS-001` / SAD `S-CONTEXT-001`; do not invent meta-narrative stand-ins like `Developer-consumer` or `Reference-impl reader` (full rule: `schemas/pipeline-artifact.schema.md#body-discipline`).
 
 Every C4 `.puml` MUST NOT:
 
