@@ -33,7 +33,7 @@ artifacts. No ANSI, no emoji.
 | Cost banner (opt-in via `ORCHESTRA_METRICS_COST_BANNER=on`) | `[orchestra] [cost] <tokens-K> / $<usd> (subagents only; full total in metrics/runs/<id>.json after Stop hook)` |
 
 Banner template — fires after parent `Read` returns an artifact whose
-basename matches `DEADLOCK-*.md`, `ESCALATE-*.md`, or `ESCALATE-ADR-*.md`:
+basename matches `<feature-id>-DEADLOCK-*.md`, `<feature-id>-ESCALATE-*.md`, or `<feature-id>-ESCALATE-ADR-*.md`:
 
 ```
 ============================================================
@@ -88,6 +88,11 @@ decisions to `<cwd>/.orchestra/local.yaml` so re-runs don't re-prompt.
   │
   ├─ Persist answered fields to <cwd>/.orchestra/local.yaml.
   │
+  ├─ Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash.
+  │   Idempotent: creates <cwd>/CLAUDE.md if missing; otherwise splices the
+  │   orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->`
+  │   markers (preserves user content before/after). No-op when already current.
+  │
   └─ Spawn @lead with locked decisions in prompt:
        "mode=<mode> rigor=<rigor> primary_language=<lang>"
        (chain-rigor selects which layers @lead routes through; see "Chain
@@ -115,6 +120,26 @@ spawn_mode: subagent | teams         # default subagent; controls whether dispat
 `pre-write-check.js` Gate-A protects it from accidental rewrite. (Gate
 overridable via `ORCHESTRA_HOOK_PRE_WRITE_CHECK=off` if the user wants to
 re-elicit.)
+
+## Feature-id minting
+
+A new `<feature-id> = <NNN>-<slug>` is minted at the start of every
+forward-chain run (greenfield) and per major feature during brownfield
+reverse-doc fan-out. Algorithm:
+
+1. **Compute NNN.** Walk `<cwd>/docs/` for entries matching `^(\d{3})-`.
+   `NNN = max(matches) + 1`, zero-padded to 3 digits. No matches → `001`.
+2. **Derive slug.** Lowercase the user-supplied feature name; replace
+   non-alphanumeric runs with `-`; strip leading/trailing `-`; truncate
+   to 40 chars. Collisions with an existing `docs/<NNN-prior>-<slug>` →
+   re-prompt for a different name.
+3. **Persist.** Write `<feature-id>` to the spawn prompt for every
+   subsequent agent in this feature's chain; agents author every artifact
+   under `docs/<feature-id>/` and `<cwd>/.orchestra/pipeline/<feature-id>/`
+   with filenames `<feature-id>-<TYPE>.<ext>`.
+
+The frontmatter `id:` field MUST equal each artifact's basename without
+extension (e.g., `001-todo-api-PRD.md` → `id: 001-todo-api-PRD`).
 
 ## Coordination protocol
 
@@ -162,7 +187,7 @@ PARALLEL FAN-OUT (gated on openapi locked)
 
 CONVERGE
   All three ──→ @test Stage-2 (impl-aware) + @evaluator + @reviewer
-            ──→ TSR-NNN.md (sections locked)
+            ──→ <feature-id>-TSR.md (sections locked)
 ```
 
 **Chain-rigor presets:**
@@ -184,35 +209,37 @@ internal-only behavior fix); the implementer still produces tests and TSR
 for verification.
 
 **Stage-1 @test is spec-bound.** Authoring runs in parallel with @backend
-and @frontend. The agent reads only `openapi.yaml`/`asyncapi.yaml`, PRD,
-FRS — `<consumer>/src/**` is blocked at the tool-permission level
-(per-stage Read allowlist; mechanism in `agents/test.md`). If Stage-1
-cannot author tests because openapi is silent, the agent writes
-`<cwd>/.orchestra/pipeline/<id>/DEADLOCK-<id>.md` referencing the missing
-spec element — @lead picks up and re-spawns @architect or self to amend.
+and @frontend. The agent reads only `<feature-id>-openapi.yaml` /
+`<feature-id>-asyncapi.yaml`, PRD, FRS — `<consumer>/src/**` is blocked at
+the tool-permission level (per-stage Read allowlist; mechanism in
+`agents/test.md`). If Stage-1 cannot author tests because openapi is
+silent, the agent writes
+`<cwd>/.orchestra/pipeline/<feature-id>/<feature-id>-DEADLOCK-<slug>.md`
+referencing the missing spec element — @lead picks up and re-spawns
+@architect or self to amend.
 
 **Within-agent parallelism (BL-0033).** @backend (and optionally
 @frontend, @test) splits large impl tasks into N parallel sub-runs via
-nested Agent calls when the task graph in `TASKS-NNN.md` has
+nested Agent calls when the task graph in `<feature-id>-TASKS.md` has
 parallel-eligible nodes. Prompt-discipline only — no harness change.
 
 ## Steps (smart router)
 
 1. **Decision tree.** Per "Decision tree" above. Cache to `local.yaml`. On first run with `mode: brownfield`, also invoke the `project-discovery` skill to populate `discovery:` (mode/depth/language/framework/scope_hints) and prompt for `depth` if unset; depth fires once and is cached.
-2. **Brownfield bootstrap branch (one-shot).** If `local.yaml.mode == brownfield` AND `local.yaml.bootstrap != completed`, fan out reverse-doc spawns per the elected `depth` BEFORE entering the forward chain:
-   - `light` — spawn `@product` per major feature with prompt-tag `mode: reverse-doc`. Output: PRD-`<NNN>.md` per feature.
+2. **Brownfield bootstrap branch (one-shot).** If `local.yaml.mode == brownfield` AND `local.yaml.bootstrap != completed`, fan out reverse-doc spawns per the elected `depth` BEFORE entering the forward chain. Each major feature gets a freshly-minted `<feature-id>` (= `<NNN>-<slug>`; see "Feature-id minting" below).
+   - `light` — spawn `@product` per major feature with prompt-tag `mode: reverse-doc`. Output: `<feature-id>-PRD.md` per feature.
    - `medium` — spawn `@product` (PRD + FRS) and `@lead` (TDD) per major feature with prompt-tag `mode: reverse-doc`. Author paths run sequentially per feature (PRD → FRS → TDD); features run in parallel.
    - `full` — first spawn `@architect` (project-level SAD + accepted ADRs based on visible-in-source decisions) with prompt-tag `mode: reverse-doc`. Then per major feature: `@product` (PRD + FRS) → `@lead` (TDD + openapi).
    After all reverse-doc spawns idle, parent flips `local.yaml.bootstrap: completed` and proceeds to Step 3. On subsequent `/orchestra` runs, this step is a no-op (greenfield-equivalent forward chain).
 3. **Spawn @lead.** Pass locked decisions in prompt. @lead routes the forward chain.
 4. **@lead routes through layers** per chain-rigor:
-   - **Business** (Full/Standard) — @product writes `docs/<feature-id>/PRD-<NNN>.md` then `docs/<feature-id>/FRS-<NNN>.md`. PRD `S-OPEN-Q-001` flags open questions; FRS lifts and resolves or escalates (BL-0029).
-   - **Architecture** (Full only) — @architect writes `docs/SAD.md` (singleton; first-feature bootstrap) and `docs/adr/ADR-NNNN-<slug>.md` (per ADR trigger). C4 L1+L2 diagrams + Logical ERD + Inter-service Sequence as `.puml` under `docs/diagrams/`.
-   - **Component** (always) — @lead writes `docs/<feature-id>/TDD-<NNN>.md` (C4 L3 + Intra-service Sequence + Technical State if applicable + Physical DB if schema touched).
-   - **Boundary** (always) — @lead writes `docs/<feature-id>/openapi.yaml` (or asyncapi.yaml). CONTRACT narrative folds inline via `description:` fields and top-of-file `# orchestra:` comment block.
+   - **Business** (Full/Standard) — @product writes `docs/<feature-id>/<feature-id>-PRD.md` then `docs/<feature-id>/<feature-id>-FRS.md`. PRD `S-OPEN-Q-001` flags open questions; FRS lifts and resolves or escalates (BL-0029).
+   - **Architecture** (Full only) — @architect writes `docs/SAD.md` (singleton; first-feature bootstrap) and `docs/adr/ADR-NNNN-<slug>.md` (per ADR trigger; ADRs are global, not feature-scoped). C4 L1+L2 diagrams + Logical ERD + Inter-service Sequence as `.puml` under `docs/diagrams/`.
+   - **Component** (always) — @lead writes `docs/<feature-id>/<feature-id>-TDD.md` (C4 L3 + Intra-service Sequence + Technical State if applicable + Physical DB if schema touched).
+   - **Boundary** (always) — @lead writes `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`). CONTRACT narrative folds inline via `description:` fields and top-of-file `# orchestra:` comment block.
 5. **openapi locked → fan-out.** @lead spawns @backend ‖ @frontend ‖ @test (Stage-1) in a single Agent-tool-call message. Each spawn carries a scoped Read allowlist: @test Stage-1 excludes `<consumer>/src/**`.
 6. **Converge.** @backend writes server code + unit tests under `<consumer>/src/main/**` and `<consumer>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR test-plan section + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
-7. **TSR multi-writer.** `docs/<feature-id>/TSR-<NNN>.md` accretes per-writer sections enforced by `pre-write-check.js` Gate-B (per-section locks):
+7. **TSR multi-writer.** `docs/<feature-id>/<feature-id>-TSR.md` accretes per-writer sections enforced by `pre-write-check.js` Gate-B (per-section locks):
    - `S-TEST-PLAN-001` — @test Stage-1 (spec-bound; src/ blocked)
    - `S-TEST-RESULTS-001` — @test Stage-2 (impl-aware; runs the suite, records per-test PASS/FAIL)
    - `S-VERDICT-EVAL-001` — @evaluator (inspection over PRD/FRS/openapi/TSR test sections; no Bash)
@@ -223,8 +250,8 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
    @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR test-plan + test-results sections); `<consumer>/src/**` is blocked. @test Stage-2 owns suite execution; @evaluator becomes pure inspection (no Bash) and grades the PASS/FAIL evidence Stage-2 records.
 8. **Terminal state.** After every parent `Read` in steps 6–7, evaluate:
    - `RELEASE-vX.Y.Z.md` written → `terminal_state = "success"` (only via `/orchestra ship`)
-   - `DEADLOCK-*.md` → `terminal_state = "deadlock"`
-   - `ESCALATE(-ADR)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
+   - `<feature-id>-DEADLOCK-*.md` → `terminal_state = "deadlock"`
+   - `<feature-id>-ESCALATE(-ADR)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
    - otherwise → continue Step 6–7 spawn loop
 
    On terminal state: emit closing status line. The Stop hook fires `events.jsonl` event with the terminal state and `<run-id>.json.status` ∈ {`completed`, `aborted`, `deadlocked`}. No SUMMARY artifact write — observability is the source of truth (BL-0032).
@@ -248,9 +275,9 @@ discipline).
 Algorithm:
 
 1. **Verify gates.** Walk artifacts; halt with the failing artifact path on:
-   - Open `DEADLOCK-*.md` or `DEADLOCK-ADR-*.md` anywhere under `<cwd>/.orchestra/pipeline/`.
-   - Any `docs/<feature-id>/TSR-*.md` with `eval_verdict: FAIL`, `rev_verdict: REQUEST_CHANGES`, or `eval_score < passing_score` from openapi description.
-   - `<cwd>/.orchestra/pipeline/<id>/ESCALATE*.md` with `resolution: pending`.
+   - Open `<feature-id>-DEADLOCK-*.md` anywhere under `<cwd>/.orchestra/pipeline/<feature-id>/`.
+   - Any `docs/<feature-id>/<feature-id>-TSR.md` with `eval_verdict: FAIL`, `rev_verdict: REQUEST_CHANGES`, or `eval_score < passing_score` from openapi description.
+   - `<cwd>/.orchestra/pipeline/<feature-id>/<feature-id>-ESCALATE*.md` with `resolution: pending`.
    - `git diff`-detected drift on a `status: locked` artifact (use `git diff` since lockfile sidecars are gone).
 2. **Smoke-test the consumer install path.** Canonical 5-step chain:
    - (a) `claude plugin validate .` — offline schema check.
@@ -262,7 +289,7 @@ Algorithm:
 3. **Author release artifacts** (parent context, narrowly carved exception):
    - `docs/releases/RELEASE-vX.Y.Z.md` — version, date, summary, included features, gates cleared, plus `S-ANNOUNCEMENT-001`.
    - `docs/runbooks/RUNBOOK-vX.Y.Z.md` — only when topology changed.
-   - `docs/<feature-id>/TSR-<NNN>.md` `S-SHIP-001` — `ALLOW` / `HOLD` plus rationale (SHIP frontmatter `ship:` mirror).
+   - `docs/<feature-id>/<feature-id>-TSR.md` `S-SHIP-001` — `ALLOW` / `HOLD` plus rationale (SHIP frontmatter `ship:` mirror).
 4. **Draft release commit message** (Conventional Commits 1.0.0):
    - Read `git diff --staged --stat` and `git diff --staged`.
    - Type ∈ {`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`, `build`}; choose the dominant type.
@@ -298,17 +325,17 @@ respawning an owner whose prior turn partially completed is safe.
 
 Algorithm:
 
-1. **Enumerate candidates.** List `<cwd>/.orchestra/pipeline/*/` dirs without a final `docs/<feature-id>/TSR-*.md.ship: ALLOW`. 0 candidates → emit `[orchestra] resume no in-flight features` and exit. 1 → auto-select. >1 → `AskUserQuestion`. If `<feature-id>` arg passed, validate against candidates; mismatch → write `DEADLOCK-resume-<id>.md` and halt.
-2. **Validate prerequisites.** Read `<cwd>/.orchestra/pipeline/<feature-id>/intent.yaml`. Missing → fail closed: write `DEADLOCK-resume-<feature-id>.md` and halt. Then scan:
-   - `DEADLOCK-*.md` present → emit banner; deadlocks need manual rescope.
-   - `ESCALATE*.md` with `resolution: pending` → emit banner + `AskUserQuestion` ("ESCALATE pending: `<reason>`. Resolved externally?"). Reject → halt; accept → proceed.
-3. **Find resume point.** Read `TASKS-NNN.md` and walk topologically. For each task in order:
+1. **Enumerate candidates.** List `<cwd>/.orchestra/pipeline/*/` dirs without a final `docs/<feature-id>/<feature-id>-TSR.md` carrying `ship: ALLOW`. 0 candidates → emit `[orchestra] resume no in-flight features` and exit. 1 → auto-select. >1 → `AskUserQuestion`. If `<feature-id>` arg passed, validate against candidates; mismatch → write `<feature-id>-DEADLOCK-resume.md` and halt.
+2. **Validate prerequisites.** Read `<cwd>/.orchestra/pipeline/<feature-id>/intent.yaml`. Missing → fail closed: write `<feature-id>-DEADLOCK-resume.md` and halt. Then scan:
+   - `<feature-id>-DEADLOCK-*.md` present → emit banner; deadlocks need manual rescope.
+   - `<feature-id>-ESCALATE*.md` with `resolution: pending` → emit banner + `AskUserQuestion` ("ESCALATE pending: `<reason>`. Resolved externally?"). Reject → halt; accept → proceed.
+3. **Find resume point.** Read `<feature-id>-TASKS.md` and walk topologically. For each task in order:
    - `Status = done` → skip.
    - Owner is read-only-tier (`@evaluator` / `@reviewer`) — derive done status from TSR frontmatter (`eval_verdict ∈ {PASS, FAIL}`, `rev_verdict ∈ {APPROVED, REQUEST_CHANGES}`).
    - Owner is artifact-tier — derive done from artifact existence with frontmatter `status: locked`.
    - First non-done task → resume point.
 4. **REQUEST_CHANGES gate.** If resume point follows a TSR `rev_verdict: REQUEST_CHANGES`, do NOT auto-respawn. Emit banner + `AskUserQuestion` ("Last review verdict: REQUEST_CHANGES (`<N findings>`). Respawn @<owner> for revision, or halt?"). Accept → step 5; reject → halt.
-5. **Spawn.** Issue `Agent({ subagent_type, prompt })` with locked decisions from `local.yaml` plus a resume directive: "Your task is `T-<id>` in `TASKS-<NNN>.md`. Read existing artifacts before re-writing — idempotent re-write is acceptable."
+5. **Spawn.** Issue `Agent({ subagent_type, prompt })` with locked decisions from `local.yaml` plus a resume directive: "Your task is `T-<id>` in `<feature-id>-TASKS.md`. Read existing artifacts before re-writing — idempotent re-write is acceptable."
 6. **Continue smart-router** from the resume point through terminal-state detection.
 
 ## Runtime hooks

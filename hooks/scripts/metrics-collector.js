@@ -333,29 +333,50 @@ function extractSummaryFields(toolInput) {
   };
 }
 
-// Infer artifact type from filename. Two patterns:
-//   1. UPPERCASE-NNN... → captures everything before "-<digit>".
-//      PRD-001.md → "PRD"; CODE-REVIEW-001-hello-world.md → "CODE-REVIEW";
-//      API-001.openapi.yaml → "API"; ESCALATE-001.md → "ESCALATE".
-//   2. Known lowercase singletons (e.g. intent.yaml).
+// Infer artifact type from filename. Patterns supported:
+//   1. New per-feature shape: <NNN>-<slug>-<TYPE>(-<rest>)?.<ext>.
+//      001-todo-api-PRD.md → "PRD"; 001-todo-api-TASKS.md → "TASKS";
+//      001-todo-api-ESCALATE-spec-gap.md → "ESCALATE";
+//      001-todo-api-ESCALATE-ADR-0007.md → "ESCALATE-ADR";
+//      001-todo-api-openapi.yaml / 001-todo-api-asyncapi.yaml → "API".
+//   2. Global / singleton legacy shape: SAD.md, ADR-NNNN-<slug>.md,
+//      RELEASE-vX.Y.Z.md, RUNBOOK-vX.Y.Z.md, intent.yaml.
 // Falls back to "unknown" so the event is still emitted (run_id + file_name
 // preserve traceability even when we can't classify).
 function inferArtifactType(fileName) {
-  const m = fileName.match(/^([A-Z][A-Z0-9-]*?)-\d/);
-  if (m) return m[1];
   if (fileName === "intent.yaml") return "intent";
+  if (fileName === "SAD.md") return "SAD";
+  // openapi / asyncapi: API artifact regardless of feature-id prefix.
+  if (/-(openapi|asyncapi)\.(?:yaml|yml)$/.test(fileName)) return "API";
+  // New per-feature shape — first all-uppercase token after the <NNN>-<slug> prefix.
+  const newForm = fileName.match(/^\d+-[a-z][a-z0-9-]*?-(ESCALATE-ADR|[A-Z][A-Z0-9]*)(?:-[\w.-]*)?\.[a-z]+$/);
+  if (newForm) return newForm[1];
+  // Legacy uppercase-prefixed singletons (ADR-NNNN-..., RELEASE-v..., RUNBOOK-v...).
+  const legacy = fileName.match(/^([A-Z][A-Z0-9-]*?)-\d/);
+  if (legacy) return legacy[1];
   return "unknown";
 }
 
 // Stream 7 R7.4 helpers.
 //
-// deriveArtifactId — stable identifier ("PRD-001", "CODE-REVIEW-002-foo")
-// for the reporter's per-artifact token attribution. Intent.yaml has no
-// numeric suffix; emit "intent.yaml" as its own id.
+// deriveArtifactId — stable identifier for the reporter's per-artifact token
+// attribution. For new per-feature artifacts, id = basename without extension
+// (e.g., "001-todo-api-PRD"). For legacy/global artifacts, id = uppercase-and-
+// digits prefix (e.g., "ADR-0001"). intent.yaml has no numeric suffix.
 function deriveArtifactId(artifactType, fileName) {
   if (fileName === "intent.yaml") return "intent.yaml";
-  const m = fileName.match(/^([A-Z][A-Z0-9-]*-\d+)/);
-  return m ? m[1] : (artifactType || "unknown");
+  if (fileName === "SAD.md") return "SAD";
+  // New per-feature shape: id is the full basename (matches frontmatter id:).
+  const newForm = fileName.match(/^(\d+-[a-z][a-z0-9-]*-(?:ESCALATE-ADR|[A-Z][A-Z0-9]*)(?:-[\w.-]*)?)\.[a-z]+$/);
+  if (newForm) return newForm[1];
+  // openapi/asyncapi without prefix (legacy): use API + filename stem.
+  const apiBare = fileName.match(/^(\d+-[a-z][a-z0-9-]*-(?:openapi|asyncapi))\.(?:yaml|yml)$/);
+  if (apiBare) return apiBare[1];
+  // Legacy: ADR-NNNN-..., RELEASE-vX.Y.Z..., RUNBOOK-vX.Y.Z... — keep the
+  // type+number prefix as a stable id, dropping any trailing slug.
+  const legacy = fileName.match(/^([A-Z][A-Z0-9-]*-[\w.]+?)(?:-[\w.]+)?\.[a-z]+$/);
+  if (legacy) return legacy[1];
+  return artifactType || "unknown";
 }
 
 // deriveAgentRole — strips the "orchestra:" prefix from subagent_type

@@ -70,7 +70,7 @@ Longest dependency chain by SP sum is the critical path. Total sprint duration â
 
 ### Step 6 â€” Write the task graph
 
-Read the dispatcher-scaffolded `pipeline/<feature_id>/plan/<NNN>-TASKS.md`. Slim frontmatter (provenance in paired `<artifact>.lock.yaml`); locked anchors `S-DAG-001` and `S-TASKS-001`; FILL placeholders; empty diagram stub at `diagrams/tasks-dag.puml`.
+Author `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`. Frontmatter carries `status:` / `verdict:` / `readers:` / `sections:` per `schemas/pipeline-artifact.schema.md`. Body anchors `S-DAG-001` and `S-TASKS-001`; embed the DAG via `![]()` against `diagrams/tasks-dag.svg` (the `post-write-puml` hook renders the `.svg` from a paired `.puml` source).
 
 Frontmatter (v2.0 slim):
 

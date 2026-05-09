@@ -76,9 +76,9 @@ criteria:
 
 Default 80. Override only with rationale in body: compliance → 100; beta → 70; migration → 90.
 
-### Step 6 — Write interfaces/<NNN>-CONTRACT.md
+### Step 6 — Write `<feature-id>-openapi.yaml`
 
-Read the dispatcher-scaffolded `pipeline/<feature_id>/interfaces/<NNN>-CONTRACT.md`. Anchors are locked.
+Author `docs/<feature-id>/<feature-id>-openapi.yaml`. CONTRACT narrative folds inline via `description:` fields and a top-of-file `# orchestra:` comment block (frontmatter-equivalent for YAML; `pre-write-check.js` parses both shapes). v4 has no separate CONTRACT.md artifact.
 
 Frontmatter (slim, v2.0.0; provenance lives in the paired `<artifact>.lock.yaml`):
 

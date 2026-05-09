@@ -40,15 +40,16 @@ In the Claude session for that directory:
 3. AskUserQuestion: language + framework (greenfield + intent doesn't pin one). Answer **Java + Spring Boot**.
 4. `@lead` spawns; chain runs forward.
 
-**Expected artifacts in `<project>/docs/`.**
+**Expected artifacts in `<project>/docs/<feature-id>/`** (`<feature-id>` = `<NNN>-<slug>`, e.g., `001-todo-api`):
+
 | Layer | File(s) |
 |---|---|
-| Business | `001-PRD.md`, `001-FRS.md` |
+| Business | `<feature-id>-PRD.md`, `<feature-id>-FRS.md` |
 | Architecture | (skipped — Standard rigor) |
-| Component | `001-TDD.md` |
-| Boundary | `001-API.openapi.yaml` |
+| Component | `<feature-id>-TDD.md` |
+| Boundary | `<feature-id>-openapi.yaml` |
 | Implement | `<project>/src/main/java/...` (Spring controllers, services, entities) + `<project>/src/test/java/...` (unit + slice tests) |
-| Verify | `001-TSR.md` (single file, both `§verdict-evaluator` and `§verdict-reviewer` anchors present) |
+| Verify | `<feature-id>-TSR.md` (single file, both `§verdict-evaluator` and `§verdict-reviewer` anchors present) |
 
 **Expected runtime artifacts in `<project>/.orchestra/`.**
 - `local.yaml` with `mode: greenfield`, `bootstrap: completed`, `primary_language: java`
@@ -57,7 +58,7 @@ In the Claude session for that directory:
 - `metrics/insights.jsonl` — dispatcher-role rows expected when the `/orchestra` session ran in Explanatory output style; subagent-role rows are absent today (no `agents/*.md` instructs spawned agents to emit `★ Insight` blocks).
 - `metrics/runs/<run-id>.json` — `status: completed` (not `aborted`); `agents_spawned` non-empty (matches the distinct `agent_role` values in `task.subagent.invoked`); `tokens` and `cost_usd` reflect parent + subagent contributions (was parent-only before the 2026-05-08 fix).
 
-**Gate verdicts.** Both `S-EVAL-VERDICT-001` and `S-REV-VERDICT-001` blocks in `001-TSR.md` resolve to **PASS**.
+**Gate verdicts.** Both `S-EVAL-VERDICT-001` and `S-REV-VERDICT-001` blocks in `<feature-id>-TSR.md` resolve to **PASS**.
 
 **Cost cap.** ≤ v3.x greenfield baseline on equivalent layers (§8.bis: $121.90 was a Full-rigor *aborted* run; Standard greenfield should land well below this).
 
@@ -98,12 +99,12 @@ In a Claude session for that directory:
 1. Bootstrap detects `src/main/java` → mode = brownfield (no AskUserQuestion).
 2. AskUserQuestion: depth (light | medium | full). Answer **medium**.
 3. AskUserQuestion: chain rigor. Answer **Standard**.
-4. `@product` + `@architect` + `@lead` reverse-document at depth=medium → produce `001-PRD.md`, `001-FRS.md`, `001-TDD.md` describing the *current* code.
+4. `@product` + `@architect` + `@lead` reverse-document at depth=medium → produce `001-<slug>-PRD.md`, `001-<slug>-FRS.md`, `001-<slug>-TDD.md` describing the *current* code.
 5. After reverse-doc green, `@lead` spawns the forward chain on the new feature ask.
 
 **Expected artifacts.**
-- Reverse-doc artifacts: `001-PRD.md`, `001-FRS.md`, `001-TDD.md` — describe the existing TODO API as it stands.
-- Forward-chain artifacts: `002-PRD.md` … `002-TSR.md` — describe the new "due-by" feature.
+- Reverse-doc artifacts: `001-<slug>-PRD.md`, `001-<slug>-FRS.md`, `001-<slug>-TDD.md` — describe the existing TODO API as it stands.
+- Forward-chain artifacts: `002-<slug>-PRD.md` … `002-<slug>-TSR.md` — describe the new "due-by" feature.
 - `<project>/.orchestra/local.yaml` has `mode: brownfield`, `bootstrap: completed`.
 
 **Gate verdicts.** Reverse-doc TSR (if elected) and forward-feature TSR both PASS.

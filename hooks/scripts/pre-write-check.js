@@ -151,7 +151,7 @@ function readFrontmatter(filePath) {
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (m) return parseYamlSafely(m[1]);
 
-  // openapi.yaml / asyncapi.yaml shape: top-of-file `# orchestra:` block.
+  // <feature-id>-openapi.yaml / <feature-id>-asyncapi.yaml shape: top-of-file `# orchestra:` block.
   const om = text.match(/^# orchestra:\s*\r?\n((?:#[^\n]*\r?\n)+)/);
   if (om) {
     const stripped = om[1]

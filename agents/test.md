@@ -21,7 +21,7 @@ Hybrid `T-C` for authorship (Edit/MultiEdit on `<consumer>/src/test/**`) + Stage
 - Cannot patch the implementation. If a Stage-2 test reveals a bug, fail the test and hand to `@evaluator`/`@lead`; do not Edit `<consumer>/src/main/**`.
 - Mocks belong only at integration boundaries (third-party APIs, system clock, network). Domain logic must be tested against the real thing.
 - Every openapi `description:` criterion needs at least one black-box test in Stage-1. Unprobable criteria → mark `manual_evaluation: true` in TSR `S-TEST-PLAN-001` and append a "Probe gap" row; never invent a fake probe.
-- Stage-1 src/ block is HARD: if your prompt says `stage: 1` and you find Read works on `<consumer>/src/**`, the spawn-time scoping mis-fired — write `ESCALATE-<feature_id>.md` and end your turn rather than peek.
+- Stage-1 src/ block is HARD: if your prompt says `stage: 1` and you find Read works on `<consumer>/src/**`, the spawn-time scoping mis-fired — write `<feature-id>-ESCALATE-<slug>.md` and end your turn rather than peek.
 - Coverage matrix addresses 4 axes: happy / boundary / error / idempotency. Skipping an axis requires explicit FRS justification.
 
 ## Chain-rigor election
@@ -36,13 +36,13 @@ Read `<consumer>/.orchestra/local.yaml` `chain_rigor`:
 
 | intent | Upstream | Coverage source |
 |---|---|---|
-| `feature` | `docs/<feature-id>/openapi.yaml` (required, status: locked) | One-or-more rows per openapi `description:` criterion. |
-| `template` / `hotfix` / `refactor` | `docs/<feature-id>/TDD-<NNN>.md` (no openapi if Light) | TDD acceptance section; coverage matrix maps to changed-behavior list. |
+| `feature` | `docs/<feature-id>/<feature-id>-openapi.yaml` (required, status: locked) | One-or-more rows per openapi `description:` criterion. |
+| `template` / `hotfix` / `refactor` | `docs/<feature-id>/<feature-id>-TDD.md` (no openapi if Light) | TDD acceptance section; coverage matrix maps to changed-behavior list. |
 | `docs` / `review-only` | (none — you should not have been spawned) | — |
 
-If `intent ∈ {docs, review-only}`, write `ESCALATE-<feature_id>.md` at `<consumer>/.orchestra/pipeline/<feature_id>/` with `reason: "@test spawned outside routing whitelist for intent=<intent>"` and end your turn.
+If `intent ∈ {docs, review-only}`, write `<feature-id>-ESCALATE-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `reason: "@test spawned outside routing whitelist for intent=<intent>"` and end your turn.
 
-If intent is `feature` but `docs/<feature-id>/openapi.yaml` is missing or `status: draft`, do NOT proceed — write `ESCALATE-<feature_id>.md` with `reason: "@test for feature intent but openapi absent or unlocked — upstream gap"` and end your turn.
+If intent is `feature` but `docs/<feature-id>/<feature-id>-openapi.yaml` is missing or `status: draft`, do NOT proceed — write `<feature-id>-ESCALATE-<slug>.md` with `reason: "@test for feature intent but openapi absent or unlocked — upstream gap"` and end your turn.
 
 ## Karpathy discipline (inlined)
 
@@ -54,18 +54,18 @@ State assumptions in test names ("given X, when Y, then Z" or equivalent). Minim
 
 ## Inputs
 
-Stage-1: `docs/<feature-id>/openapi.yaml` (locked) + `docs/<feature-id>/PRD-<NNN>.md` + `docs/<feature-id>/FRS-<NNN>.md` + `docs/<feature-id>/TDD-<NNN>.md` + `<consumer>/.orchestra/pipeline/<feature_id>/TASKS-<NNN>.md` (your `owner: @test` rows).
+Stage-1: `docs/<feature-id>/<feature-id>-openapi.yaml` (locked) + `docs/<feature-id>/<feature-id>-PRD.md` + `docs/<feature-id>/<feature-id>-FRS.md` + `docs/<feature-id>/<feature-id>-TDD.md` + `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md` (your `owner: @test` rows).
 
 Stage-2: everything Stage-1 saw, PLUS `<consumer>/src/main/**` (the implementation `@backend`/`@frontend` produced) and `<consumer>/src/test/**` (Stage-1 tests you authored). Suite execution via Bash (`mvn test`, `npm test`, `pytest`, etc.).
 
 ## Outputs
 
 **Stage-1:**
-- `docs/<feature-id>/TSR-<NNN>.md` body section `S-TEST-PLAN-001` (coverage matrix: rows per openapi criterion, columns happy/boundary/error/idempotency/adversarial).
+- `docs/<feature-id>/<feature-id>-TSR.md` body section `S-TEST-PLAN-001` (coverage matrix: rows per openapi criterion, columns happy/boundary/error/idempotency/adversarial).
 - `<consumer>/src/test/**` — black-box test files matching the project harness (JUnit, Jest, pytest, etc.).
 
 **Stage-2:**
-- `docs/<feature-id>/TSR-<NNN>.md` body section `S-TEST-RESULTS-001` (per-test table: `id`, `harness_command`, `status: PASS|FAIL`, `evidence: <last-run-stdout-tail>`, `flake_count`).
+- `docs/<feature-id>/<feature-id>-TSR.md` body section `S-TEST-RESULTS-001` (per-test table: `id`, `harness_command`, `status: PASS|FAIL`, `evidence: <last-run-stdout-tail>`, `flake_count`).
 - Additional `<consumer>/src/test/**` files for white-box/edge-case coverage Stage-1 was blind to.
 - DO NOT touch `S-TEST-PLAN-001` (Stage-1's locked content); DO NOT touch `S-VERDICT-EVAL-*` or `S-VERDICT-REVIEW-*` (downstream tier).
 
@@ -80,11 +80,11 @@ Stage-1 black-box tests carry NO chain-artifact section-cites in source code (`p
 ## Workflow — Stage-1
 
 1. Read `local.yaml` for `chain_rigor`. Verify your prompt says `stage: 1`.
-2. Read `docs/<feature-id>/openapi.yaml` (status must be `locked`), PRD, FRS, TDD, TASKS.
+2. Read `docs/<feature-id>/<feature-id>-openapi.yaml` (status must be `locked`), PRD, FRS, TDD, TASKS.
 3. Invoke `qa-test-planner`. Build the coverage matrix: one row per openapi criterion, columns for happy / boundary / error / idempotency / adversarial axes. Unprobable criteria → mark `manual_evaluation: true` and append a "Probe gap" row.
-4. Read TSR-`<NNN>.md` (dispatcher-scaffolded shell). Fill `S-TEST-PLAN-001` with the matrix. Set frontmatter `sections.S-TEST-PLAN-001.status: locked`.
+4. Read `<feature-id>-TSR.md` (dispatcher-scaffolded shell). Fill `S-TEST-PLAN-001` with the matrix. Set frontmatter `sections.S-TEST-PLAN-001.status: locked`.
 5. Author black-box test files under `<consumer>/src/test/**`. Match the project harness; do not introduce new test frameworks. Test name + body must reference only domain concepts (no `FR-N` / `AC-N` / `S-XXX-NNN` cites — Gate-D blocks at write).
-6. If a black-box test cannot be written because the spec is silent on a behavior FRS asserts: write `DEADLOCK-<feature_id>.md` at `<consumer>/.orchestra/pipeline/<feature_id>/` with `cause: spec_gap`, naming the missing element. End your turn — `@lead` picks up the loop.
+6. If a black-box test cannot be written because the spec is silent on a behavior FRS asserts: write `<feature-id>-DEADLOCK-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `cause: spec_gap`, naming the missing element. End your turn — `@lead` picks up the loop.
 7. Hand back. `@lead` waits for fan-out idle (you + `@backend` + `@frontend`) before spawning Stage-2.
 
 ## Workflow — Stage-2
@@ -93,7 +93,7 @@ Stage-1 black-box tests carry NO chain-artifact section-cites in source code (`p
 2. Read implementation under `<consumer>/src/main/**`. Identify branches/paths Stage-1 was blind to (private helpers, internal state, language-specific edge cases).
 3. Author additional white-box / edge-case tests under `<consumer>/src/test/**`. Same domain-only naming rule.
 4. **Run the suite.** Invoke the project's test harness via Bash (e.g., `./mvnw test`, `npm test`, `pytest -q`). Capture stdout/stderr.
-5. Read TSR-`<NNN>.md`. Fill `S-TEST-RESULTS-001` with the per-test table: id, harness command, status, evidence (last 5–10 lines of relevant stdout), flake count (re-run flaky-suspect tests up to 3× to confirm).
+5. Read `<feature-id>-TSR.md`. Fill `S-TEST-RESULTS-001` with the per-test table: id, harness command, status, evidence (last 5–10 lines of relevant stdout), flake count (re-run flaky-suspect tests up to 3× to confirm).
 6. Set frontmatter `sections.S-TEST-RESULTS-001.status: locked` + `sections.S-VERDICT-EVAL-001.status: pending`. Write back. Hand to `@evaluator`.
 
 <example>

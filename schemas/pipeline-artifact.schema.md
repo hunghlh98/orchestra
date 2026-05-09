@@ -28,6 +28,17 @@ Litmus: would you link this from a PR description for a non-engineer reviewer? `
 
 ## Folder layout
 
+### Feature-id format <a id="S-FEATURE-ID-FMT-001"></a>
+
+`<feature-id> = <NNN>-<slug>` where:
+
+- `<NNN>` is a zero-padded 3-digit ordinal, monotonically incremented per project. `NNN = max(existing docs/<NNN>-*) + 1`; first feature is `001`.
+- `<slug>` is kebab-case, ASCII letters + digits only, derived from the feature name. Length ≤ 40 chars.
+
+Examples: `001-todo-api`, `002-user-auth`, `003-payment-flow`.
+
+Every per-feature artifact filename embeds the full feature-id as a prefix: `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`, `001-todo-api-openapi.yaml`). The frontmatter `id:` field MUST equal the basename without extension.
+
 ### `<project>/docs/` (stakeholder surface)
 
 ```
@@ -40,12 +51,12 @@ Litmus: would you link this from a PR description for a non-engineer reviewer? `
 │   ├── c4-context.{puml,svg}
 │   ├── c4-container.{puml,svg}
 │   └── erd-logical.{puml,svg}
-└── <feature-id>/                        ← per-feature
-    ├── PRD-NNN.md
-    ├── FRS-NNN.md
-    ├── TDD-NNN.md
-    ├── openapi.yaml                     (or asyncapi.yaml; CONTRACT narrative folds into description: + # comments)
-    ├── TSR-NNN.md                       (multi-writer: §test-plan @test, §verdict-evaluator @evaluator, §verdict-reviewer @reviewer + ADR review)
+└── <feature-id>/                        ← per-feature; <feature-id> = <NNN>-<slug>
+    ├── <feature-id>-PRD.md              (e.g., 001-todo-api-PRD.md)
+    ├── <feature-id>-FRS.md
+    ├── <feature-id>-TDD.md
+    ├── <feature-id>-openapi.yaml        (or <feature-id>-asyncapi.yaml; CONTRACT narrative folds into description: + # comments)
+    ├── <feature-id>-TSR.md              (multi-writer: §test-plan @test, §verdict-evaluator @evaluator, §verdict-reviewer @reviewer + ADR review)
     └── diagrams/                        ← feature
         ├── state-business.{puml,svg}
         ├── sequence-inter-<flow>.{puml,svg}
@@ -55,7 +66,7 @@ Litmus: would you link this from a PR description for a non-engineer reviewer? `
         └── erd-physical.{puml,svg}         (if schema touched)
 ```
 
-Per-feature prose is **5 files**: PRD, FRS, TDD, openapi, TSR. TEST-NNN.md merges into TSR-NNN.md `§test-plan`; CONTRACT-NNN.md prose folds into openapi `description:` fields and top-of-file `#` comments.
+Per-feature prose is **5 files**: `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml`, `<feature-id>-TSR.md`. The legacy v3-and-earlier `TEST-*.md` artifact is folded into TSR `§test-plan`; the legacy `CONTRACT-*.md` prose folds into openapi `description:` fields and top-of-file `#` comments.
 
 ### `<project>/.orchestra/` (agent + plugin internals)
 
@@ -66,30 +77,30 @@ Per-feature prose is **5 files**: PRD, FRS, TDD, openapi, TSR. TEST-NNN.md merge
 ├── events.jsonl                        ← event log (BL-0032; observability stream 7)
 ├── metrics/                            ← per-role / per-phase token attribution (BL-0035)
 │   └── <run-id>.json
-└── pipeline/<feature-id>/              ← per-feature coordination state
-    ├── intent.yaml                     ← routing decision (input to @lead)
-    ├── TASKS-NNN.md                    ← lead → implementer task breakdown
-    ├── DEADLOCK-<id>.md                ← transient
-    ├── ESCALATE-<id>.md                ← transient
-    └── ESCALATE-ADR-<NNNN>.md          ← reviewer-flagged retroactive ADR escalation
+└── pipeline/<feature-id>/                       ← per-feature coordination state; <feature-id> matches docs/<feature-id>/
+    ├── intent.yaml                              ← routing decision (input to @lead)
+    ├── <feature-id>-TASKS.md                    ← lead → implementer task breakdown
+    ├── <feature-id>-DEADLOCK-<slug>.md          ← transient; <slug> identifies the deadlock cause
+    ├── <feature-id>-ESCALATE-<slug>.md          ← transient
+    └── <feature-id>-ESCALATE-ADR-<NNNN>.md      ← reviewer-flagged retroactive ADR escalation
 ```
 
 Lifetime notes:
-- `intent.yaml` + `TASKS-NNN.md` are run-scoped — kept across reruns of the same feature for idempotency, history-only after ship.
-- `DEADLOCK-*.md` / `ESCALATE-*.md` are transient by design — removed once resolved. Stale escalation files are themselves a CI signal.
+- `intent.yaml` + `<feature-id>-TASKS.md` are run-scoped — kept across reruns of the same feature for idempotency, history-only after ship.
+- `<feature-id>-DEADLOCK-*.md` / `<feature-id>-ESCALATE-*.md` are transient by design — removed once resolved. Stale escalation files are themselves a CI signal.
 - `events.jsonl` and `metrics/` accrete; observability fuel, not deliverables.
 
 Type → folder map:
 
 | Type | Folder | Example | Notes |
 |---|---|---|---|
-| `PRD`, `FRS`, `TDD`, `TSR` | `docs/<feature-id>/` | `PRD-001.md` | per-feature prose |
-| `API` (openapi/asyncapi) | `docs/<feature-id>/` | `openapi.yaml` | per-feature; CONTRACT narrative inline |
+| `PRD`, `FRS`, `TDD`, `TSR` | `docs/<feature-id>/` | `001-todo-api-PRD.md` | per-feature prose; filename = `<feature-id>-<TYPE>.md` |
+| `API` (openapi/asyncapi) | `docs/<feature-id>/` | `001-todo-api-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml`; CONTRACT narrative inline |
 | `SAD` | `docs/` | `SAD.md` | project singleton |
-| `ADR` | `docs/adr/` | `ADR-0001-use-sqlite.md` | global flat numbering |
+| `ADR` | `docs/adr/` | `ADR-0001-use-sqlite.md` | global flat numbering — NOT feature-scoped |
 | `RELEASE`, `RUNBOOK` | `docs/releases/`, `docs/runbooks/` | `RELEASE-vX.Y.Z.md` | release-time singletons; ANNOUNCEMENT folded into RELEASE §S-ANNOUNCEMENT-001 |
-| `TASKS` | `.orchestra/pipeline/<id>/` | `TASKS-001.md` | agent-internal |
-| `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/pipeline/<id>/` | `ESCALATE-001.md` | transient |
+| `TASKS` | `.orchestra/pipeline/<feature-id>/` | `001-todo-api-TASKS.md` | agent-internal; filename = `<feature-id>-TASKS.md` |
+| `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/pipeline/<feature-id>/` | `001-todo-api-ESCALATE-spec-gap.md` | transient; filename = `<feature-id>-<TYPE>-<slug>.md` (or `<feature-id>-ESCALATE-ADR-<NNNN>.md`) |
 
 **Removed in v4.0** (folded or dropped):
 - `CHARTER` → dropped; mode detection (greenfield/brownfield) replaces classification slot
@@ -104,7 +115,7 @@ Type → folder map:
 
 ```yaml
 ---
-id: <feature_id>-<TYPE>          # e.g., "PRD-001", "ADR-0001"; "SAD" for singleton
+id: <basename-without-extension> # e.g., "001-todo-api-PRD", "001-todo-api-TSR", "ADR-0001-use-sqlite", "SAD" for singleton, "RELEASE-v4.0.2" for release
 type: <PRD|FRS|TDD|API|TSR|SAD|ADR|RELEASE|RUNBOOK|TASKS|ESCALATE|DEADLOCK>
 created: <ISO-8601>
 revision: <integer ≥ 1>
@@ -178,7 +189,17 @@ Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segm
 
 **Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in the body, and every `<a id>` in the body MUST have a matching key in `sections:`. `validate.js` flags either direction as a violation.
 
-**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `TASKS-NNN.md`, `ESCALATE-*.md`, `DEADLOCK-*.md` — these are agent-internal coordination, not stakeholder narrative.
+**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md` — these are agent-internal coordination, not stakeholder narrative.
+
+## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
+
+Artifacts under `docs/` are stakeholder deliverables. Deliver decisions and contracts, not narrative. On every write:
+
+- **State, don't justify.** Each FR / AC / NFR / persona / decision is one substantive sentence (or a fact bullet). No methodology paragraphs, no "why this artifact exists", no recap of the orchestra chain. If a sentence doesn't move the build forward, delete it.
+- **Personas: real, business-domain, system-interacting.** Use names from the consumer's actual domain. Prefer the shortest unambiguous form for both PRD prose and diagram actor labels: `Client`, `Web`, `App`, `API client`, `Integrator`, `Mobile app`, `Admin user`, `Customer`, `Driver`, `Merchant`, `Operator`. A persona is a role that uses the *running system* — not someone who reads the source. Do not invent meta-narrative stand-ins like `Developer-consumer` or `Reference-impl reader`. If one persona exists, list one — do not pad to look thorough. Architect inherits PRD personas into `SAD.md` `S-CONTEXT-001`; the `c4-architecture` skill inherits them again into `.puml` actor labels — bad names at PRD propagate to every diagram, so fix at source.
+- **Out-of-scope = what the request scoped out.** List items the user (or PRD scope statement) explicitly excluded. Do not enumerate every plausible non-feature for completeness.
+- **Bullets over prose.** Default to bullets. Reserve paragraphs for connected reasoning that genuinely needs them. Never repeat in prose what a bullet already states.
+- **No orchestra plumbing in stakeholder bodies.** Do not name `@product` / `@lead` / `@architect` / `@test` / `@evaluator` / `@reviewer` / `chain_rigor` / `Full-rigor` / `Standard` / `Light` in PRD / FRS / SAD / TDD / ADR / TSR bodies. The chain is invisible to the human reading the artifact. Cross-references between consumer artifacts (`001-todo-api-PRD` ↔ `001-todo-api-FRS` ↔ `001-todo-api-TDD` ↔ `ADR-NNNN-<slug>`) ARE fine — those resolve in the consumer's `docs/`.
 
 ## Diagram requirements
 
@@ -203,7 +224,7 @@ Drift check: filename arithmetic — every `.puml` has a paired `.svg`; every pr
 
 ## Type-specific frontmatter
 
-### PRD-`<NNN>`.md
+### `<feature-id>-PRD.md`
 
 ```yaml
 status: draft | locked
@@ -212,17 +233,17 @@ version: <semver>          # the orchestra version this PRD targets
 open_questions: <int>      # NEW v4.0 — count of open Qs in §S-OPEN-Q-001 (BL-0029)
 ```
 
-### FRS-`<NNN>`.md
+### `<feature-id>-FRS.md`
 
 ```yaml
-prd: PRD-<NNN>                       # parent PRD id
+prd: <feature-id>-PRD                # parent PRD id (e.g., "001-todo-api-PRD")
 acceptance_criteria_count: <int>     # for spot-check during review
 usecase_count: <int>                 # MUST equal state-business diagram actor-count
 inherited_open_questions: <int>      # NEW v4.0 — Qs lifted from PRD
 resolved_open_questions: <int>       # NEW v4.0 — Qs resolved in this FRS revision
 ```
 
-### TDD-`<NNN>`.md
+### `<feature-id>-TDD.md`
 
 ```yaml
 sad_touched: true | false            # whether this feature mutated SAD
@@ -231,13 +252,13 @@ state_machine_count: <int>           # 0 when no lifecycle exists
 schema_touched: true | false         # gates erd-physical requirement
 ```
 
-### openapi.yaml / asyncapi.yaml (per-feature)
+### `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` (per-feature)
 
 OpenAPI/AsyncAPI document is the artifact body. The plugin's frontmatter contract does not apply to YAML body — `status:` / `verdict:` / `readers:` / `sections:` instead live in a top-of-file YAML comment block:
 
 ```yaml
 # orchestra:
-#   id: API-001
+#   id: 001-todo-api-openapi
 #   type: API
 #   status: draft
 #   verdict: pending
@@ -267,7 +288,7 @@ paths:
 
 `pre-write-check.js` reads the comment block as if it were YAML frontmatter for status/sections enforcement.
 
-### TSR-`<NNN>`.md (multi-writer)
+### `<feature-id>-TSR.md` (multi-writer)
 
 ```yaml
 status: draft                                 # draft | locked
@@ -314,8 +335,8 @@ adr_count: <int>                     # rows in §S-ADR-INDEX-001 with status=acc
 ```yaml
 status: proposed | accepted | superseded | deprecated  # ADR has its own status enum (pre-existing semantics)
 verdict: APPROVED | REQUEST_CHANGES | pending
-superseded_by: ADR-<NNNN> | null
-triggered_by: PRD-<NNN> | FRS-<NNN> | TDD-<NNN> | SAD
+superseded_by: ADR-<NNNN>-<slug> | null
+triggered_by: <feature-id>-PRD | <feature-id>-FRS | <feature-id>-TDD | SAD
 review_round: <1..3>                                   # circuit at 4 → ESCALATE-ADR-<NNNN>.md
 option_count: <int>
 ```
@@ -345,7 +366,7 @@ deploy_steps_count: <int>
 rollback_steps_count: <int>
 ```
 
-### TASKS-`<NNN>`.md (`.orchestra/pipeline/<id>/`)
+### `<feature-id>-TASKS.md` (`.orchestra/pipeline/<feature-id>/`)
 
 ```yaml
 status: draft | locked
@@ -358,7 +379,7 @@ tasks_done: <int>
 
 `S-TASKS-001` is **mutable by design** — implementer-tier owners (`@backend`, `@frontend`) flip rows from `pending → in_progress → done` on pickup/completion. Read-only-tier owners (`@evaluator`, `@reviewer`) do NOT self-report — their task status derives at read-time from TSR `eval_verdict` / `rev_verdict`.
 
-### ESCALATE-`<id>`.md, ESCALATE-ADR-`<NNNN>`.md, DEADLOCK-`<id>`.md
+### `<feature-id>-ESCALATE-<slug>.md`, `<feature-id>-ESCALATE-ADR-<NNNN>.md`, `<feature-id>-DEADLOCK-<slug>.md`
 
 ```yaml
 triggered_by_<stage|agent>: <value>

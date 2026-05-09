@@ -88,9 +88,9 @@ When `mode == "brownfield"` AND `local.yaml.depth` is unset, elect a depth prese
 
 | Depth | Reverse-doc artifact set per major feature | Author roles | When to pick |
 |---|---|---|---|
-| `light` | `PRD-<NNN>.md` (summary only) | `@product` | Project is small, well-understood, or you only need a feature inventory before forward work begins |
-| `medium` | `PRD-<NNN>.md` + `FRS-<NNN>.md` + `TDD-<NNN>.md` | `@product`, `@lead` | Default for typical brownfield bootstraps; gives requirements + design baseline |
-| `full` | `PRD-<NNN>.md` + `FRS-<NNN>.md` + `SAD.md` + `TDD-<NNN>.md` + `openapi.yaml` | `@product`, `@architect` (SAD), `@lead` | Architecturally rich projects with multiple services or non-trivial system boundaries; matches `chain_rigor: Full` |
+| `light` | `<feature-id>-PRD.md` (summary only) | `@product` | Project is small, well-understood, or you only need a feature inventory before forward work begins |
+| `medium` | `<feature-id>-PRD.md` + `<feature-id>-FRS.md` + `<feature-id>-TDD.md` | `@product`, `@lead` | Default for typical brownfield bootstraps; gives requirements + design baseline |
+| `full` | `<feature-id>-PRD.md` + `<feature-id>-FRS.md` + `SAD.md` + `<feature-id>-TDD.md` + `<feature-id>-openapi.yaml` | `@product`, `@architect` (SAD), `@lead` | Architecturally rich projects with multiple services or non-trivial system boundaries; matches `chain_rigor: Full` |
 
 **Major feature** = a top-level component / domain identifiable from the source tree (`src/<domain>/`, `services/<name>/`, `controllers/<resource>/`, `cmd/<binary>/`). Heuristic, not exhaustive — consumers can re-run with `--rediscover` after manual edits to feature scope.
 

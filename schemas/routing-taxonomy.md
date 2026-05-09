@@ -7,8 +7,8 @@
 ## How agents use this file
 
 - Spawn prompt mandate: every `Agent({ subagent_type, prompt })` call from the dispatcher embeds `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent>` plus a 1-line summary. Agents may Read this file when the inline summary is insufficient (e.g., an artifact name they're uncertain about).
-- Out-of-whitelist enforcement: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `ESCALATE-<feature_id>.md` at the feature-dir root with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
-- ADR sub-flow: feature and refactor intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author (under `chain_rigor=Full`); `@reviewer` reviews. 3-round circuit breaker → `DEADLOCK-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-NNNN-<slug>`) in plain prose, not by section anchor.
+- Out-of-whitelist enforcement: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `<feature-id>-ESCALATE-<slug>.md` at the feature-dir root with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
+- ADR sub-flow: feature and refactor intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author (under `chain_rigor=Full`); `@reviewer` reviews. 3-round circuit breaker → `<feature-id>-DEADLOCK-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-NNNN-<slug>`) in plain prose, not by section anchor.
 
 ---
 
@@ -88,7 +88,7 @@ This is the only intent that produces the full SDLC artifact set.
 - The doc files themselves (whatever the user asked for — README updates, rule docs, etc.)
 - `verify/<NNN>-TSR.md`                                 <!-- v2.0: rev half only; eval half stays pending -->
 
-**Excluded:** PRD, FRS, TDD, CONTRACT, API, TASKS, TEST, RELEASE. `@product` is spawned for upstream classification only (writes the brief CHARTER). `@lead` MUST refuse this route — if spawned, write `ESCALATE-<feature_id>.md` and end the turn.
+**Excluded:** PRD, FRS, TDD, CONTRACT, API, TASKS, TEST, RELEASE. `@product` is spawned for upstream classification only (writes the brief CHARTER). `@lead` MUST refuse this route — if spawned, write `<feature-id>-ESCALATE-<slug>.md` and end the turn.
 
 ## review-only {#review-only}
 

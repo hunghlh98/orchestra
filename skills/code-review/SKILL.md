@@ -92,9 +92,9 @@ A miss is **Major** unless data-loss-adjacent (then **Critical**).
 
 Below 80% → `rev_verdict: pending`. Below 60% → `pending` plus request `@lead` re-spec round.
 
-### Step 7 — Write reviewer sections of TSR-NNN.md
+### Step 7 — Write reviewer sections of `<feature-id>-TSR.md`
 
-Read `docs/<feature-id>/TSR-<NNN>.md` (eval section filled by `@evaluator`). Fill `S-VERDICT-REVIEW-001`:
+Read `docs/<feature-id>/<feature-id>-TSR.md` (eval section filled by `@evaluator`). Fill `S-VERDICT-REVIEW-001`:
 
 - One-paragraph verdict (APPROVED / REQUEST_CHANGES / pending) + per-severity findings table (Critical / Major / Minor / Nit) referencing `<file>:<line>` for each finding.
 
@@ -122,7 +122,7 @@ Set frontmatter `rev_verdict` (APPROVED|REQUEST_CHANGES|pending) + `rev_round` (
 
 ## Circuit breaker
 
-3 consecutive `REQUEST_CHANGES` rounds → write `DEADLOCK-<id>.md`, escalate to user. The implementer is not converging; further iterations are negative-EV.
+3 consecutive `REQUEST_CHANGES` rounds → write `<feature-id>-DEADLOCK-<slug>.md`, escalate to user. The implementer is not converging; further iterations are negative-EV.
 
 ## When to escalate
 
@@ -137,7 +137,7 @@ Set frontmatter `rev_verdict` (APPROVED|REQUEST_CHANGES|pending) + `rev_round` (
 
 ## Worked example
 
-Diff: backend adds `POST /v1/transfer`, ~180 LOC across 3 files. Tests exist. Language: Java. `docs/001-foo/openapi.yaml` is `status: locked` with concrete criteria.
+Diff: backend adds `POST /v1/transfer`, ~180 LOC across 3 files. Tests exist. Language: Java. `docs/001-foo/001-foo-openapi.yaml` is `status: locked` with concrete criteria.
 
 1. **Structural** — 3 files, no LOC outliers, no deleted files, caller graph unchanged.
 2. **Karpathy** — diff matches existing service layout; no out-of-scope edits; no speculative abstractions. Pass.
@@ -147,4 +147,4 @@ Diff: backend adds `POST /v1/transfer`, ~180 LOC across 3 files. Tests exist. La
 6. **Performance** — single DB call per request. No loops. Pass.
 7. **Confidence** — diff small (+20), tests exist (+20), java-development loaded (+20), openapi concrete (+20), evaluator agreed (+20) = **100%**.
 
-Verdict: **APPROVED** with one Minor finding. Fill `S-VERDICT-REVIEW-001` in `docs/001-foo/TSR-001.md`. Set `rev_verdict: APPROVED`, `rev_round: 1`. Hand to `/orchestra ship`.
+Verdict: **APPROVED** with one Minor finding. Fill `S-VERDICT-REVIEW-001` in `docs/001-foo/001-foo-TSR.md`. Set `rev_verdict: APPROVED`, `rev_round: 1`. Hand to `/orchestra ship`.

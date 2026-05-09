@@ -74,9 +74,9 @@ Each adversarial input is a probe with an explicit `expected_result` of "handled
 | **Auth bypass** | Without auth header; with expired token; with wrong scope. Each fails per contract. |
 | **Boundary timeout** | `timeout_ms` at 90% of SLO; expect either response or graceful timeout per contract. |
 
-### Step 4 — Write verify/<NNN>-TEST.md
+### Step 4 — Fill `<feature-id>-TSR.md` `S-TEST-PLAN-001`
 
-Read the dispatcher-scaffolded `pipeline/<feature_id>/verify/<NNN>-TEST.md`. Slim frontmatter (provenance lives in paired `<artifact>.lock.yaml`); one locked anchor `S-COVERAGE-001`; FILL placeholder for the matrix.
+Read `docs/<feature-id>/<feature-id>-TSR.md` (dispatcher-scaffolded shell). The `S-TEST-PLAN-001` section anchor is the matrix's home.
 
 v2.0 changes vs v1: TEST.md is coverage-matrix-ONLY. Probe DSL lives in CONTRACT `S-CRITERIA-001` (reference by criterion id, don't re-state). Verdict folded into TSR per v2.0 — `@evaluator` writes `S-EVAL-VERDICT-001` + `S-EVAL-TABLE-001`; `@reviewer` writes `S-REV-VERDICT-001` + `S-REV-FINDINGS-001`.
 
@@ -128,4 +128,4 @@ Each row references a CONTRACT criterion id (e.g., `C-001`), the source (CONTRAC
 | transfer.emits_event | (1) http_probe POST → 201; (2) db_state SELECT FROM event_log WHERE topic='transfer'; **boundary**: zero-amount transfer → still emit? (per contract: yes) |
 | transfer.idempotent | (1) **adversarial replay**: POST twice with same key, expect second is no-op; (2) db_state SELECT count(*) FROM ledger WHERE key='k1' = 1 |
 
-Write `docs/<feature-id>/TSR-001.md` `S-TEST-PLAN-001` with all probes laid out. `@test` Stage-2 runs them and fills `S-TEST-RESULTS-001`; `@evaluator` then grades the recorded evidence.
+Write `docs/<feature-id>/<feature-id>-TSR.md` `S-TEST-PLAN-001` with all probes laid out. `@test` Stage-2 runs them and fills `S-TEST-RESULTS-001`; `@evaluator` then grades the recorded evidence.

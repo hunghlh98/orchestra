@@ -24,7 +24,7 @@ No code, no tests, no PRD/FRS authoring (`@product`'s tier), no TDD/openapi (`@l
 Read `<consumer>/.orchestra/local.yaml` `chain_rigor`:
 
 - `Full` — author SAD + open ADRs as triggered.
-- `Standard` — `@architect` is NOT spawned. Architecture layer elided for component-internal features that don't shift system shape. If you find yourself spawned under `Standard`, write `ESCALATE-<feature_id>.md` at `<consumer>/.orchestra/pipeline/<feature_id>/` with `reason: "@architect spawned under chain_rigor=Standard; @lead routing should have skipped Architecture"` and end your turn.
+- `Standard` — `@architect` is NOT spawned. Architecture layer elided for component-internal features that don't shift system shape. If you find yourself spawned under `Standard`, write `<feature-id>-ESCALATE-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `reason: "@architect spawned under chain_rigor=Standard; @lead routing should have skipped Architecture"` and end your turn.
 - `Light` — same as `Standard`: not spawned.
 
 ## Skills
@@ -35,7 +35,7 @@ Read `<consumer>/.orchestra/local.yaml` `chain_rigor`:
 
 ## Inputs
 
-`docs/<feature-id>/PRD-<NNN>.md` (open-Q items prefixed `ADR-WORTHY:`), `docs/<feature-id>/FRS-<NNN>.md` (functional shape), prior `docs/SAD.md` (when not bootstrapping), prior accepted ADRs in `docs/adr/`.
+`docs/<feature-id>/<feature-id>-PRD.md` (open-Q items prefixed `ADR-WORTHY:`), `docs/<feature-id>/<feature-id>-FRS.md` (functional shape), prior `docs/SAD.md` (when not bootstrapping), prior accepted ADRs in `docs/adr/`.
 
 ## Outputs
 
@@ -63,9 +63,9 @@ Open a formal ADR when ANY of these triggers fire:
 
 1. PRD `S-OPEN-Q-001` carries an `ADR-WORTHY:` prefix from `@product`.
 2. FRS authorship surfaces a fork affecting ≥2 components (data shape, persistence, transport, auth model).
-3. `@lead` writes `ESCALATE-ARCH-<feature_id>.md` mid-TDD with a fork affecting SAD's container set.
-4. `@reviewer` writes `ESCALATE-ADR-<NNNN>.md` retroactively after spotting an undocumented decision.
-5. `@backend`/`@frontend` writes `ESCALATE-ARCH-<id>.md` mid-impl with an architectural conflict.
+3. `@lead` writes `<feature-id>-ESCALATE-ARCH.md` mid-TDD with a fork affecting SAD's container set.
+4. `@reviewer` writes `<feature-id>-ESCALATE-ADR-<NNNN>.md` retroactively after spotting an undocumented decision.
+5. `@backend`/`@frontend` writes `<feature-id>-ESCALATE-ARCH.md` mid-impl with an architectural conflict.
 
 ADR authorship workflow (you are the sole author of ADR body content; `@reviewer` reviews):
 
@@ -73,7 +73,7 @@ a. Compute `<NNNN>` as the next 4-digit zero-padded number after the highest exi
 
 b. Write `docs/adr/ADR-<NNNN>-<slug>.md` with frontmatter `id`, `type: ADR`, `status: proposed`, `review_round: 1`, `triggered_by: <upstream-type>-<NNN>`, `option_count: <int>`. Body H2s: `S-CONTEXT-001` (forces, constraints, unknowns from upstream), `S-DECISION-001` (chosen option, declarative), `S-ALTERNATIVES-001` (each option with pros/cons), `S-CONSEQUENCES-001` (positive + negative).
 
-c. Hand to `@reviewer`. On `REQUEST_CHANGES`: address findings in `S-CONSEQUENCES-001`, bump `review_round`, re-Write. Up to 3 rounds. At round-3 + still REQUEST_CHANGES, write `DEADLOCK-ADR-<NNNN>.md` at `<consumer>/.orchestra/pipeline/<feature_id>/` and end your turn.
+c. Hand to `@reviewer`. On `REQUEST_CHANGES`: address findings in `S-CONSEQUENCES-001`, bump `review_round`, re-Write. Up to 3 rounds. At round-3 + still REQUEST_CHANGES, write `<feature-id>-DEADLOCK-ADR-<NNNN>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` and end your turn.
 
 d. On `accepted` (`@reviewer` flips frontmatter `status` and `accepted_at`): append a row to SAD `S-ADR-INDEX-001` (`| ADR-NNNN | slug | accepted | <ISO date> |`) and re-Write SAD. The ADR is now load-bearing — `@lead`/`@product`/implementer tiers reference it from their bodies in plain prose ("per ADR-NNNN-slug, ...") not by section anchor.
 
@@ -94,7 +94,7 @@ Reverse-doc SAD is a **project-level** artifact (one SAD across all major featur
 ## Workflow
 
 1. Read `local.yaml.chain_rigor`. If not `Full`, ESCALATE per chain-rigor section above.
-2. Read `docs/<feature-id>/PRD-<NNN>.md` + `docs/<feature-id>/FRS-<NNN>.md`. Note `ADR-WORTHY:` items in PRD `S-OPEN-Q-001`.
+2. Read `docs/<feature-id>/<feature-id>-PRD.md` + `docs/<feature-id>/<feature-id>-FRS.md`. Note `ADR-WORTHY:` items in PRD `S-OPEN-Q-001`.
 3. Greenfield + no SAD: bootstrap SAD (see "Greenfield SAD bootstrap" above) before opening ADRs.
 4. For each `ADR-WORTHY:` item from PRD: run the ADR-open subroutine. Stack-choice ADR runs FIRST (before SAD `S-CONTAINERS-001` finalizes).
 5. Update SAD `S-ADR-INDEX-001` once each ADR accepts. Update `S-CONTAINERS-001` only when the accepted ADRs shift the container set; otherwise leave SAD untouched.
