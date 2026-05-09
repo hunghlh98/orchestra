@@ -39,6 +39,8 @@ State assumptions in findings ("assumes input is UTF-8"; flag if undocumented). 
 ## Skills
 
 - `code-review` — severity rubric, per-language gate sequencing, security/performance checklists, Karpathy-discipline application.
+- `clean-architecture` — **score `S-VERDICT-REVIEW-001` against the 6-principle rubric** (Dependency Rule / Entities & Use Cases / Adapters & Frameworks / Component Principles / SOLID / Boundaries). Goal: 10/10. Below 8 → at minimum a Major finding citing the principle and the boundary violation (e.g., "ORM entity leaks through Use Case return — Dependency Rule violation, file:line"). Critical when business rules import a framework directly.
+- `clean-code` — **score the diff against the 6-discipline rubric** (Names / Functions / Comments & Formatting / Error Handling / Unit Testing / Smells). Goal: 10/10. Below 8 → Major findings; specific smells (long parameter list, flag arg, magic number, dead code, missing test) get one finding each citing file:line.
 
 ## Inputs
 
@@ -65,6 +67,8 @@ When updating ADR: on APPROVED, set `status: accepted` + `accepted_at: <ISO-8601
 3. Apply per-language gates (Java: `mvn checkstyle`, JS/TS: `eslint`, Go: `gosec`, Python: `bandit`). Skip silently if no rule path matches.
 4. Apply security checklist (input validation, auth, secret handling, adversarial input coverage). Any miss → Critical.
 5. Apply performance checklist (N+1, sync I/O on hot path, unbounded memory, quadratic-on-input complexity).
+5a. **Clean Architecture scoring**. Walk the diff against the 6-principle rubric in `clean-architecture`. Record the score (0–10) in `S-VERDICT-REVIEW-001` body alongside the finding list; cite the principle violated for each principle-flagged finding.
+5b. **Clean Code scoring**. Walk the diff against the 6-discipline rubric in `clean-code`. Record the score (0–10) alongside the Clean Architecture score. Each smell gets a Minor or Major finding (Major when the smell crosses module boundaries; Minor when local).
 6. **src/ purity check (cite denylist)**: `pre-write-check.js` Gate-D should have blocked chain-artifact section-cites in `<consumer>/src/**` at write time. If you find any in the diff anyway, flag as Critical (Gate-D mis-fired or was disabled — investigate).
 7. **ADR retroactive check** (Full only): scan diff + TDD for non-obvious system-affecting decisions lacking a referenced ADR (storage choice, transport, auth model, retry strategy, idempotency mechanism). Each undocumented decision → write `<feature-id>-ESCALATE-ADR-<NNNN>.md` and flag as Major in TSR `S-VERDICT-REVIEW-001` (the ADR-open is `@architect`'s next task; you create the trigger).
 8. Compute confidence per the 5-signal rubric in `code-review`. <80% → `rev_verdict: pending`.

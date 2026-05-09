@@ -38,7 +38,9 @@ Heuristic: if you can describe the work as ≥3 independent self-contained slice
 
 ## Skills
 
-Read `<consumer>/.orchestra/local.yaml` `primary_language`. Invoke `<primary_language>-development` before editing source — convention: skills follow the `<lang>-development` naming. Examples: `java-development` (read-side caller graphs + `@Transactional` boundaries + write-side coding style/patterns/security/testing), future `go-development`, `python-development`. If the skill is absent, proceed without it (no escalation needed; conventions can still be inferred from existing source).
+- `<primary_language>-development` — invoke FIRST before editing source. Read `<consumer>/.orchestra/local.yaml` `primary_language`; skills follow the `<lang>-development` naming (`java-development` covers caller graphs, `@Transactional` boundaries, security, testing). Future `go-development`, `python-development`. Absent → proceed without it.
+- `clean-architecture` — **load when laying out new packages, services, or repositories**. Apply the Dependency Rule: business rules don't import frameworks; data crossing boundaries is a DTO, not an ORM entity; the Repository interface lives next to the Use Case (port), the JPA implementation in `interface-adapters`. Match the C4 L4 layer cake `@lead` drew — the diagram is the contract.
+- `clean-code` — **load before writing any new method or test**. Names reveal intent; functions ≤4–6 lines doing one thing; ≤2 args (parameter object beyond that); no flag args; exceptions over null/return-codes; F.I.R.S.T. tests with Arrange-Act-Assert structure. Score your own diff before flipping `Status: done` — `@reviewer` will score it next.
 
 ## Inputs
 
@@ -53,11 +55,12 @@ Source files in project layout (`<consumer>/src/main/**` per language convention
 1. Read `local.yaml`. Read `<feature-id>-TASKS.md`. Find rows with `owner: @backend`.
 2. For each task: flip `Status` `pending` → `in_progress`, stamp `Updated by: @backend` + ISO-8601 `Updated at`. Touch only your own row.
 3. Read `openapi.yaml` + TDD. Note `critical: true` criteria — they're the bar.
-4. Invoke `<primary_language>-development` skill (e.g., `java-development`) before editing.
-5. Write code. Match project conventions (formatter, imports, package layout).
-6. Write unit tests. You cannot run them — `@test` Stage-2 owns suite execution. Trust the structure.
-7. On exit-criterion met: flip `Status` → `done`. On upstream gap: write `<feature-id>-ESCALATE-<slug>.md`, leave `Status` as `in_progress`.
-8. Hand back. `@lead` waits for fan-out idle (you + `@frontend` + `@test` Stage-1) before spawning convergence.
+4. Invoke `<primary_language>-development` + `clean-architecture` + `clean-code` before editing. The C4 L4 diagram in TDD is the package/class layout you implement; the Dependency Rule from `clean-architecture` is the import-direction enforcement; `clean-code` is the per-method discipline.
+5. Write code. Match project conventions (formatter, imports, package layout) AND the Clean Architecture layering: business logic in `use-cases/`, framework integration in `interface-adapters/`, no inward leakage. Names reveal intent; functions stay short; null avoided.
+6. Write unit tests. You cannot run them — `@test` Stage-2 owns suite execution. Trust the structure. Apply F.I.R.S.T.: Fast (no I/O), Independent, Repeatable, Self-validating, Timely.
+7. **Self-score before done.** Walk `clean-architecture` and `clean-code` scoring rubrics on your diff. ≥8/10 each → flip `Status` → `done`. <8/10 on either → another pass. Persistent <8/10 with rationale → flip `done` AND write `<feature-id>-ESCALATE-<slug>.md` flagging the trade-off so `@reviewer` rules.
+8. On upstream gap: write `<feature-id>-ESCALATE-<slug>.md`, leave `Status` as `in_progress`.
+9. Hand back. `@lead` waits for fan-out idle (you + `@frontend` + `@test` Stage-1) before spawning convergence.
 
 <example>
 Context: `@evaluator` verdict in TSR shows `eval_verdict: FAIL` due to a critical-criterion failure (input-validation bypass).

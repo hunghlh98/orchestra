@@ -506,14 +506,45 @@ console.log("orchestra.md v4.0 surface fixture:");
   }
   check(/Coordination protocol/i.test(body), `commands/orchestra.md has Coordination protocol section`);
 
-  // v3 vestiges (must NOT contain — prevent regression)
+  // v3 PAUSE-N terminology stays forbidden (gates moved to decision-tree prose).
   for (let i = 1; i <= 4; i++) {
     check(!body.includes(`PAUSE-${i}`), `commands/orchestra.md MUST NOT reference v3 PAUSE-${i}`);
   }
-  check(!/--autonomy/.test(body), `commands/orchestra.md MUST NOT mention v3 --autonomy flag`);
+
+  // v4.0.3 — autonomy + spawn_mode gates restored to dispatcher (smoke-test feedback).
+  check(/--autonomy/.test(body), `commands/orchestra.md documents --autonomy CLI flag`);
+  check(/--spawn-mode/.test(body), `commands/orchestra.md documents --spawn-mode CLI flag`);
   for (const tag of ["EXECUTION_ONLY", "JOINT_PROCESSING", "OPTION_SYNTHESIS", "DRAFT_AND_GATE", "FULL_AUTONOMY"]) {
-    check(!body.includes(tag), `commands/orchestra.md MUST NOT enumerate v3 autonomy tag: ${tag}`);
+    check(body.includes(tag), `commands/orchestra.md enumerates autonomy tag: ${tag}`);
   }
+  check(/spawn_mode/.test(body), `commands/orchestra.md asks for spawn_mode in decision tree`);
+  check(/autonomy\.level|autonomy:\s*\n\s*level/.test(body), `commands/orchestra.md persists autonomy.level in local.yaml schema`);
+  check(/autonomy-diagnostic\.md/.test(body), `commands/orchestra.md cites task-breakdown/references/autonomy-diagnostic.md as source for the suggestion`);
+}
+
+// v4.0.3 — c4-architecture skill enforces consistent l1/l2/l3/l4 naming.
+console.log("c4-architecture skill enumerates Levels 1–4:");
+{
+  const skillPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "skills", "c4-architecture", "SKILL.md");
+  const body = readFileSync(skillPath, "utf8");
+  for (const lvl of ["c4-l1-context", "c4-l2-container", "c4-l3-<service>", "c4-l4-<service>"]) {
+    check(body.includes(lvl), `skills/c4-architecture/SKILL.md documents diagram-name shape: ${lvl}`);
+  }
+  check(/Level 4 — Code/i.test(body), `skills/c4-architecture/SKILL.md has Level 4 — Code section`);
+  check(/clean-architecture/.test(body), `skills/c4-architecture/SKILL.md cross-references clean-architecture skill for L4 layering`);
+  check(/UpdateElementStyle/.test(body), `skills/c4-architecture/SKILL.md teaches the highlight protocol for per-feature copies`);
+}
+
+// v4.0.3 — clean-architecture + clean-code skills are vendored and load-cleanly.
+console.log("vendored skills present + frontmatter shape:");
+for (const skill of ["clean-architecture", "clean-code"]) {
+  const skillPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "skills", skill, "SKILL.md");
+  check(existsSync(skillPath), `skills/${skill}/SKILL.md exists`);
+  const body = readFileSync(skillPath, "utf8");
+  check(/origin:\s*vendored/i.test(body), `skills/${skill}/SKILL.md frontmatter declares vendored origin`);
+  check(/license:\s*MIT/i.test(body), `skills/${skill}/SKILL.md frontmatter declares MIT license`);
+  const licensePath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "skills", skill, "LICENSE");
+  check(existsSync(licensePath), `skills/${skill}/LICENSE present (upstream attribution)`);
 }
 
 if (failures > 0) {

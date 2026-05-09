@@ -20,13 +20,14 @@ Generates C4-model diagrams (Context / Container / Component / Deployment / Dyna
 
 | Level | Diagram | Audience | Shows | When to create |
 |---|---|---|---|---|
-| 1 | **C4_Context** | Everyone | System + external actors | Always (required for SAD) |
-| 2 | **C4_Container** | Technical | Apps, databases, services | Always (required for SAD) |
-| 3 | **C4_Component** | Developers | Internal components | Required for TDD |
-| 4 | **C4_Deployment** | DevOps | Infrastructure nodes | Production systems |
+| 1 | **C4_Context** | Everyone | System + external actors | Always (required for SAD); per-feature highlighted copy on feature impact |
+| 2 | **C4_Container** | Technical | Apps, databases, services | Always (required for SAD); per-feature highlighted copy on feature impact |
+| 3 | **C4_Component** | Developers | Internal components of one container | Required for TDD; per-feature highlighted copy on feature impact |
+| 4 | **C4_Code** | Backend devs | Class structure of one component (Controller / Service / Repository / Entity) | Required for TDD under Full rigor; aligned to clean-architecture concentric circles |
 | — | **C4_Dynamic** | Technical | Numbered request flows | Complex workflows; required for TDD critical-path sequences |
+| — | **C4_Deployment** | DevOps | Infrastructure nodes | Production systems only |
 
-Context + Container suffice for most teams. Generate Component / Deployment only when they answer a specific question.
+L1 + L2 + L3 are mandatory under Full rigor (L1 + L2 under Standard); L4 ships when chain_rigor=Full and component count ≥ 2 (omit per Step 4 protocol when trivial). Deployment is opt-in for production topologies.
 
 ### Step 2 — Apply MUST / MUST-NOT (binding)
 
@@ -44,7 +45,7 @@ Every C4 `.puml` MUST NOT:
 
 ### Step 3 — Author from quick-start templates
 
-Five quick-start fenced templates below: Context, Container, Component, Dynamic, Deployment. Use as starting points; element-syntax + styling-macro tables follow.
+Six quick-start fenced templates below: Context (L1), Container (L2), Component (L3), Code (L4), Dynamic, Deployment. Use as starting points; element-syntax + styling-macro tables follow.
 
 ### Step 4 — Apply mandatory rules
 
@@ -80,10 +81,11 @@ Walk this checklist; any "no" → fix the source, do not render:
 - [ ] **L1 Context**: no transport protocols on relationships. **L3 Component**: no framework internals (see `references/c4-rules.md`).
 - [ ] **Every `Rel(...)`**: label, technology arg at Container / Component level, action verb (no "Uses" / "Calls" / "Talks to"), unidirectional (no `BiRel` unless genuinely peer-to-peer).
 - [ ] **Stand-alone test**: handed the rendered `.svg` to a stranger — can they tell what the system does, who uses it, how it's built, without your narration?
+- [ ] **Two-folder rule**: project singleton at `docs/diagrams/c4-lN-*.puml` is unstyled; per-feature copy at `docs/<feature-id>/diagrams/<feature-id>-c4-lN-*.puml` differs ONLY in `UpdateElementStyle()` highlights — never in element identity.
 
 ## Quick-start templates
 
-### System Context (Level 1)
+### Level 1 — System Context (`c4-l1-context.puml`)
 
 ```plantuml
 @startuml
@@ -100,7 +102,7 @@ Rel(app, sqlite, "Reads/writes", "sqlite3")
 @enduml
 ```
 
-### Container Diagram (Level 2)
+### Level 2 — Container (`c4-l2-container.puml`)
 
 ```plantuml
 @startuml
@@ -120,7 +122,7 @@ Rel(api, db, "Reads/writes", "sqlite3")
 @enduml
 ```
 
-### Component Diagram (Level 3)
+### Level 3 — Component (`c4-l3-<service>.puml`)
 
 ```plantuml
 @startuml
@@ -146,6 +148,65 @@ Rel(routes, db, "Inserts/looks up")
 Rel(db, file, "WAL-mode I/O")
 @enduml
 ```
+
+### Level 4 — Code (`c4-l4-<service>.puml`)
+
+PlantUML class diagram (no `C4_Code` macro exists in stdlib). Show **full layer cake** aligned to the `clean-architecture` skill's concentric circles: Controller (interface adapter) → Service / Use Case (application business rules) → Repository interface (use-case-defined port) → Repository implementation (interface adapter) → Entity (enterprise business rule). Inner classes know nothing about outer classes — same Dependency Rule the architecture review enforces.
+
+```plantuml
+@startuml
+title C4 Level 4 — Code — todo-service
+
+skinparam class {
+  BackgroundColor<<entity>> LightYellow
+  BackgroundColor<<usecase>> LightCyan
+  BackgroundColor<<port>> LightGray
+  BackgroundColor<<adapter>> LightSalmon
+}
+
+package "interface-adapters" {
+  class TodoController <<adapter>> {
+    +create(req: CreateTodoRequest): TodoResponse
+    +get(id: UUID): TodoResponse
+  }
+  class JpaTodoRepository <<adapter>> {
+    +save(todo: Todo): Todo
+    +findById(id: UUID): Optional<Todo>
+  }
+}
+
+package "use-cases" {
+  class CreateTodoInteractor <<usecase>> {
+    -repo: TodoRepository
+    +execute(req: CreateTodoRequest): TodoResponse
+  }
+  interface TodoRepository <<port>> {
+    +save(todo: Todo): Todo
+    +findById(id: UUID): Optional<Todo>
+  }
+}
+
+package "entities" {
+  class Todo <<entity>> {
+    -id: UUID
+    -title: String
+    -completed: boolean
+    +markComplete(): void
+  }
+}
+
+TodoController --> CreateTodoInteractor : "delegates"
+CreateTodoInteractor --> TodoRepository : "depends on (port)"
+JpaTodoRepository ..|> TodoRepository : "implements"
+CreateTodoInteractor --> Todo : "operates on"
+@enduml
+```
+
+Rules:
+- Arrows point **inward** (Controller → UseCase → Port; Adapter ..|> Port; never UseCase → Adapter).
+- Stereotypes mark layer: `<<entity>>`, `<<usecase>>`, `<<port>>`, `<<adapter>>`. The `clean-architecture` skill defines the layers; this diagram is the visual proof.
+- Keep ≤15 classes per diagram. Split per service / per bounded context if larger.
+- Omit when component has fewer than 3 classes (`<!-- OMIT: trivial code surface -->`); document `code_class_count: <N>` in TDD `S-COMPONENTS-001`.
 
 ### Dynamic Diagram (request flow)
 
@@ -194,15 +255,45 @@ Rel(api, db, "Reads/writes", "file I/O")
 @enduml
 ```
 
-## Output location
+## Output location — two folders, one source of truth
 
-Write `.puml` source under the **owning artifact's `diagrams/` directory**, then render to `.svg`:
+Diagrams live in **two** places: project-level singletons (latest state of the system, updated in place) and per-feature copies (highlighted to show which elements this feature touched).
 
-| Owning artifact | Diagram source path |
+### Project-level: `<cwd>/docs/diagrams/`
+
+Authored / updated by `@architect` (L1, L2) and `@lead` (L3, L4). One file per logical scope; updated in place when a feature shifts the model.
+
+| File | Owner | Scope |
+|---|---|---|
+| `c4-l1-context.puml` | `@architect` | Whole system; latest |
+| `c4-l2-container.puml` | `@architect` | Whole system; latest |
+| `c4-l3-<service>.puml` | `@lead` | One file per primary service container (e.g., `c4-l3-todo-service.puml`) |
+| `c4-l4-<service>.puml` | `@lead` | Class structure for the service (e.g., `c4-l4-todo-service.puml`) |
+| `erd-logical.puml` | `@architect` | Project entities |
+| `sequence-inter-<flow>.puml` | `@architect` | Per cross-service flow |
+
+### Per-feature: `<cwd>/docs/<feature-id>/diagrams/`
+
+Authored by `@lead` per feature. **Copies** of the project-level files with feature-touched elements highlighted. Filename prefix is `<feature-id>-`.
+
+| File | Source |
 |---|---|
-| `architecture/SAD.md` | `architecture/diagrams/sad-c4-context.puml` + `sad-c4-container.puml` |
-| `pipeline/<NNN>-<slug>/design/<NNN>-TDD.md` | `pipeline/<NNN>-<slug>/design/diagrams/tdd-c4-component.puml` |
-| `pipeline/<NNN>-<slug>/interfaces/<NNN>-CONTRACT.md` | `pipeline/<NNN>-<slug>/interfaces/diagrams/contract-sequence-<crit>.puml` |
+| `<feature-id>-c4-l1-context.puml` | Copy of `c4-l1-context.puml` + highlight |
+| `<feature-id>-c4-l2-container.puml` | Copy of `c4-l2-container.puml` + highlight |
+| `<feature-id>-c4-l3-<service>.puml` | Copy of `c4-l3-<service>.puml` + highlight |
+| `<feature-id>-seq-<usecase>.puml` | Per intra-service usecase (no project copy) |
+| `<feature-id>-erd-physical.puml` | Per feature, only when persistence touched |
+
+### Highlight protocol (per-feature copies)
+
+In each per-feature copy, mark elements the feature impacts using stdlib styling:
+
+```plantuml
+UpdateElementStyle(<element-id>, $bgColor="LightSalmon", $borderColor="Red", $fontColor="Black")
+UpdateRelStyle(<from>, <to>, $textColor="Red", $lineColor="Red")
+```
+
+Project singletons stay unstyled. The feature copy is what reviewers read to understand "what this feature changes".
 
 ## When to escalate
 
@@ -214,13 +305,20 @@ Write `.puml` source under the **owning artifact's `diagrams/` directory**, then
 
 - `references/c4-rules.md` — extended "what to avoid", framework-internals deep table, microservices ownership patterns (single-team / multi-team / event-driven examples), full element-syntax reference, styling and layout macros.
 
-## Worked example
+## Worked example — Todo service, feature `001-todo-api`
 
-`@lead` authoring `architecture/SAD.md` for a URL-shortener:
-
-1. **Pick levels**: Context (L1) + Container (L2) — required for SAD. No L3 yet (TDD owns Components).
-2. **Author** `architecture/diagrams/sad-c4-context.puml` from the Level 1 quick-start; swap in URL-shortener actors.
-3. **Author** `architecture/diagrams/sad-c4-container.puml` from the Level 2 quick-start.
-4. **Render**: `python ${CLAUDE_PLUGIN_ROOT}/skills/plantuml/scripts/convert_puml.py architecture/diagrams/sad-c4-context.puml --format svg` (and again for container).
-5. **Embed** both `.svg` files in `architecture/SAD.md` `S-LANDSCAPE-001` (`![Context](diagrams/sad-c4-context.svg)`) and `S-CONTAINERS-001`.
-6. **Self-check**: walk Step 6's checklist for both sources. Any "no" → fix the `.puml`, re-render.
+1. **`@architect` authors project singletons** (first feature triggers SAD bootstrap):
+   - `docs/diagrams/c4-l1-context.puml` — `Person(user, "User")` ↔ `System(todo, "Todo System")`.
+   - `docs/diagrams/c4-l2-container.puml` — `User` ↔ `Todo System { Container(api, "Todo API Service", "Spring Boot") + ContainerDb(db, "Database", "PostgreSQL") }`.
+2. **`@lead` authors service-scoped L3 + L4 singletons**:
+   - `docs/diagrams/c4-l3-todo-service.puml` — inside Todo API Service: `Component(controller, "Todo Controller")` → `Component(repo, "Todo Repository")` → `db`.
+   - `docs/diagrams/c4-l4-todo-service.puml` — class diagram per L4 template (Controller / Service / Port / Repository / Entity layered per `clean-architecture` skill).
+3. **`@lead` authors per-feature highlighted copies**:
+   - `docs/001-todo-api/diagrams/001-todo-api-c4-l1-context.puml` — copy of L1 with `UpdateElementStyle(todo, $bgColor="LightSalmon")`.
+   - `docs/001-todo-api/diagrams/001-todo-api-c4-l2-container.puml` — copy of L2 with `api` and `db` highlighted (this feature touches both).
+   - `docs/001-todo-api/diagrams/001-todo-api-c4-l3-todo-service.puml` — copy of L3 with `controller` and `repo` highlighted.
+   - `docs/001-todo-api/diagrams/001-todo-api-seq-create-todo.puml` — intra-service sequence for `POST /todos`.
+   - `docs/001-todo-api/diagrams/001-todo-api-erd-physical.puml` — physical schema since persistence was touched.
+4. **Render**: `post-write-puml` hook fires on every `.puml` write. SVGs land next to sources.
+5. **Embed** project SVGs in `docs/SAD.md` `S-LANDSCAPE-001` / `S-CONTAINERS-001`; embed feature SVGs in `docs/001-todo-api/001-todo-api-TDD.md` `S-COMPONENTS-001`.
+6. **Self-check**: walk Step 6's checklist for every source. Any "no" → fix the `.puml`, re-render. Confirm per-feature copies inherit the project layout exactly (only styling differs).

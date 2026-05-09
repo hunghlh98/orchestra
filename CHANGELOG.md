@@ -6,7 +6,37 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-3.0.0 work)
+(no entries yet — placeholder for post-4.0.3 work)
+
+## [4.0.3] — 2026-05-10
+
+Patch release driven by smoke-test feedback at `/tmp/orchestra-smoke-greenfield-v4-0-2`. Five gaps surfaced: (1) `spawn_mode` cached silently as `subagent` with no user-visible prompt; (2) `autonomy.level` never elicited (PAUSE-1 lived inside `@lead` per v4.0.2 CHANGELOG, but the smoke run produced no autonomy field in `local.yaml`); (3) C4 diagrams used inconsistent naming (`c4-l1-context` from architect alongside `001-todo-api-c4-l3-component` from lead) and were emitted into one folder; (4) C4 Level-4 (Code) absent everywhere; (5) `@product` authored PRD without `AskUserQuestion`-driven consultant dialogue at non-HIGH confidence.
+
+### Changed
+
+- **`commands/orchestra.md` — autonomy + spawn_mode gates promoted into the dispatcher decision tree.** Two new `AskUserQuestion` steps: spawn_mode (subagent | teams; default subagent) and autonomy.level (5-tag enum sourced from `skills/task-breakdown/references/autonomy-diagnostic.md`; suggestion derived by running the 5-Q diagnostic against `$ARGUMENTS` + `local.yaml.discovery`). `local.yaml` schema gains `autonomy:` block (`level`, `resolved_by` provenance). Two new flags: `--autonomy {EXECUTION_ONLY,JOINT_PROCESSING,OPTION_SYNTHESIS,DRAFT_AND_GATE,FULL_AUTONOMY}` and `--spawn-mode {subagent,teams}`. Resolution precedence unchanged: CLI flag > `local.yaml.autonomy.level` > diagnostic suggestion > `DRAFT_AND_GATE`. v3 PAUSE-N terminology stays forbidden — gates live in decision-tree prose, not in named pause hooks.
+- **`skills/c4-architecture/SKILL.md` — diagram naming + filesystem layout rationalized.** L1/L2/L3 templates renamed to `Level N — <name>` headers with explicit filename hints (`c4-l1-context.puml`, `c4-l2-container.puml`, `c4-l3-<service>.puml`). New "Two folders, one source of truth" section: project-level singletons under `<cwd>/docs/diagrams/` (latest-state, updated in place by `@architect` for L1/L2 and `@lead` for L3/L4); per-feature copies under `<cwd>/docs/<feature-id>/diagrams/` with `<feature-id>-` prefix and feature-touched elements highlighted via `UpdateElementStyle($bgColor="LightSalmon", $borderColor="Red")`. Step 6 self-check gains the "two-folder rule" bullet. Worked example rewritten end-to-end against the Todo-service flow.
+- **`agents/architect.md` — L1/L2 paths updated.** `docs/diagrams/c4-context.puml` → `c4-l1-context.puml`; same for container. New `clean-architecture` skill invocation when authoring SAD `S-CONTAINERS-001` (Dependency Rule applied to container layout).
+- **`agents/lead.md` — L3/L4 ownership + per-feature copy protocol.** Outputs section enumerates project singletons (`docs/diagrams/c4-l3-<service>.puml`, `c4-l4-<service>.puml`) plus per-feature highlighted copies (`docs/<feature-id>/diagrams/<feature-id>-c4-l1-context.puml`, etc.). Workflow Step 6 ("Author TDD + diagrams") now describes the copy-with-highlight protocol explicitly. New `clean-architecture` and `clean-code` skill invocations.
+- **`agents/backend.md` — Clean Architecture + Clean Code wired into authoring loop.** Skills section adds both. Workflow gains a self-score step before flipping `Status: done` (≥8/10 on each rubric, else another pass or ESCALATE).
+- **`agents/reviewer.md` — `S-VERDICT-REVIEW-001` scoring rubrics added.** Two new workflow steps (5a, 5b) walk the diff against `clean-architecture` (6 principles) and `clean-code` (6 disciplines); scores recorded in the verdict body alongside the finding list.
+- **`agents/product.md` — consultant-mode self-check.** Step 3 now mandates ≥1 `AskUserQuestion` at MEDIUM confidence and 2–3 at LOW (HIGH still 0). PRD `status: locked` blocks until the dialogue happened; otherwise `<feature-id>-DEADLOCK-consultant-skipped.md` is written. Frames LOW-confidence dialogue around problem-before-feature ("what problem are you trying to solve?", "MVP / production / experimental?", existing constraints).
+
+### Added
+
+- **`skills/clean-architecture/`** — vendored verbatim from `github.com/wondelai/skills@1.1.0` (MIT, Wondel.ai sp. z o.o.). Six principles: Dependency Rule, Entities & Use Cases, Interface Adapters & Frameworks, Component Principles (REP/CCP/CRP/ADP/SDP/SAP), SOLID, Boundaries & Humble Object. Six `references/*.md` deep-dives. `SKILL.md` frontmatter trimmed to ≤200-char description and gains `origin:` declaration; body and references unchanged. `LICENSE` file ships next to `SKILL.md`.
+- **`skills/clean-code/`** — vendored verbatim from same source. Six disciplines: Meaningful Names, Functions, Comments & Formatting, Error Handling, Unit Testing (F.I.R.S.T.), Code Smells & Heuristics. Same vendoring shape: trimmed frontmatter, `origin:` declaration, paired `LICENSE`.
+- **`skills/c4-architecture/SKILL.md` — Level 4 (Code) template added.** PlantUML class diagram (no `C4_Code` macro exists in stdlib) showing the full layer cake — Controller / Use Case / Port / Repository implementation / Entity — with `<<adapter>>` / `<<usecase>>` / `<<port>>` / `<<entity>>` stereotypes. Inward-pointing arrows enforce the Dependency Rule visually. Required under `chain_rigor=Full` when service has ≥3 classes; omittable with `<!-- OMIT: trivial code surface -->`.
+- **`scripts/tests/hooks.test.js` — v4.0.3 assertions added.** Replaces v3-vestige guards on `--autonomy` / 5-tag / spawn_mode (regression rule inverted: now REQUIRED, not forbidden). New blocks: `c4-architecture` skill enumerates all four levels + `clean-architecture` cross-reference + highlight protocol; vendored skills load cleanly with `origin: vendored` frontmatter and shipping `LICENSE`. 78 → 97 assertions (+19).
+
+### Why no schema revision
+
+`schemas/pipeline-artifact.schema.md` revision unchanged. No anchor renames, no frontmatter shape changes for chain artifacts, no hook-contract changes, no removed env-var toggles. `local.yaml` schema gains `autonomy:` block as additive optional fields; the existing `validate.js` `VALID_AUTONOMY_LEVELS` enum already accommodated the 5 tags. All 11 test files green (validate, hooks, agents, bash-strip, bootstrap, cite-purity, metrics, probe, removability, report, scaffold, validate-extensions). Existing pipelines under `<cwd>/.orchestra/pipeline/<id>/` remain valid; consumers upgrading from 4.0.2 see two new dispatcher prompts on first `/orchestra` run after upgrade.
+
+### Migration
+
+- **First `/orchestra <intent>` run after upgrade** prompts twice for new fields (spawn_mode + autonomy.level). Both cache to `local.yaml`; subsequent runs do not re-prompt unless the user clears the file or re-elicits via `--autonomy=<tag>` / `--spawn-mode=<mode>`.
+- **Existing C4 diagrams** with v4.0.2-era filenames (`c4-context.puml`, `c4-component.puml`) keep working — the `post-write-puml` hook is generic and renders any `.puml`. New feature runs author the new naming. To re-canonicalize, rename in place; no automated migration shipped.
 
 ## [3.0.0] — 2026-05-07
 

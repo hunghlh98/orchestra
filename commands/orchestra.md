@@ -86,6 +86,21 @@ decisions to `<cwd>/.orchestra/local.yaml` so re-runs don't re-prompt.
   │     primary_language: java | kotlin | go | python | typescript | <other>
   │     framework: <freeform>  (e.g., "spring-boot 3.x", "gin", "fastapi", "express")
   │
+  ├─ If local.yaml.spawn_mode missing → AskUserQuestion (spawn mode):
+  │     subagent — agents spawn via Agent({subagent_type, ...}); no team coordination (default)
+  │     teams    — dispatcher creates a Claude Code Team at run start; every Agent call passes team_name
+  │     (Use teams when you want a single observable timeline across agents; subagent is fine for solo runs.)
+  │
+  ├─ If local.yaml.autonomy.level missing → load skills/task-breakdown/references/autonomy-diagnostic.md ONCE,
+  │   run the 5-Q diagnostic against $ARGUMENTS + local.yaml.discovery, and AskUserQuestion (autonomy level)
+  │   surfacing the diagnostic's suggested tag as the recommended option:
+  │     EXECUTION_ONLY     — explicit step-by-step instructions; no logic formulation by AI
+  │     JOINT_PROCESSING   — iterative synchronous loop; human co-authors logic with AI
+  │     OPTION_SYNTHESIS   — AI analyzes + returns bounded option set; human picks (Consultant inversion)
+  │     DRAFT_AND_GATE     — AI drafts complete artifact; human approves at each gate (default)
+  │     FULL_AUTONOMY      — AI executes end-to-end; human reviews via async telemetry only
+  │   Resolution precedence: --autonomy=<tag> CLI flag > local.yaml.autonomy.level > diagnostic suggestion > DRAFT_AND_GATE.
+  │
   ├─ Persist answered fields to <cwd>/.orchestra/local.yaml.
   │
   ├─ Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash.
@@ -112,6 +127,9 @@ chain_rigor: Full | Standard | Light
 primary_language: java | kotlin | go | python | typescript | <other>
 framework: <freeform>
 spawn_mode: subagent | teams         # default subagent; controls whether dispatcher creates a Claude Code Team at run start
+autonomy:
+  level: EXECUTION_ONLY | JOINT_PROCESSING | OPTION_SYNTHESIS | DRAFT_AND_GATE | FULL_AUTONOMY
+  resolved_by: cli_flag | local_yaml | diagnostic | default   # provenance for telemetry; default is DRAFT_AND_GATE
 ```
 
 `spawn_mode: subagent` (default) — agents spawned via `Agent({subagent_type, prompt, ...})` with no team coordination; no `team_name` field on the call. `spawn_mode: teams` — dispatcher calls `TeamCreate({team_name: "orchestra-<run-id-short>", agent_type: "orchestra-coordinator", description: <one-line intent summary>})` immediately after `local.yaml` is locked and before any agent spawn; every subsequent `Agent({...})` call passes `team_name` matching that string; on terminal state the dispatcher calls `TeamDelete` after the closing status line. The metrics hook reads both transcript layouts (sibling-dir `<parent_sid>/subagents/agent-*.jsonl` and project-root `<sid>.jsonl` fallback) regardless of mode, so observability is robust either way.
@@ -365,3 +383,5 @@ Flags:
 - `--rigor {Full,Standard,Light}` — override `local.yaml.chain_rigor` for this run.
 - `--mode {greenfield,brownfield}` — override mode detection.
 - `--depth {light,medium,full}` — override depth (brownfield only).
+- `--autonomy {EXECUTION_ONLY,JOINT_PROCESSING,OPTION_SYNTHESIS,DRAFT_AND_GATE,FULL_AUTONOMY}` — highest-precedence autonomy resolution; bypasses both `local.yaml.autonomy.level` and the diagnostic suggestion.
+- `--spawn-mode {subagent,teams}` — override `local.yaml.spawn_mode` for this run.
