@@ -1,6 +1,6 @@
 {
   "name": "orchestra",
-  "version": "4.0.4",
+  "version": "4.0.5",
   "description": "Multi-agent SDLC pipeline behind /orchestra. One developer, generator/evaluator separation, document-driven gates.",
   "type": "module",
   "private": true,
@@ -16,7 +16,6 @@
     "test:hooks": "node scripts/tests/hooks.test.js",
     "test:scaffold": "node scripts/tests/scaffold.test.js",
     "test:validate-extensions": "node scripts/tests/validate-extensions.test.js",
-    "test:validate-backlog": "node scripts/validate-backlog.js",
     "test:agents": "node scripts/tests/agents.test.js",
     "test:bash-strip": "node scripts/tests/bash-strip.test.js",
     "test:removability": "node scripts/tests/removability.test.js",
@@ -25,6 +24,6 @@
     "test:probe": "node scripts/tests/probe.test.js",
     "test:report": "node scripts/tests/report.test.js",
     "test:cite-purity": "node scripts/tests/cite-purity.test.js",
-    "test": "npm run validate && npm run test:hooks && npm run test:scaffold && npm run test:validate-extensions && npm run test:validate-backlog && npm run test:agents && npm run test:bash-strip && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:probe && npm run test:report && npm run test:cite-purity"
+    "test": "npm run validate && npm run test:hooks && npm run test:scaffold && npm run test:validate-extensions && npm run test:agents && npm run test:bash-strip && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:probe && npm run test:report && npm run test:cite-purity"
   }
 }

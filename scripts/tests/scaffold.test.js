@@ -52,7 +52,6 @@ const EXPECTED_ANCHORS = {
   SAD: ["S-VISION-001", "S-CONTEXT-001", "S-CONTAINERS-001", "S-ADR-INDEX-001"],
   TDD: ["S-COMPONENTS-001", "S-SEQUENCE-001", "S-DATA-MODEL-001", "S-STATE-001", "S-ERROR-HANDLING-001", "S-CONFIG-001", "S-RISKS-001"],
   TASKS: ["S-DAG-001", "S-TASKS-001"],
-  PLAN: ["S-PROBLEM-001", "S-OPTIONS-001", "S-TRADEOFFS-001", "S-RECOMMENDATION-001", "S-OPEN-001"],
   TSR: ["S-EVAL-VERDICT-001", "S-EVAL-TABLE-001", "S-REV-VERDICT-001", "S-REV-FINDINGS-001", "S-SHIP-001"],
   RELEASE: ["S-WHATSNEW-001", "S-ENDPOINTS-001", "S-CONFIG-001", "S-BREAKING-001", "S-GATES-001", "S-KNOWN-001", "S-ANNOUNCEMENT-001"],
   RUNBOOK: ["S-OVERVIEW-001", "S-LIFECYCLE-001", "S-DEPLOY-001", "S-ROLLBACK-001", "S-HEALTH-001", "S-FAILURE-001", "S-LOGS-001", "S-ENVVARS-001"],
@@ -65,7 +64,6 @@ const EXPECTED_DIAGRAM_KINDS = {
   SAD: ["c4-context", "c4-container"],
   TDD: ["c4-component", "sequence", "er", "state"],
   TASKS: ["dag"],
-  PLAN: [],
   TSR: [],
   RELEASE: [],
   RUNBOOK: ["deploy", "rollback"],
@@ -98,7 +96,7 @@ withTmp("m1", (tmp) => {
 
 // ---------- M2: every type scaffolds with correct anchors + diagram counts ----------
 console.log("M2 every-type anchor + diagram parity:");
-const FEATURE_TYPES = ["PRD", "FRS", "TDD", "TASKS", "PLAN", "TSR"];
+const FEATURE_TYPES = ["PRD", "FRS", "TDD", "TASKS", "TSR"];
 for (const TYPE of FEATURE_TYPES) {
   withTmp(`m2-${TYPE}`, (tmp) => {
     const r = runScaffold([TYPE, "001-foo", "foo"], tmp);
@@ -131,9 +129,7 @@ function typeFolder(type) {
     API: "interfaces",
     TDD: "design",
     TASKS: "plan",
-    PLAN: "planning",
     TSR: "verify",
-    CHARTER: "charter",
   })[type];
 }
 
@@ -207,32 +203,6 @@ withTmp("m5", (tmp) => {
   check(/slug must match/.test(r3.stderr), `ADR bad slug: stderr names slug constraint`);
 });
 
-// ---------- M6: CHARTER mode dispatch ----------
-console.log("M6 CHARTER modes:");
-withTmp("m6-full", (tmp) => {
-  const r = runScaffold(["CHARTER", "001-foo", "foo", "--mode=full"], tmp);
-  check(r.status === 0, `CHARTER full: exits 0 (stderr: ${r.stderr})`);
-  const file = join(tmp, ".claude/.orchestra/pipeline/001-foo/charter/001-CHARTER.md");
-  check(existsSync(file), `CHARTER full: file present`);
-  const body = readFileSync(file, "utf8");
-  const anchors = bodyAnchors(body);
-  check(JSON.stringify(anchors) === JSON.stringify(["S-PROBLEM-001", "S-SCOPE-001", "S-FEASIBILITY-001", "S-DECISION-001"]),
-    `CHARTER full: 4 anchors`);
-});
-withTmp("m6-brief", (tmp) => {
-  const r = runScaffold(["CHARTER", "001-foo", "foo", "--mode=brief"], tmp);
-  check(r.status === 0, `CHARTER brief: exits 0`);
-  const file = join(tmp, ".claude/.orchestra/pipeline/001-foo/charter/001-CHARTER.md");
-  const body = readFileSync(file, "utf8");
-  const anchors = bodyAnchors(body);
-  check(JSON.stringify(anchors) === JSON.stringify(["S-INTENT-001", "S-DECISION-001"]),
-    `CHARTER brief: 2 anchors`);
-});
-withTmp("m6-no-mode", (tmp) => {
-  const r = runScaffold(["CHARTER", "001-foo", "foo"], tmp);
-  check(r.status === 6, `CHARTER without --mode: exit 6 (got ${r.status})`);
-});
-
 // ---------- M7: idempotency — refuse on existing, --force overrides ----------
 console.log("M7 idempotency:");
 withTmp("m7", (tmp) => {
@@ -263,7 +233,7 @@ withTmp("m8", (tmp) => {
 // ---------- M9: anchor parity (lockfile.sections keys === body anchors) ----------
 console.log("M9 anchor parity:");
 withTmp("m9", (tmp) => {
-  for (const TYPE of ["PRD", "FRS", "TDD", "TASKS", "PLAN", "TSR"]) {
+  for (const TYPE of ["PRD", "FRS", "TDD", "TASKS", "TSR"]) {
     runScaffold([TYPE, "001-foo", "foo"], tmp);
     const artifactPath = join(tmp, `.claude/.orchestra/pipeline/001-foo/${typeFolder(TYPE)}/001-${TYPE}.md`);
     const lockPath = artifactPath.replace(/\.md$/, ".lock.yaml");

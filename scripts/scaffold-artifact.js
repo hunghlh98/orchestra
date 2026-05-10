@@ -32,17 +32,6 @@ const EXIT_BAD_COMBINATION = 6;
 // diagram entries. The anchor set is the contract structural-diff enforces.
 
 const TYPE_SPEC = {
-  CHARTER: {
-    classification: "feature-scoped",
-    folder: "charter",
-    templates: { full: "CHARTER-full.template.md", brief: "CHARTER-brief.template.md" },
-    anchors: {
-      full: ["S-PROBLEM-001", "S-SCOPE-001", "S-FEASIBILITY-001", "S-DECISION-001"],
-      brief: ["S-INTENT-001", "S-DECISION-001"],
-    },
-    diagrams: [],
-    ext: "md",
-  },
   PRD: {
     classification: "feature-scoped",
     folder: "requirements",
@@ -99,14 +88,6 @@ const TYPE_SPEC = {
     template: "TASKS.template.md",
     anchors: ["S-DAG-001", "S-TASKS-001"],
     diagrams: [{ kind: "dag", source: "diagrams/tasks-dag.puml", rendered: "diagrams/tasks-dag.svg" }],
-    ext: "md",
-  },
-  PLAN: {
-    classification: "feature-scoped",
-    folder: "planning",
-    template: "PLAN.template.md",
-    anchors: ["S-PROBLEM-001", "S-OPTIONS-001", "S-TRADEOFFS-001", "S-RECOMMENDATION-001", "S-OPEN-001"],
-    diagrams: [],
     ext: "md",
   },
   TSR: {
@@ -292,18 +273,9 @@ function computeNextAdrNnnn(dir) {
 
 // === Substitution + write ===
 
-function loadTemplate(spec, mode) {
-  let templateName;
-  if (typeof spec.templates === "object") {
-    if (!mode || !spec.templates[mode]) {
-      return { error: `${spec === TYPE_SPEC.CHARTER ? "CHARTER" : "type"} requires --mode=full|brief` };
-    }
-    templateName = spec.templates[mode];
-  } else {
-    templateName = spec.template;
-  }
-  const path = join(TEMPLATES_DIR, templateName);
-  if (!existsSync(path)) return { error: `template not found: ${templateName}`, code: EXIT_NO_TEMPLATE };
+function loadTemplate(spec) {
+  const path = join(TEMPLATES_DIR, spec.template);
+  if (!existsSync(path)) return { error: `template not found: ${spec.template}`, code: EXIT_NO_TEMPLATE };
   return { content: readFileSync(path, "utf8") };
 }
 
@@ -323,11 +295,8 @@ function buildLockfile(spec, paths, opts) {
     references: [],
     diagrams: [],
   };
-  // Seed sections from anchor list (CHARTER picks anchors by mode).
-  const anchors = (typeof spec.anchors === "object" && !Array.isArray(spec.anchors))
-    ? spec.anchors[opts.mode]
-    : spec.anchors;
-  for (const a of anchors) {
+  // Seed sections from anchor list.
+  for (const a of spec.anchors) {
     lockfile.sections[a] = { hash: "TBD", confirmed: true };
   }
   // Seed diagrams[].
@@ -375,12 +344,6 @@ function main() {
     process.exit(EXIT_UNKNOWN_TYPE);
   }
 
-  // CHARTER mode validation.
-  if (opts.type === "CHARTER" && (opts.mode !== "full" && opts.mode !== "brief")) {
-    process.stderr.write(`scaffold-artifact: CHARTER requires --mode=full or --mode=brief\n`);
-    process.exit(EXIT_BAD_COMBINATION);
-  }
-
   const paths = computeOutputPaths(opts);
   if (paths.error) {
     process.stderr.write(`scaffold-artifact: ${paths.error}\n`);
@@ -398,7 +361,7 @@ function main() {
   }
 
   // Load + substitute template.
-  const tpl = loadTemplate(spec, opts.mode);
+  const tpl = loadTemplate(spec);
   if (tpl.error) {
     process.stderr.write(`scaffold-artifact: ${tpl.error}\n`);
     process.exit(tpl.code || EXIT_NO_TEMPLATE);

@@ -48,29 +48,33 @@ Universal elements (delimiters, comments, notes, metadata): `references/common_f
 
 ### Step 2 — Author the .puml file using v4.0 fixed-name conventions
 
-Orchestra v4.0 uses **fixed-name diagram files** so the chain artifacts can reference them by stable name. Author at one of these canonical paths — never invent a new name unless it falls outside this set.
+Orchestra v4.0 uses a **two-folder model** so the chain artifacts can reference diagrams by stable name. Project singletons (latest state of the system) live under `docs/diagrams/`; per-feature copies (with feature-touched elements highlighted) live under `docs/<feature-id>/diagrams/` and prefix every filename with `<feature-id>-`. Never invent a new name unless it falls outside this set.
 
 **Project-level (singletons under `docs/diagrams/`):**
 
 | File | Owner | Trigger |
 |---|---|---|
-| `c4-context.puml` | `@architect` | SAD bootstrap (greenfield) |
-| `c4-container.puml` | `@architect` | SAD bootstrap |
+| `c4-l1-context.puml` | `@architect` | SAD bootstrap (greenfield) |
+| `c4-l2-container.puml` | `@architect` | SAD bootstrap |
+| `c4-l3-<service>.puml` | `@lead` | every TDD; one file per primary service container |
+| `c4-l4-<service>.puml` | `@lead` | every TDD under `chain_rigor: Full`; class structure for the service |
 | `erd-logical.puml` | `@architect` | persistence-affecting ADR accepted |
 | `sequence-inter-<flow>.puml` | `@architect` | per cross-service flow |
 
-**Per-feature (under `docs/<feature-id>/diagrams/`):**
+**Per-feature (under `docs/<feature-id>/diagrams/`, prefix `<feature-id>-`):**
 
 | File | Owner | Trigger |
 |---|---|---|
-| `frs-usecase.puml` | `@product` | every FRS |
-| `state-business.puml` | `@product` | when feature has user-facing lifecycle |
-| `c4-component.puml` | `@lead` | every TDD |
-| `sequence-intra-<usecase>.puml` | `@lead` | per primary use case |
-| `state-technical.puml` | `@lead` | when component has internal lifecycle |
-| `erd-physical.puml` | `@lead` | when persistence touched |
+| `<feature-id>-c4-l1-context.puml` | `@lead` | every TDD; copy of project L1 with this feature's touches highlighted |
+| `<feature-id>-c4-l2-container.puml` | `@lead` | every TDD; copy of project L2 with highlights |
+| `<feature-id>-c4-l3-<service>.puml` | `@lead` | every TDD; copy of project L3 with highlights |
+| `<feature-id>-frs-usecase.puml` | `@product` | every FRS |
+| `<feature-id>-state-business.puml` | `@product` | when feature has user-facing lifecycle |
+| `<feature-id>-sequence-intra-<usecase>.puml` | `@lead` | per primary use case |
+| `<feature-id>-state-technical.puml` | `@lead` | when component has internal lifecycle |
+| `<feature-id>-erd-physical.puml` | `@lead` | when persistence touched |
 
-The owning markdown embeds the rendered `.svg` via `![<alt>](diagrams/<filename>.svg)`.
+Per-feature copies of project singletons differ from their source ONLY in styling (`UpdateElementStyle()` / `UpdateRelStyle()` highlights) — never in element identity. See `c4-architecture` skill for the highlight protocol. The owning markdown embeds the rendered `.svg` via `![<alt>](diagrams/<filename>.svg)`.
 
 ### Step 3 — Render is hook-enforced (do not run conversion manually)
 

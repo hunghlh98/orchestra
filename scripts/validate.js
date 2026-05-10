@@ -269,8 +269,6 @@ walkLeakyCites(resolve(root, "skills"));
 // the duplication is deliberate — validate.js enforces, scaffold produces, and
 // they share the same source-of-truth (DESIGN-005 §S-SCHEMAS-001).
 export const REQUIRED_ANCHORS = {
-  CHARTER_full: ["S-PROBLEM-001", "S-SCOPE-001", "S-FEASIBILITY-001", "S-DECISION-001"],
-  CHARTER_brief: ["S-INTENT-001", "S-DECISION-001"],
   PRD: ["S-PROBLEM-001", "S-USERS-001", "S-GOALS-001", "S-NON-GOALS-001", "S-METRICS-001", "S-OPEN-001"],
   FRS: ["S-FRS-001", "S-ACCEPTANCE-001", "S-ERRORS-001", "S-USECASE-001"],
   SAD: ["S-VISION-001", "S-CONTEXT-001", "S-CONTAINERS-001", "S-ADR-INDEX-001"],
@@ -285,7 +283,6 @@ export const REQUIRED_ANCHORS = {
 };
 
 export const SOFT_CAPS = {
-  CHARTER_full: 50, CHARTER_brief: 25,
   PRD: 120, FRS: 100, SAD: 200, TDD: 250, CONTRACT: 300,
   TASKS: 60, TEST: 200, TSR: 150, RELEASE: 120, RUNBOOK: 180, ADR: 100,
 };
@@ -330,8 +327,7 @@ export function typeFromFilename(filePath) {
   return null;
 }
 
-function resolveAnchorKey(type, mode) {
-  if (type === "CHARTER") return mode === "brief" ? "CHARTER_brief" : "CHARTER_full";
+function resolveAnchorKey(type) {
   return type;
 }
 

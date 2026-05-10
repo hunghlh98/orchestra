@@ -84,17 +84,6 @@ console.log("M-inverse structural-diff:");
   check(errs.length === 0, `inverse: clean PRD passes`);
 }
 
-// CHARTER mode dispatch (CHARTER type to be removed in Stream 3; keep test
-// while REQUIRED_ANCHORS.CHARTER_full / CHARTER_brief are still defined).
-if (REQUIRED_ANCHORS.CHARTER_full) {
-  const fullErrs = validateStructuralDiff("001-CHARTER.md", bodyWith(REQUIRED_ANCHORS.CHARTER_full), "CHARTER", "full");
-  check(fullErrs.length === 0, `CHARTER full: clean`);
-  const briefErrs = validateStructuralDiff("001-CHARTER.md", bodyWith(REQUIRED_ANCHORS.CHARTER_brief), "CHARTER", "brief");
-  check(briefErrs.length === 0, `CHARTER brief: clean`);
-  const wrongModeErrs = validateStructuralDiff("001-CHARTER.md", bodyWith(REQUIRED_ANCHORS.CHARTER_full), "CHARTER", "brief");
-  check(wrongModeErrs.length === 1, `CHARTER brief with full anchors: drift`);
-}
-
 // ---------- M17: orphan-VERDICT (orphan-types) ----------
 console.log("M17 orphan-types:");
 withTmp("m17", (tmp) => {
