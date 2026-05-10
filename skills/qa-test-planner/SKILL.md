@@ -1,6 +1,6 @@
 ---
 name: qa-test-planner
-description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test designs verify/<NNN>-TEST.md from a CONTRACT."
+description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test designs the TSR S-TEST-PLAN-001 section from a locked openapi."
 origin: orchestra
 ---
 
@@ -10,7 +10,7 @@ Designs the TSR test-plan section (S-TEST-PLAN-001): which black-box tests to au
 
 ## When to use
 
-- An `interfaces/<NNN>-CONTRACT.md` has been written by `@lead` and you need a test plan that grades it.
+- An `docs/<feature-id>/<feature-id>-openapi.yaml` has been written by `@lead` and you need a test plan that grades it.
 - A bug or regression was reported and you're capturing the reproduction as an adversarial fuzz input.
 - You're sizing test scope for a new endpoint, migration, or refactor.
 
@@ -74,38 +74,25 @@ Each adversarial input is a probe with an explicit `expected_result` of "handled
 | **Auth bypass** | Without auth header; with expired token; with wrong scope. Each fails per contract. |
 | **Boundary timeout** | `timeout_ms` at 90% of SLO; expect either response or graceful timeout per contract. |
 
-### Step 4 — Fill `<feature-id>-TSR.md` `S-TEST-PLAN-001`
+### Step 4 — Fill TSR `S-TEST-PLAN-001`
 
-Read `docs/<feature-id>/<feature-id>-TSR.md` (dispatcher-scaffolded shell). The `S-TEST-PLAN-001` section anchor is the matrix's home.
+Read `docs/<feature-id>/<feature-id>-TSR.md` (dispatcher-scaffolded shell). Fill the `S-TEST-PLAN-001` section with the coverage matrix; set frontmatter `sections.S-TEST-PLAN-001.status: locked` after the Stage-1 write.
 
-v2.0 changes vs v1: TEST.md is coverage-matrix-ONLY. Probe DSL lives in CONTRACT `S-CRITERIA-001` (reference by criterion id, don't re-state). Verdict folded into TSR per v2.0 — `@evaluator` writes `S-EVAL-VERDICT-001` + `S-EVAL-TABLE-001`; `@reviewer` writes `S-REV-VERDICT-001` + `S-REV-FINDINGS-001`.
+In v4.0, TEST is no longer a separate artifact — coverage-matrix and per-test results both live in TSR. Probe DSL lives in `<feature-id>-openapi.yaml` `description:` fields (reference openapi criteria by id; don't re-state). `@evaluator` later writes `S-VERDICT-EVAL-001`; `@reviewer` writes `S-VERDICT-REVIEW-001` + `S-ADR-REVIEW-001`. `@test` Stage-2 fills `S-TEST-RESULTS-001` after running the suite.
 
-Frontmatter (v2.0 slim):
-
-```yaml
----
-id: <NNN>-TEST
-type: TEST
-created: <ISO-8601>
-revision: 1
-plan_author: "@test"
-adversarial_input_count: <int>
----
-```
-
-Body:
+Body shape (S-TEST-PLAN-001):
 
 ```markdown
-## Coverage <a id="S-COVERAGE-001"></a>
+## Test plan <a id="S-TEST-PLAN-001"></a>
 
-| Criterion | Source | Axis | Pytest fixture | Live probe (driven by @evaluator) |
+| Criterion | Source | Axis | Test fixture | Live probe |
 |---|---|---|---|---|
-| C-001 — transfer.persists | CONTRACT C-001 / FR-1 | happy | `tests/test_transfer.py::test_persists` | `http_probe POST /v1/transfer` → 201 |
-| C-002 — transfer.idempotent | CONTRACT C-002 / FR-2 | idempotency | `tests/test_transfer.py::test_idempotent` | `http_probe POST` 2× same key → 1 row in db_state |
+| transfer.persists | openapi `POST /v1/transfer` / FR-1 | happy | `tests/test_transfer.py::test_persists` | `http_probe POST /v1/transfer` → 201 |
+| transfer.idempotent | openapi `POST /v1/transfer` / FR-2 | idempotency | `tests/test_transfer.py::test_idempotent` | `http_probe POST` 2× same key → 1 row in db_state |
 | ... | ... | ... | ... | ... |
 ```
 
-Each row references a CONTRACT criterion id (e.g., `C-001`), the source (CONTRACT criterion + FRS FR), the axis (happy/boundary/error/idempotency), the in-suite pytest fixture if any, and the live probe `@evaluator` runs. Probe DSL itself is NOT re-stated.
+Each row references an openapi criterion (named or by path+method), the source (openapi criterion + FRS FR), the axis (happy/boundary/error/idempotency/adversarial), the in-suite test fixture, and the live probe `@evaluator` runs. Probe DSL itself is NOT re-stated.
 
 ## When to escalate
 
@@ -120,7 +107,7 @@ Each row references a CONTRACT criterion id (e.g., `C-001`), the source (CONTRAC
 
 ## Worked example
 
-`interfaces/001-CONTRACT.md` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test` builds:
+`docs/001-transfer/001-transfer-openapi.yaml` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test` builds:
 
 | Criterion | Probes |
 |---|---|

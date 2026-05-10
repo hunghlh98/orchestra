@@ -63,59 +63,35 @@ Bare `/orchestra` (no subcommand) — script-first detection, then
 `AskUserQuestion` only when the answer cannot be inferred. Cache locked
 decisions to `<cwd>/.orchestra/local.yaml` so re-runs don't re-prompt.
 
-```
-/orchestra <intent>
-  │
-  ├─ load <cwd>/.orchestra/local.yaml (if present, lift cached answers)
-  │
-  ├─ Detect mode:
-  │     no <cwd>/src/ AND no package.json/pom.xml/go.mod/Cargo.toml → greenfield
-  │     <cwd>/src/ exists OR build manifest exists                  → brownfield
-  │     ambiguous (e.g., docs/ exists but no source)                → AskUserQuestion (mode)
-  │
-  ├─ If brownfield AND local.yaml.depth missing → AskUserQuestion (depth):
-  │     light  | medium  | full
-  │     (drives reverse-doc artifact-set; see project-discovery skill)
-  │
-  ├─ If local.yaml.chain_rigor missing → AskUserQuestion (chain rigor):
-  │     Full      — all layers (PRD → FRS → SAD → ADR → TDD → openapi → code+tests → TSR)
-  │     Standard  — skip SAD / ADR  (PRD → FRS → TDD → openapi → code+tests → TSR)
-  │     Light     — TDD-only        (TDD → openapi → code+tests → TSR; component-internal change, no spec uplift)
-  │
-  ├─ If greenfield AND local.yaml.primary_language missing → AskUserQuestion (language + framework):
-  │     primary_language: java | kotlin | go | python | typescript | <other>
-  │     framework: <freeform>  (e.g., "spring-boot 3.x", "gin", "fastapi", "express")
-  │
-  ├─ If local.yaml.spawn_mode missing → AskUserQuestion (spawn mode):
-  │     subagent — agents spawn via Agent({subagent_type, ...}); no team coordination (default)
-  │     teams    — dispatcher creates a Claude Code Team at run start; every Agent call passes team_name
-  │     (Use teams when you want a single observable timeline across agents; subagent is fine for solo runs.)
-  │
-  ├─ If local.yaml.autonomy.level missing → load skills/task-breakdown/references/autonomy-diagnostic.md ONCE,
-  │   run the 5-Q diagnostic against $ARGUMENTS + local.yaml.discovery, and AskUserQuestion (autonomy level)
-  │   surfacing the diagnostic's suggested tag as the recommended option:
-  │     EXECUTION_ONLY     — explicit step-by-step instructions; no logic formulation by AI
-  │     JOINT_PROCESSING   — iterative synchronous loop; human co-authors logic with AI
-  │     OPTION_SYNTHESIS   — AI analyzes + returns bounded option set; human picks (Consultant inversion)
-  │     DRAFT_AND_GATE     — AI drafts complete artifact; human approves at each gate (default)
-  │     FULL_AUTONOMY      — AI executes end-to-end; human reviews via async telemetry only
-  │   Resolution precedence: --autonomy=<tag> CLI flag > local.yaml.autonomy.level > diagnostic suggestion > DRAFT_AND_GATE.
-  │
-  ├─ Persist answered fields to <cwd>/.orchestra/local.yaml.
-  │
-  ├─ Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash.
-  │   Idempotent: creates <cwd>/CLAUDE.md if missing; otherwise splices the
-  │   orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->`
-  │   markers (preserves user content before/after). No-op when already current.
-  │
-  └─ Spawn @lead with locked decisions in prompt:
-       "mode=<mode> rigor=<rigor> primary_language=<lang>"
-       (chain-rigor selects which layers @lead routes through; see "Chain
-        execution" below.)
-```
+Each step asks only when its answer cannot be inferred from prompt or repo state. Ask order:
 
-Each ask is **elidable** when its answer is inferable from prompt or repo
-state. Ask only when you can't infer.
+1. **Load cache.** If `<cwd>/.orchestra/local.yaml` exists, lift cached answers — re-runs don't re-prompt.
+2. **Detect mode.**
+   - No `<cwd>/src/` AND no build manifest (`package.json` / `pom.xml` / `go.mod` / `Cargo.toml`) → `greenfield`.
+   - `<cwd>/src/` exists OR build manifest exists → `brownfield`.
+   - Ambiguous (e.g., `docs/` exists but no source) → `AskUserQuestion` (mode).
+3. **Brownfield depth** (if `mode=brownfield` AND `local.yaml.depth` missing). `AskUserQuestion`: `light` | `medium` | `full`. Drives reverse-doc artifact-set (see `project-discovery` skill).
+4. **Chain rigor** (if `local.yaml.chain_rigor` missing). `AskUserQuestion`:
+   - `Full` — all layers (PRD → FRS → SAD → ADR → TDD → openapi → code+tests → TSR).
+   - `Standard` — skip SAD/ADR (PRD → FRS → TDD → openapi → code+tests → TSR).
+   - `Light` — TDD-only (TDD → openapi → code+tests → TSR; component-internal change, no spec uplift).
+5. **Greenfield language + framework** (if `mode=greenfield` AND `local.yaml.primary_language` missing). `AskUserQuestion`:
+   - `primary_language`: `java | kotlin | go | python | typescript | <other>`.
+   - `framework`: freeform (e.g., `spring-boot 3.x`, `gin`, `fastapi`, `express`).
+6. **Spawn mode** (if `local.yaml.spawn_mode` missing). `AskUserQuestion`:
+   - `subagent` (default) — agents spawn via `Agent({subagent_type, ...})`; no team coordination.
+   - `teams` — dispatcher calls `TeamCreate` at run start; every `Agent` call passes `team_name`. Use for a single observable timeline across agents.
+7. **Autonomy level** (if `local.yaml.autonomy.level` missing). Load `skills/task-breakdown/references/autonomy-diagnostic.md` ONCE, run the 5-Q diagnostic against `$ARGUMENTS` + `local.yaml.discovery`, then `AskUserQuestion` surfacing the diagnostic's suggested tag as recommended:
+   - `EXECUTION_ONLY` — explicit step-by-step instructions; no logic formulation by AI.
+   - `JOINT_PROCESSING` — iterative synchronous loop; human co-authors logic with AI.
+   - `OPTION_SYNTHESIS` — AI analyzes + returns bounded option set; human picks (Consultant inversion).
+   - `DRAFT_AND_GATE` (default) — AI drafts complete artifact; human approves at each gate.
+   - `FULL_AUTONOMY` — AI executes end-to-end; human reviews via async telemetry only.
+
+   Resolution precedence: `--autonomy=<tag>` CLI flag > `local.yaml.autonomy.level` > diagnostic suggestion > `DRAFT_AND_GATE`.
+8. **Persist** answered fields to `<cwd>/.orchestra/local.yaml`.
+9. **Bootstrap CLAUDE.md.** Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash. Idempotent: creates `<cwd>/CLAUDE.md` if missing; otherwise splices the orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers (preserves user content). No-op when current.
+10. **Spawn @lead** with locked decisions: `"mode=<mode> rigor=<rigor> primary_language=<lang>"`. Chain-rigor selects which layers @lead routes through (see "Chain execution" below).
 
 ### local.yaml schema
 
@@ -185,28 +161,57 @@ authored inside its assigned agent's context per the tier discipline.
 cache) and the terminal closing event (no SUMMARY artifact in v4.0; the
 `events.jsonl` Stop hook captures terminal state).
 
+## Shared rules (cross-agent)
+
+### Karpathy discipline
+
+Before authoring any artifact:
+
+- **State assumptions** — flag what's implicit or guessed.
+- **Minimum surface** — only what the task requires; nothing speculative.
+- **Surgical edits** — touch only what the finding names.
+- **Verifiable goals** — every assertion traces to a concrete check (test, measurement, self-audit).
+
+### Chain-rigor election
+
+Every agent reads `<cwd>/.orchestra/local.yaml` `chain_rigor` ∈ `{Full, Standard, Light}`. "Chain execution" below names which agents fire under which rigor. Agent spawned outside its rigor band → ESCALATE. Per-rigor inputs go in the agent body.
+
+### Routing-taxonomy guard
+
+Dispatcher passes a routed intent: `docs | template | hotfix | feature | review-only | refactor`. Each agent body lists its whitelist. Out-of-whitelist → ESCALATE with `reason: "@<agent> spawned outside routing whitelist for intent=<intent>"`. Do not no-op silently.
+
+### Confidence-tier dialogue
+
+User-facing agents (`@product`, `@lead`) score confidence (signals: intent length, prior artifacts, files-touched, language familiarity, evaluator agreement). Confidence ≠ alignment — every band asks at least once.
+
+- **HIGH** — 1 confirmation `AskUserQuestion`: restate reading, ask to proceed.
+- **MEDIUM** — 1 targeted `AskUserQuestion`.
+- **LOW** — 2–3 questions, cap 3.
+
+3 rejection rounds → DEADLOCK.
+
+### DEADLOCK / ESCALATE shape
+
+- **DEADLOCK** — cannot make progress (spec gap; 3-rejection threshold). Write `<feature-id>-DEADLOCK-<slug>.md` at `<cwd>/.orchestra/pipeline/<feature-id>/`. Frontmatter: `cause:` (`spec_gap`, `consultant-mode-skipped`), `triggered_by_agent: @<agent>`, `resolution: pending`.
+- **ESCALATE** — misrouting or unresolvable scope (spawn outside rigor band; scope drift). Write `<feature-id>-ESCALATE-<slug>.md` (or `-ESCALATE-ADR-<NNNN>.md` for ADR-specific) at `<cwd>/.orchestra/pipeline/<feature-id>/`. Frontmatter: `reason:`, `triggered_by_agent: @<agent>`, `resolution: pending`.
+
+End the turn after writing — `@lead` (or dispatcher under reverse-doc) picks up. Status banner (see "Status output" above) fires on parent Read.
+
 ## Chain execution
 
 Once decisions are locked in `local.yaml`, @lead routes through layers
 per the elected chain rigor. Hard-sequential layers feed each other; the
 parallel fan-out happens once `openapi.yaml` is locked.
 
-```
-HARD-SEQUENTIAL (lift dependency)
-  PRD ──→ FRS ──→ SAD ──→ TDD ──→ openapi.yaml | asyncapi.yaml
-                  │
-                  └─ ADR-NNNN.md (parallel with TDD when independent of TDD content;
-                     sequential if TDD informs it)
+**Hard-sequential (lift dependency):** `PRD → FRS → SAD → TDD → openapi.yaml | asyncapi.yaml`. `ADR-NNNN.md` runs parallel with TDD when independent of TDD content; sequential when TDD informs it.
 
-PARALLEL FAN-OUT (gated on openapi locked)
-  openapi ──┬──→ @backend     ──→ server code + unit tests
-            ├──→ @frontend    ──→ UI code + unit tests          (skipped if no UI layer)
-            └──→ @test Stage-1 ──→ TSR test-plan + black-box tests   (SPEC-BOUND; src/ blocked)
+**Parallel fan-out** (gated on `openapi.yaml status: locked`):
 
-CONVERGE
-  All three ──→ @test Stage-2 (impl-aware) + @evaluator + @reviewer
-            ──→ <feature-id>-TSR.md (sections locked)
-```
+- `@backend` → server code + unit tests.
+- `@frontend` → UI code + unit tests (skipped if no UI layer).
+- `@test` Stage-1 → TSR test-plan + black-box tests (SPEC-BOUND; `<consumer>/src/**` blocked).
+
+**Converge:** all three idle → `@test` Stage-2 (impl-aware) + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
 
 **Chain-rigor presets:**
 
@@ -226,15 +231,7 @@ is for component-internal changes that don't shift specs (e.g., refactor,
 internal-only behavior fix); the implementer still produces tests and TSR
 for verification.
 
-**Stage-1 @test is spec-bound.** Authoring runs in parallel with @backend
-and @frontend. The agent reads only `<feature-id>-openapi.yaml` /
-`<feature-id>-asyncapi.yaml`, PRD, FRS — `<consumer>/src/**` is blocked at
-the tool-permission level (per-stage Read allowlist; mechanism in
-`agents/test.md`). If Stage-1 cannot author tests because openapi is
-silent, the agent writes
-`<cwd>/.orchestra/pipeline/<feature-id>/<feature-id>-DEADLOCK-<slug>.md`
-referencing the missing spec element — @lead picks up and re-spawns
-@architect or self to amend.
+**Stage-1 @test is spec-bound.** Reads only `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` + PRD + FRS — `<consumer>/src/**` blocked via per-stage Read allowlist (mechanism in `agents/test.md`). On openapi silence: writes DEADLOCK per Shared rules; @lead picks up and re-spawns @architect or self to amend.
 
 **Within-agent parallelism (BL-0033).** @backend (and optionally
 @frontend, @test) splits large impl tasks into N parallel sub-runs via
@@ -276,13 +273,7 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
 
 ### src/ purity (enforced)
 
-Implementer writes to `<consumer>/src/main/**`, `<consumer>/src/test/**`
-(or language equivalents) MUST NOT carry chain-artifact section-anchor
-cites — references like `PRD`/`FRS`/`TDD`/`CONTRACT`/`TSR`/`ADR-NNNN`
-followed by a section pointer, plus `FR-N`, `AC-N`, `C-N`, `NFR-N`,
-`S-XXX-NNN`, `openapi.yaml#/paths/`. `pre-write-check.js` Gate-D rejects
-at write time. Traceability lives in commit messages, PR descriptions,
-and the TSR verdict sections — not in business code.
+`<consumer>/src/main/**` and `<consumer>/src/test/**` MUST NOT carry chain-artifact section-cites: `PRD` / `FRS` / `TDD` / `CONTRACT` / `TSR` / `ADR-NNNN` + section pointer; `FR-N`, `AC-N`, `C-N`, `NFR-N`, `S-XXX-NNN`; `openapi.yaml#/paths/`. `pre-write-check.js` Gate-D rejects at write time. Traceability → commits, PR descriptions, TSR verdict sections.
 
 ## /orchestra ship
 

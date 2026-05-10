@@ -11,7 +11,7 @@ Turns a confirmed intent (PRD or natural-language request) into a directed acycl
 ## When to use
 
 - `@lead` has received a feature, refactor, or template intent classified per the routing taxonomy.
-- An existing `requirements/<NNN>-PRD.md` or `requirements/<NNN>-FRS.md` needs decomposing into TDD-bound tasks.
+- An existing `docs/<feature-id>/<feature-id>-PRD.md` or `<feature-id>-FRS.md` needs decomposing into TDD-bound tasks.
 - A sprint pull (`/orchestra sprint --size N`) needs the next N issues converted into a task graph.
 - `@product` or `@lead` is sizing a brownfield migration and needs to estimate before negotiating with the user.
 
@@ -76,7 +76,7 @@ Frontmatter (v2.0 slim):
 
 ```yaml
 ---
-id: <NNN>-TASKS
+id: <feature-id>-TASKS
 type: TASKS
 created: <ISO-8601>
 revision: 1
@@ -127,12 +127,12 @@ User: *"Add a `/v1/users/:id/transfer` endpoint that records to the ledger and e
 
 | ID | Owner | SP | Blocks | Blocked by | Exit | Status |
 |---|---|---|---|---|---|---|
-| T-001 | @lead | 1 | T-002 | — | `interfaces/001-CONTRACT.md` written with 4 criteria | pending |
+| T-001 | @lead | 1 | T-002 | — | `docs/001-transfer/001-transfer-openapi.yaml` written with 4 criteria | pending |
 | T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit | pending |
 | T-003 | @test | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
 | T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic | pending |
-| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `verify/001-TSR.md S-EVAL-VERDICT-001`: all 4 criteria PASS | pending |
-| T-006 | @reviewer | 2 | T-007 | T-005 | `verify/001-TSR.md S-REV-VERDICT-001`: APPROVED | pending |
+| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `docs/001-transfer/001-transfer-TSR.md S-VERDICT-EVAL-001`: all 4 criteria PASS | pending |
+| T-006 | @reviewer | 2 | T-007 | T-005 | `docs/001-transfer/001-transfer-TSR.md S-VERDICT-REVIEW-001`: APPROVED | pending |
 | T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes (with `S-ANNOUNCEMENT-001`) if applicable | pending |
 
 Total: 13 SP. Critical path: T-001 → T-002 → T-005 → T-006 → T-007 = 9 SP. Parallelism on T-002 / T-003 / T-004 saves 4 SP wall time.

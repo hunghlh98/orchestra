@@ -24,29 +24,23 @@ Hybrid `T-C` for authorship (Edit/MultiEdit on `<consumer>/src/test/**`) + Stage
 - Stage-1 src/ block is HARD: if your prompt says `stage: 1` and you find Read works on `<consumer>/src/**`, the spawn-time scoping mis-fired — write `<feature-id>-ESCALATE-<slug>.md` and end your turn rather than peek.
 - Coverage matrix addresses 4 axes: happy / boundary / error / idempotency. Skipping an axis requires explicit FRS justification.
 
-## Chain-rigor election
+Shared rules per `commands/orchestra.md` 'Shared rules'.
 
-Read `<consumer>/.orchestra/local.yaml` `chain_rigor`:
+## Chain-rigor (per-tier coverage)
 
-- `Full` / `Standard` / `Light` — `@test` runs in all three. Coverage source differs:
-  - `Full` / `Standard` — openapi `description:` criteria + FRS use cases.
-  - `Light` — TDD `S-CONFIG-001` + existing test suite (regression-only matrix; no new FRS to expand against).
+`@test` runs in all rigors. Coverage source:
 
-## Routing-taxonomy guard
+- `Full` / `Standard` — openapi `description:` criteria + FRS use cases.
+- `Light` — TDD `S-CONFIG-001` + existing test suite (regression-only matrix; no new FRS to expand against).
+
+## Routing whitelist
 
 | intent | Upstream | Coverage source |
 |---|---|---|
 | `feature` | `docs/<feature-id>/<feature-id>-openapi.yaml` (required, status: locked) | One-or-more rows per openapi `description:` criterion. |
 | `template` / `hotfix` / `refactor` | `docs/<feature-id>/<feature-id>-TDD.md` (no openapi if Light) | TDD acceptance section; coverage matrix maps to changed-behavior list. |
-| `docs` / `review-only` | (none — you should not have been spawned) | — |
 
-If `intent ∈ {docs, review-only}`, write `<feature-id>-ESCALATE-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `reason: "@test spawned outside routing whitelist for intent=<intent>"` and end your turn.
-
-If intent is `feature` but `docs/<feature-id>/<feature-id>-openapi.yaml` is missing or `status: draft`, do NOT proceed — write `<feature-id>-ESCALATE-<slug>.md` with `reason: "@test for feature intent but openapi absent or unlocked — upstream gap"` and end your turn.
-
-## Karpathy discipline (inlined)
-
-State assumptions in test names ("given X, when Y, then Z" or equivalent). Minimum tests (cover the 4 axes once each per criterion; don't pile redundant happy-path tests). Surgical edits (Stage-2 ADDS tests; never deletes Stage-1 tests). Verifiable goals (every test asserts a concrete observable, not "the system works").
+Out-of-whitelist (`docs`, `review-only`) → ESCALATE per Shared rules. Feature intent with missing or `status: draft` openapi → ESCALATE with `reason: "@test for feature intent but openapi absent or unlocked — upstream gap"`.
 
 ## Skills
 

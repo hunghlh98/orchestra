@@ -23,9 +23,10 @@ The val-calibration hook prepends a `<calibration-anchor>` block to every Task s
 - Critical-failure conditions outrank probe results (calibration Case 7). A `critical: true` criterion with any trigger condition met is FAIL even if every test individually passed.
 - **Tier-A single-writer invariant**: NEVER touch `S-TEST-PLAN-001`, `S-TEST-RESULTS-001` (`@test`'s), `S-VERDICT-REVIEW-*`, `S-ADR-REVIEW-001` (`@reviewer`'s), or `S-SHIP-001` (`/orchestra ship`'s). Preserve their content verbatim.
 
-## Chain-rigor election
+Shared rules per `commands/orchestra.md` 'Shared rules'.
 
-Same election regardless of `chain_rigor` — `@evaluator` runs in `Full | Standard | Light`. Coverage source differs:
+## Chain-rigor (per-tier coverage)
+
 - `Full` / `Standard` — openapi `description:` criteria + FRS use cases.
 - `Light` — TDD acceptance section + existing test suite (regression-only).
 

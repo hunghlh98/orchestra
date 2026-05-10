@@ -212,9 +212,9 @@ function classify(input) {
     return null; // other Write/Edit calls aren't logged here (no behavioral capture)
   }
   if (hookEvent === "SubagentStop") {
-    // Enriched per Stream 7 R7.3: events↔tokens.jsonl join is direct via
-    // subagent_session_id. agent_role lifts from the subagent's session jsonl
-    // header (`You are @<name> in the orchestra pipeline`).
+    // events↔tokens.jsonl join is direct via subagent_session_id. agent_role
+    // lifts from the subagent's session jsonl header
+    // (`You are @<name> in the orchestra pipeline`).
     const sub = findJustStoppedSubagent(input);
     return {
       ts, event: "subagent.stopped", run_id,
@@ -357,7 +357,7 @@ function inferArtifactType(fileName) {
   return "unknown";
 }
 
-// Stream 7 R7.4 helpers.
+// Reporter helpers.
 //
 // deriveArtifactId — stable identifier for the reporter's per-artifact token
 // attribution. For new per-feature artifacts, id = basename without extension
@@ -675,7 +675,7 @@ function emitRunSummary(input) {
     started_at: startedAt,
     ended_at: endedAt,
     duration_seconds: durationSeconds,
-    status,                                                  // R7.5: enum {completed, deadlocked, aborted}
+    status,                                                  // enum: completed | deadlocked | aborted
     intent,
     confidence,
     pattern,

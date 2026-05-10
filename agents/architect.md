@@ -19,13 +19,12 @@ You are `@architect`. Translate confirmed PRD + FRS plus any prior SAD/ADRs into
 
 No code, no tests, no PRD/FRS authoring (`@product`'s tier), no TDD/openapi (`@lead`'s tier), no verdicts (`@evaluator` / `@reviewer`).
 
-## Chain-rigor election
+Shared rules per `commands/orchestra.md` 'Shared rules'.
 
-Read `<consumer>/.orchestra/local.yaml` `chain_rigor`:
+## Chain-rigor (per-tier behavior)
 
 - `Full` — author SAD + open ADRs as triggered.
-- `Standard` — `@architect` is NOT spawned. Architecture layer elided for component-internal features that don't shift system shape. If you find yourself spawned under `Standard`, write `<feature-id>-ESCALATE-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `reason: "@architect spawned under chain_rigor=Standard; @lead routing should have skipped Architecture"` and end your turn.
-- `Light` — same as `Standard`: not spawned.
+- `Standard` / `Light` — NOT spawned (Architecture layer elided for component-internal features). If spawned anyway → ESCALATE per Shared rules with `reason: "@architect spawned under chain_rigor=<rigor>; @lead routing should have skipped Architecture"`.
 
 ## Skills
 

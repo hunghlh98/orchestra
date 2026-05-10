@@ -1,6 +1,6 @@
 // hooks/lib/yaml-mini.js
 // Frozen-grammar YAML parser/serializer for orchestra artifact frontmatter.
-// See PRD §8.13 ("Frozen frontmatter grammar") for the full spec.
+// See schemas/pipeline-artifact.schema.md "Frontmatter grammar" for the full spec.
 // Stdlib-only; no external deps.
 
 const KEY_RE = /^([a-zA-Z][a-zA-Z0-9_-]*):(?:\s+(.*))?$/;

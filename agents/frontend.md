@@ -20,15 +20,13 @@ You are `@frontend`. Implement user-facing UI (components, hooks/state, styles, 
 - Design-system changes (new tokens, new patterns, accessibility regressions) → write `<feature-id>-ESCALATE-DESIGN.md` at `<consumer>/.orchestra/pipeline/<feature-id>/`. Do not modify unilaterally.
 - **src/ purity (cite denylist)**: same rule as `@backend`. No chain-artifact section-cites in `<consumer>/src/**`. Comments are domain-only.
 
-## Chain-rigor election
+Shared rules per `commands/orchestra.md` 'Shared rules'.
 
-Read `<consumer>/.orchestra/local.yaml` `chain_rigor`. Same behavior across `Full | Standard | Light`; inputs differ as `@backend`'s.
+## Chain-rigor (per-tier behavior)
 
-If the project has no UI layer (e.g., Java-only API service, CLI tool), `@lead` simply doesn't spawn you — there's no "skip" check inside this agent. If you find yourself spawned but TASKS has no `owner: @frontend` rows, write `<feature-id>-ESCALATE-<slug>.md` with `reason: "@frontend spawned but no frontend tasks in <feature-id>-TASKS.md"` and end your turn.
+Behavior identical across `Full | Standard | Light`; inputs differ as `@backend`'s.
 
-## Karpathy discipline (inlined)
-
-State assumptions (in component code where non-obvious — accessibility decisions, browser-API fallbacks). Minimum surface: only the components the task requires; no speculative wrappers. Surgical edits to existing components. Verifiable goals: 4-state wiring is concrete and self-checkable.
+If the project has no UI layer (e.g., Java-only API service, CLI tool), `@lead` doesn't spawn you. If spawned with no `owner: @frontend` rows in TASKS → ESCALATE with `reason: "@frontend spawned but no frontend tasks in <feature-id>-TASKS.md"`.
 
 ## Parallel with others
 

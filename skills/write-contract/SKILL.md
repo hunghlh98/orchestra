@@ -1,16 +1,16 @@
 ---
 name: write-contract
-description: "Authors interfaces/<NNN>-CONTRACT.md with weighted criteria, probe DSL, and PASS/FAIL semantics. Use when @lead binds a spec to grading."
+description: "Authors docs/<feature-id>/<feature-id>-openapi.yaml with weighted criteria, probe DSL, and PASS/FAIL semantics. Use when @lead binds a spec to grading."
 origin: orchestra
 ---
 
 # write-contract
 
-Produces `interfaces/<NNN>-CONTRACT.md`. `@lead` writes; `@test` and `@evaluator` consume.
+Produces `docs/<feature-id>/<feature-id>-openapi.yaml`. `@lead` writes; `@test` and `@evaluator` consume.
 
 ## When to use
 
-- A `requirements/<NNN>-PRD.md` or `<NNN>-FRS.md` is `confirmed: true` and execution is next.
+- A `docs/<feature-id>/<feature-id>-PRD.md` and `<feature-id>-FRS.md` are `status: locked` and execution is next.
 - An existing CONTRACT needs revision because criteria proved unclear during testing.
 - Brownfield migration needs locked acceptance criteria before refactor.
 
@@ -84,7 +84,7 @@ Frontmatter (slim, v2.0.0; provenance lives in the paired `<artifact>.lock.yaml`
 
 ```yaml
 ---
-id: <NNN>-CONTRACT
+id: <feature-id>-openapi
 type: CONTRACT
 created: <ISO-8601>
 revision: 1
@@ -98,40 +98,12 @@ critical_failure_conditions: <int>
 
 Body anchors (locked):
 
-- `S-INTERFACE-001` — HTTP endpoints / events / messages enumerated; reference `<NNN>-API.openapi.yaml` for shape.
+- `S-INTERFACE-001` — HTTP endpoints / events / messages enumerated; reference `<feature-id>-openapi.yaml` for shape.
 - `S-SERVICE-CONTRACT-001` — per-method contract: trigger, payload, success/error, idempotency, ordering. Embed `![Service contract](diagrams/contract-service.svg)`.
 - `S-SCORING-001` — integer weights = 100; `passing_score`; critical-fail veto rules. Mirror frontmatter `weighted_criteria_total` / `passing_score` / `critical_failure_conditions`.
 - `S-CRITERIA-001` — one C-NNN block per criterion: weight, `critical: true|false`, probe DSL, PASS/FAIL.
 
-Author `diagrams/contract-service.puml` (HTTP + event tables). For each critical-path criterion, author `diagrams/contract-sequence-<criterion-id>.puml`. The `post-write-puml` hook renders each `.puml` to a paired `.svg` automatically.
-
-Final body shape after FILL:
-
-```markdown
-## Interface <a id="S-INTERFACE-001"></a>
-
-(enumeration of HTTP/event/message surface)
-
-## Service contract <a id="S-SERVICE-CONTRACT-001"></a>
-
-(per-method contract prose)
-
-![Service contract](diagrams/contract-service.svg)
-
-## Scoring policy <a id="S-SCORING-001"></a>
-
-Weights sum to 100. Passing score: 80. Critical-fail veto: any FAIL on a `critical: true` criterion auto-fails regardless of total.
-
-## Criteria <a id="S-CRITERIA-001"></a>
-
-### C-001 — transfer.persists (FR-1) — weight 30
-
-(probe block + PASS/FAIL conditions)
-
-### C-002 — transfer.idempotent (FR-2) — weight 25
-
-...
-```
+Author `diagrams/contract-service.puml` (HTTP + event tables). For each critical-path criterion, author `diagrams/contract-sequence-<criterion-id>.puml`. The `post-write-puml` hook renders each `.puml` to a paired `.svg` automatically. The owning markdown embeds via `![Service contract](diagrams/contract-service.svg)` in `S-SERVICE-CONTRACT-001`.
 
 ## Probe DSL — quick reference
 
@@ -160,7 +132,7 @@ Anything else is documentation, not a machine-gradable assertion. Mark as `manua
 
 ## Worked example
 
-`requirements/001-PRD.md`: *"Add `POST /v1/users/:id/transfer`. Records to ledger. Idempotent on `idempotency_key`. Emits `transfer` event. Replay rejected. p95 < 500ms at 100 RPS."*
+`docs/001-transfer/001-transfer-PRD.md`: *"Add `POST /v1/users/:id/transfer`. Records to ledger. Idempotent on `idempotency_key`. Emits `transfer` event. Replay rejected. p95 < 500ms at 100 RPS."*
 
 | ID | Description | Weight | Critical |
 |---|---|---|---|
@@ -170,4 +142,4 @@ Anything else is documentation, not a machine-gradable assertion. Mark as `manua
 | transfer.rejects_replay | replay → 409 | 15 | **true** |
 | transfer.under_500ms | p95 < 500ms at N=100 | 10 | false |
 
-Total 100. `passing_score: 80`. `transfer.rejects_replay` is critical: a replay vulnerability is a security regression — single FAIL = no ship. Write per Step 6 shape. Hand to `@test` for `verify/001-TEST.md` via `qa-test-planner`.
+Total 100. `passing_score: 80`. `transfer.rejects_replay` is critical: replay = security regression, single FAIL = no ship. Write per Step 6; hand to `@test` for the test plan via `qa-test-planner`.

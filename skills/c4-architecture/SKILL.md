@@ -10,9 +10,9 @@ Generates C4-model diagrams (Context / Container / Component / Deployment / Dyna
 
 ## When to use
 
-- `@lead` authoring `architecture/SAD.md` — needs Context (L1) + Container (L2).
-- `@lead` authoring `pipeline/<NNN>-<slug>/design/<NNN>-TDD.md` — needs Component (L3) and/or Dynamic flow diagrams.
-- `@lead` authoring `pipeline/<NNN>-<slug>/interfaces/<NNN>-CONTRACT.md` — needs sequence diagrams for critical-path criteria.
+- `@architect` authoring `docs/SAD.md` — needs Context (L1) + Container (L2).
+- `@lead` authoring `docs/<feature-id>/<feature-id>-TDD.md` — needs Component (L3) and/or Dynamic flow diagrams.
+- `@lead` authoring `docs/<feature-id>/<feature-id>-openapi.yaml` — needs sequence diagrams for critical-path criteria.
 
 ## Approach
 
@@ -63,13 +63,9 @@ For framework internals (Tomcat, DispatcherServlet, Jackson, ORM `SessionFactory
 
 For microservices ownership patterns (single-team / multi-team / event-driven), see `references/c4-rules.md`.
 
-### Step 5 — Render via /plantuml
+### Step 5 — Render
 
-```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/plantuml/scripts/convert_puml.py <path>.puml --format svg
-```
-
-The `post-write-puml` hook fires on `.puml` writes and renders the `.svg` automatically. Both files are committed together; CI parity check verifies every `.puml` has a paired `.svg`.
+The `post-write-puml` hook fires on `.puml` writes and renders the paired `.svg` automatically. Commit both. CI parity check fails any `.puml` without a paired `.svg`. See `skills/plantuml/SKILL.md` for hook details and the manual-fallback command (only when the hook is intentionally disabled).
 
 ### Step 6 — Self-check before declaring done
 
@@ -307,18 +303,8 @@ Project singletons stay unstyled. The feature copy is what reviewers read to und
 
 ## Worked example — Todo service, feature `001-todo-api`
 
-1. **`@architect` authors project singletons** (first feature triggers SAD bootstrap):
-   - `docs/diagrams/c4-l1-context.puml` — `Person(user, "User")` ↔ `System(todo, "Todo System")`.
-   - `docs/diagrams/c4-l2-container.puml` — `User` ↔ `Todo System { Container(api, "Todo API Service", "Spring Boot") + ContainerDb(db, "Database", "PostgreSQL") }`.
-2. **`@lead` authors service-scoped L3 + L4 singletons**:
-   - `docs/diagrams/c4-l3-todo-service.puml` — inside Todo API Service: `Component(controller, "Todo Controller")` → `Component(repo, "Todo Repository")` → `db`.
-   - `docs/diagrams/c4-l4-todo-service.puml` — class diagram per L4 template (Controller / Service / Port / Repository / Entity layered per `clean-architecture` skill).
-3. **`@lead` authors per-feature highlighted copies**:
-   - `docs/001-todo-api/diagrams/001-todo-api-c4-l1-context.puml` — copy of L1 with `UpdateElementStyle(todo, $bgColor="LightSalmon")`.
-   - `docs/001-todo-api/diagrams/001-todo-api-c4-l2-container.puml` — copy of L2 with `api` and `db` highlighted (this feature touches both).
-   - `docs/001-todo-api/diagrams/001-todo-api-c4-l3-todo-service.puml` — copy of L3 with `controller` and `repo` highlighted.
-   - `docs/001-todo-api/diagrams/001-todo-api-seq-create-todo.puml` — intra-service sequence for `POST /todos`.
-   - `docs/001-todo-api/diagrams/001-todo-api-erd-physical.puml` — physical schema since persistence was touched.
-4. **Render**: `post-write-puml` hook fires on every `.puml` write. SVGs land next to sources.
-5. **Embed** project SVGs in `docs/SAD.md` `S-LANDSCAPE-001` / `S-CONTAINERS-001`; embed feature SVGs in `docs/001-todo-api/001-todo-api-TDD.md` `S-COMPONENTS-001`.
-6. **Self-check**: walk Step 6's checklist for every source. Any "no" → fix the `.puml`, re-render. Confirm per-feature copies inherit the project layout exactly (only styling differs).
+1. `@architect` authors project singletons (first feature triggers SAD bootstrap): `docs/diagrams/c4-l1-context.puml`, `c4-l2-container.puml`.
+2. `@lead` authors service-scoped singletons: `c4-l3-todo-service.puml`, `c4-l4-todo-service.puml` (class diagram per L4 template).
+3. `@lead` authors per-feature highlighted copies under `docs/001-todo-api/diagrams/`: `001-todo-api-c4-l1-context.puml`, `-c4-l2-container.puml`, `-c4-l3-todo-service.puml` (each adds `UpdateElementStyle(...)` for touched elements), plus `-seq-create-todo.puml` (intra-service sequence) and `-erd-physical.puml` (persistence touched).
+4. `post-write-puml` hook renders every `.svg`. Embed project SVGs in `docs/SAD.md` (`S-LANDSCAPE-001` / `S-CONTAINERS-001`); embed feature SVGs in `docs/001-todo-api/001-todo-api-TDD.md` (`S-COMPONENTS-001`).
+5. Walk Step 6's checklist for every source. Per-feature copies must differ from project singletons ONLY in styling — never in element identity.

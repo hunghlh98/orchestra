@@ -203,7 +203,7 @@ Artifacts under `docs/` are stakeholder deliverables. Deliver decisions and cont
 
 ## Diagram requirements
 
-Per v4.0-brief §2.bis. Each diagram source (`.puml`) lives under the artifact's `diagrams/` directory, renders to `.svg` via the `plantuml` skill (PostWrite hook enforces — see `hooks/scripts/post-write-puml.js`), and embeds inline in the parent `.md` via `![title](diagrams/<name>.svg)`.
+Each diagram source (`.puml`) lives under the artifact's `diagrams/` directory, renders to `.svg` via the `plantuml` skill (`post-write-puml` hook enforces render-on-write), and embeds inline in the parent `.md` via `![title](diagrams/<name>.svg)`.
 
 Chain-rigor (`local.yaml.chain_rigor`) controls coverage:
 
@@ -278,7 +278,7 @@ openapi: 3.0.3
 info:
   title: Todo API
   description: |
-    CONTRACT narrative folds here per v4.0-brief §7.21 / §7.23.
+    CONTRACT narrative folds inline here.
     YAML markdown convention — literal `|` block scalar — preferred for
     multi-paragraph CONTRACT prose; flow scalars for one-liners.
   version: 1.0.0
@@ -390,7 +390,7 @@ strike_count: <int>                  # DEADLOCK only; always 3 (the trigger)
 
 Body-grammar carve-out applies (no `sections:` block).
 
-## §7.28 src/ cite denylist (canonical)
+## src/ cite denylist (canonical)
 
 `pre-write-check.js` Gate-D rejects writes to `<consumer>/src/**` (and language equivalents below) that contain any of:
 
@@ -415,7 +415,7 @@ Path-match for Gate-D activation:
 ^(.*\/)?(src\/main\/|src\/test\/|src\/(?!.*\.(md|yaml)$)|app\/|cmd\/|pkg\/|internal\/|lib\/(?!.*\.md$))
 ```
 
-Reason (per v4.0-brief §7.28): consumer business code is read by reviewers, IDEs, and grep tools that have no access to `docs/<feature-id>/`. Anchor cites become phantom references — same audience-boundary failure as the consumer-vs-developer surface rule, one step downstream. Traceability lives in commit messages, PR descriptions, and TSR `§verdict-*` — not in business code comments.
+Reason: consumer business code is read by reviewers, IDEs, and grep tools that have no access to `docs/<feature-id>/`. Anchor cites become phantom references — same audience-boundary failure as the consumer-vs-developer surface rule, one step downstream. Traceability lives in commit messages, PR descriptions, and TSR `§verdict-*` — not in business code comments.
 
 ## Validation
 
@@ -424,8 +424,8 @@ Reason (per v4.0-brief §7.28): consumer business code is read by reviewers, IDE
 - `pre-write-check.js` four gates (in addition to the secrets matcher):
   - **Gate-A** — `status: locked` rejects non-owner writes.
   - **Gate-B** — `sections:` map enforces per-section writer + lock.
-  - **Gate-C** — `readers:` allowlist; non-blocking warning on out-of-scope read attempts (Stream 7 reporter aggregates per §7.24 cadence — TBD).
-  - **Gate-D** — §7.28 src/ cite denylist; exit 2 on any hit when target path matches `<consumer>/src/**` (or language equivalents).
+  - **Gate-C** — `readers:` allowlist; non-blocking warning on out-of-scope read attempts (reporter aggregates).
+  - **Gate-D** — src/ cite denylist; exit 2 on any hit when target path matches `<consumer>/src/**` (or language equivalents).
 
 ## Versioning
 

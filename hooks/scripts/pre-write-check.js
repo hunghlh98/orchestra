@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // hooks/scripts/pre-write-check.js
 // PreToolUse(Write|Edit|MultiEdit) hook. Gates run in order:
-//   secrets — exit 2 on detection (preserved from v3.x)
-//   Gate-D  — §7.28 src/ cite denylist; exit 2 on hit when target is business src/
+//   secrets — exit 2 on detection
+//   Gate-D  — src/ cite denylist; exit 2 on hit when target is business src/
 //   Gate-A  — frontmatter `status: locked` rejects writes
-//   Gate-B  — frontmatter `sections:` map; reject if all sections locked (trust-frontmatter §7.22)
-//   Gate-C  — frontmatter `readers:` allowlist; non-blocking warning to stderr (Stream-7 reporter aggregates)
+//   Gate-B  — frontmatter `sections:` map; reject if all sections locked
+//   Gate-C  — frontmatter `readers:` allowlist; non-blocking warning to stderr
 
 import { existsSync, readFileSync } from "node:fs";
 import { parse as parseYaml } from "../lib/yaml-mini.js";
@@ -36,9 +36,9 @@ const SKIP_PATTERNS = [
   /test-fixture/i,
 ];
 
-// Gate-D — §7.28 src/ cite denylist (canonical regex; mirrored in
+// Gate-D — src/ cite denylist (canonical regex; mirrored in
 // schemas/pipeline-artifact.schema.md). Single-source so the audit
-// reporter (Stream 7) reads the same list.
+// reporter reads the same list.
 const CITE_DENYLIST_RE = /(?:PRD|FRS|TDD|CONTRACT|TSR)\s*§\s*\d+|ADR-\d{4}\s*§\s*\d+|\b(?:FR|AC|C|NFR)-\d+\b|\bS-[A-Z]+(?:-[A-Z]+)*-\d{3}\b|openapi\.yaml#\/paths\//;
 
 // Business-src path activation. Triggers Gate-D when target file is under
@@ -103,7 +103,7 @@ function runGateD(filePath, content) {
     const m = lines[i].match(CITE_DENYLIST_RE);
     if (m) {
       process.stderr.write(
-        `pre-write-check: gate-D — chain-artifact cite '${m[0]}' at line ${i + 1} forbidden in <consumer>/src/** (v4.0 §7.28). Move to commit message / PR description / TSR §verdict-*.\n`
+        `pre-write-check: gate-D — chain-artifact cite '${m[0]}' at line ${i + 1} forbidden in <consumer>/src/**. Move to commit message / PR description / TSR S-VERDICT-* sections.\n`
       );
       process.exit(2);
     }
@@ -127,7 +127,7 @@ function runGateB(filePath, fm) {
   const allLocked = entries.every(s => s.status === "locked");
   if (allLocked) {
     process.stderr.write(
-      `pre-write-check: gate-B — ${filePath} has all sections locked (trust-frontmatter §7.22); no writer can amend without status transition. Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`
+      `pre-write-check: gate-B — ${filePath} has all sections locked; no writer can amend without status transition. Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`
     );
     process.exit(2);
   }
@@ -135,8 +135,8 @@ function runGateB(filePath, fm) {
 
 function runGateC(filePath, fm) {
   if (!Array.isArray(fm.readers) || fm.readers.length === 0) return;
-  // Soft enforcement; non-blocking. Stream-7 reporter aggregates these
-  // warnings into the readers-violations summary at /orchestra report time.
+  // Soft enforcement; non-blocking. The reporter aggregates these warnings
+  // into the readers-violations summary at /orchestra report time.
   process.stderr.write(
     `pre-write-check: gate-C — readers-scope: ${filePath} readers=[${fm.readers.join(",")}] (non-blocking; reporter cross-checks at /orchestra report).\n`
   );

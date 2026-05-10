@@ -1,94 +1,90 @@
 # Routing Taxonomy (consumer-surface schema)
 
-> Normative consumer-surface document mapping `intent.yaml.intent` to authorized agents and the artifact whitelist for each intent. The dispatcher's spawn prompts (per `commands/orchestra.md` Step 5) reference this file by intent anchor (`#feature`, `#hotfix`, etc.); agents Read the relevant section on demand to verify their authorized outputs. Each spawn prompt also carries a 1-line backstop summary inline so agents do not need to Read this file for the common path.
-
-> **v2.0.0 changes**: folded `VERDICT` + `CODE-REVIEW` → `TSR`; folded `ANNOUNCEMENT` into `RELEASE §S-ANNOUNCEMENT-001`; added `<NNN>-CHARTER.md` (mode: full | brief) and conditional `ADR-<NNNN>-<slug>.md`; dropped 6 routing-orphan types (`DOC`, `IMPL-NOTES`, `IMPL-BE/FE`, `CODE-DESIGN-BE/FE`, `COMMIT-MSG-as-file`).
+> Normative consumer-surface document mapping `intent.yaml.intent` to authorized agents and the artifact whitelist for each intent. The dispatcher's spawn prompts (per `commands/orchestra.md`) reference this file by intent anchor (`#feature`, `#hotfix`, etc.); agents Read the relevant section on demand to verify their authorized outputs. Each spawn prompt also carries a 1-line backstop summary inline so agents do not need to Read this file for the common path.
 
 ## How agents use this file
 
-- Spawn prompt mandate: every `Agent({ subagent_type, prompt })` call from the dispatcher embeds `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent>` plus a 1-line summary. Agents may Read this file when the inline summary is insufficient (e.g., an artifact name they're uncertain about).
-- Out-of-whitelist enforcement: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `<feature-id>-ESCALATE-<slug>.md` at the feature-dir root with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
-- ADR sub-flow: feature and refactor intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author (under `chain_rigor=Full`); `@reviewer` reviews. 3-round circuit breaker → `<feature-id>-DEADLOCK-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-NNNN-<slug>`) in plain prose, not by section anchor.
+- **Spawn prompt mandate**: every `Agent({ subagent_type, prompt })` call from the dispatcher embeds `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent>` plus a 1-line summary. Agents may Read this file when the inline summary is insufficient (e.g., an artifact name they're uncertain about).
+- **Out-of-whitelist enforcement**: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-ESCALATE-<slug>.md` with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
+- **ADR sub-flow**: `feature` and `refactor` intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author (under `chain_rigor=Full`); `@reviewer` reviews. 3-round circuit breaker → `<feature-id>-ESCALATE-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-<NNNN>-<slug>`) in plain prose, not by section anchor.
+
+Paths use v4.0 layout: per-feature prose in `docs/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<consumer>/.orchestra/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`).
 
 ---
 
 ## feature {#feature}
 
-**Agents (in order):** `@product` → `@lead` → builder → `@test` → `@evaluator` → `@reviewer` → `@ship`
+**Agents (in order):** `@product` → `@architect` (Full only) → `@lead` → `@backend` / `@frontend` / `@test` Stage-1 (parallel) → `@test` Stage-2 → `@evaluator` → `@reviewer` → `/orchestra ship`
 
 **Artifact whitelist (full set):**
 
-- `charter/<NNN>-CHARTER.md` (mode: full)              <!-- NEW v2.0 -->
-- `requirements/<NNN>-PRD.md`
-- `requirements/<NNN>-FRS.md`
-- `design/<NNN>-TDD.md`
-- `interfaces/<NNN>-API.openapi.yaml`
-- `interfaces/<NNN>-CONTRACT.md`
-- `plan/<NNN>-TASKS.md`
-- impl source (project's normal layout)
-- `verify/<NNN>-TEST.md`
-- `verify/<NNN>-TSR.md`                                 <!-- v2.0: folds VERDICT + CODE-REVIEW -->
-- `RELEASE-vX.Y.Z.md` (singleton; absorbs ANNOUNCEMENT)
-- `RUNBOOK-vX.Y.Z.md` (singleton; conditional)
-- `architecture/decisions/ADR-<NNNN>-<slug>.md`         <!-- NEW v2.0 (conditional) -->
+- `docs/<feature-id>/<feature-id>-PRD.md`
+- `docs/<feature-id>/<feature-id>-FRS.md`
+- `docs/SAD.md` (project singleton; updated in place)
+- `docs/adr/ADR-<NNNN>-<slug>.md` (conditional, per ADR sub-flow)
+- `docs/<feature-id>/<feature-id>-TDD.md`
+- `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`; CONTRACT narrative folds inline)
+- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
+- impl source (project's normal layout under `<consumer>/src/`)
+- `docs/<feature-id>/<feature-id>-TSR.md` (multi-writer: `S-TEST-PLAN-001` / `S-TEST-RESULTS-001` by `@test`, `S-VERDICT-EVAL-001` by `@evaluator`, `S-VERDICT-REVIEW-001` + `S-ADR-REVIEW-001` by `@reviewer`, `S-SHIP-001` by `/orchestra ship`)
+- `docs/releases/RELEASE-vX.Y.Z.md` (singleton; absorbs ANNOUNCEMENT into `S-ANNOUNCEMENT-001`)
+- `docs/runbooks/RUNBOOK-vX.Y.Z.md` (singleton; conditional)
 
 This is the only intent that produces the full SDLC artifact set.
 
 ## hotfix {#hotfix}
 
-**Agents (in order):** `@lead` → builder → `@test` → `@evaluator` → `@ship`
+**Agents (in order):** `@lead` → `@backend` / `@frontend` → `@test` Stage-2 → `@evaluator` → `/orchestra ship`
 
 **Artifact whitelist:**
 
-- `design/<NNN>-TDD.md`
-- `plan/<NNN>-TASKS.md`
+- `docs/<feature-id>/<feature-id>-TDD.md`
+- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl-fix
-- `verify/<NNN>-TEST.md`
-- `verify/<NNN>-TSR.md`                                 <!-- v2.0: replaces VERDICT (no rev half required) -->
-- `RELEASE-vX.Y.Z.md`
+- `docs/<feature-id>/<feature-id>-TSR.md` (no review half required — `S-VERDICT-REVIEW-001` stays `pending`)
+- `docs/releases/RELEASE-vX.Y.Z.md`
 
-**Excluded:** CHARTER, PRD, FRS, CONTRACT, API. Hotfixes skip the Planning + Analysis phases (the bug is the spec); CONTRACT/API are unchanged from the broken release. The `@reviewer` is NOT spawned (CODE-REVIEW folds into the implementer's diff for speed); the TSR `S-REV-VERDICT-001` anchor is left at `pending` and `validateFoldCorrectness` is exempt for hotfix-routed TSRs (the validator should be invoked with intent context — implementer carries this in spawn prompt).
+**Excluded:** PRD, FRS, openapi (unchanged from broken release), SAD, ADR. Hotfixes skip Planning + Analysis (the bug is the spec). `@reviewer` is NOT spawned (review folds into the implementer's diff for speed). `@test` Stage-1 is skipped because spec is unchanged; Stage-2 still runs the suite.
 
 ## template {#template}
 
-**Agents (in order):** `@product` (intent only) → `@lead` → builder → `@test` → `@evaluator` → `@reviewer`
+**Agents (in order):** `@product` (intent triage only) → `@lead` → `@backend` / `@frontend` → `@test` Stage-1 + Stage-2 → `@evaluator` → `@reviewer`
 
 **Artifact whitelist:**
 
-- `charter/<NNN>-CHARTER.md` (mode: brief)              <!-- NEW v2.0; replaces INTENT-<id>.md -->
-- `design/<NNN>-TDD.md`
-- `plan/<NNN>-TASKS.md`
+- `<consumer>/.orchestra/pipeline/<feature-id>/intent.yaml` (routing decision; `@product` triages but writes no PRD)
+- `docs/<feature-id>/<feature-id>-TDD.md`
+- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl source
-- `verify/<NNN>-TEST.md`
-- `verify/<NNN>-TSR.md`                                 <!-- v2.0: replaces VERDICT + CODE-REVIEW -->
+- `docs/<feature-id>/<feature-id>-TSR.md`
 
-**Excluded:** PRD, FRS, CONTRACT, API. Templates are infrastructure scaffolding; they don't define new contracts. `@product` is spawned for the upstream classification slot only — writes the brief CHARTER (mode: brief) instead of v1's `INTENT-<id>.md`. Legacy `INTENT-<id>.md` remains valid for hand-authored runs but new template-routed runs prefer CHARTER.
+**Excluded:** PRD, FRS, openapi, SAD, ADR. Templates are infrastructure scaffolding; they don't define new contracts. `@product` is spawned for upstream classification only and writes the routing `intent.yaml`, no narrative.
 
 ## refactor {#refactor}
 
-**Agents (in order):** `@reviewer` (assess) → `@lead` (TDD update) → builder → `@test` → `@evaluator`
+**Agents (in order):** `@reviewer` (pre-impl assessment) → `@lead` (TDD update) → `@backend` / `@frontend` → `@test` Stage-2 → `@evaluator`
 
 **Artifact whitelist:**
 
-- `verify/<NNN>-TSR.md`                                 <!-- v2.0: pre-impl assessment by @reviewer; post-impl by @evaluator -->
-- `design/<NNN>-TDD.md` (update — not net-new)
+- `docs/<feature-id>/<feature-id>-TSR.md` (pre-impl assessment in `S-VERDICT-REVIEW-001`; post-impl `S-VERDICT-EVAL-001` by `@evaluator`)
+- `docs/<feature-id>/<feature-id>-TDD.md` (update — not net-new)
+- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl
-- `verify/<NNN>-TEST.md`
-- `architecture/decisions/ADR-<NNNN>-<slug>.md`         <!-- NEW v2.0 (conditional — refactors often hit forks) -->
+- `docs/adr/ADR-<NNNN>-<slug>.md` (conditional — refactors often hit forks)
 
-**Excluded:** CHARTER, PRD, FRS, CONTRACT, API, new SAD. Refactors preserve external behavior; CONTRACT/API are unchanged by definition. SAD updates are limited to component touches (append components, append ADR-INDEX rows), not new architecture.
+**Excluded:** PRD, FRS, openapi, new SAD. Refactors preserve external behavior; openapi is unchanged by definition. SAD updates are limited to component touches (append components, append `S-ADR-INDEX-001` rows), not new architecture.
 
 ## docs {#docs}
 
-**Agents (in order):** `@product` (intent only) → `@ship` → `@reviewer`
+**Agents (in order):** `@product` (intent triage only) → `/orchestra ship` → `@reviewer`
 
 **Artifact whitelist:**
 
-- `charter/<NNN>-CHARTER.md` (mode: brief)              <!-- NEW v2.0; replaces INTENT-<id>.md -->
-- The doc files themselves (whatever the user asked for — README updates, rule docs, etc.)
-- `verify/<NNN>-TSR.md`                                 <!-- v2.0: rev half only; eval half stays pending -->
+- `<consumer>/.orchestra/pipeline/<feature-id>/intent.yaml`
+- The doc files themselves (whatever the user asked for — README updates, ADR additions outside a feature, rule docs, etc.)
+- `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-VERDICT-EVAL-001` stays `pending`)
 
-**Excluded:** PRD, FRS, TDD, CONTRACT, API, TASKS, TEST, RELEASE. `@product` is spawned for upstream classification only (writes the brief CHARTER). `@lead` MUST refuse this route — if spawned, write `<feature-id>-ESCALATE-<slug>.md` and end the turn.
+**Excluded:** PRD, FRS, TDD, openapi, TASKS, RELEASE. `@product` triages without authoring narrative. `@lead` MUST refuse this route — if spawned, write `<feature-id>-ESCALATE-<slug>.md` and end the turn.
 
 ## review-only {#review-only}
 
@@ -96,12 +92,12 @@ This is the only intent that produces the full SDLC artifact set.
 
 **Artifact whitelist:**
 
-- `verify/<NNN>-TSR.md`                                 <!-- v2.0: rev half only; eval half stays pending indefinitely -->
+- `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-VERDICT-EVAL-001` stays `pending` indefinitely)
 
-**Excluded:** CHARTER, PRD, FRS, TDD, CONTRACT, API, TASKS, TEST, RELEASE. The user wants a review of existing work, not new work. `@lead` MUST refuse this route.
+**Excluded:** PRD, FRS, TDD, openapi, TASKS, RELEASE. The user wants a review of existing work, not new work. `@lead` MUST refuse this route.
 
 ---
 
 ## Versioning
 
-This schema's content matches the routing rules embedded in `commands/orchestra.md` Step 5 (intent → agents quick-reference). When either side changes, both must update. The dispatcher is canonical for spawn order; this file is canonical for artifact whitelists. v2.0.0 revision: 2 (was 1 in v1).
+This schema's content matches the routing rules embedded in `commands/orchestra.md` (intent → agents quick-reference). When either side changes, both must update. The dispatcher is canonical for spawn order; this file is canonical for artifact whitelists. v4.0 revision: 3 (was 2 in v2.0; v3 was a rev-only bump).

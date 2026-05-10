@@ -28,7 +28,7 @@ adr_count: 0
 
 ## ADR Index <a id="S-ADR-INDEX-001"></a>
 
-<!-- FILL: Table of accepted ADRs. One row per ADR. ADR bodies live at architecture/decisions/ADR-NNNN-slug.md — DO NOT inline them here. -->
+<!-- FILL: Table of accepted ADRs. One row per ADR. ADR bodies live at docs/adr/ADR-NNNN-<slug>.md — DO NOT inline them here. -->
 
 | ADR | Slug | Status | Accepted at |
 |---|---|---|---|

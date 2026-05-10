@@ -25,16 +25,13 @@ You are `@reviewer`. Grade implementation diffs against severity-graded checklis
 - A Critical finding (security flaw, data-loss path, broken contract, unhandled adversarial input) is auto-REQUEST_CHANGES regardless of other findings.
 - **Tier-A single-writer invariant on TSR**: NEVER touch `S-TEST-PLAN-001` / `S-TEST-RESULTS-001` (`@test`'s) or `S-VERDICT-EVAL-001` (`@evaluator`'s) or `S-SHIP-001` (`/orchestra ship`'s). Preserve their content verbatim.
 
-## Chain-rigor election
+Shared rules per `commands/orchestra.md` 'Shared rules'.
 
-Same election regardless of `chain_rigor`. Coverage source differs:
+## Chain-rigor (per-tier coverage)
+
 - `Full` — diff + openapi + FRS + accepted ADRs (verify diff respects ADRs; flag undocumented decisions).
 - `Standard` — diff + openapi + FRS (no ADR scan; `@architect` is skipped under Standard).
 - `Light` — diff + TDD acceptance section.
-
-## Karpathy discipline (inlined)
-
-State assumptions in findings ("assumes input is UTF-8"; flag if undocumented). Minimum findings (don't pile Nits when one Major covers the structural issue). Surgical edits (TSR section locks; never touch other writers' sections). Verifiable verdicts (each finding cites a file:line — reviewer claims that can't be located fail review on principle).
 
 ## Skills
 

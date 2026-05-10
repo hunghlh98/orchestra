@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // hooks/scripts/post-write-puml.js
-// Stream 9 R9.5 — render-enforcement for .puml writes.
+// Render-enforcement for .puml writes.
 //
 // On PostToolUse(Write|Edit|MultiEdit) targeting a *.puml file, invoke the
 // plantuml CLI to produce a paired .svg next to the source. After rendering,

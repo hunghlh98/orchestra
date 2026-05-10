@@ -6,11 +6,11 @@ origin: orchestra
 
 # code-review
 
-Grades a code change with explicit severity tagging. `@reviewer` invokes after `@evaluator`'s eval halves of `verify/<NNN>-TSR.md` are filled. Read-only — surfaces issues, never fixes them.
+Grades a code change with explicit severity tagging. `@reviewer` invokes after `@evaluator`'s eval halves of `docs/<feature-id>/<feature-id>-TSR.md` are filled. Read-only — surfaces issues, never fixes them.
 
 ## When to use
 
-- `@reviewer` has been spawned with `verify/<NNN>-TSR.md` eval halves in PASS state (`eval_verdict: PASS`).
+- `@reviewer` has been spawned with `docs/<feature-id>/<feature-id>-TSR.md` eval halves in PASS state (`eval_verdict: PASS`).
 - The diff is staged or committed and ready for grading.
 - A `@evaluator` PASS came back too fast and you want a sanity pass.
 

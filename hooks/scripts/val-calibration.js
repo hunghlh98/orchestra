@@ -41,7 +41,7 @@ async function main() {
     }
 
     if (!existsSync(CALIBRATION_PATH)) {
-      // Graceful no-op per PRD §9.9 invariant 4.
+      // Graceful no-op when the calibration file is missing — never block.
       passthrough();
       process.exit(0);
     }

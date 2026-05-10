@@ -128,9 +128,9 @@ Successive `/orchestra` runs read this and skip discovery unless the user passes
 
 ## Hand-off
 
-### Greenfield → CHARTER + forward chain
+### Greenfield → forward chain
 
-After discovery completes (greenfield), the dispatcher routes by `intent.yaml.intent` into the forward chain. `@product` fills CHARTER FILL spans using the discovery snapshot (mode, language, framework, scope_hints) as Feasibility-section evidence. Forward chain proceeds normally.
+After discovery completes (greenfield), the dispatcher routes by `intent.yaml.intent` into the forward chain. `@product` writes the PRD using the discovery snapshot (mode, language, framework, scope_hints) as feasibility evidence. Forward chain proceeds normally.
 
 ### Brownfield → reverse-doc bootstrap, then forward chain
 
