@@ -6,7 +6,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-4.0.3 work)
+(no entries yet — placeholder for post-4.0.6 work)
+
+## [4.0.6] — 2026-05-10
+
+Patch release: per-agent execution-plan artifacts wired across all 8 agents, the dispatcher, and a new sync hook. Each spawned agent now drops a PLAN file at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` BEFORE its first artifact write or `TaskCreate` call, narrating its approach in `## Approach` and (via the new `agent-plan-sync` hook) mirroring its native Claude Code task list into the file's frontmatter. `/orchestra resume` consults PLAN files first (fine-grained interrupt resumption) before walking the global TASKS.md DAG. Autonomy level (`local.yaml.autonomy.level`) gates whether the agent runs an `AskUserQuestion` to confirm its plan or proceeds silently.
+
+### Added
+
+- **`hooks/scripts/agent-plan-sync.js` (new, sixth hook)** — Owns mutation of per-agent PLAN files. Subscribes to `PreToolUse:TaskCreate|TaskUpdate`, `PostToolUse:TaskCreate`, and `SubagentStop`. Two-phase capture: PostToolUse on `TaskCreate` binds Claude Code's assigned taskId to a `T-NNN` entry in `tasks:` frontmatter; PreToolUse on `TaskUpdate` flips status by that bound id. `SubagentStop` with any non-`completed` task → `status: interrupted`; all completed → `status: done`. Reuses metrics-collector's parent-sid lookup pattern (walks `~/.claude/projects/<encoded-cwd>/*/subagents/agent-<sub_sid>.jsonl` to recover the dispatcher run-id from a subagent's session id). Three-tier feature-id discovery: spawn-prompt grep → most-recent `intent.yaml` → most-recent pipeline dir mtime. Crash-safe: never blocks the underlying tool; opt-out via `ORCHESTRA_HOOK_AGENT_PLAN_SYNC=off`.
+- **`schemas/pipeline-artifact.schema.md`** — New artifact type `PLAN`. Stable filename `<feature-id>.md` under `<cwd>/.orchestra/tasks/<run-id>/<agent>/`. Frontmatter: `id`, `type: PLAN`, `agent: "@<role>"`, `run_id`, `feature_id`, `created`, `updated`, `status: pending|in_progress|interrupted|done`, `tasks_pending|in_progress|done` counts, `tasks: [{id, claude_task_id, description, status}]`. Body grammar: `## Approach` (agent-owned narrative) + `## Tasks` (hook-mirrored checklist). Body-grammar carve-out (no `<a id>` anchors), joining `intent.yaml` / `<feature-id>-TASKS.md` / `ESCALATE` / `DEADLOCK` as agent-internal coordination. Distinct from the v3 PLAN type (`--think` artifact under `docs/`, dropped in v4.0); this is a per-agent runtime working-memory artifact under `.orchestra/`, different audience and lifetime.
+- **`commands/orchestra.md` "Per-agent plan discipline" shared rule** — Single canonical block under "Shared rules" naming the lifecycle, autonomy-gate table (5 levels × confirm-vs-skip semantics), and source-of-truth boundary (`## Approach` agent-owned; `tasks:` + counts + status + `## Tasks` checklist hook-owned). Invariants block updated to credit `agent-plan-sync` with `tasks:` mutation. Runtime-hooks table grows from 5 to 6 entries with the new hook documented. `/orchestra resume` algorithm Step 3 split into 3a (PLAN scan, fine-grained, primary) and 3b (TASKS.md walk, coarse-grained, fallback).
+- **All 8 agents (`product`, `architect`, `lead`, `backend`, `frontend`, `test`, `evaluator`, `reviewer`)** — Workflow Step `0.` added as the first item in each numbered Workflow list. Single line per agent referencing the canonical block (per the project's `update-discipline — fold up, don't sprinkle` rule); `test.md` and `reviewer.md` additionally clarify that one PLAN spans both stages / both review modes.
+- **`hooks/scripts/metrics-collector.js`** — Two new event shapes: `agent.plan.task` (PreToolUse on `TaskCreate|TaskUpdate`, tagged with `agent_role`, `claude_task_id`, `task_subject`, `task_status` — gives a per-agent activity audit on every Task* call) and `artifact.written` for plan-file Writes/Edits (recognizes `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` paths, emits `artifact_type: PLAN` with `agent_role`, `plan_run_id` keys).
+- **`scripts/tests/agent-plan-sync.test.js` (new)** — 25 assertions across 6 cases: opt-out (env=off emits allow envelope), `PostToolUse(TaskCreate)` creates plan + appends `T-001` with bound `claude_task_id`, `TaskUpdate` flips status + counts + checklist annotation, last-task completion flips plan to `status: done`, `SubagentStop` with open tasks flips to `status: interrupted`, idempotent reopen on duplicate `TaskCreate`. Sandboxes a fake `~/.claude/projects/<encoded-cwd>/<parent_sid>/subagents/` layout under tmp HOME so the hook's session-walk runs deterministically against UUID-shaped parent sids and short-hex subagent ids (matches Claude Code's actual file-naming).
+
+### Changed
+
+- **`hooks/hooks.json`** — Three new registrations: `PreToolUse:TaskCreate|TaskUpdate` (agent-plan-sync + metrics-collector), `PostToolUse:TaskCreate` (agent-plan-sync), `SubagentStop` (agent-plan-sync runs alongside metrics-collector).
+- **`scripts/tests/hooks.test.js` `KNOWN_TOOLS` allowlist** — Added `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `TaskOutput`, `TaskStop` so the hooks.json matcher-validation block accepts the new matchers.
+
+### Why no schema revision
+
+`schemas/pipeline-artifact.schema.md` revision unchanged (still `6`). Adding a new artifact type to the type enum is additive — older readers ignoring the new type incur no behavior change since the path namespace (`<cwd>/.orchestra/tasks/`) is also new. No frontmatter-shape changes for any pre-existing artifact. No hook-contract changes for the 5 pre-existing hooks. No env-var toggles removed. `local.yaml` schema unchanged. Existing pipelines under `<cwd>/.orchestra/pipeline/<id>/` and `<cwd>/docs/<feature-id>/` remain valid; the new `<cwd>/.orchestra/tasks/` subtree is greenfield.
+
+### Migration
+
+- **First spawned-agent run after upgrade** writes its PLAN under `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md`. No retroactive backfill for in-flight runs that started under v4.0.5.
+- **`/orchestra resume`** prefers PLAN files when present; falls back to the v4.0.3+ TASKS.md walk for runs that pre-date this release.
+- **Opt-out**: `ORCHESTRA_HOOK_AGENT_PLAN_SYNC=off` disables the new hook entirely; agents will still narrate PLAN bodies but no `tasks:` mirroring or interrupt detection occurs. Useful for diagnosing PLAN-related test/CI failures.
+
+### Tests
+
+13 test files green, +1 new (`agent-plan-sync.test.js`, 25 assertions). `hooks.test.js`: 96 → 97 assertions (+1 from KNOWN_TOOLS allowlist expansion).
 
 ## [4.0.3] — 2026-05-10
 

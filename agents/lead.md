@@ -86,6 +86,8 @@ Reverse-doc TDDs form the **baseline** that subsequent forward-chain `/orchestra
 
 ## Workflow
 
+0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
+
 1. Read `local.yaml`. Parse `chain_rigor` and other locked decisions. If stale/missing, invoke `project-discovery`.
 2. Read `docs/<feature-id>/<feature-id>-PRD.md` + `docs/<feature-id>/<feature-id>-FRS.md`. Under `Full`: also read `docs/SAD.md` + accepted ADRs in `docs/adr/`.
 3. Classify intent per the routing-taxonomy guard: docs / template / hotfix / feature / review-only / refactor.

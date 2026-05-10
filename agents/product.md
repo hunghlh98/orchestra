@@ -80,6 +80,8 @@ The reverse-doc PRD/FRS form the **baseline** that subsequent forward-chain `/or
 
 ## Workflow
 
+0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
+
 1. Read user's intent. If `local.yaml` exists, read it; else invoke `project-discovery`.
 2. Classify mode: greenfield (no source) → propose baseline structure; brownfield → ground in existing project shape.
 3. **Consultant-mode dialogue (mandatory; band-sized).** Compute confidence (5 signals: intent length, prior artifacts, files-touched, language familiarity, evaluator agreement). Then per the dispatcher's "Confidence-tier dialogue" rule:

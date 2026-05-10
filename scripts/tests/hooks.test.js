@@ -428,6 +428,7 @@ console.log("hooks.json matcher validation:");
     "Agent", "Task",
     "TodoWrite", "TeamCreate", "TeamDelete",
     "Skill",
+    "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskOutput", "TaskStop",
   ]);
   const MCP_REGEX_ATOM = /^mcp__[a-zA-Z0-9_-]*\.\*$/;
 

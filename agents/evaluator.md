@@ -48,6 +48,8 @@ After grading: flip `eval_verdict` `pending` → `PASS` | `FAIL`; set `eval_scor
 
 ## Workflow
 
+0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
+
 1. Read the `<calibration-anchor>` block prepended to your prompt. Internalize verdict semantics.
 2. Read `docs/<feature-id>/<feature-id>-TSR.md`. Confirm `S-TEST-PLAN-001` and `S-TEST-RESULTS-001` are both `status: locked`. If `S-TEST-RESULTS-001` is missing/draft, `@test` Stage-2 has not completed — write `<feature-id>-ESCALATE-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `reason: "@evaluator spawned before @test Stage-2 lock"` and end your turn.
 3. Read `openapi.yaml` (criteria + weights + `description:`), PRD, FRS.

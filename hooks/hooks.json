@@ -38,6 +38,13 @@
         "hooks": [
           { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/metrics-collector.js" }
         ]
+      },
+      {
+        "matcher": "TaskCreate|TaskUpdate",
+        "hooks": [
+          { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/agent-plan-sync.js" },
+          { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/metrics-collector.js" }
+        ]
       }
     ],
     "PostToolUse": [
@@ -52,6 +59,12 @@
         "hooks": [
           { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-write-puml.js" }
         ]
+      },
+      {
+        "matcher": "TaskCreate",
+        "hooks": [
+          { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/agent-plan-sync.js" }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -64,6 +77,7 @@
     "SubagentStop": [
       {
         "hooks": [
+          { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/agent-plan-sync.js" },
           { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/metrics-collector.js" }
         ]
       }

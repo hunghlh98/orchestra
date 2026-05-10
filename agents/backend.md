@@ -49,6 +49,8 @@ Source files in project layout (`<consumer>/src/main/**` per language convention
 
 ## Workflow
 
+0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
+
 1. Read `local.yaml`. Read `<feature-id>-TASKS.md`. Find rows with `owner: @backend`.
 2. For each task: flip `Status` `pending` → `in_progress`, stamp `Updated by: @backend` + ISO-8601 `Updated at`. Touch only your own row.
 3. Read `openapi.yaml` + TDD. Note `critical: true` criteria — they're the bar.

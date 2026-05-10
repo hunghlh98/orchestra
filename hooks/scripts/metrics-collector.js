@@ -157,6 +157,20 @@ function classify(input) {
       args_summary: typeof ti.args === "string" ? ti.args.slice(0, 200) : "",
     };
   }
+  if (hookEvent === "PreToolUse" && (toolName === "TaskCreate" || toolName === "TaskUpdate")) {
+    // Per-agent plan tracking. The actual plan-file mutation is owned by
+    // hooks/scripts/agent-plan-sync.js; this branch logs the activity so
+    // events.jsonl carries an agent-attributed audit of every Task* call
+    // (the "what each agent has been doing" log).
+    const ti = input?.tool_input || {};
+    return {
+      ts, event: "agent.plan.task", run_id,
+      tool: toolName,                                  // TaskCreate | TaskUpdate
+      claude_task_id: ti.taskId ? String(ti.taskId) : null,
+      task_subject: typeof ti.subject === "string" ? ti.subject.slice(0, 200) : null,
+      task_status: typeof ti.status === "string" ? ti.status : null,
+    };
+  }
   if (hookEvent === "PreToolUse" && typeof toolName === "string" && toolName.startsWith("mcp__orchestra-")) {
     return { ts, event: "mcp.tool.called", tool: toolName, run_id };
   }
@@ -171,6 +185,24 @@ function classify(input) {
         project_mode: fields.mode || "unknown",
         primary_language: fields.primary_language || "unknown",
         framework: fields.framework || "unknown",
+      };
+    }
+    // Per-agent PLAN observability: writes under
+    // <cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md emit a
+    // PLAN-typed artifact.written event so events.jsonl traces both who
+    // (agent_role) and what (feature_id) on the per-agent plan surface.
+    const planMatch = filePath.match(/\/\.orchestra\/tasks\/([^/]+)\/([^/]+)\/([^/]+)$/);
+    if (planMatch) {
+      const fileName = planMatch[3];
+      return {
+        ts, event: "artifact.written", run_id,
+        feature_id: fileName.replace(/\.md$/, ""),
+        artifact_type: "PLAN",
+        artifact_id: `${planMatch[1]}-${planMatch[2]}-${fileName.replace(/\.md$/, "")}`,
+        file_name: fileName,
+        agent_role: planMatch[2].replace(/^@/, ""),
+        plan_run_id: planMatch[1],
+        tool: toolName,
       };
     }
     // Pipeline-artifact observability: any write under

@@ -73,6 +73,8 @@ Stage-1 black-box tests carry NO chain-artifact section-cites in source code (`p
 
 ## Workflow — Stage-1
 
+0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". One PLAN per `(run-id, agent, feature-id)`; Stage-1 and Stage-2 share it. The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
+
 1. Read `local.yaml` for `chain_rigor`. Verify your prompt says `stage: 1`.
 2. Read `docs/<feature-id>/<feature-id>-openapi.yaml` (status must be `locked`), PRD, FRS, TDD, TASKS.
 3. Invoke `qa-test-planner`. Build the coverage matrix: one row per openapi criterion, columns for happy / boundary / error / idempotency / adversarial axes. Unprobable criteria → mark `manual_evaluation: true` and append a "Probe gap" row.

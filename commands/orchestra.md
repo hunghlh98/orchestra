@@ -12,11 +12,18 @@ fire; subcommands handle out-of-band release / observability / resume work.
 
 ## Invariants
 
-The 5 runtime hooks (see "Runtime hooks" table below) own their events and
+The 6 runtime hooks (see "Runtime hooks" table below) own their events and
 side effects. Do not write to `<cwd>/.orchestra/metrics/events.jsonl`
 directly, hash artifact frontmatter manually, or replicate any hook's
 work. Provenance and review state live in artifact frontmatter (`status`,
 `verdict`, `readers`, `sections`); drift detection is `git diff` in CI.
+
+`agent-plan-sync` owns mutation of `tasks:`, `tasks_pending`,
+`tasks_in_progress`, `tasks_done`, `updated:`, top-level `status:`, and
+the `## Tasks` checklist body of every per-agent PLAN file under
+`<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md`. Agents author
+the `## Approach` narrative and never edit those hook-owned fields by
+hand.
 
 ## Status output
 
@@ -171,6 +178,38 @@ Before authoring any artifact:
 - **Minimum surface** — only what the task requires; nothing speculative.
 - **Surgical edits** — touch only what the finding names.
 - **Verifiable goals** — every assertion traces to a concrete check (test, measurement, self-audit).
+
+### Per-agent plan discipline
+
+Every spawned agent — `@product`, `@architect`, `@lead`, `@backend`, `@frontend`, `@test`, `@evaluator`, `@reviewer` — drops a PLAN file at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` BEFORE its first artifact write or substantial Bash. The PLAN is the agent's working-memory record of what it intends to do; `/orchestra resume` reads PLAN files first to reconstruct interrupted state at finer granularity than the global `<feature-id>-TASKS.md` DAG.
+
+PLAN frontmatter shape and lifecycle is canonical in `schemas/pipeline-artifact.schema.md` under `<feature-id>.md` PLAN. The agent owns:
+
+1. The `## Approach` body section (2–5 sentences naming inputs read and outputs to write).
+2. Calling Claude Code's native `TaskCreate` / `TaskUpdate` for each subtask as work progresses.
+
+The `agent-plan-sync` hook (registered on `PreToolUse:TaskCreate|TaskUpdate`, `PostToolUse:TaskCreate`, `SubagentStop`) owns:
+
+1. Appending each `TaskCreate` call as a `T-NNN` entry to `tasks:` (binding Claude Code's opaque taskId).
+2. Flipping `tasks[].status` on every `TaskUpdate` and recomputing `tasks_pending` / `tasks_in_progress` / `tasks_done`.
+3. Top-level `status:` lifecycle: `pending → in_progress` (first task started) → `interrupted` (SubagentStop with open tasks) | `done` (all tasks completed).
+4. Mirroring `tasks:` into the `## Tasks` checklist in the body.
+
+Agents MUST NOT manually edit `tasks:` frontmatter, the count fields, the `updated:` field, top-level `status:`, or the `## Tasks` checklist — those drift across the hook's source of truth (Claude Code's native Task tool calls).
+
+#### Autonomy gate (proceed vs confirm)
+
+After authoring the PLAN body and BEFORE the first `TaskCreate`, the agent reads `<cwd>/.orchestra/local.yaml` `autonomy.level` and gates execution per the table:
+
+| Autonomy level | Gate behavior |
+|---|---|
+| `EXECUTION_ONLY` | The user wrote step-by-step. Restate the plan to the user, run ONE `AskUserQuestion` ("Plan looks right? Proceed?"), wait for confirm, then begin `TaskCreate` calls. |
+| `JOINT_PROCESSING` | Co-authoring loop. Restate the plan, run ONE `AskUserQuestion` ("Plan looks right? Proceed?"), wait for confirm, then begin. |
+| `OPTION_SYNTHESIS` | Surface 2 plan variants via `AskUserQuestion` (the consultant inversion); user picks; the picked variant is what gets written into `## Approach`, then proceed. |
+| `DRAFT_AND_GATE` (default) | Draft the plan, run ONE `AskUserQuestion` ("Plan looks right? Proceed?"); on confirm, proceed. Plan-confirmation is distinct from artifact-gate confirmation later — both fire. |
+| `FULL_AUTONOMY` | No `AskUserQuestion`. Write the PLAN, begin `TaskCreate` immediately. The user reviews via `events.jsonl` + the PLAN file post-hoc. |
+
+The autonomy gate is orthogonal to the confidence-tier dialogue (next section). Confidence tier asks about *what to build* (intent alignment); autonomy gate asks about *how to build* (execution plan alignment). Both can fire in the same agent turn.
 
 ### Chain-rigor election
 
@@ -338,25 +377,28 @@ Algorithm:
 2. **Validate prerequisites.** Read `<cwd>/.orchestra/pipeline/<feature-id>/intent.yaml`. Missing → fail closed: write `<feature-id>-DEADLOCK-resume.md` and halt. Then scan:
    - `<feature-id>-DEADLOCK-*.md` present → emit banner; deadlocks need manual rescope.
    - `<feature-id>-ESCALATE*.md` with `resolution: pending` → emit banner + `AskUserQuestion` ("ESCALATE pending: `<reason>`. Resolved externally?"). Reject → halt; accept → proceed.
-3. **Find resume point.** Read `<feature-id>-TASKS.md` and walk topologically. For each task in order:
-   - `Status = done` → skip.
-   - Owner is read-only-tier (`@evaluator` / `@reviewer`) — derive done status from TSR frontmatter (`eval_verdict ∈ {PASS, FAIL}`, `rev_verdict ∈ {APPROVED, REQUEST_CHANGES}`).
-   - Owner is artifact-tier — derive done from artifact existence with frontmatter `status: locked`.
-   - First non-done task → resume point.
+3. **Find resume point.**
+   - **3a. Per-agent PLAN scan (fine-grained).** Glob `<cwd>/.orchestra/tasks/*/<agent>/<feature-id>.md`. If any PLAN has `status: interrupted` (or `status: in_progress` from a prior session), the resume point is that PLAN's first non-`completed` `tasks[]` entry; the owner is the PLAN's `agent:` field. Resume by respawning that agent with a directive to read its prior PLAN and continue from the first open task.
+   - **3b. TASKS.md walk (coarse-grained, fallback).** No interrupted PLAN found → read `<feature-id>-TASKS.md` and walk topologically. For each task in order:
+     - `Status = done` → skip.
+     - Owner is read-only-tier (`@evaluator` / `@reviewer`) — derive done status from TSR frontmatter (`eval_verdict ∈ {PASS, FAIL}`, `rev_verdict ∈ {APPROVED, REQUEST_CHANGES}`).
+     - Owner is artifact-tier — derive done from artifact existence with frontmatter `status: locked`.
+     - First non-done task → resume point.
 4. **REQUEST_CHANGES gate.** If resume point follows a TSR `rev_verdict: REQUEST_CHANGES`, do NOT auto-respawn. Emit banner + `AskUserQuestion` ("Last review verdict: REQUEST_CHANGES (`<N findings>`). Respawn @<owner> for revision, or halt?"). Accept → step 5; reject → halt.
 5. **Spawn.** Issue `Agent({ subagent_type, prompt })` with locked decisions from `local.yaml` plus a resume directive: "Your task is `T-<id>` in `<feature-id>-TASKS.md`. Read existing artifacts before re-writing — idempotent re-write is acceptable."
 6. **Continue smart-router** from the resume point through terminal-state detection.
 
 ## Runtime hooks
 
-5 hooks registered in `hooks/hooks.json`. Hooks own their events per
+6 hooks registered in `hooks/hooks.json`. Hooks own their events per
 "Invariants" above — do not replicate hook side effects.
 
 | Hook | Events (matchers) | Side effect |
 |---|---|---|
-| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-* / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl` (Stream 7 retools for `agent_role` + `phase` + `subagent_session_id` join keys) |
+| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-*\|TaskCreate\|TaskUpdate / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl` (Stream 7 retools for `agent_role` + `phase` + `subagent_session_id` join keys); `agent.plan.task` rows on Task* tool calls give a per-agent activity audit |
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher (8 patterns; exit 2) + 4 frontmatter gates: status-locked / sections-all-locked / readers-warning / src/ cite denylist |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts |
+| `agent-plan-sync` | PreToolUse:TaskCreate\|TaskUpdate / PostToolUse:TaskCreate / SubagentStop | Owns mutation of per-agent PLAN files at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` — `tasks:` array, count fields, top-level `status:` lifecycle, and the `## Tasks` checklist body. Agent body authors `## Approach` only |
 | `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash to stderr (observer; never blocks) |
 | `post-write-puml` | PostToolUse:Write\|Edit\|MultiEdit | Renders `.puml` → `.svg` via plantuml CLI; warns when sibling `.md` lacks the `![..](diagrams/<name>.svg)` reference (non-blocking) |
 

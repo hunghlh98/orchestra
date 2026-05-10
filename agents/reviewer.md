@@ -59,6 +59,8 @@ When updating ADR: on APPROVED, set `status: accepted` + `accepted_at: <ISO-8601
 
 ## Workflow — diff review
 
+0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". One PLAN per `(run-id, agent, feature-id)`; diff-review and ADR-review share it. The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
+
 1. Read TSR. If `eval_verdict == FAIL` → `rev_verdict: pending` (don't review broken code; set `rev_round` to current). The implementer fixes the FAIL first.
 2. Invoke `code-review`. Walk the diff structurally (file-by-file LOC delta). Apply universal gates: scope (no out-of-task edits), tests (coverage matches `S-TEST-PLAN-001`), secrets (`pre-write-check.js` should have caught these — re-check), dead code.
 3. Apply per-language gates (Java: `mvn checkstyle`, JS/TS: `eslint`, Go: `gosec`, Python: `bandit`). Skip silently if no rule path matches.

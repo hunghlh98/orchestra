@@ -93,6 +93,8 @@ Reverse-doc SAD is a **project-level** artifact (one SAD across all major featur
 
 ## Workflow
 
+0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
+
 1. Read `local.yaml.chain_rigor`. If not `Full`, ESCALATE per chain-rigor section above.
 2. Read `docs/<feature-id>/<feature-id>-PRD.md` + `docs/<feature-id>/<feature-id>-FRS.md`. Note `ADR-WORTHY:` items in PRD `S-OPEN-Q-001`.
 3. Greenfield + no SAD: bootstrap SAD (see "Greenfield SAD bootstrap" above) before opening ADRs.

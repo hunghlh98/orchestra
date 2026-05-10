@@ -77,12 +77,13 @@ Per-feature prose is **5 files**: `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, 
 ├── events.jsonl                        ← event log (BL-0032; observability stream 7)
 ├── metrics/                            ← per-role / per-phase token attribution (BL-0035)
 │   └── <run-id>.json
-└── pipeline/<feature-id>/                       ← per-feature coordination state; <feature-id> matches docs/<feature-id>/
-    ├── intent.yaml                              ← routing decision (input to @lead)
-    ├── <feature-id>-TASKS.md                    ← lead → implementer task breakdown
-    ├── <feature-id>-DEADLOCK-<slug>.md          ← transient; <slug> identifies the deadlock cause
-    ├── <feature-id>-ESCALATE-<slug>.md          ← transient
-    └── <feature-id>-ESCALATE-ADR-<NNNN>.md      ← reviewer-flagged retroactive ADR escalation
+├── pipeline/<feature-id>/                       ← per-feature coordination state; <feature-id> matches docs/<feature-id>/
+│   ├── intent.yaml                              ← routing decision (input to @lead)
+│   ├── <feature-id>-TASKS.md                    ← lead → implementer task breakdown (global DAG)
+│   ├── <feature-id>-DEADLOCK-<slug>.md          ← transient; <slug> identifies the deadlock cause
+│   ├── <feature-id>-ESCALATE-<slug>.md          ← transient
+│   └── <feature-id>-ESCALATE-ADR-<NNNN>.md      ← reviewer-flagged retroactive ADR escalation
+└── tasks/<run-id>/<agent>/<feature-id>.md       ← per-agent execution plan (PLAN type); one file per (run-id, agent, feature-id) reused across resumes
 ```
 
 Lifetime notes:
@@ -100,6 +101,7 @@ Type → folder map:
 | `ADR` | `docs/adr/` | `ADR-0001-use-sqlite.md` | global flat numbering — NOT feature-scoped |
 | `RELEASE`, `RUNBOOK` | `docs/releases/`, `docs/runbooks/` | `RELEASE-vX.Y.Z.md` | release-time singletons; ANNOUNCEMENT folded into RELEASE §S-ANNOUNCEMENT-001 |
 | `TASKS` | `.orchestra/pipeline/<feature-id>/` | `001-todo-api-TASKS.md` | agent-internal; filename = `<feature-id>-TASKS.md` |
+| `PLAN` | `.orchestra/tasks/<run-id>/<agent>/` | `001-todo-api.md` | per-agent execution plan; filename = `<feature-id>.md`; one file per `(run-id, agent, feature-id)` |
 | `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/pipeline/<feature-id>/` | `001-todo-api-ESCALATE-spec-gap.md` | transient; filename = `<feature-id>-<TYPE>-<slug>.md` (or `<feature-id>-ESCALATE-ADR-<NNNN>.md`) |
 
 **Removed in v4.0** (folded or dropped):
@@ -116,7 +118,7 @@ Type → folder map:
 ```yaml
 ---
 id: <basename-without-extension> # e.g., "001-todo-api-PRD", "001-todo-api-TSR", "ADR-0001-use-sqlite", "SAD" for singleton, "RELEASE-v4.0.2" for release
-type: <PRD|FRS|TDD|API|TSR|SAD|ADR|RELEASE|RUNBOOK|TASKS|ESCALATE|DEADLOCK>
+type: <PRD|FRS|TDD|API|TSR|SAD|ADR|RELEASE|RUNBOOK|TASKS|PLAN|ESCALATE|DEADLOCK>
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                    # NEW v4.0 — review-state lives here; values: draft | locked
@@ -189,7 +191,7 @@ Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segm
 
 **Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in the body, and every `<a id>` in the body MUST have a matching key in `sections:`. `validate.js` flags either direction as a violation.
 
-**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md` — these are agent-internal coordination, not stakeholder narrative.
+**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, and per-agent `PLAN` files under `.orchestra/tasks/<run-id>/<agent>/` — these are agent-internal coordination, not stakeholder narrative.
 
 ## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
 
@@ -378,6 +380,53 @@ tasks_done: <int>
 ```
 
 `S-TASKS-001` is **mutable by design** — implementer-tier owners (`@backend`, `@frontend`) flip rows from `pending → in_progress → done` on pickup/completion. Read-only-tier owners (`@evaluator`, `@reviewer`) do NOT self-report — their task status derives at read-time from TSR `eval_verdict` / `rev_verdict`.
+
+### `<feature-id>.md` PLAN (`.orchestra/tasks/<run-id>/<agent>/`)
+
+Per-agent execution plan. The agent authors the body before any artifact write or substantial Bash; the `agent-plan-sync` hook owns mutation of `tasks:`, `tasks_pending`, `tasks_in_progress`, `tasks_done`, and lifecycle `status:` flips on `Task*` tool use and on `SubagentStop`.
+
+```yaml
+id: <feature-id>                              # matches basename without extension
+type: PLAN
+agent: "@<role>"                              # @product | @architect | @lead | @backend | @frontend | @test | @evaluator | @reviewer
+run_id: <parent-dispatcher-session-id>
+feature_id: <feature-id>                      # e.g., 001-todo-api
+created: <ISO-8601>
+updated: <ISO-8601>                           # hook-maintained
+status: pending | in_progress | interrupted | done
+tasks_pending: <int>
+tasks_in_progress: <int>
+tasks_done: <int>
+tasks:                                        # hook-maintained mirror of Claude Code TaskCreate/TaskUpdate state
+  - id: T-001
+    description: <one-line>
+    status: pending | in_progress | completed
+```
+
+`status:` lifecycle:
+
+| value | meaning | who flips |
+|---|---|---|
+| `pending` | Plan body authored; the agent has not yet started any task | Agent writes; hook never flips into this |
+| `in_progress` | At least one task `in_progress` or `completed` | `agent-plan-sync` hook on first `TaskUpdate(status: in_progress)` or `TaskCreate` |
+| `interrupted` | `SubagentStop` fired with at least one task not `completed` | `agent-plan-sync` hook on `SubagentStop` |
+| `done` | All tasks `completed` | `agent-plan-sync` hook on `TaskUpdate(status: completed)` of the last task |
+
+`/orchestra resume` consults `<project>/.orchestra/tasks/*/<agent>/<feature-id>.md` (latest run-id by mtime) BEFORE walking `<feature-id>-TASKS.md`. A plan with `status: interrupted` resumes at the first non-`completed` task; with `status: in_progress` warns and confirms before respawn (concurrent-session guard).
+
+Body grammar (free-form, no `<a id>` anchors required):
+
+```markdown
+## Approach
+<2-5 sentence narrative — what the agent intends to do, in what order, citing inputs it will read and outputs it will write>
+
+## Tasks
+- [ ] T-001 — <one-line>
+- [ ] T-002 — <one-line>
+- [x] T-003 — <one-line>      # completed
+```
+
+The agent body owns the `## Approach` section. The hook owns the `## Tasks` checklist sync (mirror of `tasks:` frontmatter). The agent body MUST NOT manually flip `tasks:` frontmatter or `## Tasks` checkbox state — those drift across the hook's source of truth (Claude Code's native Task tool calls).
 
 ### `<feature-id>-ESCALATE-<slug>.md`, `<feature-id>-ESCALATE-ADR-<NNNN>.md`, `<feature-id>-DEADLOCK-<slug>.md`
 
