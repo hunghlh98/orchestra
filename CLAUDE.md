@@ -32,7 +32,7 @@ A consumer who installs orchestra has **no `docs/` folder, no `manifests/` folde
 
 ### Allowed in `agents/`, `commands/`, `skills/`
 
-- Domain nouns the plugin teaches: `PRD-NNN.md`, `FRS-NNN.md`, `TDD-NNN.md`, `CONTRACT-NNN.md`, `CODE-REVIEW-NNN.md`, `SAD.md`, `TEST-NNN.md`, `VERDICT-NNN.md`, `DEADLOCK-<id>.md`, `ESCALATE-<id>.md`. These are artifact-type names the consumer's pipeline produces in **their own** project.
+- Domain nouns the plugin teaches: `PRD-NNN.md`, `FRS-NNN.md`, `TDD-NNN.md`, `TSR-NNN.md`, `SAD.md`, `ADR-NNNN-<slug>.md`, `openapi.yaml`, `asyncapi.yaml`, `run-plan.md`, `inventory.md`, `DEADLOCK-<id>.md`, `ESCALATE-<id>.md`. These are artifact-type names the consumer's pipeline produces in **their own** project.
 - Cross-references between consumer artifacts: `agents/lead.md` may cite `agents/product.md` or `commands/orchestra.md` or `skills/write-contract/SKILL.md`.
 - References into `schemas/`: e.g., `schemas/pipeline-artifact.schema.md` is the normative frontmatter spec for pipeline artifacts. `schemas/` is consumer surface.
 - File-shaped references inside the consumer's project: `<cwd>/.claude/.orchestra/pipeline/<id>/...`, `local.yaml`.

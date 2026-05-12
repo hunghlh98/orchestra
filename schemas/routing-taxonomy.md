@@ -26,7 +26,7 @@ Paths use v4.0 layout: per-feature prose in `docs/<feature-id>/`, ADRs flat in `
 - `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`; CONTRACT narrative folds inline)
 - `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl source (project's normal layout under `<consumer>/src/`)
-- `docs/<feature-id>/<feature-id>-TSR.md` (multi-writer: `S-TEST-PLAN-001` / `S-TEST-RESULTS-001` by `@test`, `S-VERDICT-EVAL-001` by `@evaluator`, `S-VERDICT-REVIEW-001` + `S-ADR-REVIEW-001` by `@reviewer`, `S-SHIP-001` by `/orchestra ship`)
+- `docs/<feature-id>/<feature-id>-TSR.md` (multi-writer: `S-TEST-001` by `@test` Stage-1+Stage-2, `S-EVAL-001` by `@evaluator`, `S-REVIEW-001` by `@reviewer` (with ADR-review subsection when ADRs touched), `S-DIVERGENCES-001` by `@architect` (brownfield only); ship verdict in frontmatter `ship:` set by `/orchestra ship`)
 - `docs/releases/RELEASE-vX.Y.Z.md` (singleton; absorbs ANNOUNCEMENT into `S-ANNOUNCEMENT-001`)
 - `docs/runbooks/RUNBOOK-vX.Y.Z.md` (singleton; conditional)
 
@@ -41,7 +41,7 @@ This is the only intent that produces the full SDLC artifact set.
 - `docs/<feature-id>/<feature-id>-TDD.md`
 - `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl-fix
-- `docs/<feature-id>/<feature-id>-TSR.md` (no review half required — `S-VERDICT-REVIEW-001` stays `pending`)
+- `docs/<feature-id>/<feature-id>-TSR.md` (no review half required — `S-REVIEW-001` stays `pending`)
 - `docs/releases/RELEASE-vX.Y.Z.md`
 
 **Excluded:** PRD, FRS, openapi (unchanged from broken release), SAD, ADR. Hotfixes skip Planning + Analysis (the bug is the spec). `@reviewer` is NOT spawned (review folds into the implementer's diff for speed). `@test` Stage-1 is skipped because spec is unchanged; Stage-2 still runs the suite.
@@ -66,7 +66,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 **Artifact whitelist:**
 
-- `docs/<feature-id>/<feature-id>-TSR.md` (pre-impl assessment in `S-VERDICT-REVIEW-001`; post-impl `S-VERDICT-EVAL-001` by `@evaluator`)
+- `docs/<feature-id>/<feature-id>-TSR.md` (pre-impl assessment in `S-REVIEW-001`; post-impl `S-EVAL-001` by `@evaluator`)
 - `docs/<feature-id>/<feature-id>-TDD.md` (update — not net-new)
 - `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl
@@ -82,7 +82,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 - `<consumer>/.orchestra/pipeline/<feature-id>/intent.yaml`
 - The doc files themselves (whatever the user asked for — README updates, ADR additions outside a feature, rule docs, etc.)
-- `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-VERDICT-EVAL-001` stays `pending`)
+- `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending`)
 
 **Excluded:** PRD, FRS, TDD, openapi, TASKS, RELEASE. `@product` triages without authoring narrative. `@lead` MUST refuse this route — if spawned, write `<feature-id>-ESCALATE-<slug>.md` and end the turn.
 
@@ -92,7 +92,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 **Artifact whitelist:**
 
-- `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-VERDICT-EVAL-001` stays `pending` indefinitely)
+- `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending` indefinitely)
 
 **Excluded:** PRD, FRS, TDD, openapi, TASKS, RELEASE. The user wants a review of existing work, not new work. `@lead` MUST refuse this route.
 

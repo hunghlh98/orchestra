@@ -1,6 +1,6 @@
 ---
 name: clean-code
-description: Meaningful names, small functions, exception-based errors, F.I.R.S.T. tests, code-smell heuristics for code authoring (@backend) and review scoring (@reviewer S-VERDICT-REVIEW-001).
+description: Meaningful names, small functions, exception-based errors, F.I.R.S.T. tests, code-smell heuristics for code authoring (@backend) and review scoring (@reviewer S-REVIEW-001).
 origin: vendored from github.com/wondelai/skills@1.1.0 (MIT, Wondel.ai sp. z o.o.) — frontmatter trimmed for orchestra schema; body and references/* unchanged.
 license: MIT
 metadata:

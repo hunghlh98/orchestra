@@ -94,7 +94,7 @@ const TYPE_SPEC = {
     classification: "feature-scoped",
     folder: "verify",
     template: "TSR.template.md",
-    anchors: ["S-EVAL-VERDICT-001", "S-EVAL-TABLE-001", "S-REV-VERDICT-001", "S-REV-FINDINGS-001", "S-SHIP-001"],
+    anchors: ["S-TEST-001", "S-EVAL-001", "S-REVIEW-001"],
     diagrams: [],
     ext: "md",
   },

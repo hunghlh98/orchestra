@@ -227,8 +227,8 @@ console.log("metrics-collector event classification:");
           hook_event_name: "PreToolUse", tool_name: "Edit",
           tool_input: {
             file_path: `${tmp}/.orchestra/pipeline/001-hello-world/CODE-REVIEW-001-hello-world.md`,
-            old_string: "verdict: pending",
-            new_string: "verdict: APPROVE",
+            old_string: "verdict: PENDING",
+            new_string: "verdict: APPROVED",
           },
         },
         expectEvent: "artifact.written",
@@ -750,6 +750,209 @@ console.log("metrics-collector Stream 7 enrichments:");
     check(dlRun.status === "deadlocked", `status=deadlocked when DEADLOCK artifact written (got ${dlRun.status})`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 4g. UserPromptSubmit context injection (v4.1 #7b) ---
+console.log("metrics-collector UserPromptSubmit context injection:");
+{
+  // 4g.1: local.yaml absent → no additionalContext output.
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-ctx-absent-"));
+  try {
+    const r = runHook({ session_id: "s", cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "/orchestra hi" });
+    check(r.status === 0, `exits 0`);
+    check(r.stdout === "" || !r.stdout.includes("additionalContext"),
+      `no additionalContext when local.yaml absent (stdout=${JSON.stringify(r.stdout)})`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+{
+  // 4g.2: local.yaml present, no phase events → phase="—", round_trip + source_lock from yaml.
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-ctx-yaml-"));
+  try {
+    mkdirSync(join(tmp, ".orchestra"), { recursive: true });
+    writeFileSync(
+      join(tmp, ".orchestra/local.yaml"),
+      [
+        "pipeline_id: 001-hello",
+        "round_trip: DEFERRED",
+        "source_lock:",
+        "  read_paths:",
+        '    - "project-poc/**"',
+        "  write_paths:",
+        '    - "project-poc/**"',
+        "",
+      ].join("\n"),
+    );
+    const r = runHook({ session_id: "s", cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "hello" });
+    check(r.status === 0, `exits 0`);
+    const out = JSON.parse(r.stdout);
+    check(out?.hookSpecificOutput?.hookEventName === "UserPromptSubmit",
+      `hookEventName=UserPromptSubmit (got ${JSON.stringify(out?.hookSpecificOutput?.hookEventName)})`);
+    const ctx = out?.hookSpecificOutput?.additionalContext || "";
+    check(ctx.startsWith("[orchestra]"), `additionalContext starts with [orchestra] (got ${JSON.stringify(ctx)})`);
+    check(ctx.includes("phase: —"), `phase falls back to em-dash when no phase events (got ${JSON.stringify(ctx)})`);
+    check(ctx.includes("round_trip: DEFERRED"), `round_trip lifted from yaml (got ${JSON.stringify(ctx)})`);
+    check(ctx.includes("source_lock: project-poc/**"),
+      `first source_lock.read_paths entry surfaced (got ${JSON.stringify(ctx)})`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+{
+  // 4g.3: active phase from events.jsonl wins.
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-ctx-phase-"));
+  try {
+    mkdirSync(join(tmp, ".orchestra/metrics"), { recursive: true });
+    writeFileSync(join(tmp, ".orchestra/local.yaml"), "pipeline_id: 001\nround_trip: PENDING\n");
+    writeFileSync(
+      join(tmp, ".orchestra/metrics/events.jsonl"),
+      [
+        JSON.stringify({ ts: "2026-05-12T10:00:00Z", event: "pipeline.phase.start", run_id: "r1", phase: "discovery" }),
+        JSON.stringify({ ts: "2026-05-12T10:05:00Z", event: "pipeline.phase.end",   run_id: "r1", phase: "discovery" }),
+        JSON.stringify({ ts: "2026-05-12T10:05:01Z", event: "pipeline.phase.start", run_id: "r1", phase: "gap-resolution" }),
+      ].join("\n") + "\n",
+    );
+    const r = runHook({ session_id: "s", cwd: tmp, hook_event_name: "UserPromptSubmit", prompt: "x" });
+    check(r.status === 0, `exits 0`);
+    const ctx = JSON.parse(r.stdout)?.hookSpecificOutput?.additionalContext || "";
+    check(ctx.includes("phase: gap-resolution"),
+      `active phase = most-recent unmatched start (got ${JSON.stringify(ctx)})`);
+    check(ctx.includes("round_trip: PENDING"), `round_trip surfaced (got ${JSON.stringify(ctx)})`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 4h. cost-by-phase aggregator (v4.1 #1, task 1.3) ---
+console.log("metrics-collector cost-by-phase aggregator:");
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-cbp-"));
+  try {
+    const sid = "cbp-1";
+    const metricsDir = join(tmp, ".orchestra/metrics");
+    mkdirSync(metricsDir, { recursive: true });
+
+    // Seed events.jsonl with two completed phase intervals + one open phase.
+    const events = [
+      { ts: "2026-05-12T10:00:00Z", event: "prompt.submitted", run_id: sid, matched_orchestra: true },
+      { ts: "2026-05-12T10:00:01Z", event: "pipeline.phase.start", run_id: sid, phase: "discovery" },
+      { ts: "2026-05-12T10:02:00Z", event: "pipeline.phase.end",   run_id: sid, phase: "discovery" },
+      { ts: "2026-05-12T10:02:01Z", event: "pipeline.phase.start", run_id: sid, phase: "spec-draft" },
+      { ts: "2026-05-12T10:04:00Z", event: "pipeline.phase.end",   run_id: sid, phase: "spec-draft" },
+      { ts: "2026-05-12T10:04:01Z", event: "pipeline.phase.start", run_id: sid, phase: "verification" },
+    ];
+    writeFileSync(join(metricsDir, "events.jsonl"), events.map(e => JSON.stringify(e)).join("\n") + "\n");
+
+    // Seed tokens.jsonl: one row inside each phase + one row outside any phase.
+    const tokens = [
+      // Inside discovery
+      { ts: "2026-05-12T10:01:30Z", event: "subagent.tokens", run_id: sid, agent_role: "lead",
+        tokens: { input: 1000, output: 500, cache_read: 0, cache_create: 0 } },
+      // Inside spec-draft
+      { ts: "2026-05-12T10:03:00Z", event: "subagent.tokens", run_id: sid, agent_role: "product",
+        tokens: { input: 2000, output: 1000, cache_read: 0, cache_create: 0 } },
+      // Inside verification (open-ended)
+      { ts: "2026-05-12T10:04:30Z", event: "subagent.tokens", run_id: sid, agent_role: "reviewer",
+        tokens: { input: 3000, output: 1500, cache_read: 0, cache_create: 0 } },
+      // Outside any phase interval (before first phase.start) → "unknown" bucket
+      { ts: "2026-05-12T09:00:00Z", event: "subagent.tokens", run_id: sid, agent_role: "lead",
+        tokens: { input: 100, output: 50, cache_read: 0, cache_create: 0 } },
+    ];
+    writeFileSync(join(metricsDir, "tokens.jsonl"), tokens.map(t => JSON.stringify(t)).join("\n") + "\n");
+
+    // Trigger Stop on the parent — emitCostByPhase runs in the Stop handler.
+    const r = runHook({ session_id: sid, cwd: tmp, hook_event_name: "Stop" });
+    check(r.status === 0, `Stop hook exits 0 (stderr=${r.stderr})`);
+
+    const cbpPath = join(metricsDir, "cost-by-phase.json");
+    check(existsSync(cbpPath), `cost-by-phase.json created`);
+    if (existsSync(cbpPath)) {
+      const cbp = JSON.parse(readFileSync(cbpPath, "utf8"));
+      check(cbp.schema_version === 1, `schema_version=1`);
+      check(typeof cbp.generated_at === "string", `generated_at is ISO string`);
+      check(cbp.by_phase?.discovery?.tokens?.input === 1000, `discovery.input=1000 (got ${cbp.by_phase?.discovery?.tokens?.input})`);
+      check(cbp.by_phase?.discovery?.tokens?.output === 500, `discovery.output=500`);
+      check(cbp.by_phase?.["spec-draft"]?.tokens?.input === 2000, `spec-draft.input=2000`);
+      check(cbp.by_phase?.verification?.tokens?.input === 3000, `verification.input=3000 (open interval)`);
+      check(cbp.by_phase?.unknown?.tokens?.input === 100, `pre-phase tokens land under unknown (got ${cbp.by_phase?.unknown?.tokens?.input})`);
+      check(typeof cbp.by_phase?.discovery?.cost_usd === "number", `cost_usd computed per phase`);
+      check(cbp.by_phase?.discovery?.cost_usd > 0, `discovery cost > 0`);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 4i. orchestra-statusline.sh (v4.1 #7c, task 1.2) ---
+console.log("orchestra-statusline.sh:");
+{
+  const statusline = resolve(root, "hooks/scripts/orchestra-statusline.sh");
+
+  function runStatusline(cwd) {
+    return spawnSync("bash", [statusline], {
+      input: JSON.stringify({ cwd }),
+      encoding: "utf8",
+    });
+  }
+
+  // 4i.1: local.yaml absent → silent (no badge).
+  const tmpAbsent = mkdtempSync(join(tmpdir(), "orchestra-sl-absent-"));
+  try {
+    const r = runStatusline(tmpAbsent);
+    check(r.status === 0, `exits 0 when local.yaml absent`);
+    check(r.stdout.trim() === "", `no output when local.yaml absent (got ${JSON.stringify(r.stdout)})`);
+  } finally {
+    rmSync(tmpAbsent, { recursive: true, force: true });
+  }
+
+  // 4i.2: local.yaml present + events with open phase → badge.
+  const tmpOk = mkdtempSync(join(tmpdir(), "orchestra-sl-ok-"));
+  try {
+    mkdirSync(join(tmpOk, ".orchestra/metrics"), { recursive: true });
+    writeFileSync(join(tmpOk, ".orchestra/local.yaml"), "pipeline_id: 001\n");
+    writeFileSync(
+      join(tmpOk, ".orchestra/metrics/events.jsonl"),
+      JSON.stringify({ ts: "2026-05-12T10:00:00Z", event: "pipeline.phase.start", run_id: "r1", phase: "gap-resolution" }) + "\n",
+    );
+    const r = runStatusline(tmpOk);
+    check(r.status === 0, `exits 0`);
+    check(r.stdout.trim() === "[ORCH:gap-resolution]",
+      `badge = [ORCH:gap-resolution] (got ${JSON.stringify(r.stdout.trim())})`);
+  } finally {
+    rmSync(tmpOk, { recursive: true, force: true });
+  }
+
+  // 4i.3: phase closed by matching .end → no badge (no active phase).
+  const tmpClosed = mkdtempSync(join(tmpdir(), "orchestra-sl-closed-"));
+  try {
+    mkdirSync(join(tmpClosed, ".orchestra/metrics"), { recursive: true });
+    writeFileSync(join(tmpClosed, ".orchestra/local.yaml"), "pipeline_id: 001\n");
+    writeFileSync(
+      join(tmpClosed, ".orchestra/metrics/events.jsonl"),
+      [
+        JSON.stringify({ ts: "2026-05-12T10:00:00Z", event: "pipeline.phase.start", run_id: "r1", phase: "discovery" }),
+        JSON.stringify({ ts: "2026-05-12T10:01:00Z", event: "pipeline.phase.end",   run_id: "r1", phase: "discovery" }),
+      ].join("\n") + "\n",
+    );
+    const r = runStatusline(tmpClosed);
+    check(r.stdout.trim() === "", `no badge when latest phase already closed (got ${JSON.stringify(r.stdout)})`);
+  } finally {
+    rmSync(tmpClosed, { recursive: true, force: true });
+  }
+
+  // 4i.4: symlinked local.yaml → silent (hardening).
+  const tmpSym = mkdtempSync(join(tmpdir(), "orchestra-sl-sym-"));
+  try {
+    mkdirSync(join(tmpSym, ".orchestra"), { recursive: true });
+    const target = join(tmpSym, "real-local.yaml");
+    writeFileSync(target, "pipeline_id: 001\n");
+    spawnSync("ln", ["-s", target, join(tmpSym, ".orchestra/local.yaml")]);
+    const r = runStatusline(tmpSym);
+    check(r.stdout.trim() === "", `symlinked local.yaml rejected (got ${JSON.stringify(r.stdout)})`);
+  } finally {
+    rmSync(tmpSym, { recursive: true, force: true });
   }
 }
 

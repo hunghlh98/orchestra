@@ -8,7 +8,7 @@ origin: orchestra
 
 Produces `docs/<feature-id>/<feature-id>-openapi.yaml`. `@lead` writes; `@test` lifts criteria into the TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
 
-In v4.0 the contract IS the openapi document — there is no separate CONTRACT.md. Acceptance criteria live as prose in `description:` fields per operation / response. Critical criteria are flagged inline. Probe DSL + grading rules live in `qa-test-planner` (TSR `S-TEST-PLAN-001`) and `@evaluator`'s rubric — not in this artifact.
+In v4.0 the contract IS the openapi document — there is no separate CONTRACT.md. Acceptance criteria live as prose in `description:` fields per operation / response. Critical criteria are flagged inline. Probe DSL + grading rules live in `qa-test-planner` (TSR `S-TEST-001`) and `@evaluator`'s rubric — not in this artifact.
 
 ## When to use
 
@@ -87,7 +87,7 @@ Filename convention matches the `c4-architecture` skill's two-folder model (proj
 
 ## Probe DSL — quick reference
 
-This skill does not author probes — `qa-test-planner` does, into TSR `S-TEST-PLAN-001`. But `@lead` should know what's machine-probable when writing `description:` prose, so `@test` can later turn each criterion into a real probe row:
+This skill does not author probes — `qa-test-planner` does, into TSR `S-TEST-001`. But `@lead` should know what's machine-probable when writing `description:` prose, so `@test` can later turn each criterion into a real probe row:
 
 | `tool:` | What it probes | Assertion shapes |
 |---|---|---|
@@ -105,7 +105,7 @@ Anything else (latency p95, third-party API behavior, OS-level state) is `manual
 ## References
 
 - `schemas/pipeline-artifact.schema.md` — canonical frontmatter + body grammar for the openapi `# orchestra:` block.
-- `skills/qa-test-planner/SKILL.md` — how each criterion becomes a TSR `S-TEST-PLAN-001` row + probe.
+- `skills/qa-test-planner/SKILL.md` — how each criterion becomes a TSR `S-TEST-001` row + probe.
 - `skills/c4-architecture/SKILL.md` — diagram filename convention + render rules.
 
 ## Worked example
@@ -122,4 +122,4 @@ Anything else (latency p95, third-party API behavior, OS-level state) is `manual
 | Rejects replay (different body) | `POST /v1/users/{id}/transfer` 409 | **yes** |
 | p95 < 500ms at 100 RPS | non-functional | no (manual_evaluation) |
 
-Author `001-transfer-openapi.yaml` per Step 3 with each criterion folded into the operation's `description:`. The replay criterion is tagged `CRITICAL:` inline. Author `001-transfer-sequence-intra-replay-rejection.puml` per Step 4 (one sequence diagram for the critical path). Hand to `@test` Stage-1 to build the coverage matrix in TSR `S-TEST-PLAN-001`.
+Author `001-transfer-openapi.yaml` per Step 3 with each criterion folded into the operation's `description:`. The replay criterion is tagged `CRITICAL:` inline. Author `001-transfer-sequence-intra-replay-rejection.puml` per Step 4 (one sequence diagram for the critical path). Hand to `@test` Stage-1 to build the coverage matrix in TSR `S-TEST-001`.

@@ -70,50 +70,84 @@ Bare `/orchestra` (no subcommand) — script-first detection, then
 `AskUserQuestion` only when the answer cannot be inferred. Cache locked
 decisions to `<cwd>/.orchestra/local.yaml` so re-runs don't re-prompt.
 
+Path-tier vocabulary: `<context_path>` = session-root, captured at `claude` launch (resolves from `${CLAUDE_PROJECT_DIR}` or `pwd`-at-session-start). `<scope_path>` = the elected unit subset, ⊆ `<context_path>`, written to `local.yaml`. Single-repo collapses both to the same path; multi-service and multi-repo have `<context_path>` ⊋ `<scope_path>`.
+
 Each step asks only when its answer cannot be inferred from prompt or repo state. Ask order:
 
-1. **Load cache.** If `<cwd>/.orchestra/local.yaml` exists, lift cached answers — re-runs don't re-prompt.
+1. **Load cache.** If `<scope_path>/.orchestra/local.yaml` (or `<context_path>/.orchestra/local.yaml` pre-scope-election) exists, lift cached answers — re-runs don't re-prompt.
 2. **Detect mode.**
-   - No `<cwd>/src/` AND no build manifest (`package.json` / `pom.xml` / `go.mod` / `Cargo.toml`) → `greenfield`.
-   - `<cwd>/src/` exists OR build manifest exists → `brownfield`.
+   - No `<context_path>/src/` AND no build manifest (`package.json` / `pom.xml` / `go.mod` / `Cargo.toml`) → `greenfield`.
+   - `<context_path>/src/` exists OR build manifest exists → `brownfield`.
    - Ambiguous (e.g., `docs/` exists but no source) → `AskUserQuestion` (mode).
-3. **Brownfield depth** (if `mode=brownfield` AND `local.yaml.depth` missing). `AskUserQuestion`: `light` | `medium` | `full`. Drives reverse-doc artifact-set (see `project-discovery` skill).
-4. **Chain rigor** (if `local.yaml.chain_rigor` missing). `AskUserQuestion`:
-   - `Full` — all layers (PRD → FRS → SAD → ADR → TDD → openapi → code+tests → TSR).
-   - `Standard` — skip SAD/ADR (PRD → FRS → TDD → openapi → code+tests → TSR).
-   - `Light` — TDD-only (TDD → openapi → code+tests → TSR; component-internal change, no spec uplift).
-5. **Greenfield language + framework** (if `mode=greenfield` AND `local.yaml.primary_language` missing). `AskUserQuestion`:
-   - `primary_language`: `java | kotlin | go | python | typescript | <other>`.
-   - `framework`: freeform (e.g., `spring-boot 3.x`, `gin`, `fastapi`, `express`).
-6. **Spawn mode** (if `local.yaml.spawn_mode` missing). `AskUserQuestion`:
-   - `subagent` (default) — agents spawn via `Agent({subagent_type, ...})`; no team coordination.
-   - `teams` — dispatcher calls `TeamCreate` at run start; every `Agent` call passes `team_name`. Use for a single observable timeline across agents.
-7. **Autonomy level** (if `local.yaml.autonomy.level` missing). Load `skills/task-breakdown/references/autonomy-diagnostic.md` ONCE, run the 5-Q diagnostic against `$ARGUMENTS` + `local.yaml.discovery`, then `AskUserQuestion` surfacing the diagnostic's suggested tag as recommended:
-   - `EXECUTION_ONLY` — explicit step-by-step instructions; no logic formulation by AI.
-   - `JOINT_PROCESSING` — iterative synchronous loop; human co-authors logic with AI.
-   - `OPTION_SYNTHESIS` — AI analyzes + returns bounded option set; human picks (Consultant inversion).
-   - `DRAFT_AND_GATE` (default) — AI drafts complete artifact; human approves at each gate.
-   - `FULL_AUTONOMY` — AI executes end-to-end; human reviews via async telemetry only.
+3. **`workspace_kind`** (if `local.yaml.workspace_kind` missing). `AskUserQuestion`: `single-repo` | `multi-repo` | `multi-service`.
+4. **`scope_path`** (if `local.yaml.scope_path` missing).
+   - `workspace_kind == single-repo` → `scope_path = context_path`; no prompt.
+   - `workspace_kind ∈ {multi-repo, multi-service}` → walk `context_path` 2 levels deep for `pom.xml` / `build.gradle` / `package.json` / `go.mod`; surface every match (absolute path) as an `AskUserQuestion` option. Zero matches → `AskUserQuestion` free-text fallback. Reject any path that escapes `context_path` (`<scope_path>` MUST be `<context_path>` itself or a descendant).
+5. **`.orchestra/` migration** (brownfield + `scope_path != context_path` only). Run BEFORE inventory so the scan sees the post-migration tree.
+   - If `<context_path>/.orchestra/` exists AND `<scope_path>/.orchestra/` does not → `mv <context_path>/.orchestra <scope_path>/.orchestra` via Bash.
+   - In-flight detection: if any non-empty dir under `<context_path>/.orchestra/pipeline/` lacks a `<feature-id>-TSR.md` carrying `ship: ALLOW`, abort with explicit error (`[orchestra] migration unsafe: in-flight pipeline at <path>`). User must complete or clean up the run before re-invoking.
+   - Collision: `<scope_path>/.orchestra/` already exists → same explicit-error abort.
+6. **Invoke `brownfield-inventory` skill.** Loads `skills/brownfield-inventory/SKILL.md`. Runs adaptive-depth tree scan on `context_path`, classifies entries, prompts per non-empty bucket, emits `<scope_path>/.orchestra/inventory.md` (or stub on empty-workspace short-circuit per the skill's Step 1b). Block here until `inventory.md` frontmatter `user_gate: accepted` AND `status: locked`. Greenfield workspaces emit the stub and pass through immediately.
+7. **`template_source`** (if `local.yaml.template_source` missing). `AskUserQuestion`: free-text path to an existing artifact template to mirror, or `none` (default).
+8. **`test_depth`** (if `local.yaml.test_depth` missing). `AskUserQuestion`: `stage1` (contract-only black-box tests; default) | `stage2` (impl-aware suite execution).
+9. **Brownfield depth** (if `mode=brownfield` AND `local.yaml.depth` missing). `AskUserQuestion`: `light` | `medium` | `full`. Drives reverse-doc artifact-set (see `project-discovery` skill).
+10. **Chain rigor** (if `local.yaml.chain_rigor` missing). `AskUserQuestion`:
+    - `Full` — all layers (PRD → FRS → SAD → ADR → TDD → openapi → code+tests → TSR).
+    - `Standard` — skip SAD/ADR (PRD → FRS → TDD → openapi → code+tests → TSR).
+    - `Light` — TDD-only (TDD → openapi → code+tests → TSR; component-internal change, no spec uplift).
+11. **Greenfield language + framework** (if `mode=greenfield` AND `local.yaml.primary_language` missing). `AskUserQuestion`:
+    - `primary_language`: `java | kotlin | go | python | typescript | <other>`.
+    - `framework`: freeform (e.g., `spring-boot 3.x`, `gin`, `fastapi`, `express`).
+12. **Spawn mode** (if `local.yaml.spawn_mode` missing). `AskUserQuestion`:
+    - `subagent` (default) — agents spawn via `Agent({subagent_type, ...})`; no team coordination.
+    - `teams` — dispatcher calls `TeamCreate` at run start; every `Agent` call passes `team_name`. Use for a single observable timeline across agents.
+13. **Autonomy level** (if `local.yaml.autonomy.level` missing). Load `skills/task-breakdown/references/autonomy-diagnostic.md` ONCE, run the 5-Q diagnostic against `$ARGUMENTS` + `local.yaml.discovery`, then `AskUserQuestion` surfacing the diagnostic's suggested tag as recommended:
+    - `EXECUTION_ONLY` — explicit step-by-step instructions; no logic formulation by AI.
+    - `JOINT_PROCESSING` — iterative synchronous loop; human co-authors logic with AI.
+    - `OPTION_SYNTHESIS` — AI analyzes + returns bounded option set; human picks (Consultant inversion).
+    - `DRAFT_AND_GATE` (default) — AI drafts complete artifact; human approves at each gate.
+    - `FULL_AUTONOMY` — AI executes end-to-end; human reviews via async telemetry only.
 
-   Resolution precedence: `--autonomy=<tag>` CLI flag > `local.yaml.autonomy.level` > diagnostic suggestion > `DRAFT_AND_GATE`.
-8. **Persist** answered fields to `<cwd>/.orchestra/local.yaml`.
-9. **Bootstrap CLAUDE.md.** Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash. Idempotent: creates `<cwd>/CLAUDE.md` if missing; otherwise splices the orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers (preserves user content). No-op when current.
-10. **Spawn @lead** with locked decisions: `"mode=<mode> rigor=<rigor> primary_language=<lang>"`. Chain-rigor selects which layers @lead routes through (see "Chain execution" below).
+    Resolution precedence: `--autonomy=<tag>` CLI flag > `local.yaml.autonomy.level` > diagnostic suggestion > `DRAFT_AND_GATE`.
+14. **Persist** answered fields to `<scope_path>/.orchestra/local.yaml`. The 10-field v4.1 closed allowlist (see schema below) is required; pre-v4.1 carryover fields (`chain_rigor`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `mode`, `depth`) coexist via the JSON schema's union. `source_lock.read_paths` defaults to `["<scope_path>/**"]`; `source_lock.write_paths` defaults to `["<scope_path>/docs/**", "<scope_path>/.orchestra/**"]`. Unknown fields fail schema-load.
+15. **Author run-plan.md + approval gate.** Spawn `@lead` with prompt-tag `task: run-plan-author` (see "Run-plan author" section below). Lead writes `<scope_path>/.orchestra/run-plan.md` against `schemas/run-plan.schema.md`; dispatcher runs `AskUserQuestion` for approval. On approval, dispatcher writes `auto_mode: true` + `run_plan_status: approved` to `local.yaml`. On `revision_requested`, dispatcher writes that status, collects revision notes, re-spawns lead. Max 3 cycles; cycle 4 → write `<scope_path>/.orchestra/pipeline/run-plan-ESCALATE.md`.
+16. **Bootstrap CLAUDE.md.** Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash. Idempotent: creates `<cwd>/CLAUDE.md` if missing; otherwise splices the orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers (preserves user content). No-op when current.
+17. **Spawn @lead** with locked decisions: `"mode=<mode> rigor=<rigor> primary_language=<lang> scope_path=<scope_path> auto_mode=<auto_mode>"`. Chain-rigor selects which layers @lead routes through (see "Chain execution" below).
 
 ### local.yaml schema
 
+Canonical shape is `schemas/local.schema.json` (closed allowlist; `additionalProperties: false`). The v4.1 ten-field set:
+
 ```yaml
+# v4.1 closed allowlist (10 fields)
+workspace_kind: single-repo | multi-repo | multi-service
+context_path: <abs path; session-root captured at `claude` launch>
+scope_path: <abs path; subset of context_path>
+template_source: <path> | none       # default `none`
+test_depth: stage1 | stage2          # default stage1
+source_lock:
+  read_paths: ["<scope_path>/**"]
+  write_paths: ["<scope_path>/docs/**", "<scope_path>/.orchestra/**"]
+round_trip: DEFERRED | PENDING | PASS | FAIL    # default DEFERRED
+chain_mode: standard | adapted_template          # default standard
+pipeline_id: <string>
+auto_mode: true | false              # default false; flipped on run-plan approval
+run_plan_status: drafted | approved | revision_requested
+
+# pre-v4.1 carryover fields (still load-bearing at runtime; coexist via schema union)
 mode: greenfield | brownfield
 depth: light | medium | full         # brownfield only
-bootstrap: pending | completed       # brownfield only; pending until reverse-doc fan-out finishes
+bootstrap: pending | completed       # brownfield only
 chain_rigor: Full | Standard | Light
 primary_language: java | kotlin | go | python | typescript | <other>
 framework: <freeform>
-spawn_mode: subagent | teams         # default subagent; controls whether dispatcher creates a Claude Code Team at run start
+spawn_mode: subagent | teams         # default subagent
 autonomy:
   level: EXECUTION_ONLY | JOINT_PROCESSING | OPTION_SYNTHESIS | DRAFT_AND_GATE | FULL_AUTONOMY
-  resolved_by: cli_flag | local_yaml | diagnostic | default   # provenance for telemetry; default is DRAFT_AND_GATE
+  resolved_by: cli_flag | local_yaml | diagnostic | default
 ```
+
+Invariants enforced by `scripts/validate.js`: `auto_mode: true` requires `run_plan_status: approved`; freeform-prose fields are forbidden (no `adapter_notes`, no `User elected: ...` strings); unknown top-level fields fail load.
 
 `spawn_mode: subagent` (default) — agents spawned via `Agent({subagent_type, prompt, ...})` with no team coordination; no `team_name` field on the call. `spawn_mode: teams` — dispatcher calls `TeamCreate({team_name: "orchestra-<run-id-short>", agent_type: "orchestra-coordinator", description: <one-line intent summary>})` immediately after `local.yaml` is locked and before any agent spawn; every subsequent `Agent({...})` call passes `team_name` matching that string; on terminal state the dispatcher calls `TeamDelete` after the closing status line. The metrics hook reads both transcript layouts (sibling-dir `<parent_sid>/subagents/agent-*.jsonl` and project-root `<sid>.jsonl` fallback) regardless of mode, so observability is robust either way.
 
@@ -121,6 +155,52 @@ autonomy:
 `pre-write-check.js` Gate-A protects it from accidental rewrite. (Gate
 overridable via `ORCHESTRA_HOOK_PRE_WRITE_CHECK=off` if the user wants to
 re-elicit.)
+
+## Run-plan author
+
+Step 15 of the decision tree above. After bootstrap fields lock and `inventory.md` is `user_gate: accepted`, the dispatcher spawns `@lead` with prompt-tag `task: run-plan-author` to author a single upfront plan that the user signs off once — replacing N per-phase confirmations with one trust grant.
+
+### Spawn
+
+```
+Agent({
+  subagent_type: "orchestra:lead",
+  prompt: "task: run-plan-author\n
+           inputs: <scope_path>/.orchestra/local.yaml, <scope_path>/.orchestra/inventory.md\n
+           output: <scope_path>/.orchestra/run-plan.md per schemas/run-plan.schema.md\n
+           Required anchors: S-CONTEXT-001, S-PHASES-001, S-FEATURES-001, S-GATES-001, S-APPROVAL-001.\n
+           Emit frontmatter run_plan_status: drafted. End turn."
+})
+```
+
+### Approval gate (dispatcher, not lead)
+
+After `@lead` writes `run-plan.md` and ends turn, the dispatcher:
+
+1. `Read(<scope_path>/.orchestra/run-plan.md)`.
+2. `AskUserQuestion`: present a single-line summary (phase count + feature count + auto-gated vs preserved gate count); options: `approve` / `revise`.
+3. **On `approve`** — write to `local.yaml`: `auto_mode: true`, `run_plan_status: approved`. Flip `run-plan.md` frontmatter `status: draft → locked`, `run_plan_status: drafted → approved` (via `@lead` re-spawn with prompt-tag `task: run-plan-lock`, or via dispatcher `Edit` carve-out matching the local.yaml exception).
+4. **On `revise`** — `AskUserQuestion` free-text for revision notes; write `local.yaml`: `run_plan_status: revision_requested`. Re-spawn `@lead` with prompt-tag `task: run-plan-author` AND `revision_notes: <user text>`, incrementing `revision_cycle` in run-plan.md frontmatter.
+
+### Rejection-cycle cap
+
+Maximum 3 revision cycles (`revision_cycle ≤ 3` per the schema invariant). Cycle 4 attempt → dispatcher writes `<scope_path>/.orchestra/pipeline/run-plan-ESCALATE.md` (frontmatter: `cause: run_plan_revision_exhausted`, `revision_cycle: 4`, `resolution: pending`) and halts. User must rescope manually.
+
+### Auto-mode runtime semantics
+
+Once `local.yaml.auto_mode: true` (paired with `run_plan_status: approved`), subsequent chain runs skip:
+
+- Between-phase "proceed?" gates.
+- Per-feature confirmation prompts.
+- Autonomy-ladder `DRAFT_AND_GATE` intermediate-draft checkpoints.
+
+Preserved regardless of `auto_mode`:
+
+- Reviewer `REVISE` / `BLOCK` / `ALLOW_WITH_GAP` verdicts.
+- Structural-failure halts (allowed-set violations, diagram-allowlist violations, schema-validation failures).
+- `ESCALATE` / `DEADLOCK` artifact emission.
+
+`auto_mode` is per-`pipeline_id`. Each new pipeline starts at `auto_mode: false` until its own `run-plan.md` is approved. User flipping `auto_mode: false` mid-run reverts to gated execution at the next phase boundary.
 
 ## Feature-id minting
 
@@ -292,16 +372,15 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
    - **Component** (always) — @lead writes `docs/<feature-id>/<feature-id>-TDD.md` (C4 L3 + Intra-service Sequence + Technical State if applicable + Physical DB if schema touched).
    - **Boundary** (always) — @lead writes `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`). CONTRACT narrative folds inline via `description:` fields and top-of-file `# orchestra:` comment block.
 5. **openapi locked → fan-out.** @lead spawns @backend ‖ @frontend ‖ @test (Stage-1) in a single Agent-tool-call message. Each spawn carries a scoped Read allowlist: @test Stage-1 excludes `<consumer>/src/**`.
-6. **Converge.** @backend writes server code + unit tests under `<consumer>/src/main/**` and `<consumer>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR test-plan section + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
+6. **Converge.** @backend writes server code + unit tests under `<consumer>/src/main/**` and `<consumer>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR `S-TEST-001` plan + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
 7. **TSR multi-writer.** `docs/<feature-id>/<feature-id>-TSR.md` accretes per-writer sections enforced by `pre-write-check.js` Gate-B (per-section locks):
-   - `S-TEST-PLAN-001` — @test Stage-1 (spec-bound; src/ blocked)
-   - `S-TEST-RESULTS-001` — @test Stage-2 (impl-aware; runs the suite, records per-test PASS/FAIL)
-   - `S-VERDICT-EVAL-001` — @evaluator (inspection over PRD/FRS/openapi/TSR test sections; no Bash)
-   - `S-VERDICT-REVIEW-001` — @reviewer (code review)
-   - `S-ADR-REVIEW-001` — @reviewer (when ADRs touched)
-   - `S-SHIP-001` — `/orchestra ship` subcommand
+   - `S-TEST-001` — @test (single row table; Stage-1 authors rows with empty status/evidence cells, Stage-2 fills those cells in place; src/ blocked during Stage-1)
+   - `S-EVAL-001` — @evaluator (writes `| id | verdict | reason |` keyed on S-TEST-001 row ids; no Bash; `validate.js` rejects unknown ids)
+   - `S-REVIEW-001` — @reviewer (code review + ADR-review subsection when ADRs touched)
+   - `S-DIVERGENCES-001` — @architect (brownfield only — omitted on greenfield)
+   - Final ship verdict in frontmatter `ship:` (no body section). `/orchestra ship` writes it.
 
-   @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR test-plan + test-results sections); `<consumer>/src/**` is blocked. @test Stage-2 owns suite execution; @evaluator becomes pure inspection (no Bash) and grades the PASS/FAIL evidence Stage-2 records.
+   @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR `S-TEST-001`); `<consumer>/src/**` is blocked. @test Stage-2 owns suite execution; @evaluator becomes pure inspection (no Bash) and grades the PASS/FAIL evidence Stage-2 records.
 8. **Terminal state.** After every parent `Read` in steps 6–7, evaluate:
    - `RELEASE-vX.Y.Z.md` written → `terminal_state = "success"` (only via `/orchestra ship`)
    - `<feature-id>-DEADLOCK-*.md` → `terminal_state = "deadlock"`
@@ -337,7 +416,7 @@ Algorithm:
 3. **Author release artifacts** (parent context, narrowly carved exception):
    - `docs/releases/RELEASE-vX.Y.Z.md` — version, date, summary, included features, gates cleared, plus `S-ANNOUNCEMENT-001`.
    - `docs/runbooks/RUNBOOK-vX.Y.Z.md` — only when topology changed.
-   - `docs/<feature-id>/<feature-id>-TSR.md` `S-SHIP-001` — `ALLOW` / `HOLD` plus rationale (SHIP frontmatter `ship:` mirror).
+   - `docs/<feature-id>/<feature-id>-TSR.md` frontmatter `ship:` ∈ `ALLOW | ALLOW_WITH_GAP | HOLD`. No body section — the verdict is frontmatter-only.
 4. **Draft release commit message** (Conventional Commits 1.0.0):
    - Read `git diff --staged --stat` and `git diff --staged`.
    - Type ∈ {`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`, `build`}; choose the dominant type.
@@ -406,7 +485,7 @@ Algorithm:
 
 ```
 /orchestra <intent>           Smart router. Mode-detect → chain-rigor → spec-to-code chain (PRD/FRS/SAD/ADR/TDD/openapi/code+tests/TSR).
-/orchestra ship               Verify gates → smoke-test install → write RELEASE / RUNBOOK + TSR S-SHIP-001 → draft Conventional Commits message. User commits + tags manually.
+/orchestra ship               Verify gates → smoke-test install → write RELEASE / RUNBOOK + set TSR frontmatter `ship:` → draft Conventional Commits message. User commits + tags manually.
 /orchestra report             Render Gantt + cost-by-role + cost-by-phase from events.jsonl/tokens.jsonl/runs.
 /orchestra resume [<feature-id>] Walk .orchestra/pipeline/* dirs; find non-terminal feature; respawn next non-done task.
 /orchestra help               This message.

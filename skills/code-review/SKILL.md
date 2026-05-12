@@ -29,7 +29,7 @@ Every finding tags exactly one severity. The rubric is closed:
 | **Minor** | Idiom violation, weak naming, dead code, style drift, incomplete comments | ≥3 → `REQUEST_CHANGES`, else inline comment |
 | **Nit** | Subjective preference, micro-optimization, formatting | Inline comment, never blocking |
 
-Confidence threshold: ≥80%. Below → `rev_verdict: pending` (don't approve uncertainty; don't reject without grounds).
+Confidence threshold: ≥80%. Below → `rev_verdict: PENDING` (don't approve uncertainty; don't reject without grounds).
 
 ### Step 1 — Walk the diff structurally
 
@@ -90,22 +90,21 @@ A miss is **Major** unless data-loss-adjacent (then **Critical**).
 | Spec clarity | upstream PRD / openapi `description:` criteria are concrete (not "TBD" / placeholder) |
 | Evaluator agreement | `@evaluator`'s TSR verdict aligns with what code suggests |
 
-Below 80% → `rev_verdict: pending`. Below 60% → `pending` plus request `@lead` re-spec round.
+Below 80% → `rev_verdict: PENDING`. Below 60% → `PENDING` plus request `@lead` re-spec round.
 
-### Step 7 — Write reviewer sections of `<feature-id>-TSR.md`
+### Step 7 — Write reviewer section of `<feature-id>-TSR.md`
 
-Read `docs/<feature-id>/<feature-id>-TSR.md` (eval section filled by `@evaluator`). Fill `S-VERDICT-REVIEW-001`:
+Read `docs/<feature-id>/<feature-id>-TSR.md` (`S-EVAL-001` filled by `@evaluator`). Fill `S-REVIEW-001`:
 
-- One-paragraph verdict (APPROVED / REQUEST_CHANGES / pending) + per-severity findings table (Critical / Major / Minor / Nit) referencing `<file>:<line>` for each finding.
+- One-paragraph verdict (APPROVED / ALLOW_WITH_GAP / REQUEST_CHANGES / PENDING) + per-severity findings table (Critical / Major / Minor / Nit) referencing `<file>:<line>` for each finding.
+- If the feature touched ADRs, append a `## ADR review` subsection inside `S-REVIEW-001`; omit when no ADRs were touched.
 
-If the feature touched ADRs, also fill `S-ADR-REVIEW-001` (else "_n/a_").
-
-Set frontmatter `rev_verdict` (APPROVED|REQUEST_CHANGES|pending) + `rev_round` (current iteration). Set `sections.S-VERDICT-REVIEW-001.status: locked` + `sections.S-SHIP-001.status: pending` (signal to `/orchestra ship`). Preserve `S-TEST-PLAN-001`, `S-TEST-RESULTS-001`, `S-VERDICT-EVAL-001` verbatim — Tier-A single-writer invariant.
+Set frontmatter `rev_verdict` (APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING) + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — Tier-A single-writer invariant. The final `ship:` frontmatter value is computed by `/orchestra ship` from `eval_verdict` + `rev_verdict` + `local.yaml.round_trip`.
 
 ```markdown
-## Reviewer verdict <a id="S-VERDICT-REVIEW-001"></a>
+## Reviewer verdict <a id="S-REVIEW-001"></a>
 
-<APPROVED|REQUEST_CHANGES|pending> at confidence 0.<NN>. <one-paragraph summary>
+<APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING> at confidence 0.<NN>. <one-paragraph summary>
 
 ### Critical
 - (none) | <one-line summary> at <file:line> — <rationale>
@@ -118,6 +117,9 @@ Set frontmatter `rev_verdict` (APPROVED|REQUEST_CHANGES|pending) + `rev_round` (
 
 ### Nit
 - ...
+
+### ADR review (omit subsection if no ADRs touched)
+- ADR-<NNNN>-<slug>: <APPROVED|REQUEST_CHANGES> — <one-line rationale>
 ```
 
 ## Circuit breaker
@@ -147,4 +149,4 @@ Diff: backend adds `POST /v1/transfer`, ~180 LOC across 3 files. Tests exist. La
 6. **Performance** — single DB call per request. No loops. Pass.
 7. **Confidence** — diff small (+20), tests exist (+20), java-development loaded (+20), openapi concrete (+20), evaluator agreed (+20) = **100%**.
 
-Verdict: **APPROVED** with one Minor finding. Fill `S-VERDICT-REVIEW-001` in `docs/001-foo/001-foo-TSR.md`. Set `rev_verdict: APPROVED`, `rev_round: 1`. Hand to `/orchestra ship`.
+Verdict: **APPROVED** with one Minor finding. Fill `S-REVIEW-001` in `docs/001-foo/001-foo-TSR.md`. Set `rev_verdict: APPROVED`, `rev_round: 1`. Hand to `/orchestra ship`.

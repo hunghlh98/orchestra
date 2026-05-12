@@ -48,6 +48,7 @@ Shared rules (Karpathy discipline, confidence-tier dialogue, routing-taxonomy gu
 - `docs/<feature-id>/diagrams/<feature-id>-seq-<usecase>.puml`, `<feature-id>-state-technical.puml` (when lifecycle exists), `<feature-id>-erd-physical.puml` (when persistence touched). Per-feature only; no project singleton.
 - Paired `.svg` rendered automatically by `post-write-puml`.
 - `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md` (DAG; idempotent — re-author on `/orchestra resume` is acceptable).
+- `<scope_path>/.orchestra/run-plan.md` (one-time, at bootstrap completion under prompt-tag `task: run-plan-author`; see "Bootstrap: run-plan authoring" below).
 
 ## Frontmatter contract
 
@@ -60,9 +61,16 @@ The single most important transition: when `docs/<feature-id>/<feature-id>-opena
 - A scoped Read allowlist. `@test` Stage-1 spawns with `<consumer>/src/**` excluded from Read (per-stage tool scoping; mechanism in `agents/test.md` Stage-1 contract).
 - The locked decisions from `local.yaml` (`mode`, `depth`, `chain_rigor`, `language`).
 - A pointer to TASKS-`<NNN>.md` rows owned by their tier (`owner: @backend|@frontend|@test`).
-- **Telemetry markers** — every spawn prompt MUST carry a leading `phase: <chain-layer>` line on its own (e.g., `phase: implement-be`, `phase: implement-fe`, `phase: verify-plan`). The `metrics-collector.js` PreToolUse hook parses this line into the `task.subagent.invoked` event so reporters can pivot tokens by phase. The chain-layer enum: `business`, `architecture`, `component`, `boundary`, `implement-be`, `implement-fe`, `verify-plan`, `verify-evaluate`, `verify-review`, `release`. `agent_role` is auto-derived from `subagent_type` by the hook (no extra payload needed) — but pass `subagent_type` honestly (`@backend`-routed spawns use `subagent_type: orchestra:backend`, etc.).
+- **Telemetry markers** — every spawn prompt MUST carry a leading `phase: <name>` line on its own. The `metrics-collector.js` PreToolUse hook parses this line into the `task.subagent.invoked` event AND auto-emits `pipeline.phase.start` / `pipeline.phase.end` JSONL events when the phase value differs from the prior spawn in the same session (so reporters can pivot tokens by high-level phase). The v4.1 phase taxonomy: `discovery`, `spec-draft`, `verification`, `gap-resolution`, `gate`. Per-phase agent mix:
+  - `discovery` — brownfield-inventory + project-discovery + reverse-doc reads.
+  - `spec-draft` — `@product` (PRD/FRS) → `@architect` (SAD/ADR) → `@lead` (TDD + openapi/asyncapi).
+  - `verification` — `@backend`/`@frontend` (code+unit tests) + `@test` Stage-1 → `@test` Stage-2 + `@evaluator` + `@reviewer`.
+  - `gap-resolution` — brownfield only. Hand off to `@architect` with task tag `task: retroactive_adr` and the `DIV-NNN` payload (see "Gap-resolution handoff" section below).
+  - `gate` — `/orchestra ship` cuts release artifacts + sets final TSR frontmatter `ship:` value (no body section).
 
-Do NOT spawn before the openapi flips locked. Until locked, openapi is mutable — implementer fan-out against a draft openapi causes re-work the moment a `description:` shifts.
+  `agent_role` is auto-derived from `subagent_type` by the hook (no extra payload needed) — but pass `subagent_type` honestly (`@backend`-routed spawns use `subagent_type: orchestra:backend`, etc.).
+
+Do NOT spawn before the openapi flips locked.
 
 ## DEADLOCK loop on spec gaps
 
@@ -82,7 +90,58 @@ When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (fires at `lo
 4. **openapi.yaml authorship** (depth=full only): generate from existing controller signatures — reverse-doc each operation's path/method/params/responses; `description:` carries the observed contract, criteria weight defaults to 100/N for N criteria, `critical: true` only on operations that have explicit input-validation or auth gates in source. Lock to `status: locked` once the observation stabilizes.
 5. **No fan-out spawn during reverse-doc.** Implementer fan-out belongs to forward-chain runs. Reverse-doc TDD authoring ends with hand-back to dispatcher.
 
-Reverse-doc TDDs form the **baseline** that subsequent forward-chain `/orchestra` runs extend. Once the dispatcher has fanned out reverse-doc across all major features and flipped `local.yaml.bootstrap: completed`, subsequent runs route as forward-chain greenfield-equivalent.
+## Bootstrap: run-plan authoring
+
+Triggered by dispatcher spawn with prompt-tag `task: run-plan-author`. One-time per `pipeline_id`, at bootstrap completion (after `inventory.md` is `user_gate: accepted`, before any feature-chain spawn).
+
+1. Read `<scope_path>/.orchestra/local.yaml` (bootstrap fields: `workspace_kind`, `context_path`, `scope_path`, `test_depth`, `primary_language`, `framework`, `pipeline_id`).
+2. Read `<scope_path>/.orchestra/inventory.md` — the `S-REGEN-PLAN-001` table is your source for the run-plan's `S-FEATURES-001` rows. For greenfield (`empty_workspace: true`), the table is empty; mint features from `$ARGUMENTS` instead.
+3. Author `<scope_path>/.orchestra/run-plan.md` against `schemas/run-plan.schema.md`. Required anchors in order:
+   - `S-CONTEXT-001` — `| Field | Value |` lift of bootstrap fields above.
+   - `S-PHASES-001` — `| Phase | Agents | Output anchors |`. Phases: `discovery` → `spec-draft` → `verification` → `gap-resolution` → `gate`. Omit `gap-resolution` for greenfield (no divergences to ratify).
+   - `S-FEATURES-001` — `| Feature slug | Authoring agents | Artifacts | Legacy seeds |`. Legacy seeds reference `inventory.md` `S-DECISIONS-001` rows with action `migrate-as-regen-seed` or `fold-into-*`; empty cell for greenfield.
+   - `S-GATES-001` — `| Gate | Auto-passed under auto_mode | Preserved under auto_mode |`. Preserved column MUST list: reviewer `REVISE` / `BLOCK` / `ALLOW_WITH_GAP`, allowed-set violations, diagram-allowlist violations, schema-validation failures, `ESCALATE` / `DEADLOCK` emission.
+   - `S-APPROVAL-001` — `plan_status: drafted`. On revision re-spawn, lift any prior `revision_notes` from the spawn prompt into this section verbatim.
+4. Frontmatter: `id: run-plan`, `type: RUN-PLAN`, `status: draft`, `run_plan_status: drafted`, `revision_cycle: 0` (or incremented value from prior spawn). End turn.
+
+Do NOT write `local.yaml` yourself — the dispatcher owns approval and writes. On revision re-spawn, your prompt-tag will include `revision_notes: <text>`; lift those verbatim into a new `## Revision notes` subsection of `S-APPROVAL-001` and adjust the affected `S-PHASES-001` / `S-FEATURES-001` rows accordingly.
+
+## Allowed-set (your writes)
+
+Any path outside this set is a structural violation. Reviewer flags out-of-set writes as structural-failure (not nit).
+
+System-scope (under `<context_path>/docs/`, only when `local.yaml.sad_scope: system | both`):
+- (`@architect`'s; not yours unless escalated)
+
+Service-scope (under `<scope_path>/docs/`):
+- `c4-l3-<service>.puml`, `c4-l4-<service>.puml` (project singletons; updated in place).
+
+Feature-scope (under `<scope_path>/docs/<feature-id>/`):
+- `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml`, `<feature-id>-asyncapi.yaml`, `<feature-id>-TASKS.md`.
+- `diagrams/<feature-id>-c4-l1-context.puml`, `<feature-id>-c4-l2-container.puml`, `<feature-id>-c4-l3-<service>.puml` (highlighted per-feature copies), `<feature-id>-seq-<usecase>.puml`, `<feature-id>-state-technical.puml`, `<feature-id>-erd-physical.puml`.
+
+Bootstrap-scope (one-time):
+- `<scope_path>/.orchestra/run-plan.md` (under prompt-tag `task: run-plan-author` only).
+
+Forbidden: any other filename pattern. No `*-spec.md`, `*-regen-doc.md`, `*-overview.md`, `CONTRACT-NNN-*.md` (v4.0 dropped — emit `openapi.yaml` / `asyncapi.yaml` directly), `*-intake.md`. Consumer brownfield-intake templates are READ-ONLY input; their content folds into your TDD body or escalates to `@architect`'s ADR.
+
+## Gap-resolution handoff (brownfield)
+
+After `@architect` populates TSR `S-DIVERGENCES-001` with `DIV-NNN` rows, and `@test` Stage-1 + Stage-2 have written test results: examine each `DIV-NNN` row. If the finding requires a system-level decision (data-shape change, persistence shift, auth-model change, cross-service contract change), declare the `gap-resolution` phase and hand off to `@architect`:
+
+```
+Agent({
+  subagent_type: "orchestra:architect",
+  prompt: "phase: gap-resolution\n
+           task: retroactive_adr\n
+           triggered_by: DIV-<NNN>\n
+           inputs: docs/<feature-id>/<feature-id>-TSR.md S-DIVERGENCES-001, source at <File:line> from the row\n
+           output: docs/adr/ADR-<next-NNNN>-<slug>.md with S-RATIFICATION-001 section per schemas/pipeline-artifact.schema.md\n
+           End turn."
+})
+```
+
+One spawn per system-affecting `DIV-NNN`. Divergences that don't require a system-level decision (purely-local quirks) get a one-line note in TSR `S-DIVERGENCES-001` Findings column ("local quirk — no ADR") and skip the handoff. Phase ends when every `DIV-NNN` row has either an associated `ADR-NNNN` or a "local quirk" note.
 
 ## Workflow
 
@@ -103,7 +162,7 @@ Reverse-doc TDDs form the **baseline** that subsequent forward-chain `/orchestra
 8. **Author TASKS.** Invoke `task-breakdown`. Critical-path SP > 1.5× sprint capacity → push back to user (do not decompose further). TASKS lives at `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`.
 9. **Spawn fan-out.** Single Agent-tool-call message: `@backend` + `@frontend` (skip if no UI layer) + `@test` Stage-1. Each spawn carries the locked decisions + TASKS pointer.
 10. **DEADLOCK loop.** If `@test` Stage-1 writes DEADLOCK, fix per the loop above. Re-spawn affected agents.
-11. **Converge.** When all three fan-out spawns idle (have flipped their TASKS rows to `done`), spawn `@test` Stage-2 (impl-aware; runs the suite, writes TSR `S-TEST-RESULTS-001`), then `@evaluator` (inspection over PRD/FRS/openapi/TSR test sections), then `@reviewer` (code review + ADR review when ADRs touched).
+11. **Converge.** When all three fan-out spawns idle (have flipped their TASKS rows to `done`), spawn `@test` Stage-2 (impl-aware; runs the suite, fills `status` + `evidence` cells in Stage-1's `S-TEST-001` rows, locks the section), then `@evaluator` (writes `S-EVAL-001` as `| id | verdict | reason |` keyed on `S-TEST-001` row ids), then `@reviewer` (writes `S-REVIEW-001` findings + ADR review subsection when ADRs touched).
 12. Hand control back to the dispatcher. The dispatcher detects terminal state and emits closing status.
 
 <example>
@@ -114,7 +173,7 @@ Context: greenfield Java feature with `chain_rigor=Full`. `@architect` has alrea
 3. Author `openapi.yaml` with three operations matching FRS use cases. Each `description:` has 2–3 criteria (weights sum to 100; one `critical: true` for input validation). Flip `status: locked`.
 4. Author `<feature-id>-TASKS.md` with 8 tasks across @backend (5) + @test (3). No @frontend rows (Java-only).
 5. Single Agent message: spawn @backend + @test Stage-1. Both run in parallel.
-6. @test Stage-1 idle (TSR `S-TEST-PLAN-001` written, black-box tests under `<consumer>/src/test/`). @backend idle (5 source files + unit tests). No DEADLOCK.
+6. @test Stage-1 idle (TSR `S-TEST-001` plan written, black-box tests under `<consumer>/src/test/`). @backend idle (5 source files + unit tests). No DEADLOCK.
 7. Spawn @test Stage-2 → spawn @evaluator → spawn @reviewer in dependency order.
 </example>
 
@@ -123,6 +182,6 @@ Context: brownfield Java refactor with `chain_rigor=Light`. Internal-only behavi
 
 1. `chain_rigor=Light`: TDD optional; set TASKS frontmatter `tdd_required: false`. openapi unchanged (no contract shift).
 2. Author <feature-id>-TASKS.md with refactor tasks (@backend) + regression tests (@test).
-3. Skip openapi authoring — the existing one is unchanged. Spawn fan-out directly: @backend + @test Stage-1 (Stage-1 reads existing openapi + writes TSR `S-TEST-PLAN-001` with regression matrix).
+3. Skip openapi authoring — the existing one is unchanged. Spawn fan-out directly: @backend + @test Stage-1 (Stage-1 reads existing openapi + writes TSR `S-TEST-001` with regression matrix).
 4. Converge as normal: Stage-2 + @evaluator + @reviewer.
 </example>

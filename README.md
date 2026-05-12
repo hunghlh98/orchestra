@@ -21,7 +21,7 @@ The first registers the orchestra repo as a plugin marketplace (reading `.claude
 
 ```
 /orchestra <intent>     Smart router. Mode-detect → chain-rigor election → spec-to-code chain.
-/orchestra ship         Verify gates → smoke-test install → write RELEASE / RUNBOOK + TSR S-SHIP-001 → draft commit message.
+/orchestra ship         Verify gates → smoke-test install → write RELEASE / RUNBOOK + set TSR frontmatter `ship:` → draft commit message.
 /orchestra report       Render Gantt + cost-by-role + cost-by-phase from events / tokens / runs.
 /orchestra resume       Walk pipeline dirs; respawn the next non-terminal task in any open feature.
 /orchestra help         Print usage.

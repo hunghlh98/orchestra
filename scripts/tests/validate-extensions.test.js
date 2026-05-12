@@ -26,6 +26,7 @@ import {
   validateOrphanTypes,
   validateFoldCorrectness,
   validateSoftCap,
+  validateTsrEvalCoverage,
 } from "../validate.js";
 
 let failures = 0;
@@ -108,13 +109,13 @@ withTmp("m17-inv", (tmp) => {
   check(errs.length === 0, `inverse: clean dir, no orphans`);
 });
 
-// ---------- M18: TSR-missing-rev-anchor (fold-correctness) ----------
+// ---------- M18: TSR-missing-review-anchor (fold-correctness) ----------
 console.log("M18 TSR-fold:");
 {
-  const body = bodyWith(["S-EVAL-VERDICT-001", "S-EVAL-TABLE-001", "S-SHIP-001"]);
+  const body = bodyWith(["S-TEST-001", "S-EVAL-001"]);
   const errs = validateFoldCorrectness("001-TSR.md", body, "TSR");
   check(errs.length === 1, `M18: exactly 1 err`);
-  check(/missing S-REV-VERDICT-001/.test(errs[0] || ""), `M18: names missing rev anchor`);
+  check(/missing S-REVIEW-001/.test(errs[0] || ""), `M18: names missing review anchor`);
 }
 
 // ---------- M19: RELEASE-missing-announcement (fold-correctness) ----------
@@ -132,6 +133,61 @@ console.log("M19 RELEASE-fold:");
   check(validateFoldCorrectness("001-TSR.md", tsrBody, "TSR").length === 0, `inverse: TSR with both halves passes`);
   const relBody = bodyWith(REQUIRED_ANCHORS.RELEASE);
   check(validateFoldCorrectness("RELEASE-v0.1.0.md", relBody, "RELEASE").length === 0, `inverse: RELEASE with announcement passes`);
+}
+
+// ---------- RUN-PLAN structural-diff (v4.1 #16, task 0.8) ----------
+console.log("RUN-PLAN structural-diff:");
+{
+  // Clean RUN-PLAN body with all 5 required anchors passes.
+  const body = bodyWith(REQUIRED_ANCHORS["RUN-PLAN"]);
+  const errs = validateStructuralDiff("run-plan.md", body, "RUN-PLAN");
+  check(errs.length === 0, `inverse: clean RUN-PLAN passes (errs=${JSON.stringify(errs)})`);
+
+  // Missing one anchor (S-APPROVAL-001) fails red.
+  const partial = bodyWith(["S-CONTEXT-001", "S-PHASES-001", "S-FEATURES-001", "S-GATES-001"]);
+  const errsMissing = validateStructuralDiff("run-plan.md", partial, "RUN-PLAN");
+  check(errsMissing.length === 1, `M-runplan: exactly 1 err on missing approval anchor`);
+  check(/missing-anchors=\[S-APPROVAL-001\]/.test(errsMissing[0] || ""), `M-runplan: names missing S-APPROVAL-001`);
+}
+
+// ---------- TSR S-EVAL-001 row-id coverage (anti-duplication invariant) ----------
+console.log("M-eval-coverage:");
+{
+  // Inverse sanity: S-EVAL-001 ids all reference existing S-TEST-001 rows → no errs
+  const okBody = [
+    `## Test plan + results <a id="S-TEST-001"></a>`,
+    ``,
+    `| id | criterion | axis | critical | fixture | status | evidence |`,
+    `|---|---|---|---|---|---|---|`,
+    `| T-001 | transfer.persists | happy | false | t.py::a | PASS | ok |`,
+    `| T-002 | transfer.idempotent | idempotency | true | t.py::b | PASS | ok |`,
+    ``,
+    `## Evaluator verdict <a id="S-EVAL-001"></a>`,
+    ``,
+    `| id | verdict | reason |`,
+    `|---|---|---|`,
+    `| T-001 | PASS | stdout clean |`,
+    `| T-002 | PASS | replay rejected |`,
+    ``,
+    `## Reviewer verdict <a id="S-REVIEW-001"></a>`,
+    ``,
+    `No findings.`,
+    ``,
+  ].join("\n");
+  const errs = validateTsrEvalCoverage("001-TSR.md", okBody);
+  check(errs.length === 0, `inverse: matching ids pass (errs=${JSON.stringify(errs)})`);
+
+  // Mutation: S-EVAL-001 references id T-099 absent from S-TEST-001 → 1 err naming the orphan
+  const badBody = okBody.replace("| T-002 | PASS | replay rejected |", "| T-099 | FAIL | phantom row |");
+  const badErrs = validateTsrEvalCoverage("001-TSR.md", badBody);
+  check(badErrs.length === 1, `M-eval-cov: exactly 1 err on orphan id`);
+  check(/T-099/.test(badErrs[0] || ""), `M-eval-cov: names orphan id T-099`);
+  check(/S-EVAL-001 row-id coverage/.test(badErrs[0] || ""), `M-eval-cov: tags error category`);
+
+  // S-EVAL-001 empty (eval not yet run): no errs — gate is on filled-table state, not draft
+  const emptyEval = okBody.replace(/\| T-00\d \| PASS \| [^|]*\|\n/g, "");
+  const emptyErrs = validateTsrEvalCoverage("001-TSR.md", emptyEval);
+  check(emptyErrs.length === 0, `inverse: empty S-EVAL-001 (in-progress) does not flag`);
 }
 
 // ---------- soft-cap warn + --strict upgrade ----------

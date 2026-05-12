@@ -76,6 +76,30 @@ Orchestra v4.0 uses a **two-folder model** so the chain artifacts can reference 
 
 Per-feature copies of project singletons differ from their source ONLY in styling (`UpdateElementStyle()` / `UpdateRelStyle()` highlights) — never in element identity. See `c4-architecture` skill for the highlight protocol. The owning markdown embeds the rendered `.svg` via `![<alt>](diagrams/<filename>.svg)`.
 
+### Step 2a — Filename allowlist (enforced)
+
+Diagrams under any `docs/diagrams/` (project) or `docs/<feature-id>/diagrams/` (per-feature) MUST match one of the names in the two tables above. The complete first-class C4 filename set:
+
+- `c4-l1-context.puml`
+- `c4-l2-container.puml`
+- `c4-l3-<service>.puml`
+- `c4-l4-<service>.puml` (opt-in: only when `chain_rigor: Full` AND the service has ≥3 classes)
+- Per-feature copies of the above with `<feature-id>-` prefix.
+
+Forbidden by default: `AD-*` (activity), `SAGA-*`, `SD-*` (sequence — use the `sequence-inter-<flow>.puml` / `<feature-id>-sequence-intra-<usecase>.puml` names instead), `ERD-*` (use `erd-logical.puml` / `<feature-id>-erd-physical.puml`), `C2-*` / `C3-*` short-hands, ad-hoc names like `*-overview.puml` / `*-architecture.puml`.
+
+Supplementary diagrams outside the allowlist require both `--enable-supplementary-diagrams` AND a stated rationale in the relevant ADR or TDD section. Reviewer flags any other prefix as a structural failure.
+
+### Step 2b — C3 is not a class diagram
+
+C3 (component) diagrams describe service-internal *components*, not Java classes. Caps when authoring `c4-l3-<service>.puml` (or its per-feature copy):
+
+- 5–10 components per service. More than 10 → split the service into containers at L2 first.
+- Label by responsibility (`OrderValidator`, `PaymentDispatcher`), not by Java class name (`OrderServiceImpl`).
+- No methods, no fields, no parameter lists in C3.
+- Internal class structure belongs in TDD prose or in C4 L4 (when the service warrants L4).
+- L4 (code-level) is opt-in only: brownfield agents default OFF, even under `chain_rigor: Full`, unless the TDD explicitly justifies L4 in `S-COMPONENTS-001`.
+
 ### Step 3 — Render is hook-enforced (do not run conversion manually)
 
 Writing a `.puml` file under any of the conventional paths triggers the `post-write-puml` PostToolUse hook, which invokes the plantuml CLI to produce the paired `.svg`. The hook is **mandatory enforcement**: render-on-write is an invariant, not a courtesy. If the hook is disabled (`ORCHESTRA_HOOK_POST_WRITE_PUML=off`), code-review will fail any commit containing a `.puml` without its paired `.svg`.

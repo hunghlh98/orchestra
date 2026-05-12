@@ -7,9 +7,10 @@
 //   target exists, tagged → splice between markers (re-renders if template drifted)
 //   already up-to-date    → no write
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { safeRead, safeWrite } from "../lib/safe-fs.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -46,18 +47,23 @@ function main() {
   const body = readFileSync(TEMPLATE, "utf8");
 
   if (!existsSync(target)) {
-    writeFileSync(target, freshFile(body));
+    safeWrite(target, freshFile(body));
     process.stdout.write(`bootstrap-consumer-claude-md: created ${target}\n`);
     return 0;
   }
 
-  const existing = readFileSync(target, "utf8");
+  const buf = safeRead(target);
+  if (buf === null) {
+    process.stderr.write(`bootstrap-consumer-claude-md: refusing to operate on ${target} (symlink or non-file)\n`);
+    return 1;
+  }
+  const existing = buf.toString("utf8");
   const next = splice(existing, body);
   if (next === existing) {
     process.stdout.write(`bootstrap-consumer-claude-md: unchanged ${target}\n`);
     return 0;
   }
-  writeFileSync(target, next);
+  safeWrite(target, next);
   const action = existing.includes(START) ? "updated" : "appended";
   process.stdout.write(`bootstrap-consumer-claude-md: ${action} orchestra section in ${target}\n`);
   return 0;

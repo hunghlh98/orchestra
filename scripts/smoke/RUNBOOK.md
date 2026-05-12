@@ -58,7 +58,7 @@ In the Claude session for that directory:
 - `metrics/insights.jsonl` — dispatcher-role rows expected when the `/orchestra` session ran in Explanatory output style; subagent-role rows are absent today (no `agents/*.md` instructs spawned agents to emit `★ Insight` blocks).
 - `metrics/runs/<run-id>.json` — `status: completed` (not `aborted`); `agents_spawned` non-empty (matches the distinct `agent_role` values in `task.subagent.invoked`); `tokens` and `cost_usd` reflect parent + subagent contributions (was parent-only before the 2026-05-08 fix).
 
-**Gate verdicts.** Both `S-EVAL-VERDICT-001` and `S-REV-VERDICT-001` blocks in `<feature-id>-TSR.md` resolve to **PASS**.
+**Gate verdicts.** TSR frontmatter `eval_verdict: PASS` AND `rev_verdict: APPROVED` (or `ALLOW_WITH_GAP` under `round_trip: DEFERRED`). `S-EVAL-001` and `S-REVIEW-001` sections present with `status: locked`.
 
 **Cost cap.** ≤ v3.x greenfield baseline on equivalent layers (§8.bis: $121.90 was a Full-rigor *aborted* run; Standard greenfield should land well below this).
 

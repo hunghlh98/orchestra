@@ -18,11 +18,12 @@
 // Crash semantics: never block. Exit 0 on any failure with stderr write.
 
 import {
-  existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, realpathSync,
+  existsSync, mkdirSync, readFileSync, readdirSync, statSync, realpathSync,
 } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { parse as parseYaml, serialize as serializeYaml } from "../lib/yaml-mini.js";
+import { safeWrite } from "../lib/safe-fs.js";
 
 const NAME = "ORCHESTRA_HOOK_AGENT_PLAN_SYNC";
 
@@ -184,7 +185,7 @@ function handleSubagentStop(input) {
     plan.frontmatter.status = "interrupted";
   }
   plan.frontmatter.updated = new Date().toISOString();
-  writeFileSync(planPath, renderPlan(plan));
+  safeWrite(planPath, renderPlan(plan));
 }
 
 // === Context resolution ===
@@ -381,7 +382,7 @@ function writePlan(ctx, plan) {
   const path = planPathFor(ctx);
   const dir = path.replace(/\/[^/]+$/, "");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(path, renderPlan(plan));
+  safeWrite(path, renderPlan(plan));
 }
 
 function renderPlan(plan) {

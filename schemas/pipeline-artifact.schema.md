@@ -1,19 +1,20 @@
 ---
 id: PIPELINE-SCHEMA
-title: orchestra v4.0 Pipeline Artifact Frontmatter Schemas
+title: orchestra Pipeline Artifact Frontmatter Schemas
 created: 2026-05-08
 status: draft
-revision: 6
-scope: type-specific frontmatter shapes for every artifact authored by the orchestra agents; v4.0 drops the lockfile sidecar in favor of inline frontmatter for review-state, reader-scope, and per-section locks. Drift detection moves to `git diff`; idempotency keys move to `<project>/.orchestra/manifest.json`.
+revision: 7
+scope: type-specific frontmatter shapes for every artifact authored by the orchestra agents.
 ---
 
-# orchestra v4.0 Pipeline Artifact Frontmatter Schemas
+# orchestra Pipeline Artifact Frontmatter Schemas
 
 > Frontmatter contract for every consumer-side artifact the chain produces.
-> v4.0 reorganizes around the chain as the spine: PRD → FRS → SAD → ADR →
-> TDD → openapi (or asyncapi) → code + tests → TSR. Lockfile sidecars are
-> gone; review-state, reader-scope, and per-section locks live in artifact
-> frontmatter.
+> The chain spine: PRD → FRS → SAD → ADR → TDD → openapi (or asyncapi) →
+> code + tests → TSR. Lockfile sidecars are gone; review-state,
+> reader-scope, and per-section locks live in artifact frontmatter.
+> Drift detection moves to `git diff`; idempotency keys live in
+> `<project>/.orchestra/manifest.json`.
 
 ## Placement model — `docs/` vs `.orchestra/`
 
@@ -25,6 +26,16 @@ Two project-side roots. They serve different audiences and lifetimes — never m
 | `<project>/.orchestra/` | Agents + plugin internals | Pipeline-internal coordination + runtime state | Ephemeral or run-bound; never PR-reviewed for content |
 
 Litmus: would you link this from a PR description for a non-engineer reviewer? `docs/` if yes, `.orchestra/` if no.
+
+## Three-tier placement <a id="three-tier-placement"></a>
+
+| Tier | Root | Contents | Diagram levels |
+|---|---|---|---|
+| system | `<context_path>/docs/` | `SAD.md`, `adr/ADR-NNNN-<slug>.md`, `diagrams/*.puml` | C4 L1, L2 |
+| service | `<scope_path>/docs/` | `SAD.md`, `adr/ADR-NNNN-<slug>.md`, `diagrams/*.puml` | C4 L2, L3 |
+| feature | `<scope_path>/docs/<feature-id>/` | `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `openapi.yaml`, `asyncapi.yaml`, `<feature-id>-TSR.md` | C4 L3 |
+
+For single-repo workspaces `scope_path == context_path` so system + service tiers collapse. `diagrams/` always nests under the matching scope's `docs/` — bare `<scope_path>/diagrams/` is forbidden.
 
 ## Folder layout
 
@@ -55,7 +66,7 @@ Every per-feature artifact filename embeds the full feature-id as a prefix: `<fe
     ├── <feature-id>-PRD.md              (e.g., 001-todo-api-PRD.md)
     ├── <feature-id>-FRS.md
     ├── <feature-id>-TDD.md
-    ├── <feature-id>-openapi.yaml        (or <feature-id>-asyncapi.yaml; CONTRACT narrative folds into description: + # comments)
+    ├── <feature-id>-openapi.yaml        (or <feature-id>-asyncapi.yaml)
     ├── <feature-id>-TSR.md              (multi-writer: §test-plan @test, §verdict-evaluator @evaluator, §verdict-reviewer @reviewer + ADR review)
     └── diagrams/                        ← feature
         ├── state-business.{puml,svg}
@@ -66,7 +77,7 @@ Every per-feature artifact filename embeds the full feature-id as a prefix: `<fe
         └── erd-physical.{puml,svg}         (if schema touched)
 ```
 
-Per-feature prose is **5 files**: `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml`, `<feature-id>-TSR.md`. The legacy v3-and-earlier `TEST-*.md` artifact is folded into TSR `§test-plan`; the legacy `CONTRACT-*.md` prose folds into openapi `description:` fields and top-of-file `#` comments.
+Per-feature artifacts: `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`), `<feature-id>-TSR.md`.
 
 ### `<project>/.orchestra/` (agent + plugin internals)
 
@@ -96,50 +107,38 @@ Type → folder map:
 | Type | Folder | Example | Notes |
 |---|---|---|---|
 | `PRD`, `FRS`, `TDD`, `TSR` | `docs/<feature-id>/` | `001-todo-api-PRD.md` | per-feature prose; filename = `<feature-id>-<TYPE>.md` |
-| `API` (openapi/asyncapi) | `docs/<feature-id>/` | `001-todo-api-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml`; CONTRACT narrative inline |
+| `API` (openapi/asyncapi) | `docs/<feature-id>/` | `001-todo-api-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
 | `SAD` | `docs/` | `SAD.md` | project singleton |
 | `ADR` | `docs/adr/` | `ADR-0001-use-sqlite.md` | global flat numbering — NOT feature-scoped |
-| `RELEASE`, `RUNBOOK` | `docs/releases/`, `docs/runbooks/` | `RELEASE-vX.Y.Z.md` | release-time singletons; ANNOUNCEMENT folded into RELEASE §S-ANNOUNCEMENT-001 |
+| `RELEASE`, `RUNBOOK` | `docs/releases/`, `docs/runbooks/` | `RELEASE-vX.Y.Z.md` | release-time singletons |
 | `TASKS` | `.orchestra/pipeline/<feature-id>/` | `001-todo-api-TASKS.md` | agent-internal; filename = `<feature-id>-TASKS.md` |
 | `PLAN` | `.orchestra/tasks/<run-id>/<agent>/` | `001-todo-api.md` | per-agent execution plan; filename = `<feature-id>.md`; one file per `(run-id, agent, feature-id)` |
 | `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/pipeline/<feature-id>/` | `001-todo-api-ESCALATE-spec-gap.md` | transient; filename = `<feature-id>-<TYPE>-<slug>.md` (or `<feature-id>-ESCALATE-ADR-<NNNN>.md`) |
-
-**Removed in v4.0** (folded or dropped):
-- `CHARTER` → dropped; mode detection (greenfield/brownfield) replaces classification slot
-- `TEST` → folded into `TSR` §test-plan
-- `CONTRACT` → narrative folds into `openapi` `description:` + top-of-file `#` comments
-- `PLAN` → dropped (was `--think` only; no v4.0 entry path produces it)
-- `INTENT` → replaced by `.orchestra/pipeline/<id>/intent.yaml` (agent-internal, not stakeholder)
-- `SUMMARY` → dropped; terminal-state lives in `events.jsonl` + `<run-id>.json`
-- `DEADLOCK-ADR` → folded into `ESCALATE-ADR` (single transient escalation type)
 
 ## Common shape (all artifacts)
 
 ```yaml
 ---
-id: <basename-without-extension> # e.g., "001-todo-api-PRD", "001-todo-api-TSR", "ADR-0001-use-sqlite", "SAD" for singleton, "RELEASE-v4.0.2" for release
+id: <basename-without-extension>
 type: <PRD|FRS|TDD|API|TSR|SAD|ADR|RELEASE|RUNBOOK|TASKS|PLAN|ESCALATE|DEADLOCK>
 created: <ISO-8601>
 revision: <integer ≥ 1>
-status: draft                    # NEW v4.0 — review-state lives here; values: draft | locked
-verdict: pending                 # NEW v4.0 (where applicable); values: PASS | FAIL | APPROVED | REQUEST_CHANGES | pending
-readers:                         # NEW v4.0 — soft scope allowlist (block list, not flow)
+status: draft                    # draft | locked
+verdict: PENDING                 # PENDING | PASS | FAIL | APPROVED | REQUEST_CHANGES
+readers:
   - "@architect"
   - "@lead"
-sections:                        # NEW v4.0 — multi-writer coordination (block map, not flow)
+sections:
   S-VISION-001:
     writer: "@product"
     status: locked
   S-NFR-001:
     writer: "@product"
     status: in_progress
-# (plus type-specific minimal fields per "Type-specific frontmatter" below)
 ---
 ```
 
-**Frontmatter grammar (frozen).** Block-style only. No flow style (`{a: b}` and `[1, 2]` are forbidden). No anchors / aliases. Indentation: 2 spaces per level. String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) MUST be JSON-quoted. Agent handles (`@product`, `@lead`) MUST be JSON-quoted because `@` is a YAML directive marker. The frontmatter parser is `hooks/lib/yaml-mini.js`'s `parse()` — same parser the lockfile schema froze in v3.x, now reused for inline frontmatter.
-
-**v3 → v4 break.** `sections:` (with hash + confirmed) and `references:` blocks are gone. `sections:` is reused as a per-section writer/state map (no hashes). `<artifact>.lock.yaml` files are deleted. Drift detection moves to `git diff` in CI; idempotency keys move to `<project>/.orchestra/manifest.json`.
+**Frontmatter grammar (frozen).** Block-style only. No flow style (`{a: b}` and `[1, 2]` are forbidden). No anchors / aliases. Indentation: 2 spaces per level. String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) MUST be JSON-quoted. Agent handles (`@product`, `@lead`) MUST be JSON-quoted because `@` is a YAML directive marker. The frontmatter parser is `hooks/lib/yaml-mini.js`'s `parse()`.
 
 ### `status:` <a id="S-STATUS-001"></a>
 
@@ -150,13 +149,20 @@ sections:                        # NEW v4.0 — multi-writer coordination (block
 
 ### `verdict:` <a id="S-VERDICT-001"></a>
 
-Applies to TSR (eval / review verdicts), ADR (review verdict), RELEASE (ship verdict). Other types omit.
+Applies to TSR (eval / review verdicts + ship), ADR (review verdict), RELEASE (ship verdict). Other types omit.
 
 | value | semantic |
 |---|---|
-| `pending` | Initial state |
-| `PASS` / `FAIL` | Empirical (eval) |
-| `APPROVED` / `REQUEST_CHANGES` | Inspection (review) |
+| `PENDING` | Initial state |
+| `PASS` / `FAIL` | Empirical |
+| `APPROVED` / `REQUEST_CHANGES` | Inspection |
+| `ALLOW` | Ship |
+| `ALLOW_WITH_GAP` | Ship when `local.yaml.round_trip == DEFERRED` |
+| `HOLD` | Ship blocked |
+
+### Round-trip gate <a id="round-trip-gate"></a>
+
+`local.yaml.round_trip` ∈ `DEFERRED | PENDING | PASS | FAIL`. Reviewer-to-ship mapping: `PASS` → `ALLOW`; `DEFERRED` → `ALLOW_WITH_GAP`; `PENDING | FAIL` → `HOLD`.
 
 ### `readers:` <a id="S-READERS-001"></a>
 
@@ -187,7 +193,7 @@ A short URL service that …
 …
 ```
 
-Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segment uppercase tags supported (`S-NON-GOALS-001`, `S-VERDICT-EVAL-001`).
+Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segment uppercase tags supported (`S-NON-GOALS-001`, `S-DIVERGENCES-001`).
 
 **Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in the body, and every `<a id>` in the body MUST have a matching key in `sections:`. `validate.js` flags either direction as a violation.
 
@@ -230,28 +236,28 @@ Drift check: filename arithmetic — every `.puml` has a paired `.svg`; every pr
 
 ```yaml
 status: draft | locked
-verdict: pending           # PRDs don't get reviewed-as-pass/fail; kept for shape uniformity
-version: <semver>          # the orchestra version this PRD targets
-open_questions: <int>      # NEW v4.0 — count of open Qs in §S-OPEN-Q-001 (BL-0029)
+verdict: PENDING
+version: <semver>
+open_questions: <int>
 ```
 
 ### `<feature-id>-FRS.md`
 
 ```yaml
-prd: <feature-id>-PRD                # parent PRD id (e.g., "001-todo-api-PRD")
-acceptance_criteria_count: <int>     # for spot-check during review
+prd: <feature-id>-PRD
+acceptance_criteria_count: <int>
 usecase_count: <int>                 # MUST equal state-business diagram actor-count
-inherited_open_questions: <int>      # NEW v4.0 — Qs lifted from PRD
-resolved_open_questions: <int>       # NEW v4.0 — Qs resolved in this FRS revision
+inherited_open_questions: <int>
+resolved_open_questions: <int>
 ```
 
 ### `<feature-id>-TDD.md`
 
 ```yaml
-sad_touched: true | false            # whether this feature mutated SAD
-sequence_diagram_count: <int>        # intra-service; ≥1 per use case
-state_machine_count: <int>           # 0 when no lifecycle exists
-schema_touched: true | false         # gates erd-physical requirement
+sad_touched: true | false
+sequence_diagram_count: <int>
+state_machine_count: <int>
+schema_touched: true | false
 ```
 
 ### `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` (per-feature)
@@ -263,7 +269,7 @@ OpenAPI/AsyncAPI document is the artifact body. The plugin's frontmatter contrac
 #   id: 001-todo-api-openapi
 #   type: API
 #   status: draft
-#   verdict: pending
+#   verdict: PENDING
 #   readers:
 #     - "@architect"
 #     - "@lead"
@@ -279,10 +285,7 @@ OpenAPI/AsyncAPI document is the artifact body. The plugin's frontmatter contrac
 openapi: 3.0.3
 info:
   title: Todo API
-  description: |
-    CONTRACT narrative folds inline here.
-    YAML markdown convention — literal `|` block scalar — preferred for
-    multi-paragraph CONTRACT prose; flow scalars for one-liners.
+  description: One-line imperative summary.
   version: 1.0.0
 paths:
   ...
@@ -294,69 +297,89 @@ paths:
 
 ```yaml
 status: draft                                 # draft | locked
-verdict: pending                              # see eval_verdict + rev_verdict for per-writer
-eval_verdict: pending                         # @evaluator-owned; PASS | FAIL | pending
+verdict: PENDING
+eval_verdict: PENDING                         # PENDING | PASS | FAIL
 eval_score: 0                                 # 0..100
-rev_verdict: pending                          # @reviewer-owned; APPROVED | REQUEST_CHANGES | pending
-rev_round: 1                                  # 1..3; circuit at round 4 → ESCALATE
-ship: pending                                 # ALLOW | HOLD | pending; /orchestra ship verdict
+rev_verdict: PENDING                          # PENDING | APPROVED | ALLOW_WITH_GAP | REQUEST_CHANGES
+rev_round: 1                                  # 1..3
+ship: PENDING                                 # PENDING | ALLOW | ALLOW_WITH_GAP | HOLD
 sections:
-  S-TEST-PLAN-001:
+  S-TEST-001:
     writer: "@test"
-    status: locked
-  S-TEST-RESULTS-001:
-    writer: "@test"
-    status: pending
-  S-VERDICT-EVAL-001:
-    writer: "@evaluator"
     status: in_progress
-  S-VERDICT-REVIEW-001:
+  S-EVAL-001:
+    writer: "@evaluator"
+    status: pending
+  S-REVIEW-001:
     writer: "@reviewer"
     status: pending
-  S-ADR-REVIEW-001:
-    writer: "@reviewer"
-    status: pending
-  S-SHIP-001:
-    writer: "@orchestra"
+  S-DIVERGENCES-001:
+    writer: "@architect"
     status: pending
 ```
 
-`@test` Stage-1 writes `S-TEST-PLAN-001` (spec-bound — sources allowlist excludes `src/**`). `@test` Stage-2 writes `S-TEST-RESULTS-001` (impl-aware — runs the suite and records per-test PASS/FAIL with evidence pointers; supersedes v3's `@evaluator`-runs-tests model). `@evaluator` writes `S-VERDICT-EVAL-*` (inspection-only over PRD/FRS/openapi/TSR test sections; no Bash). `@reviewer` writes `S-VERDICT-REVIEW-*` and `S-ADR-REVIEW-001` (replaces ADR-review's separate artifact). `/orchestra ship` writes `S-SHIP-001`. `validate.js` rejects a `locked` TSR missing any of `S-TEST-PLAN-001`, `S-TEST-RESULTS-001`, `S-VERDICT-EVAL-001`, `S-VERDICT-REVIEW-001`.
+**Body-row grammar (no duplication between sections).** Each TSR section is a single source of truth for its concern; downstream sections reference upstream by `id`, never restate columns.
+
+`S-TEST-001` (writer `@test`, both stages) — one table, row shape:
+
+```
+| id | criterion | axis | critical | fixture | status | evidence |
+```
+
+Stage-1 fills `id` / `criterion` / `axis` / `critical` / `fixture` (status + evidence cells empty); section `status: in_progress`. Stage-2 fills `status` + `evidence` cells in place — Stage-1 columns preserved verbatim — and appends new rows only for newly-introduced white-box tests; section `status: locked`. Spec-bound during Stage-1 (sources allowlist excludes `src/**`); impl-aware during Stage-2.
+
+`S-EVAL-001` (writer `@evaluator`) — one table, row shape:
+
+```
+| id | verdict | reason |
+```
+
+`id` MUST reference an existing `S-TEST-001` row id; `verdict ∈ PASS | FAIL | PENDING`; `reason` is one short sentence (≤120 chars) citing the Stage-2 `evidence` excerpt. No criterion / axis / fixture restatement.
+
+`S-REVIEW-001` (writer `@reviewer`) — per-severity findings keyed on `file:line`; explicit list (`Critical`, `Major`, `Minor`, `Nit`). When ADRs were touched in this feature, append a `## ADR review` subsection to `S-REVIEW-001`; on greenfield/no-ADR runs, no subsection is required. Findings cite source coordinates, never `S-EVAL-001` row ids.
+
+`S-DIVERGENCES-001` (writer `@architect`, brownfield-conditional) — table row shape `| ID | UC slug | File:line | Finding | Guard test ID |`. On greenfield runs, omit the anchor entirely.
+
+Final ship verdict lives in frontmatter `ship:` (no body section). `/orchestra ship` reads `eval_verdict` + `rev_verdict` + `local.yaml.round_trip` to compute the value and writes it to frontmatter.
+
+`validate.js` rejects a `locked` TSR missing any of `S-TEST-001`, `S-EVAL-001`, `S-REVIEW-001`, and rejects any `S-EVAL-001` row whose `id` is not present in `S-TEST-001`.
 
 ### SAD.md (project singleton)
 
 ```yaml
 status: draft | locked
 project_mode: greenfield | brownfield
-c4_levels_present: [1, 2]            # always 1+2 (3 is TDD's; 4 deferred)
-adr_count: <int>                     # rows in §S-ADR-INDEX-001 with status=accepted
+c4_levels_present: [1, 2]
+adr_count: <int>
 ```
 
 ### ADR-`<NNNN>`-`<slug>`.md
 
 ```yaml
-status: proposed | accepted | superseded | deprecated  # ADR has its own status enum (pre-existing semantics)
-verdict: APPROVED | REQUEST_CHANGES | pending
+status: proposed | accepted | superseded | deprecated
+verdict: PENDING | APPROVED | REQUEST_CHANGES
 superseded_by: ADR-<NNNN>-<slug> | null
-triggered_by: <feature-id>-PRD | <feature-id>-FRS | <feature-id>-TDD | SAD
-review_round: <1..3>                                   # circuit at 4 → ESCALATE-ADR-<NNNN>.md
+triggered_by: <feature-id>-PRD | <feature-id>-FRS | <feature-id>-TDD | SAD | DIV-<NNN>
+review_round: <1..3>
 option_count: <int>
 ```
 
 `@architect` writes the body. `@reviewer` Edits only `S-CONSEQUENCES-001` (REQUEST_CHANGES findings) and writes `verdict:` + `review_round:`. `adr-status` state-machine diagram is mandatory.
 
+Required body anchors: `S-CONTEXT-001`, `S-DECISION-001`, `S-ALTERNATIVES-001`, `S-CONSEQUENCES-001`. Retroactive ADRs (those with `triggered_by: DIV-<NNN>`, opened during the `gap-resolution` phase to ratify brownfield divergences per `agents/architect.md`) add a fifth anchor `S-RATIFICATION-001` between `S-DECISION-001` and `S-ALTERNATIVES-001`. Row shape: `| Field | Value |` with fields `Original divergence` (DIV-NNN), `Discovered in` (TSR section), `Pre-existing behavior` (one sentence), `Ratified or corrected` (`ratified` = spec amended, `corrected` = source change scheduled).
+
 ### RELEASE-vX.Y.Z.md
 
 ```yaml
 status: draft | locked
-verdict: ALLOW | HOLD | pending
-version: <semver>                    # matches VERSION + package.json + topmost CHANGELOG entry
+verdict: PENDING | ALLOW | ALLOW_WITH_GAP | HOLD
+version: <semver>
 released_at: <ISO-8601>
 features: [<id>, <id>, ...]
 runbook_required: true | false
 ```
 
-`S-ANNOUNCEMENT-001` is mandatory — absorbs v1's separate ANNOUNCEMENT artifact.
+`S-ANNOUNCEMENT-001` is mandatory.
 
 ### RUNBOOK-vX.Y.Z.md
 
@@ -386,18 +409,18 @@ tasks_done: <int>
 Per-agent execution plan. The agent authors the body before any artifact write or substantial Bash; the `agent-plan-sync` hook owns mutation of `tasks:`, `tasks_pending`, `tasks_in_progress`, `tasks_done`, and lifecycle `status:` flips on `Task*` tool use and on `SubagentStop`.
 
 ```yaml
-id: <feature-id>                              # matches basename without extension
+id: <feature-id>
 type: PLAN
 agent: "@<role>"                              # @product | @architect | @lead | @backend | @frontend | @test | @evaluator | @reviewer
 run_id: <parent-dispatcher-session-id>
-feature_id: <feature-id>                      # e.g., 001-todo-api
+feature_id: <feature-id>
 created: <ISO-8601>
-updated: <ISO-8601>                           # hook-maintained
+updated: <ISO-8601>
 status: pending | in_progress | interrupted | done
 tasks_pending: <int>
 tasks_in_progress: <int>
 tasks_done: <int>
-tasks:                                        # hook-maintained mirror of Claude Code TaskCreate/TaskUpdate state
+tasks:
   - id: T-001
     description: <one-line>
     status: pending | in_progress | completed
@@ -434,7 +457,7 @@ The agent body owns the `## Approach` section. The hook owns the `## Tasks` chec
 triggered_by_<stage|agent>: <value>
 resolution: pending | resolved-via-<X> | abandoned
 direction: <free-text — present only when resolved>
-strike_count: <int>                  # DEADLOCK only; always 3 (the trigger)
+strike_count: <int>
 ```
 
 Body-grammar carve-out applies (no `sections:` block).
@@ -468,7 +491,7 @@ Reason: consumer business code is read by reviewers, IDEs, and grep tools that h
 
 ## Validation
 
-- `validate.js` exposes pure functions: `validateStructuralDiff`, `validateOrphanTypes`, `validateFoldCorrectness`, `validateSoftCap`. (v3's `validateLockfilePresence`, `validateLockfileGrammar`, `validateDiagramHashes` are deleted alongside the lockfile cut.)
+- `validate.js` exposes pure functions: `validateStructuralDiff`, `validateOrphanTypes`, `validateFoldCorrectness`, `validateSoftCap`.
 - Drift detection: `git diff` in CI. If a `locked` artifact has uncommitted changes outside an authoring run, CI flags it.
 - `pre-write-check.js` four gates (in addition to the secrets matcher):
   - **Gate-A** — `status: locked` rejects non-owner writes.
@@ -478,4 +501,4 @@ Reason: consumer business code is read by reviewers, IDEs, and grep tools that h
 
 ## Versioning
 
-Bump `revision:` when adding/renaming type-specific keys, when adding/removing artifact types, or when changing the diagram-binding table. v4.0.0's revision is `6` (was `5` in v3.0.0). Additive changes that older readers can ignore (new optional field) do NOT bump `revision`.
+Bump `revision:` when adding/renaming type-specific keys, when adding/removing artifact types, or when changing the diagram-binding table. Additive changes that older readers can ignore (new optional field) do NOT bump `revision`.

@@ -131,8 +131,8 @@ User: *"Add a `/v1/users/:id/transfer` endpoint that records to the ledger and e
 | T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit | pending |
 | T-003 | @test | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
 | T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic | pending |
-| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `docs/001-transfer/001-transfer-TSR.md S-VERDICT-EVAL-001`: all 4 criteria PASS | pending |
-| T-006 | @reviewer | 2 | T-007 | T-005 | `docs/001-transfer/001-transfer-TSR.md S-VERDICT-REVIEW-001`: APPROVED | pending |
+| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `docs/001-transfer/001-transfer-TSR.md S-EVAL-001`: all 4 criteria PASS | pending |
+| T-006 | @reviewer | 2 | T-007 | T-005 | `docs/001-transfer/001-transfer-TSR.md S-REVIEW-001`: APPROVED | pending |
 | T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes (with `S-ANNOUNCEMENT-001`) if applicable | pending |
 
 Total: 13 SP. Critical path: T-001 → T-002 → T-005 → T-006 → T-007 = 9 SP. Parallelism on T-002 / T-003 / T-004 saves 4 SP wall time.

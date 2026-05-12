@@ -18,6 +18,10 @@ const installModules = loadJSON("manifests/install-modules.json");
 const runtimeToggles = loadJSON("manifests/runtime-toggles.json");
 const knownModels   = loadJSON("manifests/known-models.json");
 const plugin        = loadJSON(".claude-plugin/plugin.json");
+const localSchema   = loadJSON("schemas/local.schema.json");
+const LOCAL_ALLOWLIST = localSchema?.properties
+  ? new Set(Object.keys(localSchema.properties).filter(k => k !== "$schema"))
+  : new Set();
 
 if (installModules && !Array.isArray(installModules.modules)) {
   errors.push("install-modules.json: 'modules' must be an array");
@@ -211,15 +215,32 @@ export const VALID_AUTONOMY_LEVELS = [
   "DRAFT_AND_GATE", "FULL_AUTONOMY",
 ];
 
-export function validateLocalYamlContent(relPath, raw) {
+export const VALID_RUN_PLAN_STATUS = ["drafted", "approved", "revision_requested"];
+
+export function validateLocalYamlContent(relPath, raw, opts = {}) {
   const errs = [];
   let parsed;
   try { parsed = parseYaml(raw); }
   catch (e) { errs.push(`${relPath}: parse error: ${e.message}`); return errs; }
-  if (parsed && parsed.autonomy && parsed.autonomy.level) {
+  if (!parsed || typeof parsed !== "object") return errs;
+  const allowlist = opts.allowlist || LOCAL_ALLOWLIST;
+  if (allowlist.size > 0) {
+    for (const k of Object.keys(parsed)) {
+      if (!allowlist.has(k)) {
+        errs.push(`${relPath}: unknown top-level field '${k}' (not in schemas/local.schema.json allowlist)`);
+      }
+    }
+  }
+  if (parsed.autonomy && parsed.autonomy.level) {
     if (!VALID_AUTONOMY_LEVELS.includes(parsed.autonomy.level)) {
       errs.push(`${relPath}: autonomy.level '${parsed.autonomy.level}' not in ${VALID_AUTONOMY_LEVELS.join("|")}`);
     }
+  }
+  if (parsed.run_plan_status !== undefined && !VALID_RUN_PLAN_STATUS.includes(parsed.run_plan_status)) {
+    errs.push(`${relPath}: run_plan_status '${parsed.run_plan_status}' not in ${VALID_RUN_PLAN_STATUS.join("|")}`);
+  }
+  if (parsed.auto_mode === true && parsed.run_plan_status !== "approved") {
+    errs.push(`${relPath}: auto_mode:true requires run_plan_status:approved (got ${JSON.stringify(parsed.run_plan_status)})`);
   }
   return errs;
 }
@@ -273,18 +294,21 @@ export const REQUIRED_ANCHORS = {
   FRS: ["S-FRS-001", "S-ACCEPTANCE-001", "S-ERRORS-001", "S-USECASE-001"],
   SAD: ["S-VISION-001", "S-CONTEXT-001", "S-CONTAINERS-001", "S-ADR-INDEX-001"],
   TDD: ["S-COMPONENTS-001", "S-SEQUENCE-001", "S-DATA-MODEL-001", "S-STATE-001", "S-ERROR-HANDLING-001", "S-CONFIG-001", "S-RISKS-001"],
-  CONTRACT: ["S-INTERFACE-001", "S-SERVICE-CONTRACT-001", "S-SCORING-001", "S-CRITERIA-001"],
   TASKS: ["S-DAG-001", "S-TASKS-001"],
   TEST: ["S-COVERAGE-001"],
-  TSR: ["S-EVAL-VERDICT-001", "S-EVAL-TABLE-001", "S-REV-VERDICT-001", "S-REV-FINDINGS-001", "S-SHIP-001"],
+  TSR: ["S-TEST-001", "S-EVAL-001", "S-REVIEW-001"],
   RELEASE: ["S-WHATSNEW-001", "S-ENDPOINTS-001", "S-CONFIG-001", "S-BREAKING-001", "S-GATES-001", "S-KNOWN-001", "S-ANNOUNCEMENT-001"],
   RUNBOOK: ["S-OVERVIEW-001", "S-LIFECYCLE-001", "S-DEPLOY-001", "S-ROLLBACK-001", "S-HEALTH-001", "S-FAILURE-001", "S-LOGS-001", "S-ENVVARS-001"],
   ADR: ["S-STATUS-001", "S-CONTEXT-001", "S-DECISION-001", "S-CONSEQUENCES-001", "S-ALTERNATIVES-001"],
+  INVENTORY: ["S-SCAN-001", "S-CLASSIFICATION-001", "S-DECISIONS-001", "S-REGEN-PLAN-001", "S-WARNINGS-001"],
+  "RUN-PLAN": ["S-CONTEXT-001", "S-PHASES-001", "S-FEATURES-001", "S-GATES-001", "S-APPROVAL-001"],
 };
 
 export const SOFT_CAPS = {
-  PRD: 120, FRS: 100, SAD: 200, TDD: 250, CONTRACT: 300,
+  PRD: 120, FRS: 100, SAD: 200, TDD: 250,
   TASKS: 60, TEST: 200, TSR: 150, RELEASE: 120, RUNBOOK: 180, ADR: 100,
+  INVENTORY: 250,
+  "RUN-PLAN": 250,
 };
 
 // Filename patterns that v2 .orchestra/ MUST NOT contain (folded / dropped per DESIGN-005 §1).
@@ -299,7 +323,7 @@ export const ORPHAN_PATTERNS = [
 
 // Fold-correctness invariants: certain types must carry specific anchor combinations.
 export const FOLD_REQUIREMENTS = {
-  TSR: ["S-EVAL-VERDICT-001", "S-REV-VERDICT-001"],
+  TSR: ["S-TEST-001", "S-EVAL-001", "S-REVIEW-001"],
   RELEASE: ["S-ANNOUNCEMENT-001"],
 };
 
@@ -391,6 +415,58 @@ export function validateFoldCorrectness(relPath, body, type) {
     if (!found.has(anchor)) {
       errs.push(`${relPath}: fold-violation — missing ${anchor} (${type} fold required this anchor per v2.0)`);
     }
+  }
+  return errs;
+}
+
+// --- TSR S-EVAL-001 row-id coverage: every S-EVAL-001 row id must reference an S-TEST-001 row id ---
+// Same anti-duplication principle as the consumer/dev surface rule, one step downstream:
+// S-TEST-001 is the source of truth for (criterion, axis, critical, fixture, status, evidence);
+// S-EVAL-001's `| id | verdict | reason |` is a lookup keyed on that id. An unknown id in
+// S-EVAL-001 is structurally identical to a phantom anchor — it points at content the consumer
+// can't resolve in the same artifact.
+//
+// Parser: scoped slice between `<a id="S-XXX-001"></a>` markers; row ids are the first column
+// cell of every Markdown pipe-table row whose first cell matches /^T-\d+$/ (ignores header +
+// separator rows). Empty / locked / draft TSRs are not the concern of this check — caller
+// gates on whether to invoke (e.g., only when S-EVAL-001 status is locked).
+const ROW_ID_RE = /^T-\d+$/;
+
+function extractSectionBody(body, anchorId) {
+  const startRe = new RegExp(`<a id="${anchorId}"></a>`);
+  const startMatch = startRe.exec(body);
+  if (!startMatch) return null;
+  const after = body.slice(startMatch.index + startMatch[0].length);
+  const nextAnchor = /<a id="S-[A-Z]+(?:-[A-Z]+)*-\d{3}"><\/a>/.exec(after);
+  return nextAnchor ? after.slice(0, nextAnchor.index) : after;
+}
+
+function extractTableRowIds(sectionBody) {
+  if (!sectionBody) return new Set();
+  const ids = new Set();
+  for (const rawLine of sectionBody.split("\n")) {
+    const line = rawLine.trim();
+    if (!line.startsWith("|")) continue;
+    const cells = line.split("|").map(c => c.trim()).filter((_, i, arr) => i > 0 && i < arr.length - 1);
+    if (cells.length === 0) continue;
+    if (cells.every(c => /^-+:?$/.test(c) || /^:?-+:?$/.test(c))) continue; // separator row
+    const first = cells[0];
+    if (ROW_ID_RE.test(first)) ids.add(first);
+  }
+  return ids;
+}
+
+export function validateTsrEvalCoverage(relPath, body) {
+  const errs = [];
+  const testBody = extractSectionBody(body, "S-TEST-001");
+  const evalBody = extractSectionBody(body, "S-EVAL-001");
+  if (testBody === null || evalBody === null) return errs; // not a TSR or sections absent — other validators flag that
+  const testIds = extractTableRowIds(testBody);
+  const evalIds = extractTableRowIds(evalBody);
+  if (evalIds.size === 0) return errs; // S-EVAL-001 not yet filled (in_progress / pending); skip
+  const orphans = [...evalIds].filter(id => !testIds.has(id)).sort();
+  if (orphans.length > 0) {
+    errs.push(`${relPath}: S-EVAL-001 row-id coverage — S-EVAL-001 ids [${orphans.join(",")}] absent from S-TEST-001 (every S-EVAL-001 row must reference an existing S-TEST-001 row)`);
   }
   return errs;
 }
@@ -502,10 +578,122 @@ if (isMain) {
 
   // Mutation 8: missing autonomy block passes (default DRAFT_AND_GATE applies at runtime)
   {
-    const ok = `mode: greenfield\nhas_source: false\n`;
+    const ok = `mode: greenfield\n`;
     const errs = validateLocalYamlContent("local.yaml", ok);
     if (errs.length !== 0) {
       mutationErrors.push(`inverse sanity: missing autonomy block should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // === Closed-allowlist mutation tests ===
+  // Mutation 11: unknown top-level field rejected
+  {
+    const bad = `mode: greenfield\nadapter_notes: "User elected adapted_template"\n`;
+    const errs = validateLocalYamlContent("local.yaml", bad);
+    if (!errs.some(e => /unknown top-level field 'adapter_notes'/.test(e))) {
+      mutationErrors.push("mutation: unknown field 'adapter_notes' should be rejected by closed allowlist");
+    }
+  }
+
+  // Mutation 12: another freeform-prose field rejected
+  {
+    const bad = `template_deliverable_path: project-poc/services/order/order-regen-spec.md\n`;
+    const errs = validateLocalYamlContent("local.yaml", bad);
+    if (!errs.some(e => /unknown top-level field 'template_deliverable_path'/.test(e))) {
+      mutationErrors.push("mutation: unknown field 'template_deliverable_path' should be rejected by closed allowlist");
+    }
+  }
+
+  // Mutation 13: v4.1 brief 10 fields pass
+  {
+    const ok = [
+      `workspace_kind: multi-service`,
+      `context_path: /tmp/ws`,
+      `scope_path: /tmp/ws/services/order`,
+      `template_source: none`,
+      `test_depth: stage1`,
+      `source_lock:`,
+      `  read_paths:`,
+      `    - "services/order/**"`,
+      `  write_paths:`,
+      `    - "services/order/docs/**"`,
+      `round_trip: DEFERRED`,
+      `chain_mode: standard`,
+      `pipeline_id: 001-order-validation`,
+      ``,
+    ].join("\n");
+    const errs = validateLocalYamlContent("local.yaml", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: v4.1 10-field local.yaml should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // Mutation 14: v4.0+v4.1 union fields pass
+  {
+    const ok = [
+      `pipeline_id: test-001`,
+      `mode: brownfield`,
+      `depth: full`,
+      `bootstrap: pending`,
+      `chain_rigor: Full`,
+      `primary_language: java`,
+      `framework: spring-boot`,
+      `spawn_mode: subagent`,
+      `status: locked`,
+      `autonomy:`,
+      `  level: DRAFT_AND_GATE`,
+      `  resolved_by: default`,
+      ``,
+    ].join("\n");
+    const errs = validateLocalYamlContent("local.yaml", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: v4.0+v4.1 union local.yaml should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // === Run-plan pairing invariant mutation tests (#16, task 0.7) ===
+  // Mutation 15: auto_mode:true without run_plan_status fails red
+  {
+    const bad = `pipeline_id: x\nauto_mode: true\n`;
+    const errs = validateLocalYamlContent("local.yaml", bad);
+    if (!errs.some(e => /auto_mode:true requires run_plan_status:approved/.test(e))) {
+      mutationErrors.push("mutation: auto_mode:true without run_plan_status should fail red");
+    }
+  }
+
+  // Mutation 16: auto_mode:true with run_plan_status:drafted fails red
+  {
+    const bad = `pipeline_id: x\nauto_mode: true\nrun_plan_status: drafted\n`;
+    const errs = validateLocalYamlContent("local.yaml", bad);
+    if (!errs.some(e => /auto_mode:true requires run_plan_status:approved/.test(e))) {
+      mutationErrors.push("mutation: auto_mode:true with run_plan_status:drafted should fail red");
+    }
+  }
+
+  // Mutation 17: run_plan_status not in enum fails red
+  {
+    const bad = `pipeline_id: x\nrun_plan_status: bogus\n`;
+    const errs = validateLocalYamlContent("local.yaml", bad);
+    if (!errs.some(e => /run_plan_status 'bogus' not in/.test(e))) {
+      mutationErrors.push("mutation: run_plan_status='bogus' should fail enum check");
+    }
+  }
+
+  // Mutation 18: auto_mode:true + run_plan_status:approved passes (inverse sanity)
+  {
+    const ok = `pipeline_id: x\nauto_mode: true\nrun_plan_status: approved\n`;
+    const errs = validateLocalYamlContent("local.yaml", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: auto_mode:true + run_plan_status:approved should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // Mutation 19: auto_mode absent + run_plan_status:drafted passes (drafted is valid before approval)
+  {
+    const ok = `pipeline_id: x\nrun_plan_status: drafted\n`;
+    const errs = validateLocalYamlContent("local.yaml", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: run_plan_status:drafted (auto_mode absent) should pass, got: ${errs.join(", ")}`);
     }
   }
 

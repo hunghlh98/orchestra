@@ -46,7 +46,7 @@ function withTmp(label, fn) {
 console.log("yaml-mini:");
 const ymCases = [
   `id: PRD-001\ntype: PRD\nrevision: 3\n`,
-  `status: draft\nverdict: pending\nreaders:\n  - "@architect"\n  - "@lead"\n`,
+  `status: draft\nverdict: PENDING\nreaders:\n  - "@architect"\n  - "@lead"\n`,
   `sections:\n  S-VISION-001:\n    writer: "@product"\n    status: locked\n  S-NFR-001:\n    writer: "@product"\n    status: in_progress\n`,
   `id: SAD\ntype: SAD\nrevision: 1\nstatus: locked\nproject_mode: greenfield\nc4_levels_present:\n  - 1\n  - 2\n`,
 ];
@@ -105,7 +105,7 @@ console.log("pre-write-check Gate-A (status: locked):");
 id: PRD-001
 type: PRD
 status: locked
-verdict: pending
+verdict: PENDING
 ---
 # PRD body
 `);
@@ -122,7 +122,7 @@ verdict: pending
 id: PRD-002
 type: PRD
 status: draft
-verdict: pending
+verdict: PENDING
 ---
 # Draft PRD
 `);
@@ -152,15 +152,15 @@ console.log("pre-write-check Gate-B (sections all-locked):");
 id: TSR-001
 type: TSR
 status: draft
-verdict: pending
+verdict: PENDING
 sections:
-  S-TEST-PLAN-001:
+  S-TEST-001:
     writer: "@test"
     status: locked
-  S-VERDICT-EVAL-001:
+  S-EVAL-001:
     writer: "@evaluator"
     status: locked
-  S-VERDICT-REVIEW-001:
+  S-REVIEW-001:
     writer: "@reviewer"
     status: locked
 ---
@@ -179,15 +179,15 @@ sections:
 id: TSR-002
 type: TSR
 status: draft
-verdict: pending
+verdict: PENDING
 sections:
-  S-TEST-PLAN-001:
+  S-TEST-001:
     writer: "@test"
     status: locked
-  S-VERDICT-EVAL-001:
+  S-EVAL-001:
     writer: "@evaluator"
     status: in_progress
-  S-VERDICT-REVIEW-001:
+  S-REVIEW-001:
     writer: "@reviewer"
     status: pending
 ---

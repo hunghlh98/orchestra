@@ -15,13 +15,14 @@
 // in place, and this hook observes-and-emits. Agents do NOT emit events.
 
 import {
-  existsSync, mkdirSync, appendFileSync, statSync, readFileSync, writeFileSync,
+  existsSync, mkdirSync, statSync, readFileSync,
   readdirSync, rmSync, realpathSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { gzipSync } from "node:zlib";
 import { computeUsd } from "../lib/rate-card.js";
+import { safeAppend, safeRead, safeWrite } from "../lib/safe-fs.js";
 
 const NAME = "ORCHESTRA_HOOK_METRICS_COLLECTOR";
 
@@ -48,7 +49,27 @@ async function main() {
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
         const manifest = ensureManifest(dir);
         if (manifest.redact_prompts) applyRedaction(event);
-        appendFileSync(path, JSON.stringify(event) + "\n");
+
+        // Auto-emit pipeline.phase.start/end on spawn-phase transitions.
+        // A spawn with phase=X following an open phase=Y closes Y and opens X.
+        // First-ever phased spawn just opens. Run-id and ts propagate from event.
+        if (event.event === "task.subagent.invoked" && event.phase) {
+          const active = readActivePhase(path);
+          if (active !== event.phase) {
+            if (active) {
+              safeAppend(path, JSON.stringify({
+                ts: event.ts, event: "pipeline.phase.end",
+                phase: active, run_id: event.run_id || null,
+              }));
+            }
+            safeAppend(path, JSON.stringify({
+              ts: event.ts, event: "pipeline.phase.start",
+              phase: event.phase, run_id: event.run_id || null,
+            }));
+          }
+        }
+
+        safeAppend(path, JSON.stringify(event));
         rotateIfNeeded(path, dir);
       } catch (e) {
         // best-effort; never blocks
@@ -77,6 +98,7 @@ async function main() {
     if (input.hook_event_name === "Stop") {
       try {
         emitRunSummary(input);
+        emitCostByPhase(input);
         const cwd = input.cwd || process.cwd();
         const sid = input.session_id || "";
         if (sid) {
@@ -91,6 +113,26 @@ async function main() {
       process.stdout.write(JSON.stringify({
         hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow" },
       }));
+    }
+
+    // Per-turn state reinforcement: re-inject pipeline phase + round-trip gate +
+    // source-lock paths into the model's context on every prompt. Suppressed
+    // when local.yaml is absent so greenfield pre-bootstrap sessions stay
+    // silent. Best-effort: failures here must never block the prompt.
+    if (input.hook_event_name === "UserPromptSubmit") {
+      try {
+        const ctx = composeOrchestraContext(input.cwd || process.cwd());
+        if (ctx) {
+          process.stdout.write(JSON.stringify({
+            hookSpecificOutput: {
+              hookEventName: "UserPromptSubmit",
+              additionalContext: ctx,
+            },
+          }));
+        }
+      } catch (e) {
+        process.stderr.write(`metrics-collector context inject failed: ${e.message}\n`);
+      }
     }
     process.exit(0);
   } catch (err) {
@@ -271,8 +313,8 @@ function rotateIfNeeded(path, dir) {
   const archivePath = join(dir, `events-${tsName}.jsonl.gz`);
   try {
     const data = readFileSync(path);
-    writeFileSync(archivePath, gzipSync(data));
-    writeFileSync(path, ""); // truncate
+    safeWrite(archivePath, gzipSync(data));
+    safeWrite(path, ""); // truncate
   } catch (e) {
     process.stderr.write(`metrics-collector rotation failed: ${e.message}\n`);
     return;
@@ -525,7 +567,7 @@ function emitSubagentTokens(input, sub) {
   const dir = join(cwd, ".orchestra/metrics");
   const path = join(dir, "tokens.jsonl");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  appendFileSync(path, JSON.stringify(row) + "\n");
+  safeAppend(path, JSON.stringify(row));
 
   return { sid: sub.sid, path: sub.path, role: sub.role };
 }
@@ -725,7 +767,7 @@ function emitRunSummary(input) {
 
   const runsDir = join(metricsDir, "runs");
   if (!existsSync(runsDir)) mkdirSync(runsDir, { recursive: true });
-  writeFileSync(join(runsDir, `${sessionId}.json`), JSON.stringify(summary, null, 2) + "\n");
+  safeWrite(join(runsDir, `${sessionId}.json`), JSON.stringify(summary, null, 2) + "\n");
 }
 
 // === Manifest + redaction (privacy guard for consumer telemetry) ===
@@ -749,7 +791,7 @@ function ensureManifest(metricsDir) {
     created_at: new Date().toISOString(),
   };
   if (!existsSync(manifestPath)) {
-    try { writeFileSync(manifestPath, JSON.stringify(defaults, null, 2) + "\n"); }
+    try { safeWrite(manifestPath, JSON.stringify(defaults, null, 2) + "\n"); }
     catch {}
     return defaults;
   }
@@ -831,7 +873,7 @@ function emitInsightsForSession(input, sessionPath, sessionId, role) {
       char_count: ins.char_count,
       text: manifest.capture_insight_text ? ins.text : null,
     };
-    appendFileSync(insightsPath, JSON.stringify(row) + "\n");
+    safeAppend(insightsPath, JSON.stringify(row));
   }
   return insights.length;
 }
@@ -867,6 +909,138 @@ function extractInsightsFromJsonl(jsonlPath) {
     } catch {}
   }
   return found;
+}
+
+// === UserPromptSubmit context line: phase + round_trip + source_lock ===
+// Returns the single-line additionalContext string, or null when local.yaml
+// is absent / unreadable (greenfield pre-bootstrap stays silent). phase is
+// derived from events.jsonl (most recent pipeline.phase.start without a
+// matching pipeline.phase.end emitted by the lead agent); round_trip and
+// source_lock are sourced from local.yaml via line-match (no full YAML
+// parser, matching the rest of the file's parse strategy).
+function composeOrchestraContext(cwd) {
+  const localPath = join(cwd, ".orchestra/local.yaml");
+  const buf = safeRead(localPath, 65536);
+  if (!buf) return null;
+  const text = buf.toString("utf8");
+  const phase = readActivePhase(join(cwd, ".orchestra/metrics/events.jsonl")) || "—";
+  const roundTrip = matchField(text, /^round_trip:\s*([A-Z_]+)/m) || "—";
+  const sourceLock = extractFirstSourceLockReadPath(text) || "—";
+  return `[orchestra] phase: ${phase} | round_trip: ${roundTrip} | source_lock: ${sourceLock}`;
+}
+
+// Active phase = most-recent pipeline.phase.start whose matching
+// pipeline.phase.end has not yet been emitted. Walks events.jsonl with a
+// map of open-phase → latest-start-ts; returns the phase with the latest
+// open start_ts, or null if none open.
+function readActivePhase(eventsPath) {
+  if (!existsSync(eventsPath)) return null;
+  let content;
+  try { content = readFileSync(eventsPath, "utf8"); }
+  catch { return null; }
+  const open = new Map();
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const e = JSON.parse(line);
+      if (e.event === "pipeline.phase.start" && typeof e.phase === "string") {
+        open.set(e.phase, e.ts || "");
+      } else if (e.event === "pipeline.phase.end" && typeof e.phase === "string") {
+        open.delete(e.phase);
+      }
+    } catch {}
+  }
+  if (open.size === 0) return null;
+  let latest = null, latestTs = "";
+  for (const [p, ts] of open) {
+    if (ts >= latestTs) { latest = p; latestTs = ts; }
+  }
+  return latest;
+}
+
+// Extract the first source_lock.read_paths entry from local.yaml content.
+// Format: "first-glob" when only one; "first-glob +N" when more. Returns
+// null when source_lock.read_paths is absent or empty. Tolerates quoted
+// and bare glob strings; ignores write_paths.
+function extractFirstSourceLockReadPath(text) {
+  const m = text.match(/^source_lock:\s*\n((?:\s+\S.*\n?)+)/m);
+  if (!m) return null;
+  const readBlock = m[1].match(/^\s+read_paths:\s*\n((?:\s+-\s.*\n?)*)/m);
+  if (!readBlock) return null;
+  const reads = [];
+  for (const line of readBlock[1].split("\n")) {
+    const lm = line.match(/^\s+-\s*"?([^"\n]+?)"?\s*$/);
+    if (lm) reads.push(lm[1].trim());
+  }
+  if (reads.length === 0) return null;
+  if (reads.length === 1) return reads[0];
+  return `${reads[0]} +${reads.length - 1}`;
+}
+
+// === Cost-by-phase aggregator (workspace-wide, regenerated at every Stop) ===
+// Walks events.jsonl to build per-run phase intervals from
+// pipeline.phase.start/end pairs, then walks tokens.jsonl and assigns each
+// subagent.tokens row to the phase whose interval contains its ts. Tokens
+// landing outside any phase interval bucket under "unknown" — that's the
+// pilot's 68% (lead never emitted phase events; v4.1 fixes the emission
+// side in Phase 4 task 4.1).
+function emitCostByPhase(input) {
+  const cwd = input.cwd || process.cwd();
+  const metricsDir = join(cwd, ".orchestra/metrics");
+  const eventsPath = join(metricsDir, "events.jsonl");
+  const tokensPath = join(metricsDir, "tokens.jsonl");
+  if (!existsSync(eventsPath)) return;
+
+  const intervals = {}; // run_id -> [{ phase, start_ts, end_ts }]
+  for (const e of readJsonl(eventsPath)) {
+    if (!e.run_id || !e.ts || typeof e.phase !== "string") continue;
+    if (e.event === "pipeline.phase.start") {
+      if (!intervals[e.run_id]) intervals[e.run_id] = [];
+      intervals[e.run_id].push({ phase: e.phase, start_ts: e.ts, end_ts: null });
+    } else if (e.event === "pipeline.phase.end") {
+      const list = intervals[e.run_id] || [];
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].phase === e.phase && list[i].end_ts === null) {
+          list[i].end_ts = e.ts;
+          break;
+        }
+      }
+    }
+  }
+
+  const byPhase = {};
+  const rows = existsSync(tokensPath) ? readJsonl(tokensPath) : [];
+  for (const row of rows) {
+    const phase = findPhaseForTs(intervals[row.run_id] || [], row.ts) || "unknown";
+    if (!byPhase[phase]) {
+      byPhase[phase] = { tokens: { input: 0, output: 0, cache_read: 0, cache_create: 0 } };
+    }
+    const t = row.tokens || {};
+    byPhase[phase].tokens.input += t.input || 0;
+    byPhase[phase].tokens.output += t.output || 0;
+    byPhase[phase].tokens.cache_read += t.cache_read || 0;
+    byPhase[phase].tokens.cache_create += t.cache_create || 0;
+  }
+  for (const k of Object.keys(byPhase)) {
+    byPhase[k].cost_usd = computeUsd(byPhase[k].tokens);
+  }
+
+  const out = {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    by_phase: byPhase,
+  };
+  safeWrite(join(metricsDir, "cost-by-phase.json"), JSON.stringify(out, null, 2) + "\n");
+}
+
+function findPhaseForTs(intervals, ts) {
+  if (!ts) return null;
+  for (const iv of intervals) {
+    if (iv.start_ts <= ts && (iv.end_ts === null || ts <= iv.end_ts)) {
+      return iv.phase;
+    }
+  }
+  return null;
 }
 
 function emitHookOutputIfPreToolUse(stdin) {
