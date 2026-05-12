@@ -10,7 +10,7 @@ Inventory a brownfield workspace before the forward chain runs. Scan the doc tre
 
 ## When to use
 
-- Bootstrap detects `workspace_kind` ∈ `multi-repo | multi-service` AND the workspace has pre-existing doc-bearing directories at `context_path` or `scope_path`.
+- Bootstrap detects `system.yaml.workspace_kind` ∈ `multi-repo | multi-service` AND the workspace has pre-existing doc-bearing directories at `context_path` or `scope_path`.
 - `/orchestra` invoked on a single-repo brownfield project with root-level `*.md` / `*.puml` / `adr/`-style directories.
 - `@lead` is about to author PRD/FRS/TDD for a feature but the workspace already has `HighLevelDesign.md`, `architecture/`, `adr/`, or similar legacy material that should seed authoring rather than be ignored.
 
@@ -82,7 +82,7 @@ Frontmatter and body shape are normative — see `schemas/inventory.schema.md`. 
 - `S-SCAN-001` — the depth-limited tree from Step 1.
 - `S-CLASSIFICATION-001` — `| Path | Bucket | Confidence | Detected as |`.
 - `S-DECISIONS-001` — `| Path | Bucket | Action | Target |`.
-- `S-REGEN-PLAN-001` — `| Feature slug | Legacy seeds | Authoring agents | Notes |`. One row per feature the chain will author; the `Legacy seeds` column lists rows from `S-DECISIONS-001` whose action is `migrate-as-regen-seed` or `fold-into-*`.
+- `S-REGEN-PLAN-001` — `| Feature slug | Legacy seeds | Authoring agents | Notes |`. One row per feature the chain will author; the `Legacy seeds` column lists rows from `S-DECISIONS-001` whose action is `migrate-as-regen-seed` or `fold-into-*`. **Feature-slug discipline:** each `Feature slug` value MUST be a domain noun-phrase identifying a feature *of* the service (e.g., `order-placement`, `payment-binding`, `cart-checkout`, `refund-issuance`). Reject verb-prefixed slugs (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`, `port-*`) — those name a meta-action on the codebase, not a feature of it. Derive candidates from `project-discovery`'s "Major feature" heuristic (controllers / use-case handlers / domain packages under `services/<name>/src/`); when none of those signals are present, ask the user for a domain noun-phrase rather than slugging the user's intent verb.
 - `S-WARNINGS-001` — `| Path | Warning |`. One row per content-sniff override or low-confidence classification the user should review before approving.
 
 Frontmatter counts MUST balance:

@@ -41,8 +41,8 @@ A system-level SAD at `<context_path>/docs/SAD.md` is distinct from a service-le
 
 Election rule:
 
-- `local.yaml.workspace_kind == single-repo` → `<scope_path> == <context_path>`; only one SAD location is possible. No prompt.
-- `local.yaml.workspace_kind ∈ {multi-repo, multi-service}` AND `<scope_path> != <context_path>` AND no SAD exists at either location → **run ONE `AskUserQuestion`**: `system-level (at <context_path>/docs/SAD.md, covers all services)` / `service-level (at <scope_path>/docs/SAD.md, scoped to this service)` / `both (system-level first, then service-level)`.
+- `system.yaml.workspace_kind == single-repo` → `<scope_path> == <context_path>`; only one SAD location is possible. No prompt.
+- `system.yaml.workspace_kind ∈ {multi-repo, multi-service}` AND `<scope_path> != <context_path>` AND no SAD exists at either location → **run ONE `AskUserQuestion`**: `system-level (at <context_path>/docs/SAD.md, covers all services)` / `service-level (at <scope_path>/docs/SAD.md, scoped to this service)` / `both (system-level first, then service-level)`.
 - Pre-existing SAD at one of the two locations → bind to that location; do not re-elect. If the user wants the other scope, they delete or archive the existing SAD first.
 
 Cache the answer in `local.yaml.sad_scope: system | service | both` so subsequent features in the same run don't re-prompt.

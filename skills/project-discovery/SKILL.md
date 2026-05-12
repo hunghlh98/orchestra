@@ -92,7 +92,15 @@ When `mode == "brownfield"` AND `local.yaml.depth` is unset, elect a depth prese
 | `medium` | `<feature-id>-PRD.md` + `<feature-id>-FRS.md` + `<feature-id>-TDD.md` | `@product`, `@lead` | Default for typical brownfield bootstraps; gives requirements + design baseline |
 | `full` | `<feature-id>-PRD.md` + `<feature-id>-FRS.md` + `SAD.md` + `<feature-id>-TDD.md` + `<feature-id>-openapi.yaml` | `@product`, `@architect` (SAD), `@lead` | Architecturally rich projects with multiple services or non-trivial system boundaries; matches `chain_rigor: Full` |
 
-**Major feature** = a top-level component / domain identifiable from the source tree (`src/<domain>/`, `services/<name>/`, `controllers/<resource>/`, `cmd/<binary>/`). Heuristic, not exhaustive — consumers can re-run with `--rediscover` after manual edits to feature scope.
+**Major feature** = a domain noun-phrase identifiable from the source tree. Each candidate becomes one row in `brownfield-inventory.S-REGEN-PLAN-001` for user confirmation.
+
+Per-stack heuristic:
+- **Spring / Java:** each top-level controller class under `services/<name>/src/main/java/.../controller/` or `web/`; each command/query handler under `application/usecase/` or `application/<verb>/`; each `@RestController`-annotated class.
+- **Go:** each binary under `cmd/<name>/`; each `internal/<domain>/` package exposing public types or HTTP/RPC handlers.
+- **Node / TypeScript:** each route group under `routes/`, `controllers/`, or `api/<resource>/`; each NestJS controller class.
+- **Python:** each FastAPI `APIRouter`; each Django `app/` with `views.py`; each Flask blueprint.
+
+Slug candidates MUST be domain noun-phrases (`order-placement`, `payment-binding`, `cart-checkout`). Verb-prefixed candidates (`regen-docs`, `refactor-X`, `fix-bug`, `redoc-Y`) are not features of the service — discard and re-derive from the source tree, or escalate to the user for a domain noun-phrase. Heuristic, not exhaustive — consumers can re-run with `--rediscover` after manual edits to feature scope.
 
 **Election logic.**
 

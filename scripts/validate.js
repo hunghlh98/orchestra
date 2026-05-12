@@ -22,6 +22,10 @@ const localSchema   = loadJSON("schemas/local.schema.json");
 const LOCAL_ALLOWLIST = localSchema?.properties
   ? new Set(Object.keys(localSchema.properties).filter(k => k !== "$schema"))
   : new Set();
+const systemSchema  = loadJSON("schemas/system.schema.json");
+const SYSTEM_ALLOWLIST = systemSchema?.properties
+  ? new Set(Object.keys(systemSchema.properties).filter(k => k !== "$schema"))
+  : new Set();
 
 if (installModules && !Array.isArray(installModules.modules)) {
   errors.push("install-modules.json: 'modules' must be an array");
@@ -241,6 +245,31 @@ export function validateLocalYamlContent(relPath, raw, opts = {}) {
   }
   if (parsed.auto_mode === true && parsed.run_plan_status !== "approved") {
     errs.push(`${relPath}: auto_mode:true requires run_plan_status:approved (got ${JSON.stringify(parsed.run_plan_status)})`);
+  }
+  return errs;
+}
+
+export const VALID_WORKSPACE_KINDS = ["single-repo", "multi-repo", "multi-service"];
+
+export function validateSystemYamlContent(relPath, raw, opts = {}) {
+  const errs = [];
+  let parsed;
+  try { parsed = parseYaml(raw); }
+  catch (e) { errs.push(`${relPath}: parse error: ${e.message}`); return errs; }
+  if (!parsed || typeof parsed !== "object") return errs;
+  const allowlist = opts.allowlist || SYSTEM_ALLOWLIST;
+  if (allowlist.size > 0) {
+    for (const k of Object.keys(parsed)) {
+      if (!allowlist.has(k)) {
+        errs.push(`${relPath}: unknown top-level field '${k}' (not in schemas/system.schema.json allowlist)`);
+      }
+    }
+  }
+  if (parsed.workspace_kind !== undefined && !VALID_WORKSPACE_KINDS.includes(parsed.workspace_kind)) {
+    errs.push(`${relPath}: workspace_kind '${parsed.workspace_kind}' not in ${VALID_WORKSPACE_KINDS.join("|")}`);
+  }
+  if (parsed.registered_services !== undefined && !Array.isArray(parsed.registered_services)) {
+    errs.push(`${relPath}: registered_services must be an array`);
   }
   return errs;
 }
@@ -604,13 +633,10 @@ if (isMain) {
     }
   }
 
-  // Mutation 13: v4.1 brief 10 fields pass
+  // Mutation 13: v4.1 brief two-tier local.yaml + system.yaml pass
   {
-    const ok = [
-      `workspace_kind: multi-service`,
-      `context_path: /tmp/ws`,
+    const localOk = [
       `scope_path: /tmp/ws/services/order`,
-      `template_source: none`,
       `test_depth: stage1`,
       `source_lock:`,
       `  read_paths:`,
@@ -618,13 +644,51 @@ if (isMain) {
       `  write_paths:`,
       `    - "services/order/docs/**"`,
       `round_trip: DEFERRED`,
-      `chain_mode: standard`,
       `pipeline_id: 001-order-validation`,
       ``,
     ].join("\n");
-    const errs = validateLocalYamlContent("local.yaml", ok);
+    const errs = validateLocalYamlContent("local.yaml", localOk);
     if (errs.length !== 0) {
-      mutationErrors.push(`inverse sanity: v4.1 10-field local.yaml should pass, got: ${errs.join(", ")}`);
+      mutationErrors.push(`inverse sanity: v4.1 6-field local.yaml should pass, got: ${errs.join(", ")}`);
+    }
+
+    const systemOk = [
+      `workspace_kind: multi-service`,
+      `context_path: /tmp/ws`,
+      `registered_services:`,
+      `  - /tmp/ws/services/order`,
+      ``,
+    ].join("\n");
+    const sysErrs = validateSystemYamlContent("system.yaml", systemOk);
+    if (sysErrs.length !== 0) {
+      mutationErrors.push(`inverse sanity: v4.1 system.yaml should pass, got: ${sysErrs.join(", ")}`);
+    }
+  }
+
+  // Mutation 13b: workspace_kind in local.yaml is rejected (lives in system.yaml now)
+  {
+    const bad = `scope_path: /tmp/ws\nworkspace_kind: multi-service\n`;
+    const errs = validateLocalYamlContent("local.yaml", bad);
+    if (!errs.some(e => /unknown top-level field 'workspace_kind'/.test(e))) {
+      mutationErrors.push("mutation: workspace_kind in local.yaml should be rejected (moved to system.yaml)");
+    }
+  }
+
+  // Mutation 13c: unknown field in system.yaml is rejected
+  {
+    const bad = `workspace_kind: single-repo\ncontext_path: /tmp/ws\nfreeform_notes: "nope"\n`;
+    const errs = validateSystemYamlContent("system.yaml", bad);
+    if (!errs.some(e => /unknown top-level field 'freeform_notes'/.test(e))) {
+      mutationErrors.push("mutation: unknown field in system.yaml should be rejected by closed allowlist");
+    }
+  }
+
+  // Mutation 13d: invalid workspace_kind enum value is rejected
+  {
+    const bad = `workspace_kind: monorepo\ncontext_path: /tmp/ws\n`;
+    const errs = validateSystemYamlContent("system.yaml", bad);
+    if (!errs.some(e => /workspace_kind 'monorepo'/.test(e))) {
+      mutationErrors.push("mutation: invalid workspace_kind 'monorepo' should be rejected");
     }
   }
 

@@ -8,10 +8,7 @@
   "required": ["pipeline_id"],
   "properties": {
     "$schema": { "type": "string" },
-    "workspace_kind": { "enum": ["single-repo", "multi-repo", "multi-service"] },
-    "context_path": { "type": "string", "minLength": 1 },
     "scope_path": { "type": "string", "minLength": 1 },
-    "template_source": { "type": "string", "minLength": 1 },
     "test_depth": { "enum": ["stage1", "stage2"] },
     "source_lock": {
       "type": "object",
@@ -22,7 +19,6 @@
       }
     },
     "round_trip": { "enum": ["DEFERRED", "PENDING", "PASS", "FAIL"] },
-    "chain_mode": { "enum": ["standard", "adapted_template"] },
     "pipeline_id": { "type": "string", "minLength": 1 },
     "auto_mode": { "type": "boolean" },
     "run_plan_status": { "enum": ["drafted", "approved", "revision_requested"] },

@@ -68,40 +68,41 @@ Look at the first whitespace-separated token of `$ARGUMENTS`:
 
 Bare `/orchestra` (no subcommand) — script-first detection, then
 `AskUserQuestion` only when the answer cannot be inferred. Cache locked
-decisions to `<cwd>/.orchestra/local.yaml` so re-runs don't re-prompt.
+decisions to `<context_path>/.orchestra/system.yaml` (workspace-level)
+and `<scope_path>/.orchestra/local.yaml` (per-service) so re-runs don't
+re-prompt.
 
-Path-tier vocabulary: `<context_path>` = session-root, captured at `claude` launch (resolves from `${CLAUDE_PROJECT_DIR}` or `pwd`-at-session-start). `<scope_path>` = the elected unit subset, ⊆ `<context_path>`, written to `local.yaml`. Single-repo collapses both to the same path; multi-service and multi-repo have `<context_path>` ⊋ `<scope_path>`.
+Path-tier vocabulary: `<context_path>` = session-root, captured at `claude` launch (resolves from `${CLAUDE_PROJECT_DIR}` or `pwd`-at-session-start), persisted to `<context_path>/.orchestra/system.yaml`. `<scope_path>` = the elected unit subset, ⊆ `<context_path>`, persisted to `<scope_path>/.orchestra/local.yaml`. Single-repo collapses both to the same path (`system.yaml` and `local.yaml` live in the same `.orchestra/` dir); multi-service and multi-repo have `<context_path>` ⊋ `<scope_path>` (two `.orchestra/` dirs, system-level at context, service-level at each scope).
 
 Each step asks only when its answer cannot be inferred from prompt or repo state. Ask order:
 
-1. **Load cache.** If `<scope_path>/.orchestra/local.yaml` (or `<context_path>/.orchestra/local.yaml` pre-scope-election) exists, lift cached answers — re-runs don't re-prompt.
+1. **Load cache.** Two-tier read: `<context_path>/.orchestra/system.yaml` (workspace-level — `workspace_kind`, `context_path`, `registered_services`) and `<scope_path>/.orchestra/local.yaml` (per-service — every other field). If either file exists, lift cached answers — re-runs don't re-prompt. Pre-scope-election (workspace_kind unknown), only `system.yaml` lookup applies.
 2. **Detect mode.**
    - No `<context_path>/src/` AND no build manifest (`package.json` / `pom.xml` / `go.mod` / `Cargo.toml`) → `greenfield`.
    - `<context_path>/src/` exists OR build manifest exists → `brownfield`.
    - Ambiguous (e.g., `docs/` exists but no source) → `AskUserQuestion` (mode).
-3. **`workspace_kind`** (if `local.yaml.workspace_kind` missing). `AskUserQuestion`: `single-repo` | `multi-repo` | `multi-service`.
+3. **`workspace_kind`** (if `system.yaml.workspace_kind` missing). `AskUserQuestion`: `single-repo` | `multi-repo` | `multi-service`. On answer, create `<context_path>/.orchestra/` if absent and write `system.yaml` carrying `workspace_kind`, `context_path` (absolute), `registered_services: []` (auto-populated in Step 5).
 4. **`scope_path`** (if `local.yaml.scope_path` missing).
    - `workspace_kind == single-repo` → `scope_path = context_path`; no prompt.
    - `workspace_kind ∈ {multi-repo, multi-service}` → walk `context_path` 2 levels deep for `pom.xml` / `build.gradle` / `package.json` / `go.mod`; surface every match (absolute path) as an `AskUserQuestion` option. Zero matches → `AskUserQuestion` free-text fallback. Reject any path that escapes `context_path` (`<scope_path>` MUST be `<context_path>` itself or a descendant).
-5. **`.orchestra/` migration** (brownfield + `scope_path != context_path` only). Run BEFORE inventory so the scan sees the post-migration tree.
-   - If `<context_path>/.orchestra/` exists AND `<scope_path>/.orchestra/` does not → `mv <context_path>/.orchestra <scope_path>/.orchestra` via Bash.
-   - In-flight detection: if any non-empty dir under `<context_path>/.orchestra/pipeline/` lacks a `<feature-id>-TSR.md` carrying `ship: ALLOW`, abort with explicit error (`[orchestra] migration unsafe: in-flight pipeline at <path>`). User must complete or clean up the run before re-invoking.
-   - Collision: `<scope_path>/.orchestra/` already exists → same explicit-error abort.
+5. **`.orchestra/` placement.** Two-tier in multi-* workspaces.
+   - `workspace_kind == single-repo` (`scope_path == context_path`) → no-op. `system.yaml` and `local.yaml` both live at `<context_path>/.orchestra/`.
+   - `workspace_kind ∈ {multi-repo, multi-service}` (`scope_path != context_path`) → ensure `<scope_path>/.orchestra/` exists (create if absent — **do NOT move from context**). System-level state stays at `<context_path>/.orchestra/`; per-service state lives at `<scope_path>/.orchestra/`. If `<scope_path>` is not already in `system.yaml.registered_services`, append it (auto-register) and re-write `system.yaml`.
+   - Pre-v4.1 single-tier installs that anchored everything at `<context_path>/.orchestra/` are not migrated automatically; users hand-move `local.yaml`/`inventory.md`/`run-plan.md`/`pipeline/`/`tasks/` to `<scope_path>/.orchestra/` once and leave `metrics/` + `system.yaml` at context.
 6. **Invoke `brownfield-inventory` skill.** Loads `skills/brownfield-inventory/SKILL.md`. Runs adaptive-depth tree scan on `context_path`, classifies entries, prompts per non-empty bucket, emits `<scope_path>/.orchestra/inventory.md` (or stub on empty-workspace short-circuit per the skill's Step 1b). Block here until `inventory.md` frontmatter `user_gate: accepted` AND `status: locked`. Greenfield workspaces emit the stub and pass through immediately.
-7. **`template_source`** (if `local.yaml.template_source` missing). `AskUserQuestion`: free-text path to an existing artifact template to mirror, or `none` (default).
-8. **`test_depth`** (if `local.yaml.test_depth` missing). `AskUserQuestion`: `stage1` (contract-only black-box tests; default) | `stage2` (impl-aware suite execution).
-9. **Brownfield depth** (if `mode=brownfield` AND `local.yaml.depth` missing). `AskUserQuestion`: `light` | `medium` | `full`. Drives reverse-doc artifact-set (see `project-discovery` skill).
-10. **Chain rigor** (if `local.yaml.chain_rigor` missing). `AskUserQuestion`:
+7. **`test_depth`** (if `local.yaml.test_depth` missing). `AskUserQuestion`: `stage1` (contract-only black-box tests; default) | `stage2` (impl-aware suite execution).
+8. **Brownfield depth** (if `mode=brownfield` AND `local.yaml.depth` missing). `AskUserQuestion`: `light` | `medium` | `full`. Drives reverse-doc artifact-set (see `project-discovery` skill).
+9. **Chain rigor** (if `local.yaml.chain_rigor` missing). `AskUserQuestion`:
     - `Full` — all layers (PRD → FRS → SAD → ADR → TDD → openapi → code+tests → TSR).
     - `Standard` — skip SAD/ADR (PRD → FRS → TDD → openapi → code+tests → TSR).
     - `Light` — TDD-only (TDD → openapi → code+tests → TSR; component-internal change, no spec uplift).
-11. **Greenfield language + framework** (if `mode=greenfield` AND `local.yaml.primary_language` missing). `AskUserQuestion`:
+10. **Greenfield language + framework** (if `mode=greenfield` AND `local.yaml.primary_language` missing). `AskUserQuestion`:
     - `primary_language`: `java | kotlin | go | python | typescript | <other>`.
     - `framework`: freeform (e.g., `spring-boot 3.x`, `gin`, `fastapi`, `express`).
-12. **Spawn mode** (if `local.yaml.spawn_mode` missing). `AskUserQuestion`:
+11. **Spawn mode** (if `local.yaml.spawn_mode` missing). `AskUserQuestion`:
     - `subagent` (default) — agents spawn via `Agent({subagent_type, ...})`; no team coordination.
     - `teams` — dispatcher calls `TeamCreate` at run start; every `Agent` call passes `team_name`. Use for a single observable timeline across agents.
-13. **Autonomy level** (if `local.yaml.autonomy.level` missing). Load `skills/task-breakdown/references/autonomy-diagnostic.md` ONCE, run the 5-Q diagnostic against `$ARGUMENTS` + `local.yaml.discovery`, then `AskUserQuestion` surfacing the diagnostic's suggested tag as recommended:
+12. **Autonomy level** (if `local.yaml.autonomy.level` missing). Load `skills/task-breakdown/references/autonomy-diagnostic.md` ONCE, run the 5-Q diagnostic against `$ARGUMENTS` + `local.yaml.discovery`, then `AskUserQuestion` surfacing the diagnostic's suggested tag as recommended:
     - `EXECUTION_ONLY` — explicit step-by-step instructions; no logic formulation by AI.
     - `JOINT_PROCESSING` — iterative synchronous loop; human co-authors logic with AI.
     - `OPTION_SYNTHESIS` — AI analyzes + returns bounded option set; human picks (Consultant inversion).
@@ -109,27 +110,40 @@ Each step asks only when its answer cannot be inferred from prompt or repo state
     - `FULL_AUTONOMY` — AI executes end-to-end; human reviews via async telemetry only.
 
     Resolution precedence: `--autonomy=<tag>` CLI flag > `local.yaml.autonomy.level` > diagnostic suggestion > `DRAFT_AND_GATE`.
-14. **Persist** answered fields to `<scope_path>/.orchestra/local.yaml`. The 10-field v4.1 closed allowlist (see schema below) is required; pre-v4.1 carryover fields (`chain_rigor`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `mode`, `depth`) coexist via the JSON schema's union. `source_lock.read_paths` defaults to `["<scope_path>/**"]`; `source_lock.write_paths` defaults to `["<scope_path>/docs/**", "<scope_path>/.orchestra/**"]`. Unknown fields fail schema-load.
-15. **Author run-plan.md + approval gate.** Spawn `@lead` with prompt-tag `task: run-plan-author` (see "Run-plan author" section below). Lead writes `<scope_path>/.orchestra/run-plan.md` against `schemas/run-plan.schema.md`; dispatcher runs `AskUserQuestion` for approval. On approval, dispatcher writes `auto_mode: true` + `run_plan_status: approved` to `local.yaml`. On `revision_requested`, dispatcher writes that status, collects revision notes, re-spawns lead. Max 3 cycles; cycle 4 → write `<scope_path>/.orchestra/pipeline/run-plan-ESCALATE.md`.
-16. **Bootstrap CLAUDE.md.** Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash. Idempotent: creates `<cwd>/CLAUDE.md` if missing; otherwise splices the orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers (preserves user content). No-op when current.
-17. **Spawn @lead** with locked decisions: `"mode=<mode> rigor=<rigor> primary_language=<lang> scope_path=<scope_path> auto_mode=<auto_mode>"`. Chain-rigor selects which layers @lead routes through (see "Chain execution" below).
+13. **Persist** answered fields across the two-tier split:
+    - `<context_path>/.orchestra/system.yaml` — `workspace_kind`, `context_path`, `registered_services` (3-field closed allowlist; `additionalProperties: false`). Already created in Step 3 / appended in Step 5; this step flips `status: locked`.
+    - `<scope_path>/.orchestra/local.yaml` — `scope_path`, `test_depth`, `source_lock`, `round_trip`, `pipeline_id`, `auto_mode`, `run_plan_status` (6-field v4.1 closed allowlist) plus pre-v4.1 carryover fields (`chain_rigor`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `mode`, `depth`) via the schema union. `source_lock.read_paths` defaults to `["<scope_path>/**"]`; `source_lock.write_paths` defaults to `["<scope_path>/docs/**", "<scope_path>/.orchestra/**"]`.
+    Unknown fields fail schema-load on either file.
+14. **Author run-plan.md + approval gate.** Spawn `@lead` with prompt-tag `task: run-plan-author` (see "Run-plan author" section below). Lead writes `<scope_path>/.orchestra/run-plan.md` against `schemas/run-plan.schema.md`; dispatcher runs `AskUserQuestion` for approval. On approval, dispatcher writes `auto_mode: true` + `run_plan_status: approved` to `local.yaml`. On `revision_requested`, dispatcher writes that status, collects revision notes, re-spawns lead. Max 3 cycles; cycle 4 → write `<scope_path>/.orchestra/pipeline/run-plan-ESCALATE.md`.
+15. **Bootstrap CLAUDE.md.** Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash. Idempotent: creates `<cwd>/CLAUDE.md` if missing; otherwise splices the orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers (preserves user content). No-op when current.
+16. **Spawn @lead** with locked decisions: `"mode=<mode> rigor=<rigor> primary_language=<lang> scope_path=<scope_path> auto_mode=<auto_mode>"`. Chain-rigor selects which layers @lead routes through (see "Chain execution" below).
 
-### local.yaml schema
+### system.yaml schema (workspace-level)
 
-Canonical shape is `schemas/local.schema.json` (closed allowlist; `additionalProperties: false`). The v4.1 ten-field set:
+Canonical shape is `schemas/system.schema.json` (closed allowlist; `additionalProperties: false`). The v4.1 three-field set lives at `<context_path>/.orchestra/system.yaml`:
 
 ```yaml
-# v4.1 closed allowlist (10 fields)
+# v4.1 system.yaml closed allowlist (3 fields)
 workspace_kind: single-repo | multi-repo | multi-service
 context_path: <abs path; session-root captured at `claude` launch>
+registered_services:                 # auto-populated in Step 5 per scope
+  - <abs scope_path 1>
+  - <abs scope_path 2>
+status: draft | locked               # set `locked` after first persist
+```
+
+### local.yaml schema (per-service)
+
+Canonical shape is `schemas/local.schema.json` (closed allowlist; `additionalProperties: false`). The v4.1 six-field set lives at `<scope_path>/.orchestra/local.yaml`:
+
+```yaml
+# v4.1 local.yaml closed allowlist (6 fields)
 scope_path: <abs path; subset of context_path>
-template_source: <path> | none       # default `none`
 test_depth: stage1 | stage2          # default stage1
 source_lock:
   read_paths: ["<scope_path>/**"]
   write_paths: ["<scope_path>/docs/**", "<scope_path>/.orchestra/**"]
 round_trip: DEFERRED | PENDING | PASS | FAIL    # default DEFERRED
-chain_mode: standard | adapted_template          # default standard
 pipeline_id: <string>
 auto_mode: true | false              # default false; flipped on run-plan approval
 run_plan_status: drafted | approved | revision_requested
@@ -147,18 +161,18 @@ autonomy:
   resolved_by: cli_flag | local_yaml | diagnostic | default
 ```
 
-Invariants enforced by `scripts/validate.js`: `auto_mode: true` requires `run_plan_status: approved`; freeform-prose fields are forbidden (no `adapter_notes`, no `User elected: ...` strings); unknown top-level fields fail load.
+Invariants enforced by `scripts/validate.js`: `auto_mode: true` requires `run_plan_status: approved`; freeform-prose fields are forbidden on both files (no `adapter_notes`, no `User elected: ...` strings); unknown top-level fields fail load on `system.yaml` or `local.yaml`.
 
 `spawn_mode: subagent` (default) — agents spawned via `Agent({subagent_type, prompt, ...})` with no team coordination; no `team_name` field on the call. `spawn_mode: teams` — dispatcher calls `TeamCreate({team_name: "orchestra-<run-id-short>", agent_type: "orchestra-coordinator", description: <one-line intent summary>})` immediately after `local.yaml` is locked and before any agent spawn; every subsequent `Agent({...})` call passes `team_name` matching that string; on terminal state the dispatcher calls `TeamDelete` after the closing status line. The metrics hook reads both transcript layouts (sibling-dir `<parent_sid>/subagents/agent-*.jsonl` and project-root `<sid>.jsonl` fallback) regardless of mode, so observability is robust either way.
 
-`status: locked` MUST be set on `local.yaml` after first answer cache so
-`pre-write-check.js` Gate-A protects it from accidental rewrite. (Gate
-overridable via `ORCHESTRA_HOOK_PRE_WRITE_CHECK=off` if the user wants to
-re-elicit.)
+`status: locked` MUST be set on `system.yaml` AND `local.yaml` after first
+answer cache so `pre-write-check.js` Gate-A protects them from accidental
+rewrite. (Gate overridable via `ORCHESTRA_HOOK_PRE_WRITE_CHECK=off` if the
+user wants to re-elicit.)
 
 ## Run-plan author
 
-Step 15 of the decision tree above. After bootstrap fields lock and `inventory.md` is `user_gate: accepted`, the dispatcher spawns `@lead` with prompt-tag `task: run-plan-author` to author a single upfront plan that the user signs off once — replacing N per-phase confirmations with one trust grant.
+Step 14 of the decision tree above. After bootstrap fields lock and `inventory.md` is `user_gate: accepted`, the dispatcher spawns `@lead` with prompt-tag `task: run-plan-author` to author a single upfront plan that the user signs off once — replacing N per-phase confirmations with one trust grant.
 
 ### Spawn
 
@@ -210,10 +224,23 @@ reverse-doc fan-out. Algorithm:
 
 1. **Compute NNN.** Walk `<cwd>/docs/` for entries matching `^(\d{3})-`.
    `NNN = max(matches) + 1`, zero-padded to 3 digits. No matches → `001`.
-2. **Derive slug.** Lowercase the user-supplied feature name; replace
-   non-alphanumeric runs with `-`; strip leading/trailing `-`; truncate
-   to 40 chars. Collisions with an existing `docs/<NNN-prior>-<slug>` →
-   re-prompt for a different name.
+2. **Derive slug.** Slugs MUST name a *feature of the service* (a
+   domain noun-phrase like `order-placement`, `payment-binding`,
+   `cart-checkout`), never a meta-action on the codebase.
+   - **Brownfield (`inventory.md.empty_workspace: false`):** the slug
+     MUST come from a row in `<scope_path>/.orchestra/inventory.md`
+     `S-REGEN-PLAN-001` "Feature slug" column. When fan-out targets one
+     feature at a time, present the unauthored rows via `AskUserQuestion`
+     and lock the user's pick. The inventory authoring rule rejects
+     verb-prefixed slugs (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`)
+     at write time, so this step never has to.
+   - **Greenfield or empty-workspace stub:** lowercase the user-supplied
+     feature name; replace non-alphanumeric runs with `-`; strip
+     leading/trailing `-`; truncate to 40 chars. Reject verb-prefixed
+     slugs and re-prompt for a domain noun-phrase.
+   - **Collisions** with an existing `docs/<NNN-prior>-<slug>` →
+     re-prompt (brownfield: pick another inventory row; greenfield:
+     pick another name).
 3. **Persist.** Write `<feature-id>` to the spawn prompt for every
    subsequent agent in this feature's chain; agents author every artifact
    under `docs/<feature-id>/` and `<cwd>/.orchestra/pipeline/<feature-id>/`

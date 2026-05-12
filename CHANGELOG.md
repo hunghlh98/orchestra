@@ -6,7 +6,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-4.0.6 work)
+(no entries yet — placeholder for post-4.1.1 work)
+
+## [4.1.1] — 2026-05-12
+
+Patch release: drop the `adapted_template` chain-deviation feature, tighten feature-id slug discipline so brownfield feature folders name *features of the service* (not meta-actions on the codebase), and split `<workspace>/.orchestra/` into two tiers so multi-service microservices workspaces can share workspace-level state across sessions while keeping per-service chain state isolated.
+
+### Removed
+
+- **`template_source` + `chain_mode` fields** — gone from `schemas/local.schema.json`, the `commands/orchestra.md` decision tree (Step 7 elicitation deleted; subsequent steps renumbered), the `local.yaml` YAML block, the `docs/v4.1-brief.md` closed-allowlist table, and the v4.1-workflow Phase 3 task spec. The plugin no longer supports authoring outputs that mirror a consumer-supplied template — agents always emit the canonical PRD/FRS/TDD/openapi/TSR shape. Consumer-supplied intake templates (e.g. `regeneration-doc-template.md`) remain READ-ONLY input whose questions answer inside PRD/FRS/TDD bodies (item #11 rule, unchanged).
+
+### Changed
+
+- **Feature-id minting (`commands/orchestra.md`)** — Step 2 of the minting algorithm now requires brownfield slugs to come from `<scope_path>/.orchestra/inventory.md.S-REGEN-PLAN-001` "Feature slug" column rather than the user's prompt verb. Greenfield / empty-workspace fallback still slugs from the prompt but rejects verb-prefixed names (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`). The previous algorithm produced folders like `001-order-regen` (an action) instead of `001-order-placement` (a feature) because no inventory walk had constrained the slug.
+- **`skills/brownfield-inventory/SKILL.md`** — `S-REGEN-PLAN-001` row spec gained a "Feature-slug discipline" clause: domain noun-phrases only, verb prefixes rejected at inventory authoring time. Candidates derive from `project-discovery`'s per-stack "Major feature" heuristic.
+- **`skills/project-discovery/SKILL.md`** — "Major feature" heuristic broken out by stack (Spring/Java, Go, Node/TS, Python) with explicit slug-candidate sources (controllers, use-case handlers, domain packages, routers).
+- **Two-tier `.orchestra/` for multi-* workspaces** — `<context_path>/.orchestra/` holds workspace-level state (`system.yaml` + `metrics/` aggregated rollup); `<scope_path>/.orchestra/` holds per-service chain state (`local.yaml`, `inventory.md`, `run-plan.md`, `pipeline/`, `tasks/`). Single-repo workspaces collapse both tiers into one dir. The v4.1 brief's `mv <context_path>/.orchestra <scope_path>/.orchestra` rule is replaced with create-don't-move + auto-register: bootstrap creates each tier as needed and appends each new `scope_path` to `system.yaml.registered_services` so subsequent sessions targeting other services under the same context skip the workspace-level prompts.
+- **`agents/architect.md`, `skills/brownfield-inventory/SKILL.md`** — `local.yaml.workspace_kind` reads switched to `system.yaml.workspace_kind`.
+
+### Added
+
+- **`schemas/system.schema.json` (new)** — Closed allowlist for `<context_path>/.orchestra/system.yaml`: `workspace_kind` (enum), `context_path` (path), `registered_services` (list of `scope_path`), optional `status`. `additionalProperties: false`.
+- **`scripts/validate.js` — `validateSystemYamlContent` pure function** — Mirrors `validateLocalYamlContent` against the new schema; exported for mutation testing. New mutations: (13b) `workspace_kind` in `local.yaml` rejected (must live in `system.yaml`); (13c) unknown field in `system.yaml` rejected by closed allowlist; (13d) invalid `workspace_kind` enum value rejected.
+
+### Why this is a patch, not a minor
+
+The `adapted_template` removal is technically a feature deletion, but the feature was never functional in production — it was schema-allowed and decision-tree-elicited but no chain logic ever branched on `chain_mode: adapted_template` (only the pilot regression at v4.0.x attempted to use it freeform). The two-tier `.orchestra/` is a corrective placement refactor — the v4.1.0 brief's `mv`-based migration was broken for the multi-session microservices case it was supposed to enable. Both changes restore intended behavior rather than ship new capability.
 
 ## [4.0.6] — 2026-05-10
 
