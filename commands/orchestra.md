@@ -114,7 +114,7 @@ Each step asks only when its answer cannot be inferred from prompt or repo state
     - `<context_path>/.orchestra/system.yaml` — `workspace_kind`, `context_path`, `registered_services` (3-field closed allowlist; `additionalProperties: false`). Already created in Step 3 / appended in Step 5; this step flips `status: locked`.
     - `<scope_path>/.orchestra/local.yaml` — `scope_path`, `test_depth`, `source_lock`, `round_trip`, `pipeline_id`, `auto_mode`, `run_plan_status` (6-field v4.1 closed allowlist) plus pre-v4.1 carryover fields (`chain_rigor`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `mode`, `depth`) via the schema union. `source_lock.read_paths` defaults to `["<scope_path>/**"]`; `source_lock.write_paths` defaults to `["<scope_path>/docs/**", "<scope_path>/.orchestra/**"]`.
     Unknown fields fail schema-load on either file.
-14. **Author run-plan.md + approval gate.** Spawn `@lead` with prompt-tag `task: run-plan-author` (see "Run-plan author" section below). Lead writes `<scope_path>/.orchestra/run-plan.md` against `schemas/run-plan.schema.md`; dispatcher runs `AskUserQuestion` for approval. On approval, dispatcher writes `auto_mode: true` + `run_plan_status: approved` to `local.yaml`. On `revision_requested`, dispatcher writes that status, collects revision notes, re-spawns lead. Max 3 cycles; cycle 4 → write `<scope_path>/.orchestra/pipeline/run-plan-ESCALATE.md`.
+14. **Author run-plan.md + approval gate.** Spawn `@lead` with prompt-tag `task: run-plan-author` (see "Run-plan author" section below). Lead writes `<scope_path>/.orchestra/run-plan.md` against `schemas/run-plan.schema.md`. **Brownfield:** lead uses `EnterPlanMode` for source exploration + `ExitPlanMode` for native plan-approval (approval happens inside lead's turn). **Greenfield:** lead writes directly; dispatcher then runs `AskUserQuestion(approve|revise)`. On approval (either branch), dispatcher writes `auto_mode: true` + `run_plan_status: approved` to `local.yaml`. On rejection, dispatcher writes `run_plan_status: revision_requested`, collects revision notes via `AskUserQuestion`, re-spawns lead. Max 3 cycles; cycle 4 → write `<scope_path>/.orchestra/pipeline/run-plan-ESCALATE.md`.
 15. **Bootstrap CLAUDE.md.** Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash. Idempotent: creates `<cwd>/CLAUDE.md` if missing; otherwise splices the orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers (preserves user content). No-op when current.
 16. **Spawn @lead** with locked decisions: `"mode=<mode> rigor=<rigor> primary_language=<lang> scope_path=<scope_path> auto_mode=<auto_mode>"`. Chain-rigor selects which layers @lead routes through (see "Chain execution" below).
 
@@ -189,11 +189,19 @@ Agent({
 
 ### Approval gate (dispatcher, not lead)
 
-After `@lead` writes `run-plan.md` and ends turn, the dispatcher:
+After `@lead` ends turn from `task: run-plan-author`, dispatcher behavior splits by `local.yaml.mode`. Approval mechanism differs; outcomes (write `local.yaml`, revise loop, 3-cycle cap) are identical.
+
+**Brownfield (`local.yaml.mode == brownfield`)** — @lead used `EnterPlanMode` + `ExitPlanMode`; user approve / reject already happened natively inside @lead's turn.
+
+1. Check `<scope_path>/.orchestra/run-plan.md` exists at the canonical path.
+2. **If present** (user accepted in `ExitPlanMode`) — write to `local.yaml`: `auto_mode: true`, `run_plan_status: approved`. Flip `run-plan.md` frontmatter `status: draft → locked`, `run_plan_status: drafted → approved` (via `@lead` re-spawn with prompt-tag `task: run-plan-lock`, or via dispatcher `Edit` carve-out matching the local.yaml exception).
+3. **If absent** (user rejected in `ExitPlanMode`) — `AskUserQuestion` free-text for revision notes; write `local.yaml`: `run_plan_status: revision_requested`. Re-spawn `@lead` with prompt-tag `task: run-plan-author` AND `revision_notes: <user text>`, incrementing `revision_cycle` in run-plan.md frontmatter.
+
+**Greenfield (`local.yaml.mode == greenfield`)** — @lead wrote `run-plan.md` directly without plan mode; dispatcher owns the gate.
 
 1. `Read(<scope_path>/.orchestra/run-plan.md)`.
 2. `AskUserQuestion`: present a single-line summary (phase count + feature count + auto-gated vs preserved gate count); options: `approve` / `revise`.
-3. **On `approve`** — write to `local.yaml`: `auto_mode: true`, `run_plan_status: approved`. Flip `run-plan.md` frontmatter `status: draft → locked`, `run_plan_status: drafted → approved` (via `@lead` re-spawn with prompt-tag `task: run-plan-lock`, or via dispatcher `Edit` carve-out matching the local.yaml exception).
+3. **On `approve`** — write to `local.yaml`: `auto_mode: true`, `run_plan_status: approved`. Flip `run-plan.md` frontmatter `status: draft → locked`, `run_plan_status: drafted → approved` (as above).
 4. **On `revise`** — `AskUserQuestion` free-text for revision notes; write `local.yaml`: `run_plan_status: revision_requested`. Re-spawn `@lead` with prompt-tag `task: run-plan-author` AND `revision_notes: <user text>`, incrementing `revision_cycle` in run-plan.md frontmatter.
 
 ### Rejection-cycle cap

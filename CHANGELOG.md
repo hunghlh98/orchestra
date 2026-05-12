@@ -6,7 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-4.1.1 work)
+(no entries yet — placeholder for post-4.1.2 work)
+
+## [4.1.2] — 2026-05-12
+
+Patch release: run-plan approval gate splits by `local.yaml.mode`. Brownfield now uses Claude Code plan mode (`EnterPlanMode` for source exploration + `ExitPlanMode` for native approval) so `@lead` verifies the inventory's regen feature list against actual source under `<scope_path>/src/**` before proposing the run plan. Greenfield is unchanged.
+
+### Changed
+
+- **`agents/lead.md` §"Bootstrap: run-plan authoring"** — split into brownfield branch (`EnterPlanMode` → explore `<scope_path>/src/**` via Glob/Grep/Read → author plan body into plan-mode designated plan file → `ExitPlanMode` native approval → on accept `Write` body + orchestra frontmatter to canonical `<scope_path>/.orchestra/run-plan.md`; on reject end turn without canonical write) and greenfield branch (direct `Write` to canonical path; no plan mode). Required anchors and frontmatter shape deduped into shared steps — `run-plan.md` schema shape identical across branches.
+- **`commands/orchestra.md`** — decision-tree step 14 + "Approval gate (dispatcher, not lead)" now split by `local.yaml.mode`. Brownfield path: dispatcher checks file presence at canonical path post-end-of-turn (present = ExitPlanMode accept; absent = reject + revise loop). Greenfield path: retains `AskUserQuestion(approve|revise)`. Revise-loop semantics, 3-cycle cap, and `auto_mode` / `run_plan_status` writes are unchanged across both branches.
+- **`docs/v4.1-brief.md` §16, `docs/v4.1-workflow.md` row 3.5** — target-state prose + workflow row updated to describe the mode split + per-branch verification fixtures.
+
+### Why this is a patch, not a minor
+
+Schema shape is unchanged: `run-plan.md` body, `local.yaml` allowlist, and the dispatcher's approval-outcome contract (`auto_mode: true` + `run_plan_status: approved` on accept) are byte-identical across branches. Greenfield behavior is unchanged from v4.1.1. The brownfield branch adds a verification-only mechanism — plan mode cannot mutate the run-plan schema, skip any failure gate, or bypass the 3-cycle revise cap.
+
+### Smoke status
+
+**Pending.** Doc-only release. The brownfield branch assumes (a) `EnterPlanMode` / `ExitPlanMode` are exposed inside a spawned-subagent context, and (b) plan-mode-exit preserves @lead's turn-context body so the post-accept `Write` to the canonical path doesn't need to re-read the designated plan file. Both need a real brownfield smoke chain to verify; if either fails the brownfield branch needs reshape (dispatcher-side plan-mode wrapper, or two-file shape with explicit body re-read).
 
 ## [4.1.1] — 2026-05-12
 

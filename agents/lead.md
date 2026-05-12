@@ -94,15 +94,26 @@ When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (fires at `lo
 
 Triggered by dispatcher spawn with prompt-tag `task: run-plan-author`. One-time per `pipeline_id`, at bootstrap completion (after `inventory.md` is `user_gate: accepted`, before any feature-chain spawn).
 
-1. Read `<scope_path>/.orchestra/local.yaml` (bootstrap fields: `workspace_kind`, `context_path`, `scope_path`, `test_depth`, `primary_language`, `framework`, `pipeline_id`).
+1. Read `<scope_path>/.orchestra/local.yaml` (bootstrap fields: `workspace_kind`, `context_path`, `scope_path`, `test_depth`, `primary_language`, `framework`, `pipeline_id`, `mode`).
 2. Read `<scope_path>/.orchestra/inventory.md` — the `S-REGEN-PLAN-001` table is your source for the run-plan's `S-FEATURES-001` rows. For greenfield (`empty_workspace: true`), the table is empty; mint features from `$ARGUMENTS` instead.
-3. Author `<scope_path>/.orchestra/run-plan.md` against `schemas/run-plan.schema.md`. Required anchors in order:
+
+3. **Brownfield branch (`local.yaml.mode == brownfield`):**
+   - `EnterPlanMode`. In plan mode, explore `<scope_path>/src/**` via `Glob` / `Grep` / `Read` to verify each `S-REGEN-PLAN-001` candidate corresponds to a real feature in source, prune misclassifications, and surface any feature the inventory scan missed.
+   - Author the run-plan body (anchors in step 5) into plan mode's designated plan file.
+   - `ExitPlanMode`. Claude Code renders the native plan-approval pane against the designated plan file. User accept / reject is the gate signal.
+   - **On accept** — plan mode exits. `Write(<scope_path>/.orchestra/run-plan.md, <same body>)` with the frontmatter from step 6. End turn.
+   - **On reject** — end turn without writing the canonical path. Dispatcher detects absence and re-spawns you with `revision_notes`.
+
+4. **Greenfield branch (`local.yaml.mode == greenfield`):** Skip plan mode (no source to explore). `Write(<scope_path>/.orchestra/run-plan.md, ...)` directly with the anchors in step 5 (omit `gap-resolution` phase; legacy-seeds cells empty) and frontmatter from step 6. End turn. Dispatcher gates approval via `AskUserQuestion(approve|revise)` after end-of-turn.
+
+5. **Required anchors** in `run-plan.md`, in order, identical across both branches:
    - `S-CONTEXT-001` — `| Field | Value |` lift of bootstrap fields above.
    - `S-PHASES-001` — `| Phase | Agents | Output anchors |`. Phases: `discovery` → `spec-draft` → `verification` → `gap-resolution` → `gate`. Omit `gap-resolution` for greenfield (no divergences to ratify).
    - `S-FEATURES-001` — `| Feature slug | Authoring agents | Artifacts | Legacy seeds |`. Legacy seeds reference `inventory.md` `S-DECISIONS-001` rows with action `migrate-as-regen-seed` or `fold-into-*`; empty cell for greenfield.
    - `S-GATES-001` — `| Gate | Auto-passed under auto_mode | Preserved under auto_mode |`. Preserved column MUST list: reviewer `REVISE` / `BLOCK` / `ALLOW_WITH_GAP`, allowed-set violations, diagram-allowlist violations, schema-validation failures, `ESCALATE` / `DEADLOCK` emission.
    - `S-APPROVAL-001` — `plan_status: drafted`. On revision re-spawn, lift any prior `revision_notes` from the spawn prompt into this section verbatim.
-4. Frontmatter: `id: run-plan`, `type: RUN-PLAN`, `status: draft`, `run_plan_status: drafted`, `revision_cycle: 0` (or incremented value from prior spawn). End turn.
+
+6. **Frontmatter**: `id: run-plan`, `type: RUN-PLAN`, `status: draft`, `run_plan_status: drafted`, `revision_cycle: 0` (or incremented value from prior spawn).
 
 Do NOT write `local.yaml` yourself — the dispatcher owns approval and writes. On revision re-spawn, your prompt-tag will include `revision_notes: <text>`; lift those verbatim into a new `## Revision notes` subsection of `S-APPROVAL-001` and adjust the affected `S-PHASES-001` / `S-FEATURES-001` rows accordingly.
 
