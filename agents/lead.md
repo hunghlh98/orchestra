@@ -93,6 +93,11 @@ Triggered by dispatcher spawn with prompt-tag `task: run-plan-author`. One-time 
 
 3. **Brownfield branch (`local.yaml.mode == brownfield`):**
    - `EnterPlanMode`. In plan mode, explore source under `local.yaml.source_lock.read_paths` via `Glob` / `Grep` / `Read`. Feature-slug minting is your job here: scan controllers / use-case handlers / domain packages (e.g., `services/<service_name>/src/main/java/**/controller/**`, `**/usecase/**`, `**/domain/**`) and mint one `S-FEATURES-001` row per major capability. Slugs MUST be domain noun-phrases (`order-placement`, `payment-binding`, `cart-checkout`); reject verb-prefixed forms (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`, `port-*`) — those name a meta-action on the codebase, not a feature of it. Cross-reference your candidate list with CSD `S-SUB-CAPABILITIES-001` (if present) and inventory `S-DECISIONS-001` seeds; prune misclassifications.
+   - **Feature breakdown** (during plan-mode source exploration):
+     1. Walk source for entry points — HTTP handlers, async consumers, scheduled jobs, CLI mains.
+     2. Identify the user actor and goal for each entry point. From PRD `S-STAKEHOLDERS-001` for external services; from the calling-service identity for internal-only services.
+     3. Group entry points by `(actor × goal)` — each group is one user-journey.
+     4. Promote a journey to `S-FEATURES-001` iff it can start alone (remove it; the earlier features still form a usable system) AND has enough surface to warrant its own PRD-FRS-TDD-openapi-TSR chain. Trivial separable journeys fold as sub-sections of a parent feature's docs.
    - Author the run-plan body (anchors in step 5) into plan mode's designated plan file.
    - `ExitPlanMode`. Claude Code renders the native plan-approval pane against the designated plan file. User accept / reject is the gate signal.
    - **On accept** — plan mode exits. `Write(<context_path>/.orchestra/<service_name>/run-plan.md, <same body>)` with the frontmatter from step 6. End turn.
