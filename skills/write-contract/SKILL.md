@@ -1,14 +1,19 @@
 ---
 name: write-contract
-description: "Lifts PRD/FRS acceptance criteria into docs/<feature-id>/<feature-id>-openapi.yaml `description:` fields with inline CRITICAL markers. Use when @lead binds a spec to grading."
+description: "Lifts PRD/FRS criteria into <feature-id>-openapi.yaml (producer endpoints) and <feature-id>-clientapi.yaml (consumer contracts on upstream). Use when @lead binds spec to grading."
 origin: orchestra
 ---
 
 # write-contract
 
-Produces `docs/<feature-id>/<feature-id>-openapi.yaml`. `@lead` writes; `@test` lifts criteria into the TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
+Produces TWO artifacts:
+
+- `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` — **producer contract**: endpoints this feature *publishes*. `@lead` writes; `@test` lifts criteria into the TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
+- `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml` — **consumer contract**: the contract this feature *requires from upstream services it calls* (one file covers all outbound HTTP deps for the feature; `info.title: "client-contract: <upstream-service>"` — one document per upstream, or a single multi-paths document with each `paths.<route>` carrying an `x-orchestra-upstream: <service>` extension). Authored when CSD `S-CONTRACT-001` has any row with direction `outbound-http`.
 
 The contract IS the openapi document — there is no separate CONTRACT.md. Acceptance criteria live as prose in `description:` fields per operation / response. Critical criteria are flagged inline. Probe DSL + grading rules live in `qa-test-planner` (TSR `S-TEST-001`) and `@evaluator`'s rubric — not in this artifact.
+
+AsyncAPI already handles both publish + subscribe shapes natively; one `<feature-id>-asyncapi.yaml` per feature covers both directions — keep that one file and document subscribe-side requirements in its own `description:` fields as a typed contract section.
 
 ## When to use
 
@@ -33,9 +38,9 @@ Patterns:
 
 A **critical** criterion fails the feature on a single FAIL regardless of other PASSes. Reserve for: security leaks, data-loss paths, compliance-mandated behavior, broken contracts. Mark inline in the `description:` text with the literal token `CRITICAL:` so `@evaluator`'s rubric can grep for it.
 
-### Step 3 — Author the openapi document
+### Step 3 — Author the producer openapi document
 
-Path: `docs/<feature-id>/<feature-id>-openapi.yaml`. Top-of-file `# orchestra:` comment block carries frontmatter-equivalent metadata (`pre-write-check.js` parses it). v4 frontmatter shape (slim):
+Path: `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml`. Top-of-file `# orchestra:` comment block carries frontmatter-equivalent metadata (`pre-write-check.js` parses it). Frontmatter shape (slim):
 
 ```yaml
 # orchestra:
@@ -79,11 +84,56 @@ paths:
 
 Set frontmatter `sections.S-API-001.status: locked` after the body is final. `@test` Stage-1 reads this `locked` shell as its single source of truth for criteria.
 
+### Step 3b — Author the consumer clientapi document (when outbound HTTP deps exist)
+
+Path: `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml`. Same OpenAPI 3.0 shape as the producer file with `info.title: "client-contract: <upstream-service>"` (or a single document carrying `x-orchestra-upstream: <service>` per route). For each row in CSD `S-CONTRACT-001` with direction `outbound-http` that this feature exercises, document the route, method, request body, expected responses, and the contract assumptions this feature *requires* from the upstream. Use the inline `CRITICAL:` token for fields the feature depends on (e.g., `CRITICAL: response.idempotency_key MUST be echoed in 201 body`). Use `manual_evaluation:` for upstream behavior the feature can't probe (third-party SLA, eventual consistency window).
+
+Top-of-file `# orchestra:` block:
+
+```yaml
+# orchestra:
+#   id: <feature-id>-clientapi
+#   type: API
+#   status: draft
+#   readers:
+#     - "@architect"
+#     - "@lead"
+#     - "@backend"
+#     - "@test"
+#     - "@evaluator"
+#     - "@reviewer"
+#   sections:
+#     S-CLIENT-API-001:
+#       writer: "@lead"
+#       status: in_progress
+openapi: 3.0.3
+info:
+  title: "client-contract: ledger-service"
+  description: |
+    Contracts this feature requires from ledger-service. The feature breaks
+    if any "CRITICAL:" assumption changes upstream.
+  version: 1.0.0
+paths:
+  /v1/ledger/transfers:
+    post:
+      summary: Record a transfer (called by this feature)
+      description: |
+        - CRITICAL: 201 body MUST echo idempotency_key from request.
+        - CRITICAL: replay (same key, different body) returns 409 — feature relies on this for de-dupe.
+        - Latency assumption: p99 < 200ms at our call rate (manual_evaluation).
+      requestBody: { ... }
+      responses:
+        "201": { ... }
+        "409": { ... }
+```
+
+One `clientapi.yaml` covers all outbound HTTP deps for the feature. `@test` lifts each `CRITICAL:` clientapi criterion into a contract-test row in TSR `S-TEST-001` so a breaking change upstream is caught at the seam.
+
 ### Step 4 — Author sequence diagrams for critical paths
 
-For each `CRITICAL:` criterion (and any complex multi-component flow), author a sequence diagram at `docs/<feature-id>/diagrams/<feature-id>-sequence-intra-<usecase>.puml`. The `post-write-puml` hook renders each `.puml` to a paired `.svg`. Embed via `![<usecase>](diagrams/<feature-id>-sequence-intra-<usecase>.svg)` in the corresponding TDD section, NOT in the openapi (YAML can't embed images).
+For each `CRITICAL:` criterion (and any complex multi-component flow), author a sequence diagram at `docs/<service_name>/<feature-id>/diagrams/<feature-id>-sequence-intra-<usecase>.puml`. The `post-write-puml` hook renders each `.puml` to a paired `.svg`. Embed via `![<usecase>](diagrams/<feature-id>-sequence-intra-<usecase>.svg)` in the corresponding TDD section, NOT in the openapi (YAML can't embed images).
 
-Filename convention matches the `c4-architecture` skill's two-folder model (project singletons under `docs/diagrams/`; per-feature copies under `docs/<feature-id>/diagrams/` with the `<feature-id>-` prefix).
+Filename convention matches the `c4-architecture` skill's three-scope model (system singletons under `docs/diagrams/`; service singletons under `docs/<service_name>/diagrams/`; per-feature copies under `docs/<service_name>/<feature-id>/diagrams/` with the `<feature-id>-` prefix).
 
 ## Probe DSL — quick reference
 
