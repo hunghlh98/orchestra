@@ -438,7 +438,7 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
    After all reverse-doc spawns idle, parent flips `local.yaml.bootstrap: completed` and proceeds to Step 3. On subsequent `/orchestra` runs, this step is a no-op (greenfield-equivalent forward chain).
 3. **Spawn @lead.** Pass locked decisions in prompt. @lead routes the forward chain.
 4. **@lead routes through layers** per chain-rigor:
-   - **Business** (Full/Standard) — @product writes `docs/<feature-id>/<feature-id>-PRD.md` then `docs/<feature-id>/<feature-id>-FRS.md`. PRD `S-OPEN-Q-001` flags open questions; FRS lifts and resolves or escalates (BL-0029).
+   - **Business** (Full/Standard) — @product writes `docs/<feature-id>/<feature-id>-PRD.md` then `docs/<feature-id>/<feature-id>-FRS.md`. Locked PRD/FRS carry no open questions; surfaced uncertainty resolves via `AskUserQuestion` / `ESCALATE` / `ESCALATE-ADR` per `agents/product.md` "Question-resolution policy" before lock.
    - **Architecture** (Full only) — @architect writes `docs/SAD.md` (singleton; first-feature bootstrap) and `docs/adr/ADR-NNNN-<slug>.md` (per ADR trigger; ADRs are global, not feature-scoped). C4 L1+L2 diagrams + Logical ERD + Inter-service Sequence as `.puml` under `docs/diagrams/`.
    - **Component** (always) — @lead writes `docs/<feature-id>/<feature-id>-TDD.md` (C4 L3 + Intra-service Sequence + Technical State if applicable + Physical DB if schema touched).
    - **Boundary** (always) — @lead writes `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`). CONTRACT narrative folds inline via `description:` fields and top-of-file `# orchestra:` comment block.

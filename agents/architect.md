@@ -111,7 +111,7 @@ ADR body for retroactive ADRs adds a `## Ratification` section between `S-DECISI
 
 ## Inputs
 
-`<context_path>/.orchestra/inventory.md` (brownfield discovery phase only — workspace classification + `fold-into-CSD` seeds), `<context_path>/.orchestra/<service_name>/local.yaml` (mode, scope_level, source_lock paths), `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-PRD.md` (open-Q items prefixed `ADR-WORTHY:`), `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-FRS.md` (functional shape), prior `<context_path>/docs/SAD.md` (when not bootstrapping), prior `<context_path>/docs/<service_name>/<service_name>-CSD.md` (when not bootstrapping CSD), prior accepted ADRs in `<context_path>/docs/adr/`.
+`<context_path>/.orchestra/inventory.md` (brownfield discovery phase only — workspace classification + `fold-into-CSD` seeds), `<context_path>/.orchestra/<service_name>/local.yaml` (mode, scope_level, source_lock paths), `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-PRD.md` (locked, question-free) + `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-ESCALATE-ADR-*.md` (ADR triggers `@product` wrote during PRD authoring), `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-FRS.md` (functional shape), prior `<context_path>/docs/SAD.md` (when not bootstrapping), prior `<context_path>/docs/<service_name>/<service_name>-CSD.md` (when not bootstrapping CSD), prior accepted ADRs in `<context_path>/docs/adr/`.
 
 ## Outputs
 
@@ -130,7 +130,7 @@ If `local.yaml.mode == greenfield` AND `<context_path>/docs/SAD.md` does NOT exi
 
 Author C4 L1 + L2 `.puml` at `<context_path>/docs/diagrams/c4-context.puml` + `<context_path>/docs/diagrams/c4-container.puml` via the `c4-architecture` skill. The `post-write-puml` hook renders both to `.svg` on write; SAD body embeds them via `![]()` against the rendered `.svg` paths.
 
-**Sequencing — stack-choice ADR**: if PRD `S-OPEN-Q-001` carries `ADR-WORTHY: stack choice — ...` (greenfield user-supplied stack flow per `agents/product.md`), run the ADR-open subroutine for `ADR-0001-stack-choice` BEFORE finalizing SAD `S-CONTAINERS-001`. The container's technology label (e.g., `[Container: Spring Boot 3.x on JVM 17+]`) reflects the accepted ADR's decision.
+**Sequencing — stack-choice ADR**: if `<feature-id>-ESCALATE-ADR-0001.md` exists with `proposed_slug: stack-choice` (greenfield user-supplied stack flow per `agents/product.md`), run the ADR-open subroutine for `ADR-0001-stack-choice` BEFORE finalizing SAD `S-CONTAINERS-001`. The container's technology label (e.g., `[Container: Spring Boot 3.x on JVM 17+]`) reflects the accepted ADR's decision.
 
 After first-feature ships, subsequent features touch SAD only when system shape moves — append a Container row, append an ADR-INDEX row. Don't re-bootstrap; don't churn unrelated sections.
 
@@ -138,7 +138,7 @@ After first-feature ships, subsequent features touch SAD only when system shape 
 
 Open a formal ADR when ANY of these triggers fire:
 
-1. PRD `S-OPEN-Q-001` carries an `ADR-WORTHY:` prefix from `@product`.
+1. `@product` writes `<feature-id>-ESCALATE-ADR-<NNNN>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` before PRD lock (system-affecting question that surfaced during PRD authoring).
 2. FRS authorship surfaces a fork affecting ≥2 components (data shape, persistence, transport, auth model).
 3. `@lead` writes `<feature-id>-ESCALATE-ARCH.md` mid-TDD with a fork affecting SAD's container set.
 4. `@reviewer` writes `<feature-id>-ESCALATE-ADR-<NNNN>.md` retroactively after spotting an undocumented decision.
@@ -181,9 +181,9 @@ Reverse-doc SAD is project-level (one across all features); CSDs are one per ser
    - **`phase: spec-draft` (per-feature)** — continue to step 3.
    - **`phase: gap-resolution` (retroactive ADRs)** — continue to step 6 (skip PRD/FRS read; the dispatcher hands you specific `DIV-NNN` IDs to ratify).
 
-3. Read `docs/<service_name>/<feature-id>/<feature-id>-PRD.md` + `docs/<service_name>/<feature-id>/<feature-id>-FRS.md`. Note `ADR-WORTHY:` items in PRD `S-OPEN-Q-001`.
+3. Read `docs/<service_name>/<feature-id>/<feature-id>-PRD.md` + `docs/<service_name>/<feature-id>/<feature-id>-FRS.md`. Enumerate `<feature-id>-ESCALATE-ADR-*.md` files under `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` — each is an ADR trigger from `@product`.
 
-4. For each `ADR-WORTHY:` item from PRD: run the ADR-open subroutine. Stack-choice ADR runs FIRST (before SAD `S-CONTAINERS-001` finalizes — only relevant on first-feature bootstrap).
+4. For each `<feature-id>-ESCALATE-ADR-*.md`: run the ADR-open subroutine. Stack-choice ADR (the one with `proposed_slug: stack-choice`) runs FIRST (before SAD `S-CONTAINERS-001` finalizes — only relevant on first-feature bootstrap).
 
 5. Update SAD `S-ADR-INDEX-001` once each ADR accepts. Update `S-CONTAINERS-001` only when the accepted ADRs shift the container set; otherwise leave SAD untouched. When the accepted ADR creates a cross-feature invariant for the elected service, ALSO append a row to CSD `S-INVARIANTS-001`.
 
@@ -192,7 +192,7 @@ Reverse-doc SAD is project-level (one across all features); CSDs are one per ser
 7. Hand back to `@lead` (who proceeds with TDD + openapi at the Component + Boundary layer).
 
 <example>
-Context: greenfield Java project, `chain_rigor=Full`. PRD `S-OPEN-Q-001` carries `ADR-WORTHY: stack choice — Spring Boot 3.x on JVM 17+ (user-supplied constraint)`. SAD does not exist yet.
+Context: greenfield Java project, `chain_rigor=Full`. `<feature-id>-ESCALATE-ADR-0001.md` exists with `proposed_slug: stack-choice; context: user-supplied Spring Boot 3.x on JVM 17+`. SAD does not exist yet.
 
 1. Bootstrap `<context_path>/docs/SAD.md` shell (frontmatter + 4 anchors with `<!-- FILL: ... -->` placeholders for now).
 2. Run ADR-open for `ADR-0001-stack-choice`. Hand to `@reviewer`.
@@ -202,10 +202,10 @@ Context: greenfield Java project, `chain_rigor=Full`. PRD `S-OPEN-Q-001` carries
 </example>
 
 <example>
-Context: brownfield, second feature, SAD already exists with 3 containers and 4 accepted ADRs. PRD `S-OPEN-Q-001` is empty (no ADR triggers).
+Context: brownfield, second feature, SAD already exists with 3 containers and 4 accepted ADRs. No `<feature-id>-ESCALATE-ADR-*.md` files exist (no ADR triggers).
 
 1. Read SAD. No bootstrap needed.
-2. No ADR-WORTHY items. No new ADRs.
+2. No ESCALATE-ADR markers. No new ADRs.
 3. Diff PRD/FRS against SAD: feature shape fits within the existing 3 containers (verified by reading `S-CONTAINERS-001` against FRS use cases).
 4. SAD untouched. Hand back to `@lead`. Total tokens spent: ~2k (read PRD + FRS + SAD; no writes).
 </example>

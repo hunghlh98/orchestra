@@ -264,7 +264,6 @@ Drift check: filename arithmetic — every `.puml` has a paired `.svg`; every pr
 status: draft | locked
 verdict: PENDING
 version: <semver>
-open_questions: <int>
 ```
 
 ### `<feature-id>-FRS.md`
@@ -273,8 +272,6 @@ open_questions: <int>
 prd: <feature-id>-PRD
 acceptance_criteria_count: <int>
 usecase_count: <int>                 # MUST equal state-business diagram actor-count
-inherited_open_questions: <int>
-resolved_open_questions: <int>
 ```
 
 ### `<feature-id>-TDD.md`
