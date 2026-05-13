@@ -95,6 +95,22 @@ The fix shape is **fold up, don't sprinkle**. Before adding any "DO NOT" / "Note
 - Default to PATCH version bumps unless explicitly instructed otherwise.
 - Before making changes that touch >5 files, removing features, or expanding beyond the literal request, post a brief plan and wait for go-ahead.
 
-## Release-doc authoring
+## Release workflow
 
-Human review of CHANGELOG + version-bump output is the gate before commit. Smoke-testing the consumer install loop (`claude plugin validate .` → `/plugin marketplace add` → `/plugin install` → `/orchestra help` → bootstrap on fresh init) is **post-author, user-driven** — not a pre-commit gate. CI validators check orchestra-internal invariants but not Claude Code's plugin/marketplace schemas; if a manifest-shape drift slips past human review, the smoke loop catches it at user-run time.
+CHANGELOG is **derived from the commit log**, not hand-written. The release flow has two cycles:
+
+**Feature-commit cycle** (repeats per unit of work):
+
+1. **Author** — implement the change (code, prose, schema, etc.).
+2. **Human review** — user reviews the staged diff.
+3. **Commit** — author message per `skills/commit-message` (Conventional Commits 1.0.0). The `<type>(<scope>): <description>` line is the source of the eventual CHANGELOG row; type + `!` / `BREAKING CHANGE:` carry the SemVer effect.
+
+**Release-prep cycle** (runs when cutting a version):
+
+4. **Version + CHANGELOG** — read commits since the last release tag (`git log <prev-tag>..HEAD`), group by Conventional Commits type (`feat` → Added, `fix` → Fixed, `refactor`/`perf` → Changed, any `!` or `BREAKING CHANGE:` → Breaking), compute the SemVer bump as `max(semver-effect)` across all commits per the `skills/commit-message` type table, author the CHANGELOG entry from those groups (extract, don't re-narrate), run `node scripts/bump-version.js <semver>`.
+5. **Human review** — user reviews the generated CHANGELOG entry + the three bumped files (`VERSION`, `package.json`, `.claude-plugin/plugin.json`).
+6. **Commit** — `chore(release): vX.Y.Z` (or `chore: release vX.Y.Z`) bundling the CHANGELOG + version-file changes.
+
+**Smoke** is post-release-commit, user-driven. Not a pre-commit gate. CI validators check orchestra-internal invariants but not Claude Code's plugin/marketplace schemas; if manifest-shape drift slips past human review, the smoke loop catches it at user-run time.
+
+Why commit-derived: hand-authoring the CHANGELOG duplicates work the commit log already encodes, and drifts as the diff evolves. Conventional Commits gives commit messages machine-readable shape; the CHANGELOG becomes a deterministic projection of the log between two tags. Skip the duplication.
