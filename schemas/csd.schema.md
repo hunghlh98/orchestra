@@ -50,6 +50,8 @@ owned_table_count: <integer ≥ 0>
 contract_surface_count: <integer ≥ 0>
 invariant_count: <integer ≥ 0>
 sub_capability_count: <integer ≥ 0>
+br_count: <integer ≥ 0>
+ac_count: <integer ≥ 0>
 sections:
   S-OWNED-001:
     writer: "@architect"
@@ -57,7 +59,13 @@ sections:
   S-CONTRACT-001:
     writer: "@architect"
     status: pending | in_progress | locked
+  S-BR-001:
+    writer: "@architect"
+    status: pending | in_progress | locked
   S-INVARIANTS-001:
+    writer: "@architect"
+    status: pending | in_progress | locked
+  S-AC-001:
     writer: "@architect"
     status: pending | in_progress | locked
   S-SUB-CAPABILITIES-001:
@@ -71,7 +79,7 @@ Field notes:
 - `service_name` — MUST equal the basename of the parent directory and the `service_name` value in the corresponding `<context_path>/.orchestra/<service_name>/local.yaml`. Drift between filename, frontmatter, and `local.yaml` is a structural failure flagged by `validate.js`.
 - `scope_level` — MUST match `local.yaml.scope_level`. CSD is never authored at `scope_level: capability` (see Placement above).
 - `source_walk_root` — the path `@architect` scanned to populate CSD anchors. Typically `<context_path>/services/<service_name>/src/main/**` for JVM services, or whatever `local.yaml.source_lock.read_paths` resolves to for the elected service. Recorded for provenance — a future reader can re-run the walk and diff.
-- Count fields (`owned_table_count`, `contract_surface_count`, `invariant_count`, `sub_capability_count`) — populated when `status: locked`; equal the row counts of the four anchored tables. `validate.js` cross-checks at lock time.
+- Count fields (`owned_table_count`, `contract_surface_count`, `br_count`, `invariant_count`, `ac_count`, `sub_capability_count`) — populated when `status: locked`; equal the row counts of the six anchored tables. `validate.js` cross-checks at lock time.
 - `verdict:` is **omitted** — CSD is a structural reference doc (same family as SAD), not an evaluated artifact. Per `schemas/pipeline-artifact.schema.md` `verdict:` section, only TSR / ADR / RELEASE carry `verdict:`.
 
 Frontmatter grammar follows the frozen contract in `schemas/pipeline-artifact.schema.md` — block-style only, `@`-prefixed agent handles JSON-quoted.
@@ -84,10 +92,28 @@ Required anchors, in order:
 |---|---|---|---|
 | `S-OWNED-001` | `## Owned data` | `\| Table / topic \| Owned columns / keys \| Notes \|` | Schema + tables + Kafka topics + error namespaces this service owns. Lifted from source walk (entity classes, repository interfaces, topic constants). |
 | `S-CONTRACT-001` | `## Frozen contract surface` | `\| Path / topic \| Method / direction \| Stability \| Notes \|` | Public HTTP routes + Kafka producer/consumer surface. `Stability ∈ frozen \| evolving \| internal`. Absorbs what inventory previously called `S-CONTRACT-FREEZE-001`. |
-| `S-INVARIANTS-001` | `## Cross-feature invariants` | `\| ID \| Invariant \| Rationale \|` | Service-wide invariants every feature must honor (idempotency keys, ordering guarantees, currency precision, identity rotation rules). `ID` format `INV-NNN` zero-padded per CSD. Absorbs what inventory previously called `S-INVARIANTS-001`. |
+| `S-BR-001` | `## Business rules` | `\| ID \| Rule \| Owner \| Source \|` | Service-scoped business rules — stakeholder-signable policy statements. `ID` format `BR-NNN` zero-padded per CSD. `Owner` MUST be a named human role (`Finance`, `Compliance`, `Platform-Lead`, `Risk-Ops`) — not an agent, not a team alias. `Source` cites the policy of record (`Finance policy 2026-Q2`, `Compliance memo §3.1`, etc.). Feature FRS `S-AC-001` rows trace to a `CSD/BR-NNN`. See "BR vs INV: audience boundary" below. |
+| `S-INVARIANTS-001` | `## Cross-feature invariants` | `\| ID \| Invariant \| Rationale \|` | Service-wide implementer-only invariants every feature must honor (idempotency keys, ordering guarantees, currency precision, identity rotation rules). `ID` format `INV-NNN` zero-padded per CSD. Absorbs what inventory previously called `S-INVARIANTS-001`. |
+| `S-AC-001` | `## Service acceptance criteria` | `\| ID \| Assertion \| Verification surface \| Traces \|` | Service-grain acceptance criteria that hold across all features. `ID` format `AC-NNN` zero-padded per CSD. `Verification surface` names the test layer that proves it (`integration-test`, `contract-test`, `monitoring-alert`). `Traces` cites a parent `BR-NNN` (own CSD) or `INV-NNN` (own CSD) or `SAD/BR-NNN` / `SAD/AC-NNN` (system-level). |
 | `S-SUB-CAPABILITIES-001` | `## Sub-capability index` | `\| Feature slug \| Path \| Status \|` | Index pointing to `<context_path>/docs/<service_name>/<feature-id>/` folders authored under this service. `Status ∈ planned \| in-progress \| shipped`. Append-only as features land. |
 
 Anchor regex aligns with `schemas/pipeline-artifact.schema.md` `body-grammar` — `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Bidirectional invariant: every `sections:` key has a matching `<a id>`; every `<a id>` has a matching `sections:` key.
+
+## BR vs INV: audience boundary
+
+`S-BR-001` (business rules) and `S-INVARIANTS-001` (invariants) both state cross-feature rules; the split is by audience.
+
+- **BR (business rule)** — a stakeholder-signable policy. Stated in business-domain language; a named human role (Finance, Compliance, Platform-Lead, Risk-Ops) owns it and could agree or veto. The `Owner` cell is the test: if no human role exists who could read and sign the row, it isn't a BR — push it to `S-INVARIANTS-001`.
+- **INV (invariant)** — an implementer-only consistency rule. Stated in technical / data-shape language; describes what code must hold true (idempotency key derivation, ordering guarantee, currency-precision rule, retry policy). A business owner couldn't sign it because it's a "how", not a "what".
+
+Paired example for an order service:
+
+| Anchor | Row | Why this row goes here |
+|---|---|---|
+| `S-BR-001` | `\| BR-001 \| Refunds are only allowed within 30 days of order completion \| Finance \| Finance policy 2026-Q2 \|` | Stakeholder-signable policy; Finance owns it. |
+| `S-INVARIANTS-001` | `\| INV-001 \| Refund amount precision: stored as DECIMAL(20,4); rounding mode HALF_UP \| Audit consistency \|` | Implementer-only rule; no business stakeholder signs this. |
+
+A row appearing in BOTH anchors is a structural failure — pick one based on the audience test above.
 
 ## Authoring lifecycle
 
@@ -95,9 +121,10 @@ CSD is authored under brownfield reverse-doc by walking the elected service's so
 
 1. Walk `source_walk_root` for entity classes / `@Entity` / `@Table` / Liquibase migrations / Flyway scripts → populate `S-OWNED-001`.
 2. Walk for `@RestController` / `@RequestMapping` / `@KafkaListener` / `@KafkaTemplate` / topic constants → populate `S-CONTRACT-001`.
-3. Read existing inventory `S-DECISIONS-001` `migrate-as-regen-seed` rows whose source files describe service-wide rules (idempotency middleware, currency utilities, state-machine guards) → populate `S-INVARIANTS-001`. Cross-reference inventory targets with the source walk to deduplicate.
-4. List `<context_path>/docs/<service_name>/<feature-id>/` directories that already exist OR are planned in `run-plan.md` `S-FEATURES-001` → populate `S-SUB-CAPABILITIES-001`.
-5. Set count frontmatter fields, flip `status: locked`. Hand back to `@lead` for run-plan-driven feature authoring.
+3. Read existing inventory `S-DECISIONS-001` `migrate-as-regen-seed` rows whose source files describe service-wide rules. Sort each rule by the audience test: stakeholder-signable policy → `S-BR-001` (require named human Owner per row; an unsigned BR row is a structural failure); implementer-only consistency rule → `S-INVARIANTS-001`. Cross-reference inventory targets with the source walk to deduplicate.
+4. Seed `S-AC-001` from service-grain acceptance the source already evidences (e.g., integration-test suites pinned at CI level, contract-test suites, monitoring SLO alerts). Each row MUST cite a parent `BR-NNN` / `INV-NNN` in own CSD or `SAD/BR-NNN` / `SAD/AC-NNN` in the system SAD via the `Traces` cell.
+5. List `<context_path>/docs/<service_name>/<feature-id>/` directories that already exist OR are planned in `run-plan.md` `S-FEATURES-001` → populate `S-SUB-CAPABILITIES-001`.
+6. Set count frontmatter fields, flip `status: locked`. Hand back to `@lead` for run-plan-driven feature authoring.
 
 CSD is **non-iterative within a run** — author once at `phase: discovery`, lock, then read-only for all downstream agents in the same run. Mutation only on subsequent runs when service shape moves (new owned table, contract evolution, new invariant ratified via ADR).
 
@@ -118,9 +145,11 @@ Per-feature concerns belong in the feature's PRD/FRS/TDD, not in CSD. If a row i
 
 - Filename matches `<service_name>-CSD.md` and `frontmatter.service_name` equals the basename derivation.
 - `scope_level ∈ {container, service}` (rejects `capability`).
-- All four required anchors present; bidirectional anchor ↔ `sections:` invariant.
-- When `status: locked`: `owned_table_count` / `contract_surface_count` / `invariant_count` / `sub_capability_count` equal the corresponding table row counts.
-- `S-INVARIANTS-001` `INV-NNN` ids monotonic and unique within the CSD.
+- All six required anchors present; bidirectional anchor ↔ `sections:` invariant.
+- When `status: locked`: `owned_table_count` / `contract_surface_count` / `br_count` / `invariant_count` / `ac_count` / `sub_capability_count` equal the corresponding table row counts.
+- `S-INVARIANTS-001` `INV-NNN` ids, `S-BR-001` `BR-NNN` ids, and `S-AC-001` `AC-NNN` ids each monotonic and unique within the CSD.
+- Every `S-BR-001` row has a non-empty `Owner` cell.
+- Every `S-AC-001` row has a non-empty `Traces` cell citing `BR-NNN` / `INV-NNN` (own CSD) or `SAD/BR-NNN` / `SAD/AC-NNN`.
 
 ## Relationship to other artifacts
 

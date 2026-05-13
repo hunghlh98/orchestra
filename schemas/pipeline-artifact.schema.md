@@ -270,7 +270,7 @@ version: <semver>
 
 ```yaml
 prd: <feature-id>-PRD
-acceptance_criteria_count: <int>
+acceptance_criteria_count: <int>     # MUST equal S-AC-001 row count
 usecase_count: <int>                 # MUST equal state-business diagram actor-count
 ```
 
