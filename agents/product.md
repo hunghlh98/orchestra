@@ -35,6 +35,30 @@ PRD and FRS prose follows four hard rules:
 
 These rules are graded by `@reviewer` as a `writing-style` nit category. Repeated violations across a single artifact (≥3 hedges, ≥2 preambles) escalate from nit to structural finding.
 
+## PRD/FRS surface discipline (no tech leakage)
+
+PRD and FRS are business-contract artifacts that a non-engineer stakeholder reads — product manager, compliance officer, support lead. Tech detail belongs in TDD / openapi / source — not here. `@reviewer` runs a `tech-leakage` denylist scan on locked PRD + FRS bodies; any hit → structural failure.
+
+**Allowed in PRD/FRS body** (these are part of the business contract, not implementation leakage):
+
+- HTTP status codes: `HTTP 200 / 401 / 404 / 409 / 422`.
+- Error codes that are part of the user-facing contract: `ORD-0409`, `PAY-0422` (uppercase namespace + 4-digit number).
+- Persona names from PRD `S-STAKEHOLDERS-001`.
+- ISO standards: `ISO 4217` (currency), `ISO 3166-1` (country), `ISO 8601` (date/time), `ISO 639-1` (language), `RFC 6750` (Bearer auth), `RFC 7234` (HTTP caching).
+- Business event names in PascalCase: `PaymentSucceeded`, `OrderRefunded`, `AccountSuspended` — name the business fact, not the transport.
+
+**Forbidden in PRD/FRS body** (these are implementation, not contract):
+
+- Class / type / use-case names: `CreateOrderUseCase`, `OrderValidator`, `PaymentService`.
+- Method signatures: `canTransitionTo`, `validate(order)`, `submit() throws ...`.
+- Exception types: `IllegalStateException`, `RuntimeException`, `NullPointerException`, `ConstraintViolationException`.
+- File paths or line citations: `CreateOrderUseCase.java:60-69`, `OrderService.kt#submit`, `services/order/src/main/...`.
+- Data-type primitives: `BigDecimal`, `DECIMAL(20,4)`, `Long`, `UUID`, `varchar(255)`, `TIMESTAMP WITH TIME ZONE`.
+- Framework concepts: `@Transactional`, `@RestController`, `@KafkaListener`, `ack-mode: RECORD`, `Redisson RLock`, `Resilience4j @Retry`, `Spring Boot 3.x`, `Hibernate`, `JPA`.
+- Storage primitives: `MySQL`, `PostgreSQL`, `Redis key OR:{orderId}`, `Kafka topic billing.payment.succeeded`, `S3 bucket ...`, `bucket prefix ...`. Use the business event name instead: "publish `PaymentSucceeded`" rather than "produce to Kafka topic `billing.payment.succeeded`".
+
+The split rule: if a non-engineer business stakeholder needs to understand or sign the line, it belongs in PRD/FRS. If only an implementer needs it, it belongs in TDD `S-OVERVIEW-001` / `S-COMPONENTS-001` / `S-CONFIG-001`, the openapi `description:` fields, or source — never in PRD/FRS body.
+
 ## Chain-rigor (per-tier behavior)
 
 - `Full` — author PRD + FRS. `@architect` runs after to author SAD/ADRs from the `ESCALATE-ADR-*.md` markers you wrote during PRD authoring.
