@@ -29,6 +29,16 @@ Generates C4-model diagrams (Context / Container / Component / Deployment / Dyna
 
 L1 + L2 + L3 are mandatory under Full rigor (L1 + L2 under Standard); L4 ships when chain_rigor=Full and component count ≥ 2 (omit per Step 4 protocol when trivial). Deployment is opt-in for production topologies.
 
+### Step 1b — Zoom continuity (parent → child)
+
+Before authoring L(n), **Read** L(n-1)'s `.puml` source. C4 only works as a model when the child diagram is a literal zoom into one specific element of the parent — a reader who scrolls from L(n-1) to L(n) must be able to trace which box opened up. Three hard rules:
+
+1. **Reuse the parent box's name as the child's outermost boundary.** When zooming from L1 → L2, wrap the L2 container set in `System_Boundary(<id>, "<exact L1 system name>") { ... }`. When zooming from L2 → L3, wrap the L3 components in `Container_Boundary(<id>, "<exact L2 container name>") { ... }`. The boundary label MUST equal the parent box's name character-for-character (case + punctuation included) — no rephrasing.
+2. **Reuse external-actor and neighbor labels verbatim.** Every `Person(...)` / `System_Ext(...)` / `ContainerDb_Ext(...)` / sibling-container reference that crosses the zoom boundary in the parent MUST appear in the child with identical id, label, and description — no renaming (`User` → `Customer`), no dropping ("we only need 3 of the 5 actors"), no merging two siblings into one neighbor box. If the parent shows it on the seam, the child shows it on the seam.
+3. **Highlight the zoom-target on the parent.** On the parent `.puml` (L(n-1)), apply `UpdateElementStyle(<zoom-target-id>, $bgColor="#1168bd", $borderColor="#0b4884", $fontColor="white")` (or `AddElementTag("focused", ...)` + `$tags="focused"` on the element if the stdlib variant in use prefers tags) to the element the child diagram opens up. The reader sees a visually distinct box on the parent and matches it to the child's `*_Boundary` name. Service-level parent singletons get this highlight once per child diagram authored against them; the highlight is permanent (not feature-scoped) and stays in the system / service singleton across runs.
+
+If any of these three fails — different name, missing actor, no highlight — the parent → child trace is broken and the child reads as a free-floating diagram. Reviewer flags as a structural violation under "diagram zoom-continuity broken" (Major; promote to structural-failure if the chain breaks at ≥2 levels).
+
 ### Step 2 — Apply MUST / MUST-NOT (binding)
 
 Every C4 `.puml` MUST:
@@ -71,6 +81,8 @@ The `post-write-puml` hook fires on `.puml` writes and renders the paired `.svg`
 
 Walk this checklist; any "no" → fix the source, do not render:
 
+- [ ] **Re-read parent `.puml` before writing this child** (per Step 1b). For L2: open `c4-context.puml` and confirm the L2 `System_Boundary` label equals the L1 system name verbatim. For L3: open `c4-container.puml` and confirm the L3 `Container_Boundary` label equals the L2 container name verbatim. For L4: open the matching service-level `c4-component.puml` and confirm the L4 layer cake's outermost grouping matches the component the L4 zooms into. External actors + crossing-seam neighbors reused verbatim.
+- [ ] **Parent diagram highlights zoom-target** (per Step 1b) — the box the child diagram opens up carries `UpdateElementStyle(..., $bgColor="#1168bd", ...)` on the parent `.puml`, so a reader scrolling L(n-1) → L(n) can trace continuity.
 - [ ] **Title** present (e.g., `title C4 Level 2 — Containers — hello-world`).
 - [ ] **Stdlib `!include`** used; no raw `rectangle` / `actor` / `component` / `package` / `node` / `database` in body.
 - [ ] **Every element**: name (1st arg), type-by-macro (`Person` / `System` / `Container` / `Component`, not just hinted in label), description (last arg), technology (3rd arg for Container / Component).
