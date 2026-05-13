@@ -54,10 +54,10 @@ Orchestra v4.0 uses a **two-folder model** so the chain artifacts can reference 
 
 | File | Owner | Trigger |
 |---|---|---|
-| `c4-l1-context.puml` | `@architect` | SAD bootstrap (greenfield) |
-| `c4-l2-container.puml` | `@architect` | SAD bootstrap |
-| `c4-l3-<service>.puml` | `@lead` | every TDD; one file per primary service container |
-| `c4-l4-<service>.puml` | `@lead` | every TDD under `chain_rigor: Full`; class structure for the service |
+| `c4-context.puml` | `@architect` | SAD bootstrap (greenfield) |
+| `c4-container.puml` | `@architect` | SAD bootstrap |
+| `c4-component-<service>.puml` | `@lead` | every TDD; one file per primary service container |
+| `c4-code-<service>.puml` | `@lead` | every TDD under `chain_rigor: Full`; class structure for the service |
 | `erd-logical.puml` | `@architect` | persistence-affecting ADR accepted |
 | `sequence-inter-<flow>.puml` | `@architect` | per cross-service flow |
 
@@ -65,9 +65,9 @@ Orchestra v4.0 uses a **two-folder model** so the chain artifacts can reference 
 
 | File | Owner | Trigger |
 |---|---|---|
-| `<feature-id>-c4-l1-context.puml` | `@lead` | every TDD; copy of project L1 with this feature's touches highlighted |
-| `<feature-id>-c4-l2-container.puml` | `@lead` | every TDD; copy of project L2 with highlights |
-| `<feature-id>-c4-l3-<service>.puml` | `@lead` | every TDD; copy of project L3 with highlights |
+| `<feature-id>-c4-context.puml` | `@lead` | every TDD; copy of project L1 with this feature's touches highlighted |
+| `<feature-id>-c4-container.puml` | `@lead` | every TDD; copy of project L2 with highlights |
+| `<feature-id>-c4-component-<service>.puml` | `@lead` | every TDD; copy of project L3 with highlights |
 | `<feature-id>-frs-usecase.puml` | `@product` | every FRS |
 | `<feature-id>-state-business.puml` | `@product` | when feature has user-facing lifecycle |
 | `<feature-id>-sequence-intra-<usecase>.puml` | `@lead` | per primary use case |
@@ -80,10 +80,10 @@ Per-feature copies of project singletons differ from their source ONLY in stylin
 
 Diagrams under any `docs/diagrams/` (project) or `docs/<feature-id>/diagrams/` (per-feature) MUST match one of the names in the two tables above. The complete first-class C4 filename set:
 
-- `c4-l1-context.puml`
-- `c4-l2-container.puml`
-- `c4-l3-<service>.puml`
-- `c4-l4-<service>.puml` (opt-in: only when `chain_rigor: Full` AND the service has ≥3 classes)
+- `c4-context.puml`
+- `c4-container.puml`
+- `c4-component-<service>.puml`
+- `c4-code-<service>.puml` (opt-in: only when `chain_rigor: Full` AND the service has ≥3 classes)
 - Per-feature copies of the above with `<feature-id>-` prefix.
 
 Forbidden by default: `AD-*` (activity), `SAGA-*`, `SD-*` (sequence — use the `sequence-inter-<flow>.puml` / `<feature-id>-sequence-intra-<usecase>.puml` names instead), `ERD-*` (use `erd-logical.puml` / `<feature-id>-erd-physical.puml`), `C2-*` / `C3-*` short-hands, ad-hoc names like `*-overview.puml` / `*-architecture.puml`.
@@ -92,7 +92,7 @@ Supplementary diagrams outside the allowlist require both `--enable-supplementar
 
 ### Step 2b — C3 is not a class diagram
 
-C3 (component) diagrams describe service-internal *components*, not Java classes. Caps when authoring `c4-l3-<service>.puml` (or its per-feature copy):
+C3 (component) diagrams describe service-internal *components*, not Java classes. Caps when authoring `c4-component-<service>.puml` (or its per-feature copy):
 
 - 5–10 components per service. More than 10 → split the service into containers at L2 first.
 - Label by responsibility (`OrderValidator`, `PaymentDispatcher`), not by Java class name (`OrderServiceImpl`).

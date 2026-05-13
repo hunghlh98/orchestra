@@ -68,28 +68,39 @@ Look at the first whitespace-separated token of `$ARGUMENTS`:
 
 Bare `/orchestra` (no subcommand) — script-first detection, then
 `AskUserQuestion` only when the answer cannot be inferred. Cache locked
-decisions to `<context_path>/.orchestra/system.yaml` (workspace-level)
-and `<scope_path>/.orchestra/local.yaml` (per-service) so re-runs don't
-re-prompt.
+decisions to a single `<context_path>/.orchestra/` rooted at the session
+root, partitioned per service via `<service_name>` subfolder:
+`<context_path>/.orchestra/system.yaml` (workspace-wide) and
+`<context_path>/.orchestra/<service_name>/local.yaml` (per-service) so
+re-runs don't re-prompt.
 
-Path-tier vocabulary: `<context_path>` = session-root, captured at `claude` launch (resolves from `${CLAUDE_PROJECT_DIR}` or `pwd`-at-session-start), persisted to `<context_path>/.orchestra/system.yaml`. `<scope_path>` = the elected unit subset, ⊆ `<context_path>`, persisted to `<scope_path>/.orchestra/local.yaml`. Single-repo collapses both to the same path (`system.yaml` and `local.yaml` live in the same `.orchestra/` dir); multi-service and multi-repo have `<context_path>` ⊋ `<scope_path>` (two `.orchestra/` dirs, system-level at context, service-level at each scope).
+Path-tier vocabulary: `<context_path>` = session-root, captured at `claude` launch (resolves from `${CLAUDE_PROJECT_DIR}` or `pwd`-at-session-start), persisted to `<context_path>/.orchestra/system.yaml`. `<service_name>` = the elected unit's directory-basename identity (e.g., `order`, `payment-engine`), persisted to `<context_path>/.orchestra/<service_name>/local.yaml`. There is exactly one `.orchestra/` per session; multi-service workspaces add more `<service_name>/` subfolders under it, never a second `.orchestra/` root.
+
+**v4.1.x layout detection (halt-only):** before executing any step below, scan for `scope_path` in any `*/local.yaml` under `<context_path>/.orchestra/**` OR `registered_services` in `<context_path>/.orchestra/system.yaml`. Either signal → write `<context_path>/.orchestra/MIGRATION-REQUIRED.md` (frontmatter `cause: legacy_v4_1_layout_detected`, body: per-service `mv` script lifted from CHANGELOG migration note) and halt before any spawn. The plugin will NOT auto-migrate; the user runs the migration script then re-invokes `/orchestra`.
 
 Each step asks only when its answer cannot be inferred from prompt or repo state. Ask order:
 
-1. **Load cache.** Two-tier read: `<context_path>/.orchestra/system.yaml` (workspace-level — `workspace_kind`, `context_path`, `registered_services`) and `<scope_path>/.orchestra/local.yaml` (per-service — every other field). If either file exists, lift cached answers — re-runs don't re-prompt. Pre-scope-election (workspace_kind unknown), only `system.yaml` lookup applies.
+1. **Load cache.** Single-tier read: `<context_path>/.orchestra/system.yaml` (workspace-wide — `workspace_kind`, `context_path`) and `<context_path>/.orchestra/<service_name>/local.yaml` (per-service — every other field; lookup deferred until Step 4 elects `service_name`). If either file exists, lift cached answers — re-runs don't re-prompt.
 2. **Detect mode.**
    - No `<context_path>/src/` AND no build manifest (`package.json` / `pom.xml` / `go.mod` / `Cargo.toml`) → `greenfield`.
    - `<context_path>/src/` exists OR build manifest exists → `brownfield`.
    - Ambiguous (e.g., `docs/` exists but no source) → `AskUserQuestion` (mode).
-3. **`workspace_kind`** (if `system.yaml.workspace_kind` missing). `AskUserQuestion`: `single-repo` | `multi-repo` | `multi-service`. On answer, create `<context_path>/.orchestra/` if absent and write `system.yaml` carrying `workspace_kind`, `context_path` (absolute), `registered_services: []` (auto-populated in Step 5).
-4. **`scope_path`** (if `local.yaml.scope_path` missing).
-   - `workspace_kind == single-repo` → `scope_path = context_path`; no prompt.
-   - `workspace_kind ∈ {multi-repo, multi-service}` → walk `context_path` 2 levels deep for `pom.xml` / `build.gradle` / `package.json` / `go.mod`; surface every match (absolute path) as an `AskUserQuestion` option. Zero matches → `AskUserQuestion` free-text fallback. Reject any path that escapes `context_path` (`<scope_path>` MUST be `<context_path>` itself or a descendant).
-5. **`.orchestra/` placement.** Two-tier in multi-* workspaces.
-   - `workspace_kind == single-repo` (`scope_path == context_path`) → no-op. `system.yaml` and `local.yaml` both live at `<context_path>/.orchestra/`.
-   - `workspace_kind ∈ {multi-repo, multi-service}` (`scope_path != context_path`) → ensure `<scope_path>/.orchestra/` exists (create if absent — **do NOT move from context**). System-level state stays at `<context_path>/.orchestra/`; per-service state lives at `<scope_path>/.orchestra/`. If `<scope_path>` is not already in `system.yaml.registered_services`, append it (auto-register) and re-write `system.yaml`.
-   - Pre-v4.1 single-tier installs that anchored everything at `<context_path>/.orchestra/` are not migrated automatically; users hand-move `local.yaml`/`inventory.md`/`run-plan.md`/`pipeline/`/`tasks/` to `<scope_path>/.orchestra/` once and leave `metrics/` + `system.yaml` at context.
-6. **Invoke `brownfield-inventory` skill.** Loads `skills/brownfield-inventory/SKILL.md`. Runs adaptive-depth tree scan on `context_path`, classifies entries, prompts per non-empty bucket, emits `<scope_path>/.orchestra/inventory.md` (or stub on empty-workspace short-circuit per the skill's Step 1b). Block here until `inventory.md` frontmatter `user_gate: accepted` AND `status: locked`. Greenfield workspaces emit the stub and pass through immediately.
+3. **`workspace_kind`** (if `system.yaml.workspace_kind` missing). `AskUserQuestion`: `single-repo` | `multi-repo` | `multi-service`. On answer, create `<context_path>/.orchestra/` if absent and write `system.yaml` carrying `workspace_kind` + `context_path` (absolute). The 2-field closed allowlist forbids any other key.
+4. **`service_name`** (if no `<context_path>/.orchestra/*/local.yaml` exists yet, or `service_name` not yet elected for this run).
+   - `workspace_kind == single-repo` → `service_name = basename(context_path)` by default; `AskUserQuestion` confirmation only when basename is ambiguous (e.g., generic `app`/`project`/`repo` names).
+   - `workspace_kind ∈ {multi-repo, multi-service}` → walk `context_path` 2 levels deep for `pom.xml` / `build.gradle` / `package.json` / `go.mod`; for each match, take the parent-directory basename (e.g., `services/order/pom.xml` → `order`) and surface as `AskUserQuestion` options. Zero matches → `AskUserQuestion` free-text fallback. Reject names containing `/`, `\`, whitespace, or `..`; reject names colliding with reserved tokens (`system`, `metrics`, `legacy`, `inventory`).
+5. **`.orchestra/<service_name>/` placement.** Ensure `<context_path>/.orchestra/<service_name>/` exists (create if absent). All per-service state — `local.yaml`, `run-plan.md`, `pipeline/`, `tasks/` — lives here. Workspace-wide state — `system.yaml`, `inventory.md`, `metrics/` — stays at `<context_path>/.orchestra/`. Multi-service runs accrete more `<service_name>/` subfolders alongside each other.
+5.5. **`scope_level`** (if `local.yaml.scope_level` missing). `AskUserQuestion`: `service` | `container` | `capability`. Drives the row count `@lead` writes into `run-plan.md` `S-FEATURES-001` and the cross-reference posture `@product` takes against the per-service CSD:
+   - `service` — the run targets the WHOLE service (one row in `S-FEATURES-001`; sub-capabilities listed inline). `@architect` authors a CSD that PRD/FRS/TDD reference by anchor; `@product` keeps PRD lean (~150 lines) by citing CSD `S-INVARIANTS-001` / `S-CONTRACT-001` instead of re-narrating.
+   - `container` — the run targets a bounded-context subset (multiple related capabilities sharing one CSD). N rows in `S-FEATURES-001`, one per capability, all referencing the same CSD.
+   - `capability` — the run targets a single named surface (e.g., `add-login`, `email-receipts`). One row; no CSD authored (CSD is only meaningful at service / container grain). PRD narrates invariants inline.
+
+   Heuristic for the recommended option:
+   - Intent contains a workspace-action verb at the front (`regen`, `regenerate`, `refactor`, `redoc`, `redocument`, `migrate`, `restructure`, `document`, `audit`) → recommend `service`.
+   - Intent names a bounded subset (`payment flows`, `billing pipeline`, `order management`) without a single feature focus → recommend `container`.
+   - Intent names a single surface (`add login`, `email receipts`, `webhook ingest`) → recommend `capability`.
+   - Persist the answer to `<context_path>/.orchestra/<service_name>/local.yaml` `scope_level`. Fire BEFORE Step 6 so `brownfield-inventory` knows whether downstream actions like `fold-into-CSD` are admissible (CSD exists only at `scope_level ∈ {container, service}`).
+6. **Invoke `brownfield-inventory` skill.** Loads `skills/brownfield-inventory/SKILL.md`. Runs adaptive-depth tree scan on `context_path`, classifies entries, prompts per non-empty bucket, emits `<context_path>/.orchestra/inventory.md` (workspace-global singleton; or stub on empty-workspace short-circuit per the skill's Step 1b). Block here until `inventory.md` frontmatter `user_gate: accepted` AND `status: locked`. Greenfield workspaces emit the stub and pass through immediately.
 7. **`test_depth`** (if `local.yaml.test_depth` missing). `AskUserQuestion`: `stage1` (contract-only black-box tests; default) | `stage2` (impl-aware suite execution).
 8. **Brownfield depth** (if `mode=brownfield` AND `local.yaml.depth` missing). `AskUserQuestion`: `light` | `medium` | `full`. Drives reverse-doc artifact-set (see `project-discovery` skill).
 9. **Chain rigor** (if `local.yaml.chain_rigor` missing). `AskUserQuestion`:
@@ -110,43 +121,48 @@ Each step asks only when its answer cannot be inferred from prompt or repo state
     - `FULL_AUTONOMY` — AI executes end-to-end; human reviews via async telemetry only.
 
     Resolution precedence: `--autonomy=<tag>` CLI flag > `local.yaml.autonomy.level` > diagnostic suggestion > `DRAFT_AND_GATE`.
-13. **Persist** answered fields across the two-tier split:
-    - `<context_path>/.orchestra/system.yaml` — `workspace_kind`, `context_path`, `registered_services` (3-field closed allowlist; `additionalProperties: false`). Already created in Step 3 / appended in Step 5; this step flips `status: locked`.
-    - `<scope_path>/.orchestra/local.yaml` — `scope_path`, `test_depth`, `source_lock`, `round_trip`, `pipeline_id`, `auto_mode`, `run_plan_status` (6-field v4.1 closed allowlist) plus pre-v4.1 carryover fields (`chain_rigor`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `mode`, `depth`) via the schema union. `source_lock.read_paths` defaults to `["<scope_path>/**"]`; `source_lock.write_paths` defaults to `["<scope_path>/docs/**", "<scope_path>/.orchestra/**"]`.
+13. **Persist** answered fields across the workspace + per-service split:
+    - `<context_path>/.orchestra/system.yaml` — `workspace_kind`, `context_path` (2-field closed allowlist; `additionalProperties: false`). Already created in Step 3; this step flips `status: locked`.
+    - `<context_path>/.orchestra/<service_name>/local.yaml` — `service_name`, `pipeline_id`, `test_depth`, `source_lock`, `tsr_gate_mode`, `auto_mode`, `run_plan_status` (v4.2 required+core set) plus pre-v4.1 carryover fields (`chain_rigor`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `mode`, `depth`) via the schema union. `source_lock.read_paths` defaults to `["<context_path>/**"]`; `source_lock.write_paths` defaults to `["<context_path>/docs/<service_name>/**", "<context_path>/.orchestra/<service_name>/**"]`.
     Unknown fields fail schema-load on either file.
-14. **Author run-plan.md + approval gate.** Spawn `@lead` with prompt-tag `task: run-plan-author` (see "Run-plan author" section below). Lead writes `<scope_path>/.orchestra/run-plan.md` against `schemas/run-plan.schema.md`. **Brownfield:** lead uses `EnterPlanMode` for source exploration + `ExitPlanMode` for native plan-approval (approval happens inside lead's turn). **Greenfield:** lead writes directly; dispatcher then runs `AskUserQuestion(approve|revise)`. On approval (either branch), dispatcher writes `auto_mode: true` + `run_plan_status: approved` to `local.yaml`. On rejection, dispatcher writes `run_plan_status: revision_requested`, collects revision notes via `AskUserQuestion`, re-spawns lead. Max 3 cycles; cycle 4 → write `<scope_path>/.orchestra/pipeline/run-plan-ESCALATE.md`.
+14. **Author run-plan.md + approval gate.** Spawn `@lead` with prompt-tag `task: run-plan-author` (see "Run-plan author" section below). Lead writes `<context_path>/.orchestra/<service_name>/run-plan.md` against `schemas/run-plan.schema.md`. **Brownfield:** lead uses `EnterPlanMode` for source exploration + `ExitPlanMode` for native plan-approval (approval happens inside lead's turn). **Greenfield:** lead writes directly; dispatcher then runs `AskUserQuestion(approve|revise)`. On approval (either branch), dispatcher writes `auto_mode: true` + `run_plan_status: approved` to `local.yaml`. On rejection, dispatcher writes `run_plan_status: revision_requested`, collects revision notes via `AskUserQuestion`, re-spawns lead. Max 3 cycles; cycle 4 → write `<context_path>/.orchestra/<service_name>/pipeline/run-plan-ESCALATE.md`.
 15. **Bootstrap CLAUDE.md.** Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash. Idempotent: creates `<cwd>/CLAUDE.md` if missing; otherwise splices the orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers (preserves user content). No-op when current.
-16. **Spawn @lead** with locked decisions: `"mode=<mode> rigor=<rigor> primary_language=<lang> scope_path=<scope_path> auto_mode=<auto_mode>"`. Chain-rigor selects which layers @lead routes through (see "Chain execution" below).
+16. **Spawn @lead** with locked decisions: `"mode=<mode> rigor=<rigor> primary_language=<lang> service_name=<name> auto_mode=<auto_mode>"`. Chain-rigor selects which layers @lead routes through (see "Chain execution" below).
 
-### system.yaml schema (workspace-level)
+### system.yaml schema (workspace-wide)
 
-Canonical shape is `schemas/system.schema.json` (closed allowlist; `additionalProperties: false`). The v4.1 three-field set lives at `<context_path>/.orchestra/system.yaml`:
+Canonical shape is `schemas/system.schema.json` (closed allowlist; `additionalProperties: false`). The v4.2 two-field set lives at `<context_path>/.orchestra/system.yaml`:
 
 ```yaml
-# v4.1 system.yaml closed allowlist (3 fields)
+# v4.2 system.yaml closed allowlist (2 fields + status)
 workspace_kind: single-repo | multi-repo | multi-service
 context_path: <abs path; session-root captured at `claude` launch>
-registered_services:                 # auto-populated in Step 5 per scope
-  - <abs scope_path 1>
-  - <abs scope_path 2>
 status: draft | locked               # set `locked` after first persist
 ```
 
+### Source-path token semantics
+
+Source-tree paths in this document and all agent prompts (`<context_path>/services/<service_name>/src/main/**`, `<context_path>/services/<service_name>/src/test/**`) are written for `workspace_kind: multi-service`, where each service lives under `<context_path>/services/<service_name>/`. Under `workspace_kind: single-repo`, the `services/<service_name>/` segment collapses — source lives directly under `<context_path>/src/main/**` and `<context_path>/src/test/**`. Agents do not parameterize on `workspace_kind`; they read the literal path that exists. The hook layer (`pre-write-check.js` Gate-D src/ purity) globs `**/src/main/**` and `**/src/test/**`, so it catches both layouts uniformly. State paths (`<context_path>/.orchestra/<service_name>/...`) and chain-artifact paths (`<context_path>/docs/<service_name>/<feature-id>/...`) are unaffected by `workspace_kind` — the per-service partition lives at the same place in both shapes.
+
 ### local.yaml schema (per-service)
 
-Canonical shape is `schemas/local.schema.json` (closed allowlist; `additionalProperties: false`). The v4.1 six-field set lives at `<scope_path>/.orchestra/local.yaml`:
+Canonical shape is `schemas/local.schema.json` (closed allowlist; `additionalProperties: false`). Lives at `<context_path>/.orchestra/<service_name>/local.yaml`:
 
 ```yaml
-# v4.1 local.yaml closed allowlist (6 fields)
-scope_path: <abs path; subset of context_path>
+# v4.2 local.yaml closed allowlist (per-service partition)
+service_name: <string; directory-basename identity, e.g. "order">
+pipeline_id: <string>
 test_depth: stage1 | stage2          # default stage1
 source_lock:
-  read_paths: ["<scope_path>/**"]
-  write_paths: ["<scope_path>/docs/**", "<scope_path>/.orchestra/**"]
-round_trip: DEFERRED | PENDING | PASS | FAIL    # default DEFERRED
-pipeline_id: <string>
+  read_paths: ["<context_path>/**"]
+  write_paths: ["<context_path>/docs/<service_name>/**", "<context_path>/.orchestra/<service_name>/**"]
+tsr_gate_mode: blocking | deferred              # default blocking
 auto_mode: true | false              # default false; flipped on run-plan approval
 run_plan_status: drafted | approved | revision_requested
+
+# scope_level / incomplete fields (closed-allowlist entries; semantics land in Tracks C)
+scope_level: service | container | capability
+incomplete: true | false
 
 # pre-v4.1 carryover fields (still load-bearing at runtime; coexist via schema union)
 mode: greenfield | brownfield
@@ -179,9 +195,10 @@ Step 14 of the decision tree above. After bootstrap fields lock and `inventory.m
 ```
 Agent({
   subagent_type: "orchestra:lead",
-  prompt: "task: run-plan-author\n
-           inputs: <scope_path>/.orchestra/local.yaml, <scope_path>/.orchestra/inventory.md\n
-           output: <scope_path>/.orchestra/run-plan.md per schemas/run-plan.schema.md\n
+  prompt: "phase: discovery\n
+           task: run-plan-author\n
+           inputs: <context_path>/.orchestra/<service_name>/local.yaml, <context_path>/.orchestra/inventory.md\n
+           output: <context_path>/.orchestra/<service_name>/run-plan.md per schemas/run-plan.schema.md\n
            Required anchors: S-CONTEXT-001, S-PHASES-001, S-FEATURES-001, S-GATES-001, S-APPROVAL-001.\n
            Emit frontmatter run_plan_status: drafted. End turn."
 })
@@ -193,20 +210,20 @@ After `@lead` ends turn from `task: run-plan-author`, dispatcher behavior splits
 
 **Brownfield (`local.yaml.mode == brownfield`)** — @lead used `EnterPlanMode` + `ExitPlanMode`; user approve / reject already happened natively inside @lead's turn.
 
-1. Check `<scope_path>/.orchestra/run-plan.md` exists at the canonical path.
+1. Check `<context_path>/.orchestra/<service_name>/run-plan.md` exists at the canonical path.
 2. **If present** (user accepted in `ExitPlanMode`) — write to `local.yaml`: `auto_mode: true`, `run_plan_status: approved`. Flip `run-plan.md` frontmatter `status: draft → locked`, `run_plan_status: drafted → approved` (via `@lead` re-spawn with prompt-tag `task: run-plan-lock`, or via dispatcher `Edit` carve-out matching the local.yaml exception).
 3. **If absent** (user rejected in `ExitPlanMode`) — `AskUserQuestion` free-text for revision notes; write `local.yaml`: `run_plan_status: revision_requested`. Re-spawn `@lead` with prompt-tag `task: run-plan-author` AND `revision_notes: <user text>`, incrementing `revision_cycle` in run-plan.md frontmatter.
 
 **Greenfield (`local.yaml.mode == greenfield`)** — @lead wrote `run-plan.md` directly without plan mode; dispatcher owns the gate.
 
-1. `Read(<scope_path>/.orchestra/run-plan.md)`.
+1. `Read(<context_path>/.orchestra/<service_name>/run-plan.md)`.
 2. `AskUserQuestion`: present a single-line summary (phase count + feature count + auto-gated vs preserved gate count); options: `approve` / `revise`.
 3. **On `approve`** — write to `local.yaml`: `auto_mode: true`, `run_plan_status: approved`. Flip `run-plan.md` frontmatter `status: draft → locked`, `run_plan_status: drafted → approved` (as above).
 4. **On `revise`** — `AskUserQuestion` free-text for revision notes; write `local.yaml`: `run_plan_status: revision_requested`. Re-spawn `@lead` with prompt-tag `task: run-plan-author` AND `revision_notes: <user text>`, incrementing `revision_cycle` in run-plan.md frontmatter.
 
 ### Rejection-cycle cap
 
-Maximum 3 revision cycles (`revision_cycle ≤ 3` per the schema invariant). Cycle 4 attempt → dispatcher writes `<scope_path>/.orchestra/pipeline/run-plan-ESCALATE.md` (frontmatter: `cause: run_plan_revision_exhausted`, `revision_cycle: 4`, `resolution: pending`) and halts. User must rescope manually.
+Maximum 3 revision cycles (`revision_cycle ≤ 3` per the schema invariant). Cycle 4 attempt → dispatcher writes `<context_path>/.orchestra/<service_name>/pipeline/run-plan-ESCALATE.md` (frontmatter: `cause: run_plan_revision_exhausted`, `revision_cycle: 4`, `resolution: pending`) and halts. User must rescope manually.
 
 ### Auto-mode runtime semantics
 
@@ -216,9 +233,12 @@ Once `local.yaml.auto_mode: true` (paired with `run_plan_status: approved`), sub
 - Per-feature confirmation prompts.
 - Autonomy-ladder `DRAFT_AND_GATE` intermediate-draft checkpoints.
 
-Preserved regardless of `auto_mode`:
+Preserved by default; reviewer-verdict gating supports a per-run override via `run-plan.md` `S-GATES-001`:
 
-- Reviewer `REVISE` / `BLOCK` / `ALLOW_WITH_GAP` verdicts.
+- Reviewer `REVISE` / `BLOCK` / `ALLOW_WITH_GAP` verdicts — preserved as blocking UNLESS an `S-GATES-001` row declares `tsr_gate_mode_override: deferred` AND the user accepted that row at run-plan approval. Default per-run: `blocking` (today's behavior). Under `deferred`, `@evaluator` + `@reviewer` still run, but in parallel with `@lead`'s hand-back instead of sequentially before turn end — verdicts append to TSR `S-EVAL-001` / `S-REVIEW-001` on idle. `/orchestra ship` gate-check tolerates absent verdict cells **only** when `tsr_gate_mode: deferred` AND the corresponding `<feature-id>-DRAFT-COMPLETE.md` exists.
+
+Always preserved (no override):
+
 - Structural-failure halts (allowed-set violations, diagram-allowlist violations, schema-validation failures).
 - `ESCALATE` / `DEADLOCK` artifact emission.
 
@@ -236,10 +256,10 @@ reverse-doc fan-out. Algorithm:
    domain noun-phrase like `order-placement`, `payment-binding`,
    `cart-checkout`), never a meta-action on the codebase.
    - **Brownfield (`inventory.md.empty_workspace: false`):** the slug
-     MUST come from a row in `<scope_path>/.orchestra/inventory.md`
-     `S-REGEN-PLAN-001` "Feature slug" column. When fan-out targets one
+     MUST come from a row in `<context_path>/.orchestra/<service_name>/run-plan.md`
+     `S-FEATURES-001` "Feature slug" column. When fan-out targets one
      feature at a time, present the unauthored rows via `AskUserQuestion`
-     and lock the user's pick. The inventory authoring rule rejects
+     and lock the user's pick. `@lead`'s run-plan authoring rejects
      verb-prefixed slugs (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`)
      at write time, so this step never has to.
    - **Greenfield or empty-workspace stub:** lowercase the user-supplied
@@ -279,11 +299,33 @@ Do NOT instruct spawned agents to call `SendMessage` (not in any tier).
 Do NOT poll for messages — idle notification fires automatically. Do NOT
 write artifacts from the parent context — every chain artifact must be
 authored inside its assigned agent's context per the tier discipline.
-**Carve-out**: parent writes `<cwd>/.orchestra/local.yaml` (decision-tree
-cache) and the terminal closing event (no SUMMARY artifact in v4.0; the
-`events.jsonl` Stop hook captures terminal state).
+**Carve-out**: parent writes are narrowly enumerated:
+- `<context_path>/.orchestra/system.yaml` (workspace cache).
+- `<context_path>/.orchestra/<service_name>/local.yaml` (per-service decision-tree cache).
+- `<context_path>/.orchestra/<service_name>/pipeline/<run-id>-INCOMPLETE.md` (completion-parity probe; terminal state only).
+- `<context_path>/.orchestra/metrics/runs/<run-id>.json` `incomplete: true` patch (completion-parity probe).
+- `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TSR.md` frontmatter `ship:` field (`/orchestra ship` only; body untouched).
+- Terminal closing event (no SUMMARY artifact; the `events.jsonl` Stop hook captures terminal state).
+
+Every other chain artifact must be authored inside its assigned agent's context per the tier discipline.
 
 ## Shared rules (cross-agent)
+
+### Phase-tag emission
+
+Every `Agent({...})` call — dispatcher-side OR agent-side — MUST prepend a `phase: <name>` line on its own to the prompt. The `metrics-collector.js` PreToolUse hook parses it into the `task.subagent.invoked` event and auto-emits `pipeline.phase.start` / `pipeline.phase.end` JSONL events when the value differs from the prior spawn in the same session. Without this line, `/orchestra report` cost-by-phase pivots collapse to bucket `unknown` and observability is unusable. The rule applies to bootstrap spawns, fan-out spawns, DEADLOCK-loop re-spawns, gap-resolution handoffs, reverse-doc spawns, and ship-gate spawns alike — no exceptions.
+
+Phase taxonomy (literal values; no synonyms):
+
+| Phase | When | Spawned agents / skills |
+|---|---|---|
+| `discovery` | brownfield bootstrap, source reading, run-plan authoring | `brownfield-inventory`, `project-discovery`, `@lead` (`task: run-plan-author`), reverse-doc spawns |
+| `spec-draft` | authoring chain artifacts | `@product` (PRD/FRS), `@architect` (SAD/ADR), `@lead` (TDD + openapi/asyncapi) |
+| `verification` | implementing + grading | `@backend`, `@frontend`, `@test` Stage-1 / Stage-2, `@evaluator`, `@reviewer` |
+| `gap-resolution` | brownfield divergence → ADR | `@architect` with `task: retroactive_adr` + `DIV-NNN` payload |
+| `gate` | release cut | `/orchestra ship` artifact spawns |
+
+`agent_role` is auto-derived from `subagent_type` by the hook — but pass `subagent_type` honestly (`@backend`-routed spawns use `subagent_type: orchestra:backend`, etc.).
 
 ### Karpathy discipline
 
@@ -363,7 +405,7 @@ parallel fan-out happens once `openapi.yaml` is locked.
 
 - `@backend` → server code + unit tests.
 - `@frontend` → UI code + unit tests (skipped if no UI layer).
-- `@test` Stage-1 → TSR test-plan + black-box tests (SPEC-BOUND; `<consumer>/src/**` blocked).
+- `@test` Stage-1 → TSR test-plan + black-box tests (SPEC-BOUND; `<context_path>/services/<service_name>/src/**` blocked).
 
 **Converge:** all three idle → `@test` Stage-2 (impl-aware) + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
 
@@ -385,7 +427,7 @@ is for component-internal changes that don't shift specs (e.g., refactor,
 internal-only behavior fix); the implementer still produces tests and TSR
 for verification.
 
-**Stage-1 @test is spec-bound.** Reads only `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` + PRD + FRS — `<consumer>/src/**` blocked via per-stage Read allowlist (mechanism in `agents/test.md`). On openapi silence: writes DEADLOCK per Shared rules; @lead picks up and re-spawns @architect or self to amend.
+**Stage-1 @test is spec-bound.** Reads only `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` + PRD + FRS — `<context_path>/services/<service_name>/src/**` blocked via per-stage Read allowlist (mechanism in `agents/test.md`). On openapi silence: writes DEADLOCK per Shared rules; @lead picks up and re-spawns @architect or self to amend.
 
 **Within-agent parallelism (BL-0033).** @backend (and optionally
 @frontend, @test) splits large impl tasks into N parallel sub-runs via
@@ -406,8 +448,8 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
    - **Architecture** (Full only) — @architect writes `docs/SAD.md` (singleton; first-feature bootstrap) and `docs/adr/ADR-NNNN-<slug>.md` (per ADR trigger; ADRs are global, not feature-scoped). C4 L1+L2 diagrams + Logical ERD + Inter-service Sequence as `.puml` under `docs/diagrams/`.
    - **Component** (always) — @lead writes `docs/<feature-id>/<feature-id>-TDD.md` (C4 L3 + Intra-service Sequence + Technical State if applicable + Physical DB if schema touched).
    - **Boundary** (always) — @lead writes `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`). CONTRACT narrative folds inline via `description:` fields and top-of-file `# orchestra:` comment block.
-5. **openapi locked → fan-out.** @lead spawns @backend ‖ @frontend ‖ @test (Stage-1) in a single Agent-tool-call message. Each spawn carries a scoped Read allowlist: @test Stage-1 excludes `<consumer>/src/**`.
-6. **Converge.** @backend writes server code + unit tests under `<consumer>/src/main/**` and `<consumer>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR `S-TEST-001` plan + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
+5. **openapi locked → fan-out.** @lead spawns @backend ‖ @frontend ‖ @test (Stage-1) in a single Agent-tool-call message. Each spawn carries a scoped Read allowlist: @test Stage-1 excludes `<context_path>/services/<service_name>/src/**`.
+6. **Converge.** @backend writes server code + unit tests under `<context_path>/services/<service_name>/src/main/**` and `<context_path>/services/<service_name>/src/test/**`. @frontend writes UI code (skipped if no UI). @test Stage-1 writes the TSR `S-TEST-001` plan + black-box tests. After all three idle, @lead spawns @test Stage-2 (impl-aware) + @evaluator + @reviewer in dependency order.
 7. **TSR multi-writer.** `docs/<feature-id>/<feature-id>-TSR.md` accretes per-writer sections enforced by `pre-write-check.js` Gate-B (per-section locks):
    - `S-TEST-001` — @test (single row table; Stage-1 authors rows with empty status/evidence cells, Stage-2 fills those cells in place; src/ blocked during Stage-1)
    - `S-EVAL-001` — @evaluator (writes `| id | verdict | reason |` keyed on S-TEST-001 row ids; no Bash; `validate.js` rejects unknown ids)
@@ -415,53 +457,66 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
    - `S-DIVERGENCES-001` — @architect (brownfield only — omitted on greenfield)
    - Final ship verdict in frontmatter `ship:` (no body section). `/orchestra ship` writes it.
 
-   @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR `S-TEST-001`); `<consumer>/src/**` is blocked. @test Stage-2 owns suite execution; @evaluator becomes pure inspection (no Bash) and grades the PASS/FAIL evidence Stage-2 records.
+   @evaluator reads only `docs/<feature-id>/*` artifacts (PRD, FRS, TDD, openapi, TSR `S-TEST-001`); `<context_path>/services/<service_name>/src/**` is blocked. @test Stage-2 owns suite execution; @evaluator becomes pure inspection (no Bash) and grades the PASS/FAIL evidence Stage-2 records.
 8. **Terminal state.** After every parent `Read` in steps 6–7, evaluate:
    - `RELEASE-vX.Y.Z.md` written → `terminal_state = "success"` (only via `/orchestra ship`)
    - `<feature-id>-DEADLOCK-*.md` → `terminal_state = "deadlock"`
    - `<feature-id>-ESCALATE(-ADR)?-*.md` with frontmatter `resolution: abandoned` → `terminal_state = "escalated"`
    - otherwise → continue Step 6–7 spawn loop
 
-   On terminal state: emit closing status line. The Stop hook fires `events.jsonl` event with the terminal state and `<run-id>.json.status` ∈ {`completed`, `aborted`, `deadlocked`}. No SUMMARY artifact write — observability is the source of truth (BL-0032).
+   On terminal state: run the **completion-parity probe** (below), then emit closing status line. The Stop hook fires `events.jsonl` event with the terminal state and `<run-id>.json.status` ∈ {`completed`, `aborted`, `deadlocked`}. No SUMMARY artifact write — observability is the source of truth (BL-0032).
+
+   ### Completion-parity probe (non-blocking)
+
+   The probe catches silently-partial runs: `terminal_state = "success"` without DEADLOCK / ESCALATE but some features missing their full artifact set. It runs on every terminal state (not just `success`); on `deadlock` / `escalated` the probe still annotates which features were partial when the run halted.
+
+   1. Read `<context_path>/.orchestra/<service_name>/run-plan.md` `S-FEATURES-001` rows. Each row contributes one `<feature-slug>` expected to materialize as `docs/<service_name>/<feature-id>/`.
+   2. For each row, the expected artifact set per `local.yaml.chain_rigor`:
+      - `Full` / `Standard` — `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-TSR.md` (all four).
+      - `Light` — `<feature-id>-TDD.md`, `<feature-id>-TSR.md` (only two; PRD/FRS skipped at this rigor).
+   3. Glob `<context_path>/docs/<service_name>/<NNN>-<feature-slug>/` and verify each expected file exists AND its frontmatter `status: locked`. Either missing OR `status: draft` counts as incomplete.
+   4. If ALL features pass → no-op; the probe is silent.
+   5. If ANY feature is incomplete → write `<context_path>/.orchestra/<service_name>/pipeline/<run-id>-INCOMPLETE.md`:
+      ```yaml
+      ---
+      id: <run-id>-INCOMPLETE
+      type: INCOMPLETE
+      created: <ISO-8601>
+      run_id: <run-id>
+      service_name: <service_name>
+      terminal_state: success | deadlock | escalated
+      expected_features: <int>
+      complete_features: <int>
+      ---
+
+      ## Missing or partial feature artifacts
+
+      | Feature | Missing artifacts |
+      |---|---|
+      | <NNN>-<slug> | <feature-id>-TSR.md (absent); <feature-id>-TDD.md (status: draft) |
+      | ... | ... |
+      ```
+      Also patch `<context_path>/.orchestra/metrics/runs/<run-id>.json` with `incomplete: true` (carve-out for parent write, mirrors the `system.yaml` / `local.yaml` exception). The `<run-id>.json.status` field is NOT touched — `terminal_state = "success"` AND `incomplete: true` is a valid combination indicating "the run completed without halt, but didn't fully cover the planned `S-FEATURES-001` scope."
+   6. The status banner (line 50) lifts `path:` from the INCOMPLETE artifact so the user sees the partial-completion warning on read.
 
 ### src/ purity (enforced)
 
-`<consumer>/src/main/**` and `<consumer>/src/test/**` MUST NOT carry chain-artifact section-cites: `PRD` / `FRS` / `TDD` / `CONTRACT` / `TSR` / `ADR-NNNN` + section pointer; `FR-N`, `AC-N`, `C-N`, `NFR-N`, `S-XXX-NNN`; `openapi.yaml#/paths/`. `pre-write-check.js` Gate-D rejects at write time. Traceability → commits, PR descriptions, TSR verdict sections.
+`<context_path>/services/<service_name>/src/main/**` and `<context_path>/services/<service_name>/src/test/**` MUST NOT carry chain-artifact section-cites: `PRD` / `FRS` / `TDD` / `CONTRACT` / `TSR` / `ADR-NNNN` + section pointer; `FR-N`, `AC-N`, `C-N`, `NFR-N`, `S-XXX-NNN`; `openapi.yaml#/paths/`. `pre-write-check.js` Gate-D rejects at write time. Traceability → commits, PR descriptions, TSR verdict sections.
 
 ## /orchestra ship
 
-Cuts release artifacts after gate verification. Smoke-test the consumer
-install path BEFORE invoking (`feedback_smoke-before-release-docs`
-discipline).
+Finalizes a feature's chain artifacts after gate verification and creates a single commit. Consumer-surface lean: no release-note authoring, no smoke-testing, no version bumping. Release semantics (RELEASE.md / RUNBOOK.md / semver tagging / publishing) are intentionally out of scope — those vary per team (Jira / Linear / GitHub Releases / trunk-based / monorepo conventions) and `/orchestra ship` should not opinionate over them.
 
 Algorithm:
 
 1. **Verify gates.** Walk artifacts; halt with the failing artifact path on:
-   - Open `<feature-id>-DEADLOCK-*.md` anywhere under `<cwd>/.orchestra/pipeline/<feature-id>/`.
-   - Any `docs/<feature-id>/<feature-id>-TSR.md` with `eval_verdict: FAIL`, `rev_verdict: REQUEST_CHANGES`, or `eval_score < passing_score` from openapi description.
-   - `<cwd>/.orchestra/pipeline/<feature-id>/<feature-id>-ESCALATE*.md` with `resolution: pending`.
-   - `git diff`-detected drift on a `status: locked` artifact (use `git diff` since lockfile sidecars are gone).
-2. **Smoke-test the consumer install path.** Canonical 5-step chain:
-   - (a) `claude plugin validate .` — offline schema check.
-   - (b) `/plugin marketplace add /absolute/path` — register local marketplace.
-   - (c) `/plugin install <plugin>@<marketplace>` — deep-schema validate.
-   - (d) `/orchestra help` — command surface loads.
-   - (e) bootstrap test on `git init` directory — `/orchestra <intent>` writes `local.yaml` + `metrics/events.jsonl`.
-   Any step fails → STOP. CI validators check our invariants, not Claude Code's plugin schemas.
-3. **Author release artifacts** (parent context, narrowly carved exception):
-   - `docs/releases/RELEASE-vX.Y.Z.md` — version, date, summary, included features, gates cleared, plus `S-ANNOUNCEMENT-001`.
-   - `docs/runbooks/RUNBOOK-vX.Y.Z.md` — only when topology changed.
-   - `docs/<feature-id>/<feature-id>-TSR.md` frontmatter `ship:` ∈ `ALLOW | ALLOW_WITH_GAP | HOLD`. No body section — the verdict is frontmatter-only.
-4. **Draft release commit message** (Conventional Commits 1.0.0):
-   - Read `git diff --staged --stat` and `git diff --staged`.
-   - Type ∈ {`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`, `build`}; choose the dominant type.
-   - Scope: load-bearing area (`api`, `infra`, `hooks`, `agents`, `skills`, `command`, `validators`, etc.).
-   - Subject `≤72` chars, imperative mood, no trailing period.
-   - Optional body wrapped at 72; trailers (`BREAKING CHANGE:`, `Closes #NN`, `Refs:`, `Co-Authored-By:`).
-5. **Hand off to user.** User runs `git commit` / `git tag` / `git push`. This subcommand does NOT auto-commit, auto-tag, or push.
-
-Bump VERSION via `node scripts/bump-version.js` only — never edit
-`VERSION` / `package.json` / plugin manifest by hand.
+   - Open `<feature-id>-DEADLOCK-*.md` under `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`.
+   - `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-ESCALATE*.md` with `resolution: pending`.
+   - Any `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TSR.md` with `eval_verdict: FAIL`, `rev_verdict: REQUEST_CHANGES`, or `eval_score < passing_score` from openapi description.
+   - `git diff`-detected drift on a `status: locked` artifact.
+   - **Deferred-mode tolerance:** if `local.yaml.tsr_gate_mode: deferred` AND `<feature-id>-DRAFT-COMPLETE.md` exists for the feature, absent `eval_verdict` / `rev_verdict` cells (verdicts not yet appended by the parallel @evaluator / @reviewer spawns) are tolerated and the feature is allowed to ship with `ship: ALLOW_WITH_GAP`. Any other absence is rejected.
+2. **Set TSR `ship:` frontmatter.** For each gated feature: write `ship:` ∈ `ALLOW | ALLOW_WITH_GAP | HOLD` into `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TSR.md` frontmatter (parent-context carve-out, mirrors `system.yaml` / `local.yaml` exception). Verdict is frontmatter-only; no body section. `ALLOW_WITH_GAP` is auto-selected under deferred-mode tolerance; `ALLOW` / `HOLD` are user-chosen on REVIEW verdict.
+3. **Commit.** Invoke `skills/commit-message/SKILL.md` to author the message (Conventional Commits 1.0.0 + mandatory AI `Co-Authored-By:` trailer). Empty stage → halt with `[orchestra] ship: nothing staged; stage chain artifacts (and any related source) first`. Run `git commit -m "<message>"` against what the user staged. **MUST NOT** run `git push`, `git push --tags`, or `git tag` — pushing and tagging stay in the user's hands (they may release through whatever flow their team uses; the plugin doesn't presume). Print the new commit SHA + message so the user can amend if needed.
 
 ## /orchestra report
 
@@ -520,7 +575,7 @@ Algorithm:
 
 ```
 /orchestra <intent>           Smart router. Mode-detect → chain-rigor → spec-to-code chain (PRD/FRS/SAD/ADR/TDD/openapi/code+tests/TSR).
-/orchestra ship               Verify gates → smoke-test install → write RELEASE / RUNBOOK + set TSR frontmatter `ship:` → draft Conventional Commits message. User commits + tags manually.
+/orchestra ship               Verify gates → set TSR frontmatter `ship:` → commit (per skills/commit-message). Never pushes / tags (user's call).
 /orchestra report             Render Gantt + cost-by-role + cost-by-phase from events.jsonl/tokens.jsonl/runs.
 /orchestra resume [<feature-id>] Walk .orchestra/pipeline/* dirs; find non-terminal feature; respawn next non-done task.
 /orchestra help               This message.

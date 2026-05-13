@@ -6,7 +6,84 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-4.1.2 work)
+(no entries yet — placeholder for post-4.2.0 work)
+
+## [4.2.0] — 2026-05-13
+
+Minor release: bundled six-track refactor producing the v4.2 layout. Drops `scope_path` for `service_name`, collapses the two-tier `.orchestra/` into a workspace-root partition (`.orchestra/<service_name>/`), splits `inventory.md` into workspace-classification + per-service CSD, adds `scope_level` and `tsr_gate_mode` enums (deferred-TSR fan-out + ship-time tolerance), wires a completion-parity probe with `INCOMPLETE` marker, simplifies `/orchestra ship` to a commit gate (no smoke, no RELEASE/RUNBOOK authoring, no push/tag), and lands the new `commit-message` skill carrying Conventional Commits 1.0.0 + mandatory AI `Co-Authored-By:` trailer. Phase-tag emission (originally drafted as v4.1.3) merges into v4.2.0. Forensic motivation: a real 2h, $84.68 brownfield reverse-doc run on `vngg-pay-docs/new-docs/project-poc/services/order/` shipped 3 of 6 promised features with `cost-by-phase.json` collapsed to bucket `unknown`, `inventory.md` mixing workspace + per-service concerns, and `/orchestra ship` opinionated for release flows the consumer doesn't run. Spec-panel + background-swarm findings consolidated in `/Users/lap16318/.claude/plans/spicy-napping-kay.md`.
+
+### Added
+
+- **CSD per-service singleton** — `docs/<service_name>/<service_name>-CSD.md`. Required anchors: `S-OWNED-001` (owned schema + tables + error namespace), `S-CONTRACT-001` (frozen HTTP/Kafka surface), `S-INVARIANTS-001` (cross-feature invariants), `S-SUB-CAPABILITIES-001` (index). Authored once per service under `mode: brownfield` + `scope_level ∈ {container, service}`. New `schemas/csd.schema.md` documents the shape; `@architect` is the sole writer at `phase: discovery`.
+- **`local.yaml` fields**: `service_name` (required; directory-basename identity), `scope_level` (`service | container | capability`), `tsr_gate_mode` (`blocking | deferred`, default `blocking`), `incomplete` (boolean). Closed allowlist preserved (`additionalProperties: false`).
+- **`<feature-id>-DRAFT-COMPLETE.md` marker** — written by `@lead` at openapi-locked fan-out join under `tsr_gate_mode: deferred`. The dispatcher's ship-gate reads it to tolerate absent verdict cells when `@evaluator` / `@reviewer` are still running async.
+- **`<run-id>-INCOMPLETE.md` artifact type** — written by the dispatcher's terminal-state parity probe when `S-FEATURES-001` rows lack their full chain-artifact set per `chain_rigor`. `runs/<id>.json.incomplete: true` patched alongside. New `INCOMPLETE` entry in the artifact-type taxonomy in `schemas/pipeline-artifact.schema.md`.
+- **`skills/commit-message/SKILL.md`** — 96-line skill carrying Conventional Commits 1.0.0 canonical format (`<type>[(<scope>)][!]: <description>` + body + footers) with mandatory AI `Co-Authored-By: <model-name> <noreply@anthropic.com>` trailer. Invoked by `/orchestra ship` Step 3; usable standalone for any commit.
+- **`S-GATES-001` `tsr_gate_mode_override` column** (optional) in `schemas/run-plan.schema.md` — per-run override of the default blocking gate-mode; `@lead` surfaces this row in approval dialogue when the user requested deferred mode at bootstrap.
+- **Phase-tag emission canonical rule** — `commands/orchestra.md` `### Shared rules → ### Phase-tag emission` subsection. Every `Agent({...})` spawn MUST prepend a `phase: <name>\n` line; five literal values: `discovery`, `spec-draft`, `verification`, `gap-resolution`, `gate`. `metrics-collector.js:166` parser unchanged (was already correct; bug was in writers).
+
+### Changed
+
+- **`.orchestra/` layout** — workspace-global state (`system.yaml`, `inventory.md`, `manifest.json`, `events.jsonl`, `metrics/`) at `<context_path>/.orchestra/` root; per-service execution state partitioned under `<context_path>/.orchestra/<service_name>/` (`local.yaml`, `run-plan.md`, `pipeline/`, `tasks/`). Symmetric with the `docs/` layout: project-level singletons at `docs/` root, per-service prose under `docs/<service_name>/`.
+- **`docs/` layout** — per-service partition under `docs/<service_name>/`; per-feature artifacts under `docs/<service_name>/<feature-id>/`. Single-service workspaces still nest (uniform partition, not conditional on `workspace_kind`).
+- **`inventory.md`** — workspace-classification only. Required anchors restricted to `S-SCAN-001`, `S-CLASSIFICATION-001`, `S-DECISIONS-001`, `S-WARNINGS-001`. Per-service shape migrated: invariants + contract surface → CSD; feature slugs + chain plan → `run-plan.md S-FEATURES-001` / `S-PHASES-001`; per-feature open questions → PRD `S-OPEN-Q-001`.
+- **`/orchestra ship` algorithm** — 5 steps → 3: (1) verify gates from TSR frontmatter with deferred-mode tolerance via `DRAFT-COMPLETE.md`; (2) set TSR `ship:` frontmatter (parent-context carve-out); (3) commit via `skills/commit-message`. **MUST NOT** `git push`, `git push --tags`, or `git tag` — those are external-visibility actions the user owns.
+- **`@lead` openapi-locked fan-out join** — branches on `local.yaml.tsr_gate_mode`. `blocking` (default): Stage-2 → `@evaluator` → `@reviewer` sequential before turn end (today's behavior). `deferred`: Stage-2 runs, then `@lead` writes `DRAFT-COMPLETE.md`, spawns `@evaluator ‖ @reviewer` in parallel with `phase: verification`, hands back immediately.
+- **Auto-mode invariant** (`commands/orchestra.md` `## Invariants`) — reviewer verdicts (`REVISE` / `BLOCK` / `ALLOW_WITH_GAP`) preserved as blocking by default; deferred per-run via `S-GATES-001 tsr_gate_mode: deferred` row that the user accepted at run-plan approval. Structural-failure halts and `ESCALATE` / `DEADLOCK` emission remain always-preserved (no override).
+- **`run-plan.md S-FEATURES-001`** — row shape gains `Sub-capabilities`, `Source anchors`, `State-machine role` columns (absorbing what `S-REGEN-PLAN-001` used to carry in inventory).
+- **`@architect`** — CSD added to allowed-set; authored once per service at `phase: discovery`. SAD scope-election precedent reused (singleton shape, scope collapsed to always-per-service for CSD).
+- **`@product` PRD authorship** — references CSD by anchor (`see CSD S-INVARIANTS-001`) instead of re-narrating invariants. Soft target ~150 lines per PRD.
+- **`schemas/pipeline-artifact.schema.md`** — `## Round-trip gate` → `## TSR gate mode`. Ship-verdict mapping rewritten: `eval_verdict: PASS` + `rev_verdict: APPROVED` → `ALLOW`; `rev_verdict: ALLOW_WITH_GAP` → `ALLOW_WITH_GAP`; (`eval_verdict: FAIL` OR `rev_verdict: REQUEST_CHANGES` OR `rev_verdict: PENDING`) → `HOLD`. Under `tsr_gate_mode: deferred`, absent verdict cells → `ALLOW_WITH_GAP` only when `DRAFT-COMPLETE.md` exists; otherwise `HOLD`.
+- **Parent-context carve-out** (`commands/orchestra.md`) — enumerates 5 narrowly-authorized parent writes: `system.yaml`, `<service_name>/local.yaml`, pipeline `INCOMPLETE.md`, `metrics/runs/<run-id>.json incomplete: true` patch, TSR `ship:` frontmatter.
+
+### Removed
+
+- **`scope_path` field** from `local.yaml` (replaced by `service_name`; closed-allowlist rejection on load).
+- **`round_trip` field** from `local.yaml` (replaced by `tsr_gate_mode`; v4.1's 4-state enum encoded both intent AND verdict state — split: `tsr_gate_mode` is 2-state intent-only, verdict state lives in TSR frontmatter `eval_verdict` + `rev_verdict`).
+- **`registered_services` field** from `system.yaml` (per-service state lives at `.orchestra/<service_name>/` partition, no registry needed).
+- **Two-tier `.orchestra/`** placement (workspace `.orchestra/` + per-scope `.orchestra/`). Collapses to single workspace-root `.orchestra/` with per-service subfolders.
+- **`inventory.md` per-service anchors**: `S-REGEN-PLAN-001`, `S-INVARIANTS-001`, `S-CONTRACT-FREEZE-001`, `S-OPEN-Q-001`, `S-CHAIN-PLAN-001`. Migrated as documented above.
+- **`/orchestra ship` smoke-test step** (pre-RELEASE 5-step install loop). The plugin doesn't match every consumer's deploy/release flow; smoke discipline moves to project CLAUDE.md `## Release-doc authoring` as a user-driven post-commit check.
+- **`/orchestra ship` RELEASE / RUNBOOK / ANNOUNCEMENT authoring**. Release artifact authoring is opinionated for one release flow; varied consumer flows mean the plugin authors a commit only. RELEASE-vX.Y.Z.md and RUNBOOK-vX.Y.Z.md still exist as artifact types in the taxonomy for consumers who choose to author them manually.
+- **`@ship` agent references** in `skills/task-breakdown/SKILL.md` (owner table, dependency-edge rules, worked example). There was no `@ship` agent in production — `/orchestra ship` is a dispatcher subcommand. T-007 row dropped from worked example; totals updated to 12 SP / 8 SP critical path.
+- **Reviewer auto-soften rule** (`agents/reviewer.md`) — `APPROVED → ALLOW_WITH_GAP` conversion under `round_trip: DEFERRED` is gone. `ALLOW_WITH_GAP` remains a legitimate reviewer verdict for "approved with caveat" cases (probe-gap, accepted-as-noted finding) but is NEVER auto-converted. Deferred-mode ship-time tolerance is handled by the dispatcher via the `DRAFT-COMPLETE.md` marker, not by reviewer-side softening.
+
+### Breaking changes (v4.1.x consumer migration)
+
+- `scope_path` rejected by `local.yaml` closed allowlist — workspaces using it fail schema-load.
+- Two-tier `.orchestra/` placement no longer recognized — `<scope_path>/.orchestra/local.yaml` won't load.
+- `inventory.md` per-service anchors removed — workspaces with the old shape need a manual split per the migration script.
+- `/orchestra ship` no longer authors `RELEASE-vX.Y.Z.md` / `RUNBOOK-vX.Y.Z.md` — consumers relying on automated release-doc authoring author them manually post-ship.
+
+The v4.2 dispatcher detects v4.1.x layout (presence of `scope_path` field in any `local.yaml`) and writes `<context_path>/.orchestra/MIGRATION-REQUIRED.md` listing the steps below, halting before any chain spawn.
+
+Manual migration (one-time, per service):
+
+```bash
+SVC=order   # repeat per service in registered_services
+mkdir -p <context_path>/.orchestra/${SVC}
+mv <context_path>/<scope_path>/.orchestra/local.yaml     <context_path>/.orchestra/${SVC}/
+mv <context_path>/<scope_path>/.orchestra/inventory.md   <context_path>/.orchestra/${SVC}/inventory-old.md
+mv <context_path>/<scope_path>/.orchestra/run-plan.md    <context_path>/.orchestra/${SVC}/
+mv <context_path>/<scope_path>/.orchestra/pipeline       <context_path>/.orchestra/${SVC}/
+mv <context_path>/<scope_path>/.orchestra/tasks          <context_path>/.orchestra/${SVC}/
+mv <context_path>/<scope_path>/docs/*                    <context_path>/docs/${SVC}/
+# edit local.yaml: replace `scope_path: <abs>` with `service_name: ${SVC}`
+# edit local.yaml: rename `round_trip: DEFERRED` to `tsr_gate_mode: deferred` (or drop entirely for default blocking)
+# edit system.yaml: remove `registered_services` array
+# manually split inventory-old.md per the CHANGELOG: workspace-classification stays at .orchestra/inventory.md; invariants + contract → docs/${SVC}/${SVC}-CSD.md (new); feature slugs + chain plan → .orchestra/${SVC}/run-plan.md S-FEATURES-001 / S-PHASES-001
+```
+
+### Why this is a minor, not a patch
+
+Closed-allowlist invariants of `system.yaml` + `local.yaml` shifted: existing v4.1.x `.orchestra/` layouts won't load against the v4.2 schemas (`scope_path` and `round_trip` rejected; `registered_services` rejected). The PRD / FRS / TDD / openapi / TSR + frontmatter contract is unchanged — consumers' authored chain artifacts survive bytewise. Not a major (v5.0.0) because chain-artifact shape, agent ownership, and the cross-tier write contract are all stable; only bootstrap state and the ship algorithm move.
+
+### Coupling guards (post-merge invariants)
+
+- `validate.js: OK` against v4.2 fixtures (inverse-sanity local.yaml uses `tsr_gate_mode: blocking`, no `round_trip` reference remains).
+- Zero `round_trip` / `@ship` hits across `agents/` + `commands/` + `skills/` + `schemas/` (`grep -rn 'round_trip\|@ship' agents commands skills schemas` returns exit 1).
+- `tsr_gate_mode` reachable from 7 consumer-surface files spanning agents/commands/skills/schemas.
+- Track A schema landed in same commit as the auto-mode invariant rewrite (no silently-inconsistent doc state between schema + invariant).
 
 ## [4.1.2] — 2026-05-12
 

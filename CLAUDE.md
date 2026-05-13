@@ -95,6 +95,6 @@ The fix shape is **fold up, don't sprinkle**. Before adding any "DO NOT" / "Note
 - Default to PATCH version bumps unless explicitly instructed otherwise.
 - Before making changes that touch >5 files, removing features, or expanding beyond the literal request, post a brief plan and wait for go-ahead.
 
-## Smoke-test before docs
+## Release-doc authoring
 
-Always smoke-test the consumer install path (5-step chain) BEFORE authoring RELEASE/RUNBOOK/ANNOUNCEMENT docs. CI validators check our invariants, not Claude Code's plugin/marketplace schemas — those need a real install loop.
+Human review of CHANGELOG + version-bump output is the gate before commit. Smoke-testing the consumer install loop (`claude plugin validate .` → `/plugin marketplace add` → `/plugin install` → `/orchestra help` → bootstrap on fresh init) is **post-author, user-driven** — not a pre-commit gate. CI validators check orchestra-internal invariants but not Claude Code's plugin/marketplace schemas; if a manifest-shape drift slips past human review, the smoke loop catches it at user-run time.

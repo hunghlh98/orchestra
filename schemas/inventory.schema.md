@@ -4,7 +4,7 @@ title: orchestra inventory.md frontmatter schema
 created: 2026-05-12
 status: draft
 revision: 1
-scope: shape of `<scope_path>/.orchestra/inventory.md`.
+scope: shape of `<context_path>/.orchestra/inventory.md` (workspace-global).
 ---
 
 # orchestra inventory.md schema
@@ -12,9 +12,10 @@ scope: shape of `<scope_path>/.orchestra/inventory.md`.
 ## Placement
 
 ```
-<scope_path>/.orchestra/inventory.md
 <context_path>/.orchestra/inventory.md
 ```
+
+Workspace-global singleton — one inventory per `<context_path>`, regardless of how many services are partitioned under `<context_path>/.orchestra/<service_name>/`.
 
 ## Frontmatter
 
@@ -57,9 +58,12 @@ Required anchors:
 
 - `S-SCAN-001` — `## Scan` — depth-limited `tree -L N` output.
 - `S-CLASSIFICATION-001` — `## Classification` — `| Path | Bucket | Confidence | Detected as |`. Bucket ∈ `plugin-equivalent | out-of-taxonomy | redundant | stale`. Confidence ∈ `HIGH | LOW | —`.
-- `S-DECISIONS-001` — `## Decisions` — `| Path | Bucket | Action | Target |`. Action ∈ `migrate-as-regen-seed | keep-as-legacy-reference | fold-into-PRD | fold-into-FRS | fold-into-TDD | fold-into-ADR | archive | discard`.
-- `S-REGEN-PLAN-001` — `## Regeneration plan` — `| Feature slug | Legacy seeds | Authoring agents | Notes |`.
+- `S-DECISIONS-001` — `## Decisions` — `| Path | Bucket | Action | Target |`. Action ∈ `migrate-as-regen-seed | keep-as-legacy-reference | fold-into-CSD | fold-into-PRD | fold-into-FRS | fold-into-TDD | fold-into-ADR | archive | discard`.
 - `S-WARNINGS-001` — `## Warnings` — `| Path | Warning |`.
+
+Per-service shape (invariants, frozen contract surface, owned schema, sub-capability index) lives in the per-service CSD (`<context_path>/docs/<service_name>/<service_name>-CSD.md`) — NOT in inventory. The `S-DECISIONS-001` `fold-into-CSD` action routes legacy material describing service-wide invariants or contract surfaces into the matching CSD anchor at `@architect`'s CSD authoring time.
+
+Per-service feature lists (formerly `S-REGEN-PLAN-001`) live in the per-service run-plan (`<context_path>/.orchestra/<service_name>/run-plan.md`) `S-FEATURES-001` — authored by `@lead` after the workspace inventory is `user_gate: accepted`.
 
 ## Validation
 

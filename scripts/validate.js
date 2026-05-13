@@ -268,9 +268,6 @@ export function validateSystemYamlContent(relPath, raw, opts = {}) {
   if (parsed.workspace_kind !== undefined && !VALID_WORKSPACE_KINDS.includes(parsed.workspace_kind)) {
     errs.push(`${relPath}: workspace_kind '${parsed.workspace_kind}' not in ${VALID_WORKSPACE_KINDS.join("|")}`);
   }
-  if (parsed.registered_services !== undefined && !Array.isArray(parsed.registered_services)) {
-    errs.push(`${relPath}: registered_services must be an array`);
-  }
   return errs;
 }
 
@@ -633,44 +630,83 @@ if (isMain) {
     }
   }
 
-  // Mutation 13: v4.1 brief two-tier local.yaml + system.yaml pass
+  // Mutation 13: v4.2 per-service local.yaml + workspace-global system.yaml pass
   {
     const localOk = [
-      `scope_path: /tmp/ws/services/order`,
+      `service_name: order`,
+      `scope_level: service`,
+      `tsr_gate_mode: blocking`,
       `test_depth: stage1`,
       `source_lock:`,
       `  read_paths:`,
       `    - "services/order/**"`,
       `  write_paths:`,
       `    - "services/order/docs/**"`,
-      `round_trip: DEFERRED`,
       `pipeline_id: 001-order-validation`,
       ``,
     ].join("\n");
     const errs = validateLocalYamlContent("local.yaml", localOk);
     if (errs.length !== 0) {
-      mutationErrors.push(`inverse sanity: v4.1 6-field local.yaml should pass, got: ${errs.join(", ")}`);
+      mutationErrors.push(`inverse sanity: v4.2 per-service local.yaml should pass, got: ${errs.join(", ")}`);
     }
 
     const systemOk = [
       `workspace_kind: multi-service`,
       `context_path: /tmp/ws`,
-      `registered_services:`,
-      `  - /tmp/ws/services/order`,
       ``,
     ].join("\n");
     const sysErrs = validateSystemYamlContent("system.yaml", systemOk);
     if (sysErrs.length !== 0) {
-      mutationErrors.push(`inverse sanity: v4.1 system.yaml should pass, got: ${sysErrs.join(", ")}`);
+      mutationErrors.push(`inverse sanity: v4.2 system.yaml should pass, got: ${sysErrs.join(", ")}`);
     }
   }
 
-  // Mutation 13b: workspace_kind in local.yaml is rejected (lives in system.yaml now)
+  // Mutation 13b: workspace_kind in local.yaml is rejected (lives in system.yaml only)
   {
-    const bad = `scope_path: /tmp/ws\nworkspace_kind: multi-service\n`;
+    const bad = `service_name: order\nworkspace_kind: multi-service\n`;
     const errs = validateLocalYamlContent("local.yaml", bad);
     if (!errs.some(e => /unknown top-level field 'workspace_kind'/.test(e))) {
-      mutationErrors.push("mutation: workspace_kind in local.yaml should be rejected (moved to system.yaml)");
+      mutationErrors.push("mutation: workspace_kind in local.yaml should be rejected (lives in system.yaml only)");
+    }
+  }
+
+  // Mutation 13e: scope_path (legacy v4.1.x) in local.yaml is rejected
+  {
+    const bad = `pipeline_id: x\nservice_name: order\nscope_path: /tmp/ws/services/order\n`;
+    const errs = validateLocalYamlContent("local.yaml", bad);
+    if (!errs.some(e => /unknown top-level field 'scope_path'/.test(e))) {
+      mutationErrors.push("mutation: legacy scope_path in local.yaml should be rejected (dropped in v4.2)");
+    }
+  }
+
+  // Mutation 13f: registered_services (legacy v4.1.x) in system.yaml is rejected
+  {
+    const bad = `workspace_kind: multi-service\ncontext_path: /tmp/ws\nregistered_services:\n  - /tmp/ws/services/order\n`;
+    const errs = validateSystemYamlContent("system.yaml", bad);
+    if (!errs.some(e => /unknown top-level field 'registered_services'/.test(e))) {
+      mutationErrors.push("mutation: legacy registered_services in system.yaml should be rejected (dropped in v4.2)");
+    }
+  }
+
+  // Mutation 13g: scope_level enum mutation tests
+  {
+    for (const lvl of ["service", "container", "capability"]) {
+      const ok = `pipeline_id: x\nservice_name: order\nscope_level: ${lvl}\n`;
+      const errs = validateLocalYamlContent("local.yaml", ok);
+      if (errs.length !== 0) {
+        mutationErrors.push(`inverse sanity: scope_level=${lvl} should pass, got: ${errs.join(", ")}`);
+      }
+    }
+  }
+
+  // Mutation 13h: tsr_gate_mode enum mutation tests
+  {
+    for (const m of ["blocking", "deferred"]) {
+      const ok = `pipeline_id: x\nservice_name: order\ntsr_gate_mode: ${m}\n`;
+      const errs = validateLocalYamlContent("local.yaml", ok);
+      if (errs.length !== 0) {
+        mutationErrors.push(`inverse sanity: tsr_gate_mode=${m} should pass, got: ${errs.join(", ")}`);
+      }
     }
   }
 

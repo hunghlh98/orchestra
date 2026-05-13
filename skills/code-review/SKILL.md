@@ -53,7 +53,7 @@ Three rules apply to every diff regardless of language:
 - Is dead code introduced or left behind?
 - **Diagram render parity**: any `.puml` file in the diff has a paired `.svg` next to it AND the owning markdown body cites `![..](diagrams/<name>.svg)`. The `post-write-puml` hook normally enforces this on write; this gate is the failsafe when the hook is disabled. Missing paired `.svg` → **Major** auto-`REQUEST_CHANGES` (cannot review what isn't rendered).
 
-**Per-language gates** (when a per-language `*-development` skill is loaded for `local.yaml.primary_language`): apply that skill's convention checklist to changed files. Otherwise fall back to `<consumer>` repo's existing conventions (formatter config, lint rules, test harness).
+**Per-language gates** (when a per-language `*-development` skill is loaded for `local.yaml.primary_language`): apply that skill's convention checklist to changed files. Otherwise fall back to the consumer repo's existing conventions (formatter config, lint rules, test harness).
 
 ### Step 4 — Apply security checklist
 
@@ -99,7 +99,7 @@ Read `docs/<feature-id>/<feature-id>-TSR.md` (`S-EVAL-001` filled by `@evaluator
 - One-paragraph verdict (APPROVED / ALLOW_WITH_GAP / REQUEST_CHANGES / PENDING) + per-severity findings table (Critical / Major / Minor / Nit) referencing `<file>:<line>` for each finding.
 - If the feature touched ADRs, append a `## ADR review` subsection inside `S-REVIEW-001`; omit when no ADRs were touched.
 
-Set frontmatter `rev_verdict` (APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING) + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — Tier-A single-writer invariant. The final `ship:` frontmatter value is computed by `/orchestra ship` from `eval_verdict` + `rev_verdict` + `local.yaml.round_trip`.
+Set frontmatter `rev_verdict` (APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING) + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — Tier-A single-writer invariant. The final `ship:` frontmatter value is computed by `/orchestra ship` from `eval_verdict` + `rev_verdict` + `local.yaml.tsr_gate_mode` (with `<feature-id>-DRAFT-COMPLETE.md` marker presence under deferred mode).
 
 ```markdown
 ## Reviewer verdict <a id="S-REVIEW-001"></a>

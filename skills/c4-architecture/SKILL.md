@@ -77,11 +77,11 @@ Walk this checklist; any "no" → fix the source, do not render:
 - [ ] **L1 Context**: no transport protocols on relationships. **L3 Component**: no framework internals (see `references/c4-rules.md`).
 - [ ] **Every `Rel(...)`**: label, technology arg at Container / Component level, action verb (no "Uses" / "Calls" / "Talks to"), unidirectional (no `BiRel` unless genuinely peer-to-peer).
 - [ ] **Stand-alone test**: handed the rendered `.svg` to a stranger — can they tell what the system does, who uses it, how it's built, without your narration?
-- [ ] **Two-folder rule**: project singleton at `docs/diagrams/c4-lN-*.puml` is unstyled; per-feature copy at `docs/<feature-id>/diagrams/<feature-id>-c4-lN-*.puml` differs ONLY in `UpdateElementStyle()` highlights — never in element identity.
+- [ ] **Two-folder rule**: project singleton at `docs/diagrams/c4-<noun>.puml` (where `<noun> ∈ context | container | component-<service> | code-<service>`) is unstyled; per-feature copy at `docs/<service_name>/<feature-id>/diagrams/<feature-id>-c4-<noun>.puml` differs ONLY in `UpdateElementStyle()` highlights — never in element identity.
 
 ## Quick-start templates
 
-### Level 1 — System Context (`c4-l1-context.puml`)
+### Level 1 — System Context (`c4-context.puml`)
 
 ```plantuml
 @startuml
@@ -98,7 +98,7 @@ Rel(app, sqlite, "Reads/writes", "sqlite3")
 @enduml
 ```
 
-### Level 2 — Container (`c4-l2-container.puml`)
+### Level 2 — Container (`c4-container.puml`)
 
 ```plantuml
 @startuml
@@ -118,7 +118,7 @@ Rel(api, db, "Reads/writes", "sqlite3")
 @enduml
 ```
 
-### Level 3 — Component (`c4-l3-<service>.puml`)
+### Level 3 — Component (`c4-component-<service>.puml`)
 
 ```plantuml
 @startuml
@@ -145,7 +145,7 @@ Rel(db, file, "WAL-mode I/O")
 @enduml
 ```
 
-### Level 4 — Code (`c4-l4-<service>.puml`)
+### Level 4 — Code (`c4-code-<service>.puml`)
 
 PlantUML class diagram (no `C4_Code` macro exists in stdlib). Show **full layer cake** aligned to the `clean-architecture` skill's concentric circles: Controller (interface adapter) → Service / Use Case (application business rules) → Repository interface (use-case-defined port) → Repository implementation (interface adapter) → Entity (enterprise business rule). Inner classes know nothing about outer classes — same Dependency Rule the architecture review enforces.
 
@@ -261,10 +261,10 @@ Authored / updated by `@architect` (L1, L2) and `@lead` (L3, L4). One file per l
 
 | File | Owner | Scope |
 |---|---|---|
-| `c4-l1-context.puml` | `@architect` | Whole system; latest |
-| `c4-l2-container.puml` | `@architect` | Whole system; latest |
-| `c4-l3-<service>.puml` | `@lead` | One file per primary service container (e.g., `c4-l3-todo-service.puml`) |
-| `c4-l4-<service>.puml` | `@lead` | Class structure for the service (e.g., `c4-l4-todo-service.puml`) |
+| `c4-context.puml` | `@architect` | Whole system; latest |
+| `c4-container.puml` | `@architect` | Whole system; latest |
+| `c4-component-<service>.puml` | `@lead` | One file per primary service container (e.g., `c4-component-todo-service.puml`) |
+| `c4-code-<service>.puml` | `@lead` | Class structure for the service (e.g., `c4-code-todo-service.puml`) |
 | `erd-logical.puml` | `@architect` | Project entities |
 | `sequence-inter-<flow>.puml` | `@architect` | Per cross-service flow |
 
@@ -274,9 +274,9 @@ Authored by `@lead` per feature. **Copies** of the project-level files with feat
 
 | File | Source |
 |---|---|
-| `<feature-id>-c4-l1-context.puml` | Copy of `c4-l1-context.puml` + highlight |
-| `<feature-id>-c4-l2-container.puml` | Copy of `c4-l2-container.puml` + highlight |
-| `<feature-id>-c4-l3-<service>.puml` | Copy of `c4-l3-<service>.puml` + highlight |
+| `<feature-id>-c4-context.puml` | Copy of `c4-context.puml` + highlight |
+| `<feature-id>-c4-container.puml` | Copy of `c4-container.puml` + highlight |
+| `<feature-id>-c4-component-<service>.puml` | Copy of `c4-component-<service>.puml` + highlight |
 | `<feature-id>-seq-<usecase>.puml` | Per intra-service usecase (no project copy) |
 | `<feature-id>-erd-physical.puml` | Per feature, only when persistence touched |
 
@@ -303,8 +303,8 @@ Project singletons stay unstyled. The feature copy is what reviewers read to und
 
 ## Worked example — Todo service, feature `001-todo-api`
 
-1. `@architect` authors project singletons (first feature triggers SAD bootstrap): `docs/diagrams/c4-l1-context.puml`, `c4-l2-container.puml`.
-2. `@lead` authors service-scoped singletons: `c4-l3-todo-service.puml`, `c4-l4-todo-service.puml` (class diagram per L4 template).
-3. `@lead` authors per-feature highlighted copies under `docs/001-todo-api/diagrams/`: `001-todo-api-c4-l1-context.puml`, `-c4-l2-container.puml`, `-c4-l3-todo-service.puml` (each adds `UpdateElementStyle(...)` for touched elements), plus `-seq-create-todo.puml` (intra-service sequence) and `-erd-physical.puml` (persistence touched).
+1. `@architect` authors project singletons (first feature triggers SAD bootstrap): `docs/diagrams/c4-context.puml`, `c4-container.puml`.
+2. `@lead` authors service-scoped singletons: `c4-component-todo-service.puml`, `c4-code-todo-service.puml` (class diagram per L4 template).
+3. `@lead` authors per-feature highlighted copies under `docs/001-todo-api/diagrams/`: `001-todo-api-c4-context.puml`, `-c4-container.puml`, `-c4-component-todo-service.puml` (each adds `UpdateElementStyle(...)` for touched elements), plus `-seq-create-todo.puml` (intra-service sequence) and `-erd-physical.puml` (persistence touched).
 4. `post-write-puml` hook renders every `.svg`. Embed project SVGs in `docs/SAD.md` (`S-LANDSCAPE-001` / `S-CONTAINERS-001`); embed feature SVGs in `docs/001-todo-api/001-todo-api-TDD.md` (`S-COMPONENTS-001`).
 5. Walk Step 6's checklist for every source. Per-feature copies must differ from project singletons ONLY in styling — never in element identity.

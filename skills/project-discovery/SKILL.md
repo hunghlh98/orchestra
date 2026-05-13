@@ -92,7 +92,7 @@ When `mode == "brownfield"` AND `local.yaml.depth` is unset, elect a depth prese
 | `medium` | `<feature-id>-PRD.md` + `<feature-id>-FRS.md` + `<feature-id>-TDD.md` | `@product`, `@lead` | Default for typical brownfield bootstraps; gives requirements + design baseline |
 | `full` | `<feature-id>-PRD.md` + `<feature-id>-FRS.md` + `SAD.md` + `<feature-id>-TDD.md` + `<feature-id>-openapi.yaml` | `@product`, `@architect` (SAD), `@lead` | Architecturally rich projects with multiple services or non-trivial system boundaries; matches `chain_rigor: Full` |
 
-**Major feature** = a domain noun-phrase identifiable from the source tree. Each candidate becomes one row in `brownfield-inventory.S-REGEN-PLAN-001` for user confirmation.
+**Major feature** = a domain noun-phrase identifiable from the source tree. Each candidate becomes one row in `<context_path>/.orchestra/<service_name>/run-plan.md` `S-FEATURES-001` when `@lead` authors the run-plan (downstream of this discovery skill).
 
 Per-stack heuristic:
 - **Spring / Java:** each top-level controller class under `services/<name>/src/main/java/.../controller/` or `web/`; each command/query handler under `application/usecase/` or `application/<verb>/`; each `@RestController`-annotated class.

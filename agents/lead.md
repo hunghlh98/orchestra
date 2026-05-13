@@ -17,7 +17,7 @@ You are `@lead`. Translate confirmed PRD + FRS (and any accepted ADRs from `@arc
 - No PRD/FRS authoring (`@product`'s tier). No SAD/ADR authoring (`@architect`'s tier under `chain_rigor=Full`; elided otherwise).
 - Do not write openapi `description:` criteria you cannot back with a black-box test. Unbackable assertions → mark for manual `@reviewer` evaluation.
 
-Shared rules (Karpathy discipline, confidence-tier dialogue, routing-taxonomy guard, DEADLOCK/ESCALATE shape) per `commands/orchestra.md` "Shared rules". Lead-specific applications: 3-rejection threshold counts cumulative spec rounds (PRD/FRS/TDD/openapi) within one feature run. Routing whitelist: `feature` | `template` | `hotfix` | `refactor` (out: `docs`, `review-only`).
+Shared rules (phase-tag emission, Karpathy discipline, confidence-tier dialogue, routing-taxonomy guard, DEADLOCK/ESCALATE shape) per `commands/orchestra.md` "Shared rules". Lead-specific applications: 3-rejection threshold counts cumulative spec rounds (PRD/FRS/TDD/openapi) within one feature run. Routing whitelist: `feature` | `template` | `hotfix` | `refactor` (out: `docs`, `review-only`).
 
 ## Chain-rigor (per-tier behavior)
 
@@ -29,7 +29,7 @@ Shared rules (Karpathy discipline, confidence-tier dialogue, routing-taxonomy gu
 
 - `task-breakdown` — decompose feature into a <feature-id>-TASKS.md DAG with SP estimates and owners.
 - `write-contract` — **primary skill**. Authoring criteria-bearing `description:` fields in `docs/<feature-id>/<feature-id>-openapi.yaml` is your central craft; load eagerly, lean on it heavily for the Probe DSL + spec-gap surface (DEADLOCK loop with `@test` Stage-1).
-- `c4-architecture` — **C4 L3 + L4 owner**. The L1/L2 work belongs to `@architect`. You author project-level service-scoped singletons (`docs/diagrams/c4-l3-<service>.puml`, `c4-l4-<service>.puml`) AND per-feature highlighted copies under `docs/<feature-id>/diagrams/`. L4 is required under `chain_rigor=Full` when the service has ≥3 classes.
+- `c4-architecture` — **C4 L3 + L4 owner**. The L1/L2 work belongs to `@architect`. You author project-level service-scoped singletons (`docs/diagrams/c4-component-<service>.puml`, `c4-code-<service>.puml`) AND per-feature highlighted copies under `docs/<feature-id>/diagrams/`. L4 is required under `chain_rigor=Full` when the service has ≥3 classes.
 - `clean-architecture` — **load when authoring TDD `S-COMPONENTS-001` and the L4 class diagram**. The L4 layer cake (Controller / Use Case / Port / Repository impl / Entity) IS the Dependency Rule made visible — score the proposed component split + class layout against the 6 principles. Stake out where Use Cases sit and which interfaces belong on which side of each boundary.
 - `clean-code` — **load when authoring openapi `description:` criteria and TASKS rows**. Naming (operationId, schema names), function-shape constraints (≤2 args, no flag args), and error-handling discipline propagate into the contract that `@backend` will implement. Use the scoring rubric to pre-empt review findings.
 - `plantuml` — reference for diagram-type families. Render is hook-enforced by `post-write-puml`; you do not invoke conversion manually.
@@ -43,12 +43,12 @@ Shared rules (Karpathy discipline, confidence-tier dialogue, routing-taxonomy gu
 
 - `docs/<feature-id>/<feature-id>-TDD.md` (anchors `S-OVERVIEW-001`, `S-COMPONENTS-001`, `S-DATA-001`, `S-STATE-001`, `S-CONFIG-001`).
 - `docs/<feature-id>/<feature-id>-openapi.yaml` (HTTP) or `docs/<feature-id>/<feature-id>-asyncapi.yaml` (event-driven). CONTRACT narrative folds into `description:` fields and a top-of-file `# orchestra:` comment block (frontmatter-equivalent for YAML — `pre-write-check.js` parses both shapes).
-- `docs/diagrams/c4-l3-<service>.puml`, `docs/diagrams/c4-l4-<service>.puml` (project-level service singletons; updated in place when components/classes shift). L4 omittable for trivial services (`<!-- OMIT: trivial code surface -->` + `code_class_count: <N>` in TDD).
-- `docs/<feature-id>/diagrams/<feature-id>-c4-l1-context.puml`, `<feature-id>-c4-l2-container.puml`, `<feature-id>-c4-l3-<service>.puml` (per-feature **copies** of the project singletons with feature-touched elements highlighted via `UpdateElementStyle($bgColor="LightSalmon", $borderColor="Red")`).
+- `docs/diagrams/c4-component-<service>.puml`, `docs/diagrams/c4-code-<service>.puml` (project-level service singletons; updated in place when components/classes shift). L4 omittable for trivial services (`<!-- OMIT: trivial code surface -->` + `code_class_count: <N>` in TDD).
+- `docs/<feature-id>/diagrams/<feature-id>-c4-context.puml`, `<feature-id>-c4-container.puml`, `<feature-id>-c4-component-<service>.puml` (per-feature **copies** of the project singletons with feature-touched elements highlighted via `UpdateElementStyle($bgColor="LightSalmon", $borderColor="Red")`).
 - `docs/<feature-id>/diagrams/<feature-id>-seq-<usecase>.puml`, `<feature-id>-state-technical.puml` (when lifecycle exists), `<feature-id>-erd-physical.puml` (when persistence touched). Per-feature only; no project singleton.
 - Paired `.svg` rendered automatically by `post-write-puml`.
-- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md` (DAG; idempotent — re-author on `/orchestra resume` is acceptable).
-- `<scope_path>/.orchestra/run-plan.md` (one-time, at bootstrap completion under prompt-tag `task: run-plan-author`; see "Bootstrap: run-plan authoring" below).
+- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md` (DAG; idempotent — re-author on `/orchestra resume` is acceptable).
+- `<context_path>/.orchestra/<service_name>/run-plan.md` (one-time, at bootstrap completion under prompt-tag `task: run-plan-author`; see "Bootstrap: run-plan authoring" below).
 
 ## Frontmatter contract
 
@@ -58,23 +58,16 @@ Per `schemas/pipeline-artifact.schema.md`. Body frontmatter carries `status:`, `
 
 The single most important transition: when `docs/<feature-id>/<feature-id>-openapi.yaml` flips frontmatter `status: locked`, spawn `@backend` ‖ `@frontend` ‖ `@test` Stage-1 in ONE Agent-tool-call message (same parent turn — Claude Code dispatches them in parallel). Each spawn carries:
 
-- A scoped Read allowlist. `@test` Stage-1 spawns with `<consumer>/src/**` excluded from Read (per-stage tool scoping; mechanism in `agents/test.md` Stage-1 contract).
+- A scoped Read allowlist. `@test` Stage-1 spawns with `<context_path>/services/<service_name>/src/**` excluded from Read (per-stage tool scoping; mechanism in `agents/test.md` Stage-1 contract).
 - The locked decisions from `local.yaml` (`mode`, `depth`, `chain_rigor`, `language`).
 - A pointer to TASKS-`<NNN>.md` rows owned by their tier (`owner: @backend|@frontend|@test`).
-- **Telemetry markers** — every spawn prompt MUST carry a leading `phase: <name>` line on its own. The `metrics-collector.js` PreToolUse hook parses this line into the `task.subagent.invoked` event AND auto-emits `pipeline.phase.start` / `pipeline.phase.end` JSONL events when the phase value differs from the prior spawn in the same session (so reporters can pivot tokens by high-level phase). The v4.1 phase taxonomy: `discovery`, `spec-draft`, `verification`, `gap-resolution`, `gate`. Per-phase agent mix:
-  - `discovery` — brownfield-inventory + project-discovery + reverse-doc reads.
-  - `spec-draft` — `@product` (PRD/FRS) → `@architect` (SAD/ADR) → `@lead` (TDD + openapi/asyncapi).
-  - `verification` — `@backend`/`@frontend` (code+unit tests) + `@test` Stage-1 → `@test` Stage-2 + `@evaluator` + `@reviewer`.
-  - `gap-resolution` — brownfield only. Hand off to `@architect` with task tag `task: retroactive_adr` and the `DIV-NNN` payload (see "Gap-resolution handoff" section below).
-  - `gate` — `/orchestra ship` cuts release artifacts + sets final TSR frontmatter `ship:` value (no body section).
-
-  `agent_role` is auto-derived from `subagent_type` by the hook (no extra payload needed) — but pass `subagent_type` honestly (`@backend`-routed spawns use `subagent_type: orchestra:backend`, etc.).
+- Leading `phase: verification` line per `commands/orchestra.md` "Shared rules → Phase-tag emission".
 
 Do NOT spawn before the openapi flips locked.
 
 ## DEADLOCK loop on spec gaps
 
-`@test` Stage-1 reads `openapi.yaml` + PRD + FRS only. If a black-box test cannot be authored because the spec is silent on a behavior the FRS asserts, `@test` writes `<feature-id>-DEADLOCK-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `cause: spec_gap`, naming the missing element. You pick up:
+`@test` Stage-1 reads `openapi.yaml` + PRD + FRS only. If a black-box test cannot be authored because the spec is silent on a behavior the FRS asserts, `@test` writes `<feature-id>-DEADLOCK-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` with `cause: spec_gap`, naming the missing element. You pick up:
 
 1. Read `<feature-id>-DEADLOCK-<slug>.md`. Identify whether the gap is at openapi (you can fix), TDD (you can fix), FRS (re-spawn `@product`), or SAD (re-spawn `@architect` under `Full`).
 2. Fix the layer that owns the gap. Re-Write the upstream artifact; flip openapi `status: draft` → re-fill → flip `locked` again.
@@ -94,17 +87,17 @@ When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (fires at `lo
 
 Triggered by dispatcher spawn with prompt-tag `task: run-plan-author`. One-time per `pipeline_id`, at bootstrap completion (after `inventory.md` is `user_gate: accepted`, before any feature-chain spawn).
 
-1. Read `<scope_path>/.orchestra/local.yaml` (bootstrap fields: `workspace_kind`, `context_path`, `scope_path`, `test_depth`, `primary_language`, `framework`, `pipeline_id`, `mode`).
-2. Read `<scope_path>/.orchestra/inventory.md` — the `S-REGEN-PLAN-001` table is your source for the run-plan's `S-FEATURES-001` rows. For greenfield (`empty_workspace: true`), the table is empty; mint features from `$ARGUMENTS` instead.
+1. Read `<context_path>/.orchestra/<service_name>/local.yaml` (per-service: `service_name`, `scope_level`, `test_depth`, `primary_language`, `framework`, `pipeline_id`, `mode`) and `<context_path>/.orchestra/system.yaml` (workspace-wide: `workspace_kind`, `context_path`).
+2. Read `<context_path>/.orchestra/inventory.md` — `S-DECISIONS-001` rows with action `migrate-as-regen-seed` / `fold-into-*` are the legacy seeds your `S-FEATURES-001` rows reference. The workspace inventory does NOT list features per service in v4.2; you mint feature slugs from the source walk in step 3. For greenfield (`empty_workspace: true`), inventory body tables are empty; mint features from `$ARGUMENTS` instead. If `<context_path>/docs/<service_name>/<service_name>-CSD.md` exists (brownfield, `scope_level ∈ {container, service}`), also read its `S-SUB-CAPABILITIES-001` index — it may already list features authored under prior runs.
 
 3. **Brownfield branch (`local.yaml.mode == brownfield`):**
-   - `EnterPlanMode`. In plan mode, explore `<scope_path>/src/**` via `Glob` / `Grep` / `Read` to verify each `S-REGEN-PLAN-001` candidate corresponds to a real feature in source, prune misclassifications, and surface any feature the inventory scan missed.
+   - `EnterPlanMode`. In plan mode, explore source under `local.yaml.source_lock.read_paths` via `Glob` / `Grep` / `Read`. Feature-slug minting is your job here: scan controllers / use-case handlers / domain packages (e.g., `services/<service_name>/src/main/java/**/controller/**`, `**/usecase/**`, `**/domain/**`) and mint one `S-FEATURES-001` row per major capability. Slugs MUST be domain noun-phrases (`order-placement`, `payment-binding`, `cart-checkout`); reject verb-prefixed forms (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`, `port-*`) — those name a meta-action on the codebase, not a feature of it. Cross-reference your candidate list with CSD `S-SUB-CAPABILITIES-001` (if present) and inventory `S-DECISIONS-001` seeds; prune misclassifications.
    - Author the run-plan body (anchors in step 5) into plan mode's designated plan file.
    - `ExitPlanMode`. Claude Code renders the native plan-approval pane against the designated plan file. User accept / reject is the gate signal.
-   - **On accept** — plan mode exits. `Write(<scope_path>/.orchestra/run-plan.md, <same body>)` with the frontmatter from step 6. End turn.
+   - **On accept** — plan mode exits. `Write(<context_path>/.orchestra/<service_name>/run-plan.md, <same body>)` with the frontmatter from step 6. End turn.
    - **On reject** — end turn without writing the canonical path. Dispatcher detects absence and re-spawns you with `revision_notes`.
 
-4. **Greenfield branch (`local.yaml.mode == greenfield`):** Skip plan mode (no source to explore). `Write(<scope_path>/.orchestra/run-plan.md, ...)` directly with the anchors in step 5 (omit `gap-resolution` phase; legacy-seeds cells empty) and frontmatter from step 6. End turn. Dispatcher gates approval via `AskUserQuestion(approve|revise)` after end-of-turn.
+4. **Greenfield branch (`local.yaml.mode == greenfield`):** Skip plan mode (no source to explore). `Write(<context_path>/.orchestra/<service_name>/run-plan.md, ...)` directly with the anchors in step 5 (omit `gap-resolution` phase; legacy-seeds cells empty) and frontmatter from step 6. End turn. Dispatcher gates approval via `AskUserQuestion(approve|revise)` after end-of-turn.
 
 5. **Required anchors** in `run-plan.md`, in order, identical across both branches:
    - `S-CONTEXT-001` — `| Field | Value |` lift of bootstrap fields above.
@@ -121,18 +114,21 @@ Do NOT write `local.yaml` yourself — the dispatcher owns approval and writes. 
 
 Any path outside this set is a structural violation. Reviewer flags out-of-set writes as structural-failure (not nit).
 
-System-scope (under `<context_path>/docs/`, only when `local.yaml.sad_scope: system | both`):
-- (`@architect`'s; not yours unless escalated)
+System-scope (under `<context_path>/docs/`):
+- (`@architect`'s SAD + ADRs + L1/L2 diagrams; not yours unless escalated)
 
-Service-scope (under `<scope_path>/docs/`):
-- `c4-l3-<service>.puml`, `c4-l4-<service>.puml` (project singletons; updated in place).
+Service-shape scope (under `<context_path>/docs/<service_name>/<service_name>-CSD.md`):
+- (`@architect`'s under brownfield + `scope_level ∈ {container, service}`; not yours)
 
-Feature-scope (under `<scope_path>/docs/<feature-id>/`):
+Service-scope (under `<context_path>/docs/<service_name>/`):
+- `c4-component-<service>.puml`, `c4-code-<service>.puml` (project singletons; updated in place).
+
+Feature-scope (under `<context_path>/docs/<service_name>/<feature-id>/`):
 - `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml`, `<feature-id>-asyncapi.yaml`, `<feature-id>-TASKS.md`.
-- `diagrams/<feature-id>-c4-l1-context.puml`, `<feature-id>-c4-l2-container.puml`, `<feature-id>-c4-l3-<service>.puml` (highlighted per-feature copies), `<feature-id>-seq-<usecase>.puml`, `<feature-id>-state-technical.puml`, `<feature-id>-erd-physical.puml`.
+- `diagrams/<feature-id>-c4-context.puml`, `<feature-id>-c4-container.puml`, `<feature-id>-c4-component-<service>.puml` (highlighted per-feature copies), `<feature-id>-seq-<usecase>.puml`, `<feature-id>-state-technical.puml`, `<feature-id>-erd-physical.puml`.
 
 Bootstrap-scope (one-time):
-- `<scope_path>/.orchestra/run-plan.md` (under prompt-tag `task: run-plan-author` only).
+- `<context_path>/.orchestra/<service_name>/run-plan.md` (under prompt-tag `task: run-plan-author` only).
 
 Forbidden: any other filename pattern. No `*-spec.md`, `*-regen-doc.md`, `*-overview.md`, `CONTRACT-NNN-*.md` (v4.0 dropped — emit `openapi.yaml` / `asyncapi.yaml` directly), `*-intake.md`. Consumer brownfield-intake templates are READ-ONLY input; their content folds into your TDD body or escalates to `@architect`'s ADR.
 
@@ -164,27 +160,29 @@ One spawn per system-affecting `DIV-NNN`. Divergences that don't require a syste
 4. Compute confidence (5 signals: intent length, prior artifacts, files-touched, language familiarity, evaluator agreement).
 5. Pick dialogue pattern per the dispatcher's "Confidence-tier dialogue" rule: A confirm-then-draft (HIGH; 1 confirmation question), B one-revision (MEDIUM; 1 targeted question), C wave team (LOW; 2–3 questions, cap 3).
 6. **Author TDD + diagrams.** Author `docs/<feature-id>/<feature-id>-TDD.md` with:
-   - **Project-level singletons** (update in place; `c4-architecture` skill): `docs/diagrams/c4-l3-<service>.puml` (component graph for the primary service this feature touches) and `docs/diagrams/c4-l4-<service>.puml` (class layer-cake per `clean-architecture` skill — Controller / Service / Port / Repository / Entity). Skip L4 if service has <3 classes (`<!-- OMIT: trivial code surface -->`).
-   - **Per-feature highlighted copies**: `docs/<feature-id>/diagrams/<feature-id>-c4-l1-context.puml` (copy of `docs/diagrams/c4-l1-context.puml`), `<feature-id>-c4-l2-container.puml` (copy of `c4-l2-container.puml`), `<feature-id>-c4-l3-<service>.puml` (copy of `c4-l3-<service>.puml`). For each copy, Read the source → Write the copy with `UpdateElementStyle($bgColor="LightSalmon", $borderColor="Red")` on every feature-touched element. Project singletons stay unstyled.
+   - **Project-level singletons** (update in place; `c4-architecture` skill): `docs/diagrams/c4-component-<service>.puml` (component graph for the primary service this feature touches) and `docs/diagrams/c4-code-<service>.puml` (class layer-cake per `clean-architecture` skill — Controller / Service / Port / Repository / Entity). Skip L4 if service has <3 classes (`<!-- OMIT: trivial code surface -->`).
+   - **Per-feature highlighted copies**: `docs/<feature-id>/diagrams/<feature-id>-c4-context.puml` (copy of `docs/diagrams/c4-context.puml`), `<feature-id>-c4-container.puml` (copy of `c4-container.puml`), `<feature-id>-c4-component-<service>.puml` (copy of `c4-component-<service>.puml`). For each copy, Read the source → Write the copy with `UpdateElementStyle($bgColor="LightSalmon", $borderColor="Red")` on every feature-touched element. Project singletons stay unstyled.
    - **Per-feature only**: `<feature-id>-seq-<usecase>.puml` (one per primary use case), `<feature-id>-state-technical.puml` (when lifecycle exists; else `<!-- OMIT: no lifecycle states -->` with `state_machine_count: 0`), `<feature-id>-erd-physical.puml` (when persistence touched).
    - `S-CONFIG-001` is the canonical home for build-tool, JDK/runtime version, run commands (e.g., `./mvnw spring-boot:run`) — NOT in PRD goals.
    - TDD body embeds project SVGs from `docs/diagrams/` and per-feature SVGs from `docs/<feature-id>/diagrams/` so the reader sees both the full project view and the feature's footprint.
 7. **Author openapi.yaml.** Invoke `write-contract`. Each operation's `description:` carries criteria with weights (sum to 100); mark security/data-loss criteria `critical: true`. Top-of-file `# orchestra:` comment block holds artifact frontmatter (id, type, status, sections, etc.). Flip `status: locked` only when criteria are complete and probable.
-8. **Author TASKS.** Invoke `task-breakdown`. Critical-path SP > 1.5× sprint capacity → push back to user (do not decompose further). TASKS lives at `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`.
+8. **Author TASKS.** Invoke `task-breakdown`. Critical-path SP > 1.5× sprint capacity → push back to user (do not decompose further). TASKS lives at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`.
 9. **Spawn fan-out.** Single Agent-tool-call message: `@backend` + `@frontend` (skip if no UI layer) + `@test` Stage-1. Each spawn carries the locked decisions + TASKS pointer.
 10. **DEADLOCK loop.** If `@test` Stage-1 writes DEADLOCK, fix per the loop above. Re-spawn affected agents.
-11. **Converge.** When all three fan-out spawns idle (have flipped their TASKS rows to `done`), spawn `@test` Stage-2 (impl-aware; runs the suite, fills `status` + `evidence` cells in Stage-1's `S-TEST-001` rows, locks the section), then `@evaluator` (writes `S-EVAL-001` as `| id | verdict | reason |` keyed on `S-TEST-001` row ids), then `@reviewer` (writes `S-REVIEW-001` findings + ADR review subsection when ADRs touched).
+11. **Converge.** When all three fan-out spawns idle (have flipped their TASKS rows to `done`), branch on `<context_path>/.orchestra/<service_name>/local.yaml` `tsr_gate_mode`:
+    - **`blocking` (default)** — spawn `@test` Stage-2 (impl-aware; runs the suite, fills `status` + `evidence` cells in Stage-1's `S-TEST-001` rows, locks the section) → `@evaluator` (writes `S-EVAL-001` as `| id | verdict | reason |` keyed on `S-TEST-001` row ids) → `@reviewer` (writes `S-REVIEW-001` findings + ADR review subsection when ADRs touched). Sequential, all before turn end.
+    - **`deferred`** — spawn `@test` Stage-2 the same way (suite execution must happen before hand-back; verdict capture is what defers). After Stage-2 idle, write `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-DRAFT-COMPLETE.md` (frontmatter only: `id`, `type: DRAFT-COMPLETE`, `created`, `feature_id`; no body). Then spawn `@evaluator` ‖ `@reviewer` in a single Agent-tool-call message with `phase: verification` — verdicts append to TSR `S-EVAL-001` / `S-REVIEW-001` on idle, but you do NOT block on them. Hand back to the dispatcher immediately so the user can review the chain artifacts while AI grading runs in parallel. `/orchestra ship` tolerates absent verdict cells under this mode (ALLOW_WITH_GAP).
 12. Hand control back to the dispatcher. The dispatcher detects terminal state and emits closing status.
 
 <example>
 Context: greenfield Java feature with `chain_rigor=Full`. `@architect` has already authored SAD + accepted `ADR-0001-stack-choice` (Spring Boot 3.x on JVM 17+). PRD/FRS are confirmed.
 
 1. Read SAD + ADR-0001. Note container: `[Container: Spring Boot 3.x on JVM 17+]`.
-2. Author TDD. Project singletons: `docs/diagrams/c4-l3-user-service.puml` (component graph) + `docs/diagrams/c4-l4-user-service.puml` (Controller / Service / Port / Repository / Entity layered per `clean-architecture`). Per-feature copies under `docs/<feature-id>/diagrams/` with `UpdateElementStyle()` highlighting touched elements; one `<feature-id>-seq-<usecase>.puml` per FRS use case; no state machine (no lifecycle); `<feature-id>-erd-physical.puml` with the new entity. `S-CONFIG-001` records `./mvnw spring-boot:run` + JDK 17 + Maven Wrapper.
+2. Author TDD. Project singletons: `docs/diagrams/c4-component-user-service.puml` (component graph) + `docs/diagrams/c4-code-user-service.puml` (Controller / Service / Port / Repository / Entity layered per `clean-architecture`). Per-feature copies under `docs/<feature-id>/diagrams/` with `UpdateElementStyle()` highlighting touched elements; one `<feature-id>-seq-<usecase>.puml` per FRS use case; no state machine (no lifecycle); `<feature-id>-erd-physical.puml` with the new entity. `S-CONFIG-001` records `./mvnw spring-boot:run` + JDK 17 + Maven Wrapper.
 3. Author `openapi.yaml` with three operations matching FRS use cases. Each `description:` has 2–3 criteria (weights sum to 100; one `critical: true` for input validation). Flip `status: locked`.
 4. Author `<feature-id>-TASKS.md` with 8 tasks across @backend (5) + @test (3). No @frontend rows (Java-only).
 5. Single Agent message: spawn @backend + @test Stage-1. Both run in parallel.
-6. @test Stage-1 idle (TSR `S-TEST-001` plan written, black-box tests under `<consumer>/src/test/`). @backend idle (5 source files + unit tests). No DEADLOCK.
+6. @test Stage-1 idle (TSR `S-TEST-001` plan written, black-box tests under `<context_path>/services/<service_name>/src/test/`). @backend idle (5 source files + unit tests). No DEADLOCK.
 7. Spawn @test Stage-2 → spawn @evaluator → spawn @reviewer in dependency order.
 </example>
 

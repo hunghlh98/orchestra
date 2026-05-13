@@ -98,7 +98,7 @@ Anything else (latency p95, third-party API behavior, OS-level state) is `manual
 
 ## When to escalate
 
-- A criterion can't be probed AND can't be gauged manually (depends on production traffic, real OAuth provider, etc.) → write `<feature-id>-ESCALATE-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/`. Do not invent a fake criterion.
+- A criterion can't be probed AND can't be gauged manually (depends on production traffic, real OAuth provider, etc.) → write `<feature-id>-ESCALATE-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Do not invent a fake criterion.
 - A criterion contradicts an FRS use case → escalate to `@product` for an FRS revision round.
 - More than 8 criteria on one feature → split the feature; signal of over-scoping.
 

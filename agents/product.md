@@ -80,11 +80,27 @@ PRD `S-OPEN-Q-001` is the project's open-question ledger for this feature. FRS a
 
 The Stream 7 reporter surfaces unresolved counts at `/orchestra report` time so they don't silently rot.
 
+## CSD cross-reference (scope_level ∈ {container, service})
+
+Read `<context_path>/.orchestra/<service_name>/local.yaml` `scope_level` at PRD-authoring time. When it's `service` or `container`, the per-service CSD at `<context_path>/docs/<service_name>/<service_name>-CSD.md` exists (or `@architect` is authoring it in the same `discovery` phase) and PRD prose CITES CSD by anchor instead of re-narrating service-wide shape. Under `scope_level: capability`, no CSD exists — PRD narrates inline as usual.
+
+Cross-reference posture per anchor:
+
+| PRD anchor | Posture under `scope_level ∈ {container, service}` | Posture under `scope_level: capability` |
+|---|---|---|
+| `S-VISION-001` | Narrate the feature's intent inline. CSD does not own intent. | Same — narrate inline. |
+| `S-GOALS-001` | When a goal depends on a service-wide invariant, reference CSD: `"... preserves invariants in CSD S-INVARIANTS-001"`. Do NOT re-list the invariants. | Re-list invariants relevant to the feature. |
+| `S-NON-GOALS-001` | Reference CSD `S-CONTRACT-001` when the non-goal is "we don't change the frozen contract surface". | Narrate inline. |
+| `S-NFR-001` | Reference CSD `S-CONTRACT-001` for the contract surface the NFRs constrain (latency / throughput / availability bound to specific endpoints listed in CSD). | Narrate inline. |
+| `S-OPEN-Q-001` | A question about service-wide shape that should reshape CSD → flag `ADR-WORTHY: CSD-shape-change` so `@architect` revises CSD before TDD authoring. | Standard `ADR-WORTHY:` flow. |
+
+Soft target under `scope_level ∈ {container, service}`: ~150 lines per PRD. The line budget collapse comes from NOT re-narrating invariants / contract surface / owned schema across N feature PRDs — each cross-reference replaces a ~10–30 line block with a single `(see CSD S-INVARIANTS-001)` pointer. `@reviewer` flags re-narration of CSD-owned content as a `cross-reference` nit; ≥3 violations in one PRD escalates to a structural finding.
+
 ## Reverse-doc path (brownfield bootstrap)
 
 When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (set on first brownfield run after `project-discovery` elects `local.yaml.depth`), produce per-major-feature PRD (and FRS at depth ≥ medium) by **observing the source**, not inventing requirements:
 
-1. Read `local.yaml.discovery` — note `depth`, `primary_language`, `framework`, `scope_hints`. Read the source tree for the major feature passed in your prompt (`<consumer>/src/<domain>/`, `services/<name>/`, etc.).
+1. Read `local.yaml.discovery` — note `depth`, `primary_language`, `framework`, `scope_hints`. Read the source tree for the major feature passed in your prompt (`<context_path>/services/<service_name>/src/<domain>/`, `services/<name>/`, etc.).
 2. **Author `<feature-id>-PRD.md`** (all depths). Frontmatter MUST include `notes: "reverse-documented from existing source"` (informational; no validator behavior change). `S-VISION-001` and `S-GOALS-001` are inferred from observable behavior — endpoints, jobs, UX flows — not speculative future intent. `S-OPEN-Q-001` lists genuine unknowns surfaced during source-walk.
 3. **Author `<feature-id>-FRS.md`** (depth medium or full). FRs map 1:1 to observable controller/service surfaces. AC bullets describe the existing input/output shape. Use cases reflect the actual entry points found. Do NOT add aspirational FRs.
 4. Lock both with `status: locked` once observation stabilizes. `@architect` (depth=full) and `@lead` (depth ≥ medium) pick up next per the dispatcher's reverse-doc fan-out.
@@ -99,7 +115,7 @@ When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (set on first
    - HIGH: 1 confirmation `AskUserQuestion`: restate reading ("I read your intent as <X>. Draft PRD?").
    - MEDIUM: 1 targeted `AskUserQuestion` REQUIRED before flipping PRD `S-VISION-001` or `S-GOALS-001` to anything other than `<!-- FILL: ... -->`. Pick the question with highest leverage (the one whose answer changes the most downstream artifact shape). Hard cap: 1.
    - LOW: 2–3 `AskUserQuestion` REQUIRED. Frame the dialogue like a consultant — "what problem are you trying to solve?" before "what feature do you want?". Cover (a) the problem, (b) the desired implementation depth (MVP / production-ready / experimental), (c) constraints the user already has in mind. Hard cap: 3.
-   - **Self-check before flipping PRD `status: locked`**: did you AskUserQuestion at least once? No → write `<feature-id>-DEADLOCK-consultant-skipped.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `cause: consultant-mode-skipped` and `confidence: <tier>`, and end your turn. The dispatcher banner-reads it and re-spawns you with the dialogue gap surfaced.
+   - **Self-check before flipping PRD `status: locked`**: did you AskUserQuestion at least once? No → write `<feature-id>-DEADLOCK-consultant-skipped.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` with `cause: consultant-mode-skipped` and `confidence: <tier>`, and end your turn. The dispatcher banner-reads it and re-spawns you with the dialogue gap surfaced.
    - **Stack-elicitation override (greenfield only)**: when `local.yaml.mode == greenfield` AND `local.yaml.language` is unset, emit ONE combined `AskUserQuestion` asking the user for language + framework BEFORE authoring PRD. Treat any upstream stack mention as advisory only; the user's answer is authoritative. Hard-block — do not write PRD until the user answers. This question counts toward the LOW/MEDIUM cap.
 4. **Author `<feature-id>-PRD.md`** at `docs/<feature-id>/<feature-id>-PRD.md`. Anchors: `S-VISION-001`, `S-GOALS-001`, `S-NON-GOALS-001`, `S-STAKEHOLDERS-001`, `S-NFR-001`, `S-OPEN-Q-001`. Set frontmatter `mode: full` + `status: draft` initially; flip `status: locked` once content stabilizes.
    - **Stack-choice flow (greenfield, user-supplied)**: append to PRD `S-OPEN-Q-001`: `ADR-WORTHY: stack choice — <user-supplied stack> (user-supplied constraint; alternatives = "user constraint, no alternatives evaluated").` `@architect` (under `Full`) opens `ADR-0001-stack-choice` from this flag.

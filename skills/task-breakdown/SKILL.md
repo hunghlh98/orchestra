@@ -36,7 +36,6 @@ One owner per task; cross-tier handoffs become explicit edges.
 | Test plan / fuzz inputs | `@test` writes; `@evaluator` runs verdict |
 | PRD / FRS / SAD / CONTRACT | `@product` or `@lead` writes |
 | Code review | `@reviewer` |
-| Release artifacts | `@ship` |
 
 ### Step 3 — Story-point estimate
 
@@ -60,7 +59,7 @@ Edges are unidirectional: `A → B` means B starts after A completes.
 - **Spec → impl** — PRD/FRS/CONTRACT precede backend/frontend/test code.
 - **Impl → verdict** — implementer-tier task → `@evaluator` task that grades it.
 - **Verdict → review** — `@evaluator` PASS → `@reviewer` task.
-- **Review → ship** — `@reviewer` APPROVED → `@ship` task.
+- **Review → ship** — `@reviewer` APPROVED → user invokes `/orchestra ship` (manual; not a task-graph node).
 
 Avoid implicit ordering ("backend ships before frontend by tradition"). Make every dependency explicit so the wave team (Pattern C) can parallelize correctly.
 
@@ -70,7 +69,7 @@ Longest dependency chain by SP sum is the critical path. Total sprint duration �
 
 ### Step 6 — Write the task graph
 
-Author `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`. Frontmatter carries `status:` / `verdict:` / `readers:` / `sections:` per `schemas/pipeline-artifact.schema.md`. Body anchors `S-DAG-001` and `S-TASKS-001`; embed the DAG via `![]()` against `diagrams/tasks-dag.svg` (the `post-write-puml` hook renders the `.svg` from a paired `.puml` source).
+Author `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`. Frontmatter carries `status:` / `verdict:` / `readers:` / `sections:` per `schemas/pipeline-artifact.schema.md`. Body anchors `S-DAG-001` and `S-TASKS-001`; embed the DAG via `![]()` against `diagrams/tasks-dag.svg` (the `post-write-puml` hook renders the `.svg` from a paired `.puml` source).
 
 Frontmatter (v2.0 slim):
 
@@ -132,7 +131,6 @@ User: *"Add a `/v1/users/:id/transfer` endpoint that records to the ledger and e
 | T-003 | @test | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
 | T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic | pending |
 | T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `docs/001-transfer/001-transfer-TSR.md S-EVAL-001`: all 4 criteria PASS | pending |
-| T-006 | @reviewer | 2 | T-007 | T-005 | `docs/001-transfer/001-transfer-TSR.md S-REVIEW-001`: APPROVED | pending |
-| T-007 | @ship | 1 | — | T-006 | conventional commit + RELEASE notes (with `S-ANNOUNCEMENT-001`) if applicable | pending |
+| T-006 | @reviewer | 2 | — | T-005 | `docs/001-transfer/001-transfer-TSR.md S-REVIEW-001`: APPROVED | pending |
 
-Total: 13 SP. Critical path: T-001 → T-002 → T-005 → T-006 → T-007 = 9 SP. Parallelism on T-002 / T-003 / T-004 saves 4 SP wall time.
+Total: 12 SP. Critical path: T-001 → T-002 → T-005 → T-006 = 8 SP. Parallelism on T-002 / T-003 / T-004 saves 4 SP wall time.

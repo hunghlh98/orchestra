@@ -523,12 +523,12 @@ console.log("orchestra.md v4.0 surface fixture:");
   check(/autonomy-diagnostic\.md/.test(body), `commands/orchestra.md cites task-breakdown/references/autonomy-diagnostic.md as source for the suggestion`);
 }
 
-// v4.0.3 — c4-architecture skill enforces consistent l1/l2/l3/l4 naming.
+// v4.2 — c4-architecture skill enforces consistent noun-based naming (layer prefix dropped).
 console.log("c4-architecture skill enumerates Levels 1–4:");
 {
   const skillPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "skills", "c4-architecture", "SKILL.md");
   const body = readFileSync(skillPath, "utf8");
-  for (const lvl of ["c4-l1-context", "c4-l2-container", "c4-l3-<service>", "c4-l4-<service>"]) {
+  for (const lvl of ["c4-context", "c4-container", "c4-component-<service>", "c4-code-<service>"]) {
     check(body.includes(lvl), `skills/c4-architecture/SKILL.md documents diagram-name shape: ${lvl}`);
   }
   check(/Level 4 — Code/i.test(body), `skills/c4-architecture/SKILL.md has Level 4 — Code section`);

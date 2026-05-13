@@ -10,10 +10,6 @@
     "$schema": { "type": "string" },
     "workspace_kind": { "enum": ["single-repo", "multi-repo", "multi-service"] },
     "context_path": { "type": "string", "minLength": 1 },
-    "registered_services": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 1 }
-    },
     "status": { "enum": ["draft", "locked"] }
   }
 }

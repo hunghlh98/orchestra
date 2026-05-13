@@ -5,10 +5,10 @@
 ## How agents use this file
 
 - **Spawn prompt mandate**: every `Agent({ subagent_type, prompt })` call from the dispatcher embeds `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent>` plus a 1-line summary. Agents may Read this file when the inline summary is insufficient (e.g., an artifact name they're uncertain about).
-- **Out-of-whitelist enforcement**: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-ESCALATE-<slug>.md` with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
+- **Out-of-whitelist enforcement**: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-ESCALATE-<slug>.md` with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
 - **ADR sub-flow**: `feature` and `refactor` intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author (under `chain_rigor=Full`); `@reviewer` reviews. 3-round circuit breaker → `<feature-id>-ESCALATE-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-<NNNN>-<slug>`) in plain prose, not by section anchor.
 
-Paths use v4.0 layout: per-feature prose in `docs/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<consumer>/.orchestra/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`).
+Paths use v4.0 layout: per-feature prose in `docs/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`).
 
 ---
 
@@ -24,8 +24,8 @@ Paths use v4.0 layout: per-feature prose in `docs/<feature-id>/`, ADRs flat in `
 - `docs/adr/ADR-<NNNN>-<slug>.md` (conditional, per ADR sub-flow)
 - `docs/<feature-id>/<feature-id>-TDD.md`
 - `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`; CONTRACT narrative folds inline)
-- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
-- impl source (project's normal layout under `<consumer>/src/`)
+- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
+- impl source (project's normal layout under `<context_path>/services/<service_name>/src/`)
 - `docs/<feature-id>/<feature-id>-TSR.md` (multi-writer: `S-TEST-001` by `@test` Stage-1+Stage-2, `S-EVAL-001` by `@evaluator`, `S-REVIEW-001` by `@reviewer` (with ADR-review subsection when ADRs touched), `S-DIVERGENCES-001` by `@architect` (brownfield only); ship verdict in frontmatter `ship:` set by `/orchestra ship`)
 - `docs/releases/RELEASE-vX.Y.Z.md` (singleton; absorbs ANNOUNCEMENT into `S-ANNOUNCEMENT-001`)
 - `docs/runbooks/RUNBOOK-vX.Y.Z.md` (singleton; conditional)
@@ -39,7 +39,7 @@ This is the only intent that produces the full SDLC artifact set.
 **Artifact whitelist:**
 
 - `docs/<feature-id>/<feature-id>-TDD.md`
-- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
+- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl-fix
 - `docs/<feature-id>/<feature-id>-TSR.md` (no review half required — `S-REVIEW-001` stays `pending`)
 - `docs/releases/RELEASE-vX.Y.Z.md`
@@ -52,9 +52,9 @@ This is the only intent that produces the full SDLC artifact set.
 
 **Artifact whitelist:**
 
-- `<consumer>/.orchestra/pipeline/<feature-id>/intent.yaml` (routing decision; `@product` triages but writes no PRD)
+- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/intent.yaml` (routing decision; `@product` triages but writes no PRD)
 - `docs/<feature-id>/<feature-id>-TDD.md`
-- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
+- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl source
 - `docs/<feature-id>/<feature-id>-TSR.md`
 
@@ -68,7 +68,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 - `docs/<feature-id>/<feature-id>-TSR.md` (pre-impl assessment in `S-REVIEW-001`; post-impl `S-EVAL-001` by `@evaluator`)
 - `docs/<feature-id>/<feature-id>-TDD.md` (update — not net-new)
-- `<consumer>/.orchestra/pipeline/<feature-id>/<feature-id>-TASKS.md`
+- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl
 - `docs/adr/ADR-<NNNN>-<slug>.md` (conditional — refactors often hit forks)
 
@@ -80,7 +80,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 **Artifact whitelist:**
 
-- `<consumer>/.orchestra/pipeline/<feature-id>/intent.yaml`
+- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/intent.yaml`
 - The doc files themselves (whatever the user asked for — README updates, ADR additions outside a feature, rule docs, etc.)
 - `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending`)
 

@@ -32,10 +32,10 @@ Litmus: would you link this from a PR description for a non-engineer reviewer? `
 | Tier | Root | Contents | Diagram levels |
 |---|---|---|---|
 | system | `<context_path>/docs/` | `SAD.md`, `adr/ADR-NNNN-<slug>.md`, `diagrams/*.puml` | C4 L1, L2 |
-| service | `<scope_path>/docs/` | `SAD.md`, `adr/ADR-NNNN-<slug>.md`, `diagrams/*.puml` | C4 L2, L3 |
-| feature | `<scope_path>/docs/<feature-id>/` | `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `openapi.yaml`, `asyncapi.yaml`, `<feature-id>-TSR.md` | C4 L3 |
+| service | `<context_path>/docs/<service_name>/` | `<service_name>-CSD.md` (brownfield + `scope_level ∈ {container, service}`) | — (CSD is text-only) |
+| feature | `<context_path>/docs/<service_name>/<feature-id>/` | `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml`, `<feature-id>-asyncapi.yaml`, `<feature-id>-TSR.md` | C4 L3 |
 
-For single-repo workspaces `scope_path == context_path` so system + service tiers collapse. `diagrams/` always nests under the matching scope's `docs/` — bare `<scope_path>/diagrams/` is forbidden.
+Every artifact path embeds the elected `service_name` (workspace-relative basename of the service directory; persisted in `<context_path>/.orchestra/<service_name>/local.yaml`). Single-service workspaces still nest under `<context_path>/docs/<service_name>/` — the partition is uniform, not conditional on `workspace_kind`. `diagrams/` always nests under the matching tier's `docs/` root — bare `<context_path>/diagrams/` is forbidden.
 
 ## Folder layout
 
@@ -55,72 +55,92 @@ Every per-feature artifact filename embeds the full feature-id as a prefix: `<fe
 ```
 <project>/docs/
 ├── README.md, CONTRIBUTING.md, SLO.md   ← user-authored; plugin doesn't trample
-├── SAD.md                               ← architecture singleton
+├── SAD.md                               ← system-level singleton (only SAD in v4.2)
 ├── adr/
 │   └── ADR-NNNN-<slug>.md               ← global flat numbering; ADRs accrete
-├── diagrams/                            ← global (each *.puml has paired *.svg)
+├── diagrams/                            ← system-level (each *.puml has paired *.svg)
 │   ├── c4-context.{puml,svg}
 │   ├── c4-container.{puml,svg}
-│   └── erd-logical.{puml,svg}
-└── <feature-id>/                        ← per-feature; <feature-id> = <NNN>-<slug>
-    ├── <feature-id>-PRD.md              (e.g., 001-todo-api-PRD.md)
-    ├── <feature-id>-FRS.md
-    ├── <feature-id>-TDD.md
-    ├── <feature-id>-openapi.yaml        (or <feature-id>-asyncapi.yaml)
-    ├── <feature-id>-TSR.md              (multi-writer: §test-plan @test, §verdict-evaluator @evaluator, §verdict-reviewer @reviewer + ADR review)
-    └── diagrams/                        ← feature
-        ├── state-business.{puml,svg}
-        ├── sequence-inter-<flow>.{puml,svg}
-        ├── c4-component.{puml,svg}
-        ├── sequence-intra-<usecase>.{puml,svg}
-        ├── state-technical.{puml,svg}      (if applicable)
-        └── erd-physical.{puml,svg}         (if schema touched)
+│   ├── erd-logical.{puml,svg}
+│   └── sequence-inter-<flow>.{puml,svg} (one per cross-service flow)
+└── <service_name>/                       ← per-service partition (e.g., order/, payment-engine/)
+    ├── <service_name>-CSD.md             ← per-service singleton (brownfield + scope_level ∈ {container, service})
+    └── <feature-id>/                     ← per-feature; <feature-id> = <NNN>-<slug>
+        ├── <feature-id>-PRD.md           (e.g., 001-order-placement-PRD.md)
+        ├── <feature-id>-FRS.md
+        ├── <feature-id>-TDD.md
+        ├── <feature-id>-openapi.yaml     (or <feature-id>-asyncapi.yaml)
+        ├── <feature-id>-TSR.md           (multi-writer: §test-plan @test, §verdict-evaluator @evaluator, §verdict-reviewer @reviewer + ADR review)
+        └── diagrams/                     ← per-feature
+            ├── state-business.{puml,svg}
+            ├── sequence-inter-<flow>.{puml,svg}
+            ├── c4-component.{puml,svg}
+            ├── sequence-intra-<usecase>.{puml,svg}
+            ├── state-technical.{puml,svg}    (if applicable)
+            └── erd-physical.{puml,svg}       (if schema touched)
 ```
 
-Per-feature artifacts: `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`), `<feature-id>-TSR.md`.
+Per-feature artifacts: `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`), `<feature-id>-TSR.md`. Per-service artifacts: `<service_name>-CSD.md` (brownfield, container/service grain).
 
 ### `<project>/.orchestra/` (agent + plugin internals)
 
+Workspace-global state at the `.orchestra/` root; per-service execution state partitioned under `.orchestra/<service_name>/`.
+
 ```
 <project>/.orchestra/
-├── local.yaml                          ← runtime config (mode, depth, chain_rigor, primary_language, framework)
-├── manifest.json                       ← idempotency registry (replaces lockfile hashes)
-├── events.jsonl                        ← event log (BL-0032; observability stream 7)
-├── metrics/                            ← per-role / per-phase token attribution (BL-0035)
-│   └── <run-id>.json
-├── pipeline/<feature-id>/                       ← per-feature coordination state; <feature-id> matches docs/<feature-id>/
-│   ├── intent.yaml                              ← routing decision (input to @lead)
-│   ├── <feature-id>-TASKS.md                    ← lead → implementer task breakdown (global DAG)
-│   ├── <feature-id>-DEADLOCK-<slug>.md          ← transient; <slug> identifies the deadlock cause
-│   ├── <feature-id>-ESCALATE-<slug>.md          ← transient
-│   └── <feature-id>-ESCALATE-ADR-<NNNN>.md      ← reviewer-flagged retroactive ADR escalation
-└── tasks/<run-id>/<agent>/<feature-id>.md       ← per-agent execution plan (PLAN type); one file per (run-id, agent, feature-id) reused across resumes
+├── system.yaml                         ← workspace config (workspace_kind, context_path)
+├── inventory.md                        ← workspace classification (brownfield only)
+├── manifest.json                       ← idempotency registry (workspace-wide)
+├── events.jsonl                        ← event log (workspace observability)
+├── metrics/                            ← per-role / per-phase token attribution (workspace-wide)
+│   ├── <run-id>.json
+│   ├── cost-by-phase.json
+│   └── runs/<run-id>.json              ← run-id row carries service_name for pivots
+├── legacy/                             ← brownfield-archive target (mirror of original tree)
+└── <service_name>/                     ← per-service execution state (e.g., order/, payment-engine/)
+    ├── local.yaml                                  ← service config (service_name, mode, scope_level, chain_rigor, ...)
+    ├── run-plan.md                                 ← per-service feature list + execution sequence
+    ├── pipeline/                                   ← coordination root
+    │   ├── <run-id>-INCOMPLETE.md                  ← run-scoped, written by parity probe on terminal state when S-FEATURES-001 rows lack their full artifact set (status: locked PRD/FRS/TDD/TSR per chain_rigor)
+    │   └── <feature-id>/                           ← per-feature coordination state; <feature-id> matches docs/<service_name>/<feature-id>/
+    │       ├── intent.yaml                         ← routing decision (input to @lead)
+    │       ├── <feature-id>-TASKS.md               ← lead → implementer task breakdown
+    │       ├── <feature-id>-DRAFT-COMPLETE.md      ← deferred-TSR marker (Track D, when tsr_gate_mode: deferred)
+    │       ├── <feature-id>-DEADLOCK-<slug>.md     ← transient
+    │       ├── <feature-id>-ESCALATE-<slug>.md     ← transient
+    │       └── <feature-id>-ESCALATE-ADR-<NNNN>.md ← reviewer-flagged retroactive ADR escalation
+    └── tasks/<run-id>/<agent>/<feature-id>.md      ← per-agent execution plan (PLAN type); one file per (run-id, agent, feature-id) reused across resumes
 ```
 
 Lifetime notes:
 - `intent.yaml` + `<feature-id>-TASKS.md` are run-scoped — kept across reruns of the same feature for idempotency, history-only after ship.
-- `<feature-id>-DEADLOCK-*.md` / `<feature-id>-ESCALATE-*.md` are transient by design — removed once resolved. Stale escalation files are themselves a CI signal.
-- `events.jsonl` and `metrics/` accrete; observability fuel, not deliverables.
+- `<feature-id>-DEADLOCK-*.md` / `<feature-id>-ESCALATE-*.md` / `<run-id>-INCOMPLETE.md` are transient by design — removed once resolved. Stale escalation / INCOMPLETE files are themselves a CI signal.
+- `events.jsonl` and `metrics/` accrete; observability fuel, not deliverables. Workspace-global, never per-service.
+- `inventory.md` is workspace-global (one per `<context_path>`); `run-plan.md` is per-service (one per `<service_name>`).
 
 Type → folder map:
 
 | Type | Folder | Example | Notes |
 |---|---|---|---|
-| `PRD`, `FRS`, `TDD`, `TSR` | `docs/<feature-id>/` | `001-todo-api-PRD.md` | per-feature prose; filename = `<feature-id>-<TYPE>.md` |
-| `API` (openapi/asyncapi) | `docs/<feature-id>/` | `001-todo-api-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
-| `SAD` | `docs/` | `SAD.md` | project singleton |
+| `PRD`, `FRS`, `TDD`, `TSR` | `docs/<service_name>/<feature-id>/` | `001-order-placement-PRD.md` | per-feature prose; filename = `<feature-id>-<TYPE>.md` |
+| `API` (openapi/asyncapi) | `docs/<service_name>/<feature-id>/` | `001-order-placement-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
+| `CSD` | `docs/<service_name>/` | `order-CSD.md` | per-service singleton (brownfield + `scope_level ∈ {container, service}`); filename = `<service_name>-CSD.md` |
+| `SAD` | `docs/` | `SAD.md` | system-level singleton (only SAD in v4.2) |
 | `ADR` | `docs/adr/` | `ADR-0001-use-sqlite.md` | global flat numbering — NOT feature-scoped |
 | `RELEASE`, `RUNBOOK` | `docs/releases/`, `docs/runbooks/` | `RELEASE-vX.Y.Z.md` | release-time singletons |
-| `TASKS` | `.orchestra/pipeline/<feature-id>/` | `001-todo-api-TASKS.md` | agent-internal; filename = `<feature-id>-TASKS.md` |
-| `PLAN` | `.orchestra/tasks/<run-id>/<agent>/` | `001-todo-api.md` | per-agent execution plan; filename = `<feature-id>.md`; one file per `(run-id, agent, feature-id)` |
-| `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/pipeline/<feature-id>/` | `001-todo-api-ESCALATE-spec-gap.md` | transient; filename = `<feature-id>-<TYPE>-<slug>.md` (or `<feature-id>-ESCALATE-ADR-<NNNN>.md`) |
+| `INVENTORY` | `.orchestra/` | `inventory.md` | workspace-global singleton (brownfield only) |
+| `RUN-PLAN` | `.orchestra/<service_name>/` | `run-plan.md` | per-service singleton |
+| `TASKS` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `001-order-placement-TASKS.md` | agent-internal; filename = `<feature-id>-TASKS.md` |
+| `PLAN` | `.orchestra/<service_name>/tasks/<run-id>/<agent>/` | `001-order-placement.md` | per-agent execution plan; filename = `<feature-id>.md`; one file per `(run-id, agent, feature-id)` |
+| `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `001-order-placement-ESCALATE-spec-gap.md` | transient; filename = `<feature-id>-<TYPE>-<slug>.md` (or `<feature-id>-ESCALATE-ADR-<NNNN>.md`) |
+| `INCOMPLETE` | `.orchestra/<service_name>/pipeline/` | `r2026-05-13T14-22-INCOMPLETE.md` | run-scoped (NOT feature-scoped); filename = `<run-id>-INCOMPLETE.md`; written by terminal-state parity probe |
 
 ## Common shape (all artifacts)
 
 ```yaml
 ---
 id: <basename-without-extension>
-type: <PRD|FRS|TDD|API|TSR|SAD|ADR|RELEASE|RUNBOOK|TASKS|PLAN|ESCALATE|DEADLOCK>
+type: <PRD|FRS|TDD|API|TSR|SAD|ADR|RELEASE|RUNBOOK|TASKS|PLAN|ESCALATE|DEADLOCK|INCOMPLETE|CSD|INVENTORY|RUN-PLAN>
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                    # draft | locked
@@ -157,16 +177,22 @@ Applies to TSR (eval / review verdicts + ship), ADR (review verdict), RELEASE (s
 | `PASS` / `FAIL` | Empirical |
 | `APPROVED` / `REQUEST_CHANGES` | Inspection |
 | `ALLOW` | Ship |
-| `ALLOW_WITH_GAP` | Ship when `local.yaml.round_trip == DEFERRED` |
+| `ALLOW_WITH_GAP` | Ship when reviewer emitted `ALLOW_WITH_GAP` (genuine "approved with caveat"), OR `tsr_gate_mode: deferred` AND `<feature-id>-DRAFT-COMPLETE.md` exists with absent verdict cells (deferred-mode tolerance) |
 | `HOLD` | Ship blocked |
 
-### Round-trip gate <a id="round-trip-gate"></a>
+### TSR gate mode <a id="tsr-gate-mode"></a>
 
-`local.yaml.round_trip` ∈ `DEFERRED | PENDING | PASS | FAIL`. Reviewer-to-ship mapping: `PASS` → `ALLOW`; `DEFERRED` → `ALLOW_WITH_GAP`; `PENDING | FAIL` → `HOLD`.
+`local.yaml.tsr_gate_mode` ∈ `blocking | deferred` (default `blocking`). Ship-verdict mapping reads TSR frontmatter `eval_verdict` + `rev_verdict`:
+
+- `eval_verdict: PASS` AND `rev_verdict: APPROVED` → `ALLOW`.
+- `rev_verdict: ALLOW_WITH_GAP` → `ALLOW_WITH_GAP`.
+- `eval_verdict: FAIL` OR `rev_verdict: REQUEST_CHANGES` OR `rev_verdict: PENDING` → `HOLD`.
+
+Under `tsr_gate_mode: deferred`, absent verdict cells (eval / review still running async) map to `ALLOW_WITH_GAP` ONLY when the corresponding `<feature-id>-DRAFT-COMPLETE.md` marker exists; otherwise `HOLD`.
 
 ### `readers:` <a id="S-READERS-001"></a>
 
-List of agents authorized to read this artifact. **Soft enforcement** — prompt-level discipline only. The `pre-write-check.js` Gate-C reads the target artifact's frontmatter at write time; a write whose calling agent isn't in `readers:` is logged as a non-blocking warning (Stream 7 reporter aggregates). The one **hard-enforced** scope is `@test` Stage-1's exclusion of `<consumer>/src/**`, which uses per-stage tool-scoping at agent spawn (not this field).
+List of agents authorized to read this artifact. **Soft enforcement** — prompt-level discipline only. The `pre-write-check.js` Gate-C reads the target artifact's frontmatter at write time; a write whose calling agent isn't in `readers:` is logged as a non-blocking warning (Stream 7 reporter aggregates). The one **hard-enforced** scope is `@test` Stage-1's exclusion of `<context_path>/services/<service_name>/src/**`, which uses per-stage tool-scoping at agent spawn (not this field).
 
 ### `sections:` <a id="S-SECTIONS-001"></a>
 
@@ -197,7 +223,7 @@ Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segm
 
 **Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in the body, and every `<a id>` in the body MUST have a matching key in `sections:`. `validate.js` flags either direction as a violation.
 
-**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, and per-agent `PLAN` files under `.orchestra/tasks/<run-id>/<agent>/` — these are agent-internal coordination, not stakeholder narrative.
+**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, and per-agent `PLAN` files under `.orchestra/<service_name>/tasks/<run-id>/<agent>/` — these are agent-internal coordination, not stakeholder narrative.
 
 ## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
 
@@ -340,7 +366,7 @@ Stage-1 fills `id` / `criterion` / `axis` / `critical` / `fixture` (status + evi
 
 `S-DIVERGENCES-001` (writer `@architect`, brownfield-conditional) — table row shape `| ID | UC slug | File:line | Finding | Guard test ID |`. On greenfield runs, omit the anchor entirely.
 
-Final ship verdict lives in frontmatter `ship:` (no body section). `/orchestra ship` reads `eval_verdict` + `rev_verdict` + `local.yaml.round_trip` to compute the value and writes it to frontmatter.
+Final ship verdict lives in frontmatter `ship:` (no body section). `/orchestra ship` reads `eval_verdict` + `rev_verdict` + `local.yaml.tsr_gate_mode` (with `<feature-id>-DRAFT-COMPLETE.md` marker presence under deferred mode) to compute the value and writes it to frontmatter.
 
 `validate.js` rejects a `locked` TSR missing any of `S-TEST-001`, `S-EVAL-001`, `S-REVIEW-001`, and rejects any `S-EVAL-001` row whose `id` is not present in `S-TEST-001`.
 
@@ -391,7 +417,7 @@ deploy_steps_count: <int>
 rollback_steps_count: <int>
 ```
 
-### `<feature-id>-TASKS.md` (`.orchestra/pipeline/<feature-id>/`)
+### `<feature-id>-TASKS.md` (`.orchestra/<service_name>/pipeline/<feature-id>/`)
 
 ```yaml
 status: draft | locked
@@ -404,7 +430,7 @@ tasks_done: <int>
 
 `S-TASKS-001` is **mutable by design** — implementer-tier owners (`@backend`, `@frontend`) flip rows from `pending → in_progress → done` on pickup/completion. Read-only-tier owners (`@evaluator`, `@reviewer`) do NOT self-report — their task status derives at read-time from TSR `eval_verdict` / `rev_verdict`.
 
-### `<feature-id>.md` PLAN (`.orchestra/tasks/<run-id>/<agent>/`)
+### `<feature-id>.md` PLAN (`.orchestra/<service_name>/tasks/<run-id>/<agent>/`)
 
 Per-agent execution plan. The agent authors the body before any artifact write or substantial Bash; the `agent-plan-sync` hook owns mutation of `tasks:`, `tasks_pending`, `tasks_in_progress`, `tasks_done`, and lifecycle `status:` flips on `Task*` tool use and on `SubagentStop`.
 
@@ -435,7 +461,7 @@ tasks:
 | `interrupted` | `SubagentStop` fired with at least one task not `completed` | `agent-plan-sync` hook on `SubagentStop` |
 | `done` | All tasks `completed` | `agent-plan-sync` hook on `TaskUpdate(status: completed)` of the last task |
 
-`/orchestra resume` consults `<project>/.orchestra/tasks/*/<agent>/<feature-id>.md` (latest run-id by mtime) BEFORE walking `<feature-id>-TASKS.md`. A plan with `status: interrupted` resumes at the first non-`completed` task; with `status: in_progress` warns and confirms before respawn (concurrent-session guard).
+`/orchestra resume` consults `<project>/.orchestra/<service_name>/tasks/*/<agent>/<feature-id>.md` (latest run-id by mtime) BEFORE walking `<feature-id>-TASKS.md`. A plan with `status: interrupted` resumes at the first non-`completed` task; with `status: in_progress` warns and confirms before respawn (concurrent-session guard).
 
 Body grammar (free-form, no `<a id>` anchors required):
 
@@ -464,7 +490,7 @@ Body-grammar carve-out applies (no `sections:` block).
 
 ## src/ cite denylist (canonical)
 
-`pre-write-check.js` Gate-D rejects writes to `<consumer>/src/**` (and language equivalents below) that contain any of:
+`pre-write-check.js` Gate-D rejects writes to `<context_path>/services/<service_name>/src/**` (and language equivalents below) that contain any of:
 
 ```
 PRD §<N>                              FR-<N>
@@ -487,7 +513,7 @@ Path-match for Gate-D activation:
 ^(.*\/)?(src\/main\/|src\/test\/|src\/(?!.*\.(md|yaml)$)|app\/|cmd\/|pkg\/|internal\/|lib\/(?!.*\.md$))
 ```
 
-Reason: consumer business code is read by reviewers, IDEs, and grep tools that have no access to `docs/<feature-id>/`. Anchor cites become phantom references — same audience-boundary failure as the consumer-vs-developer surface rule, one step downstream. Traceability lives in commit messages, PR descriptions, and TSR `§verdict-*` — not in business code comments.
+Reason: consumer business code is read by reviewers, IDEs, and grep tools that have no access to `docs/<service_name>/<feature-id>/`. Anchor cites become phantom references — same audience-boundary failure as the consumer-vs-developer surface rule, one step downstream. Traceability lives in commit messages, PR descriptions, and TSR `§verdict-*` — not in business code comments.
 
 ## Validation
 
@@ -497,7 +523,7 @@ Reason: consumer business code is read by reviewers, IDEs, and grep tools that h
   - **Gate-A** — `status: locked` rejects non-owner writes.
   - **Gate-B** — `sections:` map enforces per-section writer + lock.
   - **Gate-C** — `readers:` allowlist; non-blocking warning on out-of-scope read attempts (reporter aggregates).
-  - **Gate-D** — src/ cite denylist; exit 2 on any hit when target path matches `<consumer>/src/**` (or language equivalents).
+  - **Gate-D** — src/ cite denylist; exit 2 on any hit when target path matches `<context_path>/services/<service_name>/src/**` (or language equivalents).
 
 ## Versioning
 

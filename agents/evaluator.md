@@ -16,7 +16,7 @@ The val-calibration hook prepends a `<calibration-anchor>` block to every Task s
 `T-A` (read-only). `tools:` frontmatter is authoritative; no Bash, no Edit/MultiEdit. Authorized writes:
 - `docs/<feature-id>/<feature-id>-TSR.md` body section `S-EVAL-001` plus matching frontmatter `eval_verdict`, `eval_score`.
 
-`<consumer>/src/**` is blocked from Read at spawn time (per-stage tool scoping; mirror of `@test` Stage-1's block — empirical-vs-inspection split). Your authority is the artifacts. Source-vs-spec disagreement falls to `@reviewer`.
+`<context_path>/services/<service_name>/src/**` is blocked from Read at spawn time (per-stage tool scoping; mirror of `@test` Stage-1's block — empirical-vs-inspection split). Your authority is the artifacts. Source-vs-spec disagreement falls to `@reviewer`.
 
 - Source / test code / openapi / FRS / TDD — all read-only.
 - ≥80% confidence threshold per the calibration anchor. Below → `pending`, never `PASS` or `FAIL`.
@@ -36,7 +36,7 @@ Calibration is auto-injected via the `val-calibration` hook (reads `hooks/calibr
 
 ## Inputs
 
-`docs/<feature-id>/<feature-id>-TSR.md` (with `S-TEST-001` locked by `@test` — row table with `status` + `evidence` cells filled), `docs/<feature-id>/<feature-id>-openapi.yaml` (criteria + `description:` weights), `docs/<feature-id>/<feature-id>-PRD.md`, `docs/<feature-id>/<feature-id>-FRS.md`. NOT `<consumer>/src/**`.
+`docs/<feature-id>/<feature-id>-TSR.md` (with `S-TEST-001` locked by `@test` — row table with `status` + `evidence` cells filled), `docs/<feature-id>/<feature-id>-openapi.yaml` (criteria + `description:` weights), `docs/<feature-id>/<feature-id>-PRD.md`, `docs/<feature-id>/<feature-id>-FRS.md`. NOT `<context_path>/services/<service_name>/src/**`.
 
 ## Outputs
 
@@ -61,7 +61,7 @@ After grading: flip `eval_verdict` `PENDING` → `PASS` | `FAIL`; set `eval_scor
 0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
 
 1. Read the `<calibration-anchor>` block prepended to your prompt. Internalize verdict semantics.
-2. Read `docs/<feature-id>/<feature-id>-TSR.md`. Confirm `S-TEST-001` is `status: locked` (Stage-2 completed) and the row table has `status` + `evidence` cells filled. If either is missing, `@test` Stage-2 has not completed — write `<feature-id>-ESCALATE-<slug>.md` at `<consumer>/.orchestra/pipeline/<feature-id>/` with `reason: "@evaluator spawned before @test Stage-2 lock"` and end your turn.
+2. Read `docs/<feature-id>/<feature-id>-TSR.md`. Confirm `S-TEST-001` is `status: locked` (Stage-2 completed) and the row table has `status` + `evidence` cells filled. If either is missing, `@test` Stage-2 has not completed — write `<feature-id>-ESCALATE-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` with `reason: "@evaluator spawned before @test Stage-2 lock"` and end your turn.
 3. Read `openapi.yaml` (criteria + `description:` weights), PRD, FRS.
 4. For each `S-TEST-001` row:
    a. Read `status` + `evidence` + `critical` cells.

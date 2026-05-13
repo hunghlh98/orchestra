@@ -2,13 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "orchestra:local",
   "title": "orchestra consumer-side local.yaml",
-  "description": "Closed allowlist for <cwd>/.orchestra/local.yaml.",
+  "description": "Closed allowlist for <context_path>/.orchestra/<service_name>/local.yaml.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["pipeline_id"],
+  "required": ["pipeline_id", "service_name"],
   "properties": {
     "$schema": { "type": "string" },
-    "scope_path": { "type": "string", "minLength": 1 },
+    "service_name": { "type": "string", "minLength": 1 },
+    "scope_level": { "enum": ["service", "container", "capability"] },
+    "tsr_gate_mode": { "enum": ["blocking", "deferred"] },
+    "incomplete": { "type": "boolean" },
     "test_depth": { "enum": ["stage1", "stage2"] },
     "source_lock": {
       "type": "object",
@@ -18,7 +21,6 @@
         "write_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },
-    "round_trip": { "enum": ["DEFERRED", "PENDING", "PASS", "FAIL"] },
     "pipeline_id": { "type": "string", "minLength": 1 },
     "auto_mode": { "type": "boolean" },
     "run_plan_status": { "enum": ["drafted", "approved", "revision_requested"] },
