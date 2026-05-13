@@ -43,7 +43,7 @@ SAD is a project-level singleton at `<context_path>/docs/SAD.md` regardless of `
 
 ## CSD authoring (brownfield reverse-doc, scope_level ∈ {container, service})
 
-The Container Specification Document is the per-service shape singleton: `<context_path>/docs/<service_name>/<service_name>-CSD.md`. One CSD per elected service. Required anchors `S-OWNED-001`, `S-CONTRACT-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-SUB-CAPABILITIES-001` — see `schemas/csd.schema.md` for the full frontmatter + body grammar, the BR-vs-INV audience boundary, and the worked example.
+The Container Specification Document is the per-service shape singleton: `<context_path>/docs/<service_name>/<service_name>-CSD.md`. One CSD per elected service. Required anchors `S-OWNED-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-ADR-INDEX-001`, `S-SUB-CAPABILITIES-001` — see `schemas/csd.schema.md` for the full frontmatter + body grammar, the BR-vs-INV audience boundary, and the worked example.
 
 When to author:
 
@@ -56,12 +56,11 @@ Authoring procedure (one CSD lifecycle):
 1. Read `<context_path>/.orchestra/inventory.md` `S-DECISIONS-001`. Filter rows with `Action == fold-into-CSD` whose `Target` references the elected `<service_name>` — these are seeds.
 2. Walk `local.yaml.source_lock.read_paths` for the elected service. Heuristics by JVM convention (adapt for the consumer's stack):
    - **`S-OWNED-001`** — `@Entity` / `@Table` classes, Liquibase `db/changelog/**`, Flyway `db/migration/**`, JPA `*Repository` interfaces. Each entity → one row `| <table_name> | <owned_columns> | <notes> |`.
-   - **`S-CONTRACT-001`** — `@RestController` + `@RequestMapping` for inbound HTTP surface (`direction: <HTTP method>`); `RestTemplate` / `WebClient` / Feign client interfaces / `RestClient` / `HttpClient` callsites for outbound HTTP deps (`direction: outbound-http`); `@KafkaListener` (`direction: consumer`) + `@KafkaTemplate.send()` callsites + topic-constant classes (`direction: producer`) for Kafka surface. Row shape `| <path/topic> | <method/direction> | <stability> | <notes> |`. Mark `frozen` for routes/topics consumed by external services; `evolving` for ones used only by this service's own UI/tests; `internal` for ones never crossing a service boundary. For `direction: outbound-http` rows, the `<notes>` cell cites the matching consumer-side contract path `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml` (authored by `@lead` per `skills/write-contract` Step 3b) — one row per upstream route the service calls.
    - **`S-BR-001`** — stakeholder-signable rules from the `fold-into-CSD` seeds: refund windows, KYC thresholds, fee caps, payout latency promises, etc. Each row `| BR-NNN | <one-sentence policy> | <named human Owner> | <source of policy> |`. `BR-NNN` zero-padded per CSD. `Owner` MUST be a named human role (Finance, Compliance, Platform-Lead, Risk-Ops); ESCALATE if no human role exists who could sign — that's the test for whether it's a BR vs an INV. See `schemas/csd.schema.md` "BR vs INV: audience boundary".
    - **`S-INVARIANTS-001`** — implementer-only consistency rules from the same seeds (idempotency-key derivation, ordering guarantees, currency precision, identity rotation). Each row `| INV-NNN | <one-sentence invariant> | <rationale> |`. `INV-NNN` zero-padded per CSD. Skip per-feature rules — those belong in the feature's PRD/FRS.
    - **`S-AC-001`** — service-grain acceptance criteria that hold across all features. Source from existing CI integration / contract / monitoring suites pinned at the service level. Each row `| AC-NNN | <assertion> | <verification surface> | <Traces: BR-NNN / INV-NNN / SAD/BR-NNN / SAD/AC-NNN> |`. `AC-NNN` zero-padded per CSD. An AC row with empty `Traces` is a structural failure — root it to a parent rule or push it to the feature FRS.
    - **`S-SUB-CAPABILITIES-001`** — list `<context_path>/docs/<service_name>/<feature-id>/` dirs that already exist (status `shipped`) plus rows planned in `<context_path>/.orchestra/<service_name>/run-plan.md` `S-FEATURES-001` (status `planned`). Append-only across runs.
-3. Set frontmatter counts (`owned_table_count`, `contract_surface_count`, `invariant_count`, `sub_capability_count`) to the row counts. Flip `status: locked`. Hand back to `@lead`; downstream agents (`@product`, `@lead`, implementers) read CSD as read-only reference for the rest of the run.
+3. Set frontmatter counts (`owned_table_count`, `invariant_count`, `sub_capability_count`) to the row counts. Flip `status: locked`. Hand back to `@lead`; downstream agents (`@product`, `@lead`, implementers) read CSD as read-only reference for the rest of the run.
 
 CSD writing-style discipline mirrors SAD's four hard rules (above) — assertions over descriptions, no preambles, no hedging, no restatements. Per-feature concerns must NEVER appear in CSD; if a row only applies to one feature, push it back to that feature's PRD/FRS/TDD instead.
 
@@ -69,9 +68,9 @@ Subsequent runs against the same service: CSD is read-only unless service shape 
 
 ### Feature-addition flow (subsequent feature against existing CSD)
 
-When a feature lands against a service that already has a locked CSD, re-walk source under `local.yaml.source_lock.read_paths` and diff observed state against the current CSD body. The five service-grain anchors (`S-OWNED-001`, `S-CONTRACT-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`) describe the service's CURRENT consolidated state — mutate rows in place to reflect the new post-feature reality. Append exactly one new row to `S-SUB-CAPABILITIES-001` naming the new feature; that is the ONLY anchor where feature attribution lives.
+When a feature lands against a service that already has a locked CSD, re-walk source under `local.yaml.source_lock.read_paths` and diff observed state against the current CSD body. The four service-grain anchors (`S-OWNED-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`) describe the service's CURRENT consolidated state — mutate rows in place to reflect the new post-feature reality. Append exactly one new row to `S-SUB-CAPABILITIES-001` naming the new feature; that is the ONLY anchor where feature attribution lives.
 
-Forbidden: `#<feature-id>` tags or `added by feature N` annotations on rows of `S-OWNED-001`, `S-CONTRACT-001`, `S-BR-001`, `S-INVARIANTS-001`, or `S-AC-001`. A row that's only true under one feature pushes back to the feature's TDD or FRS — never accretes in CSD body with a feature tag. See `schemas/csd.schema.md` "Body grammar: living service-grain state" for the full discipline + reviewer gate.
+Forbidden: `#<feature-id>` tags or `added by feature N` annotations on rows of `S-OWNED-001`, `S-BR-001`, `S-INVARIANTS-001`, or `S-AC-001`. A row that's only true under one feature pushes back to the feature's TDD or FRS — never accretes in CSD body with a feature tag. See `schemas/csd.schema.md` "Body grammar: living service-grain state" for the full discipline + reviewer gate.
 
 ## Divergences (brownfield, pre-TSR)
 
@@ -125,7 +124,7 @@ ADR body for retroactive ADRs adds a `## Ratification` section between `S-DECISI
 ## Outputs
 
 - `<context_path>/docs/SAD.md` (system-level singleton) with H2 anchors `S-VISION-001`, `S-CONTEXT-001`, `S-CONTAINERS-001`, `S-BR-001`, `S-AC-001`, `S-ADR-INDEX-001` (global ADRs only — `scope: global`).
-- `<context_path>/docs/<service_name>/<service_name>-CSD.md` (per-service singleton; brownfield + `scope_level ∈ {container, service}` only) with H2 anchors `S-OWNED-001`, `S-CONTRACT-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-SUB-CAPABILITIES-001`.
+- `<context_path>/docs/<service_name>/<service_name>-CSD.md` (per-service singleton; brownfield + `scope_level ∈ {container, service}` only) with H2 anchors `S-OWNED-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-ADR-INDEX-001`, `S-SUB-CAPABILITIES-001`.
 - `<context_path>/docs/adr/ADR-<NNNN>-<slug>.md` (global) or `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md` (service-scoped), anchors `S-CONTEXT-001`, `S-DECISION-001`, `S-ALTERNATIVES-001`, `S-CONSEQUENCES-001`. Frontmatter `scope: global | service` decides path + numbering.
 - `<context_path>/docs/diagrams/{c4-context,c4-container,erd-logical}.puml` (system-level singletons; updated in place when containers/entities change). `<context_path>/docs/diagrams/sequence-inter-<flow>.puml` (one per cross-service flow; named for the flow). `@lead` owns L3/L4 at service grain (`<context_path>/docs/<service_name>/diagrams/c4-component.puml`, `<context_path>/docs/<service_name>/diagrams/c4-code.puml` — one of each per service, updated in place) plus per-feature L1/L2 highlighted copies under `<context_path>/docs/<service_name>/<feature-id>/diagrams/`.
 

@@ -111,8 +111,8 @@ Cross-reference posture per anchor:
 |---|---|---|
 | `S-VISION-001` | Narrate the feature's intent inline. CSD does not own intent. | Same — narrate inline. |
 | `S-GOALS-001` | When a goal depends on a service-wide invariant, reference CSD: `"... preserves invariants in CSD S-INVARIANTS-001"`. Do NOT re-list the invariants. | Re-list invariants relevant to the feature. |
-| `S-NON-GOALS-001` | Reference CSD `S-CONTRACT-001` when the non-goal is "we don't change the frozen contract surface". | Narrate inline. |
-| `S-NFR-001` | Reference CSD `S-CONTRACT-001` for the contract surface the NFRs constrain (latency / throughput / availability bound to specific endpoints listed in CSD). | Narrate inline. |
+| `S-NON-GOALS-001` | Narrate inline. NFR-shaped non-goals ("we don't change frozen endpoints") cite the relevant `<feature-id>-openapi.yaml` operation by path+method, not by anchor — operations carry `x-orchestra-stability: frozen \| evolving \| internal` per `skills/write-contract` to mark the service-grain commitment. | Narrate inline. |
+| `S-NFR-001` | Narrate inline. When an NFR bounds a specific endpoint (latency / throughput / availability), cite the `<feature-id>-openapi.yaml` operation that owns it; the operation's `x-orchestra-stability` extension records whether external consumers depend on it. | Narrate inline. |
 
 Soft target under `scope_level ∈ {container, service}`: ~150 lines per PRD. The line budget collapse comes from NOT re-narrating invariants / contract surface / owned schema across N feature PRDs — each cross-reference replaces a ~10–30 line block with a single `(see CSD S-INVARIANTS-001)` pointer. `@reviewer` flags re-narration of CSD-owned content as a `cross-reference` nit; ≥3 violations in one PRD escalates to a structural finding.
 

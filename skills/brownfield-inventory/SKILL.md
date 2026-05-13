@@ -72,7 +72,7 @@ Use a single `AskUserQuestion` per bucket with the per-bucket action set:
 
 Action routing guide for `out-of-taxonomy` entries (apply when prompting; the user always has the final say):
 
-- `fold-into-CSD` — material describing **cross-feature service-wide concerns**: money-flow rules, state-machine guards, idempotency policies, schema-ownership tables, frozen Kafka topic lists, error namespaces. These end up in CSD `S-INVARIANTS-001` / `S-OWNED-001` / `S-CONTRACT-001`.
+- `fold-into-CSD` — material describing **cross-feature service-wide concerns**: money-flow rules, state-machine guards, idempotency policies, schema-ownership tables, error namespaces. These end up in CSD `S-INVARIANTS-001` / `S-OWNED-001` / `S-BR-001`. HTTP/Kafka contract surface is NOT folded into CSD — each feature's `<feature-id>-openapi.yaml` / `<feature-id>-clientapi.yaml` / `<feature-id>-asyncapi.yaml` owns the contract shape, with `x-orchestra-stability` per operation marking the service-grain commitment. Inventory rows describing legacy Kafka topic surface stay `keep-as-legacy-reference` until the first feature touching each topic captures it in its asyncapi.yaml.
 - `fold-into-PRD` — material describing **one feature's problem statement, persona, or acceptance criteria**. Per-feature scope only.
 - `fold-into-FRS` — material describing **one feature's use cases or functional contracts**. Per-feature scope only.
 - `fold-into-TDD` — material describing **one feature's component layout, sequence flows, or physical schema**.
@@ -116,7 +116,7 @@ Authoring-agent routing by action:
 | `migrate-as-regen-seed` (SAD-equivalent → system-level SAD) | `@architect` | `<context_path>/docs/SAD.md` `S-CONTAINERS-001` / `S-VISION-001` / `S-CONTEXT-001` |
 | `migrate-as-regen-seed` (ADR dir) | `@architect` | `<context_path>/docs/adr/ADR-NNNN-<slug>.md` |
 | `migrate-as-regen-seed` (allowlisted diagram) | `@architect` (L1/L2) or `@lead` (L3/L4) | `<context_path>/docs/<service_name>/diagrams/` or `<context_path>/docs/diagrams/` per tier |
-| `fold-into-CSD` | `@architect` | `<context_path>/docs/<service_name>/<service_name>-CSD.md` `S-OWNED-001` / `S-CONTRACT-001` / `S-INVARIANTS-001` |
+| `fold-into-CSD` | `@architect` | `<context_path>/docs/<service_name>/<service_name>-CSD.md` `S-OWNED-001` / `S-BR-001` / `S-INVARIANTS-001` |
 | `fold-into-PRD` | `@product` | per-feature PRD `S-PROBLEM-001` / `S-SCOPE-001` |
 | `fold-into-FRS` | `@product` | per-feature FRS `S-USECASES-001` / `S-AC-001` |
 | `fold-into-TDD` | `@lead` | per-feature TDD body |
@@ -176,6 +176,6 @@ Step 3 prompts (all four buckets non-empty, so four `AskUserQuestion` calls):
 - `redundant`: user keeps `-WebShop` variants canonical.
 - `stale`: user archives `archive/`.
 - `plugin-equivalent`: ADR dir migrates as ADR seed; canonical SAD candidate migrates as regen seed; canonical container diagram migrates under the allowlist.
-- `out-of-taxonomy`: `money-flow/` → `fold-into-CSD` (cross-feature money invariants → `order-CSD.md` `S-INVARIANTS-001`); `state-machine/` → `fold-into-CSD` (state-machine guards → `S-INVARIANTS-001`); `events/` → `fold-into-CSD` (frozen Kafka topic surface → `S-CONTRACT-001`); `mock-services/` → `keep-as-legacy-reference`; `schedules/` → `archive`.
+- `out-of-taxonomy`: `money-flow/` → `fold-into-CSD` (cross-feature money invariants → `order-CSD.md` `S-INVARIANTS-001`); `state-machine/` → `fold-into-CSD` (state-machine guards → `S-INVARIANTS-001`); `events/` → `keep-as-legacy-reference` (legacy Kafka topic docs; first feature touching each topic captures the contract in its asyncapi.yaml with `x-orchestra-stability`); `mock-services/` → `keep-as-legacy-reference`; `schedules/` → `archive`.
 
-Once `inventory.md` is `user_gate: accepted`, downstream agents take over: `@architect` reads inventory + walks `<context_path>/services/order/src/main/**` to author `<context_path>/docs/order/order-CSD.md` (folding the `money-flow/`, `state-machine/`, `events/` content into its anchors); `@lead` reads inventory + CSD to mint `<context_path>/.orchestra/order/run-plan.md` `S-FEATURES-001` rows (one row per domain noun-phrase feature, e.g., `order-validation`, `order-pricing`, `order-fulfillment`).
+Once `inventory.md` is `user_gate: accepted`, downstream agents take over: `@architect` reads inventory + walks `<context_path>/services/order/src/main/**` to author `<context_path>/docs/order/order-CSD.md` (folding the `money-flow/`, `state-machine/` content into `S-INVARIANTS-001`); `@lead` reads inventory + CSD to mint `<context_path>/.orchestra/order/run-plan.md` `S-FEATURES-001` rows (one row per domain noun-phrase feature, e.g., `order-validation`, `order-pricing`, `order-fulfillment`). The `events/` legacy Kafka docs stay `keep-as-legacy-reference` until the first feature publishing/consuming each topic authors its `<feature-id>-asyncapi.yaml`.

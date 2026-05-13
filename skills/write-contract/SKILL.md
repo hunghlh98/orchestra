@@ -9,7 +9,7 @@ origin: orchestra
 Produces TWO artifacts:
 
 - `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` — **producer contract**: endpoints this feature *publishes*. `@lead` writes; `@test` lifts criteria into the TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
-- `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml` — **consumer contract**: the contract this feature *requires from upstream services it calls* (one file covers all outbound HTTP deps for the feature; `info.title: "client-contract: <upstream-service>"` — one document per upstream, or a single multi-paths document with each `paths.<route>` carrying an `x-orchestra-upstream: <service>` extension). Authored when CSD `S-CONTRACT-001` has any row with direction `outbound-http`.
+- `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml` — **consumer contract**: the contract this feature *requires from upstream services it calls* (one file covers all outbound HTTP deps for the feature; `info.title: "client-contract: <upstream-service>"` — one document per upstream, or a single multi-paths document with each `paths.<route>` carrying an `x-orchestra-upstream: <service>` extension). Authored when the feature's implementation diff has outbound HTTP callsites (`RestTemplate` / `WebClient` / Feign / `RestClient` / `HttpClient`).
 
 The contract IS the openapi document — there is no separate CONTRACT.md. Acceptance criteria live as prose in `description:` fields per operation / response. Critical criteria are flagged inline. Probe DSL + grading rules live in `qa-test-planner` (TSR `S-TEST-001`) and `@evaluator`'s rubric — not in this artifact.
 
@@ -86,7 +86,7 @@ Set frontmatter `sections.S-API-001.status: locked` after the body is final. `@t
 
 ### Step 3b — Author the consumer clientapi document (when outbound HTTP deps exist)
 
-Path: `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml`. Same OpenAPI 3.0 shape as the producer file with `info.title: "client-contract: <upstream-service>"` (or a single document carrying `x-orchestra-upstream: <service>` per route). For each row in CSD `S-CONTRACT-001` with direction `outbound-http` that this feature exercises, document the route, method, request body, expected responses, and the contract assumptions this feature *requires* from the upstream. Use the inline `CRITICAL:` token for fields the feature depends on (e.g., `CRITICAL: response.idempotency_key MUST be echoed in 201 body`). Use `manual_evaluation:` for upstream behavior the feature can't probe (third-party SLA, eventual consistency window).
+Path: `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml`. Same OpenAPI 3.0 shape as the producer file with `info.title: "client-contract: <upstream-service>"` (or a single document carrying `x-orchestra-upstream: <service>` per route). Trigger: grep the feature's implementation diff for outbound HTTP callsites (`RestTemplate` / `WebClient` / Feign client interfaces / `RestClient` / `HttpClient`); for each upstream identified, document the route, method, request body, expected responses, and the contract assumptions this feature *requires* from the upstream. Use the inline `CRITICAL:` token for fields the feature depends on (e.g., `CRITICAL: response.idempotency_key MUST be echoed in 201 body`). Use `manual_evaluation:` for upstream behavior the feature can't probe (third-party SLA, eventual consistency window).
 
 Top-of-file `# orchestra:` block:
 
@@ -128,6 +128,28 @@ paths:
 ```
 
 One `clientapi.yaml` covers all outbound HTTP deps for the feature. `@test` lifts each `CRITICAL:` clientapi criterion into a contract-test row in TSR `S-TEST-001` so a breaking change upstream is caught at the seam.
+
+### Step 3c — Annotate operation stability
+
+Every operation in `openapi.yaml` / `clientapi.yaml` / `asyncapi.yaml` (channel in asyncapi) carries an `x-orchestra-stability` extension marking the service-grain commitment:
+
+```yaml
+paths:
+  /v1/orders:
+    post:
+      x-orchestra-stability: frozen
+      summary: ...
+```
+
+| value | semantic |
+|---|---|
+| `frozen` | External consumers depend on this surface; breaking changes require a deprecation cycle. |
+| `evolving` | Used only by this service's own UI / tests / internal flows; can change with this service's release cadence. |
+| `internal` | Never crosses a service boundary (debug endpoints, health probes consumed by orchestrator only). |
+
+Producer side (`openapi.yaml`, `asyncapi.yaml` channels with publish): the stability is THIS service's commitment to its consumers. Consumer side (`clientapi.yaml`, `asyncapi.yaml` channels with subscribe): the stability is THIS feature's internal commitment to its dependency on the upstream — `frozen` means we won't migrate away in the foreseeable future; `evolving` means this dep is up for review.
+
+Reviewers grep `x-orchestra-stability: frozen` across all .yaml files to get the cross-feature "frozen surface" view; cross-file inconsistencies on the same path/topic surface as a `stability-drift` finding.
 
 ### Step 4 — Author sequence diagrams for critical paths
 
