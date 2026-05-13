@@ -128,6 +128,28 @@ CSD is authored under brownfield reverse-doc by walking the elected service's so
 
 CSD is **non-iterative within a run** — author once at `phase: discovery`, lock, then read-only for all downstream agents in the same run. Mutation only on subsequent runs when service shape moves (new owned table, contract evolution, new invariant ratified via ADR).
 
+## Body grammar: living service-grain state (no feature attribution in body)
+
+The five service-grain anchors `S-OWNED-001`, `S-CONTRACT-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001` describe the service's **current consolidated state** — what it owns, exposes, promises, and asserts today. They are NOT a feature-bundled snapshot.
+
+Forbidden in body rows of these five anchors:
+
+- `#<feature-id>` or `(feature 001)` annotations on a row (e.g., `| orders | id, status, ... | #001-order-placement |`).
+- "added by feature N" / "introduced by 002-..." prose anywhere in a row's cells.
+- A row that's only true under one feature — those belong in the feature's TDD `S-DATA-001` or the feature FRS, not in CSD.
+
+Feature attribution lives **only** in `S-SUB-CAPABILITIES-001`, which is the index of which features the service has shipped or has planned. The other anchors mutate in place across runs.
+
+Subsequent-feature flow:
+
+1. Re-walk source under `local.yaml.source_lock.read_paths` (same heuristics as initial CSD authoring).
+2. Diff observed state against current CSD body rows.
+3. Update `S-OWNED-001` / `S-CONTRACT-001` / `S-BR-001` / `S-INVARIANTS-001` / `S-AC-001` rows **in place** so each anchor reflects the post-feature consolidated state — rows mutate (column edited), append (new row), or remove (no longer observable in source).
+4. Append exactly one new row to `S-SUB-CAPABILITIES-001` for the new feature.
+5. Bump CSD `revision:` if any of the five service-grain anchors changed shape (row added, removed, or column edited). Append-only mutation to `S-SUB-CAPABILITIES-001` alone does NOT bump `revision:`.
+
+`@reviewer`'s `feature-attribution-in-csd-body` gate rejects any feature-id annotation found outside `S-SUB-CAPABILITIES-001`.
+
 ## Writing style
 
 CSD prose follows the same four hard rules as SAD (`agents/architect.md` "Writing style"):

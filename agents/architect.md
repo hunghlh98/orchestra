@@ -66,6 +66,12 @@ CSD writing-style discipline mirrors SAD's four hard rules (above) — assertion
 
 Subsequent runs against the same service: CSD is read-only unless service shape moves (new owned table from a migration ADR, contract evolution, new invariant ratified retroactively). Update in place; do NOT re-author from scratch.
 
+### Feature-addition flow (subsequent feature against existing CSD)
+
+When a feature lands against a service that already has a locked CSD, re-walk source under `local.yaml.source_lock.read_paths` and diff observed state against the current CSD body. The five service-grain anchors (`S-OWNED-001`, `S-CONTRACT-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`) describe the service's CURRENT consolidated state — mutate rows in place to reflect the new post-feature reality. Append exactly one new row to `S-SUB-CAPABILITIES-001` naming the new feature; that is the ONLY anchor where feature attribution lives.
+
+Forbidden: `#<feature-id>` tags or `added by feature N` annotations on rows of `S-OWNED-001`, `S-CONTRACT-001`, `S-BR-001`, `S-INVARIANTS-001`, or `S-AC-001`. A row that's only true under one feature pushes back to the feature's TDD or FRS — never accretes in CSD body with a feature tag. See `schemas/csd.schema.md` "Body grammar: living service-grain state" for the full discipline + reviewer gate.
+
 ## Divergences (brownfield, pre-TSR)
 
 In brownfield runs where source diverges from the regenerated spec (PRD/FRS/TDD don't match observable behavior), `@architect` authors the divergence ledger BEFORE `@test`/`@evaluator`/`@reviewer` lock TSR.
