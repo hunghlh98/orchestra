@@ -118,7 +118,7 @@ Rel(api, db, "Reads/writes", "sqlite3")
 @enduml
 ```
 
-### Level 3 — Component (`c4-component-<service>.puml`)
+### Level 3 — Component (`docs/<service_name>/diagrams/c4-component.puml`)
 
 ```plantuml
 @startuml
@@ -145,7 +145,7 @@ Rel(db, file, "WAL-mode I/O")
 @enduml
 ```
 
-### Level 4 — Code (`c4-code-<service>.puml`)
+### Level 4 — Code (`docs/<service_name>/diagrams/c4-code.puml`)
 
 PlantUML class diagram (no `C4_Code` macro exists in stdlib). Show **full layer cake** aligned to the `clean-architecture` skill's concentric circles: Controller (interface adapter) → Service / Use Case (application business rules) → Repository interface (use-case-defined port) → Repository implementation (interface adapter) → Entity (enterprise business rule). Inner classes know nothing about outer classes — same Dependency Rule the architecture review enforces.
 
@@ -253,31 +253,39 @@ Rel(api, db, "Reads/writes", "file I/O")
 
 ## Output location — two folders, one source of truth
 
-Diagrams live in **two** places: project-level singletons (latest state of the system, updated in place) and per-feature copies (highlighted to show which elements this feature touched).
+Diagrams live in **three** scopes: system-level singletons under `docs/diagrams/`, service-level singletons under `docs/<service_name>/diagrams/`, and per-feature copies of the system-level files under `docs/<service_name>/<feature-id>/diagrams/`.
 
-### Project-level: `<cwd>/docs/diagrams/`
+### System-level: `<cwd>/docs/diagrams/`
 
-Authored / updated by `@architect` (L1, L2) and `@lead` (L3, L4). One file per logical scope; updated in place when a feature shifts the model.
+Authored / updated by `@architect`. One file per logical scope; updated in place when a feature shifts the model.
 
 | File | Owner | Scope |
 |---|---|---|
 | `c4-context.puml` | `@architect` | Whole system; latest |
 | `c4-container.puml` | `@architect` | Whole system; latest |
-| `c4-component-<service>.puml` | `@lead` | One file per primary service container (e.g., `c4-component-todo-service.puml`) |
-| `c4-code-<service>.puml` | `@lead` | Class structure for the service (e.g., `c4-code-todo-service.puml`) |
 | `erd-logical.puml` | `@architect` | Project entities |
 | `sequence-inter-<flow>.puml` | `@architect` | Per cross-service flow |
 
-### Per-feature: `<cwd>/docs/<feature-id>/diagrams/`
+### Service-level: `<cwd>/docs/<service_name>/diagrams/`
 
-Authored by `@lead` per feature. **Copies** of the project-level files with feature-touched elements highlighted. Filename prefix is `<feature-id>-`.
+Authored / updated by `@lead`. One file per service per level — NOT per feature. Updated in place as features shift the component / class graph.
+
+| File | Owner | Scope |
+|---|---|---|
+| `c4-component.puml` | `@lead` | Components inside this service (one per service) |
+| `c4-code.puml` | `@lead` | Class structure for this service (one per service; omit when service has <3 classes) |
+
+When a new feature adds or changes a `Component()` / `Rel()` / class line in service-level L3 or L4, leave a PlantUML line comment naming the feature: `' #<feature-id>` immediately above the changed line. Future runs can diff which feature touched which element; the comment carries provenance without polluting the rendered diagram.
+
+### Per-feature: `<cwd>/docs/<service_name>/<feature-id>/diagrams/`
+
+Authored by `@lead` per feature. **Copies** of the system-level L1 + L2 files with feature-touched elements highlighted, plus intra-service sequence + physical ERD. L3 + L4 are NOT copied per-feature — those live at service grain only.
 
 | File | Source |
 |---|---|
 | `<feature-id>-c4-context.puml` | Copy of `c4-context.puml` + highlight |
 | `<feature-id>-c4-container.puml` | Copy of `c4-container.puml` + highlight |
-| `<feature-id>-c4-component-<service>.puml` | Copy of `c4-component-<service>.puml` + highlight |
-| `<feature-id>-seq-<usecase>.puml` | Per intra-service usecase (no project copy) |
+| `<feature-id>-seq-<usecase>.puml` | Per intra-service usecase (no system copy) |
 | `<feature-id>-erd-physical.puml` | Per feature, only when persistence touched |
 
 ### Highlight protocol (per-feature copies)
@@ -289,7 +297,7 @@ UpdateElementStyle(<element-id>, $bgColor="LightSalmon", $borderColor="Red", $fo
 UpdateRelStyle(<from>, <to>, $textColor="Red", $lineColor="Red")
 ```
 
-Project singletons stay unstyled. The feature copy is what reviewers read to understand "what this feature changes".
+System-level singletons stay unstyled; service-level L3 + L4 use line comments (`' #<feature-id>`) for feature provenance instead of color highlights. The per-feature L1 + L2 copies are what reviewers read to understand "what this feature changes at the system seam".
 
 ## When to escalate
 
@@ -303,8 +311,8 @@ Project singletons stay unstyled. The feature copy is what reviewers read to und
 
 ## Worked example — Todo service, feature `001-todo-api`
 
-1. `@architect` authors project singletons (first feature triggers SAD bootstrap): `docs/diagrams/c4-context.puml`, `c4-container.puml`.
-2. `@lead` authors service-scoped singletons: `c4-component-todo-service.puml`, `c4-code-todo-service.puml` (class diagram per L4 template).
-3. `@lead` authors per-feature highlighted copies under `docs/001-todo-api/diagrams/`: `001-todo-api-c4-context.puml`, `-c4-container.puml`, `-c4-component-todo-service.puml` (each adds `UpdateElementStyle(...)` for touched elements), plus `-seq-create-todo.puml` (intra-service sequence) and `-erd-physical.puml` (persistence touched).
-4. `post-write-puml` hook renders every `.svg`. Embed project SVGs in `docs/SAD.md` (`S-LANDSCAPE-001` / `S-CONTAINERS-001`); embed feature SVGs in `docs/001-todo-api/001-todo-api-TDD.md` (`S-COMPONENTS-001`).
-5. Walk Step 6's checklist for every source. Per-feature copies must differ from project singletons ONLY in styling — never in element identity.
+1. `@architect` authors system-level singletons (first feature triggers SAD bootstrap): `docs/diagrams/c4-context.puml`, `docs/diagrams/c4-container.puml`.
+2. `@lead` authors service-level singletons under the service folder: `docs/todo-service/diagrams/c4-component.puml`, `docs/todo-service/diagrams/c4-code.puml` (class diagram per L4 template).
+3. `@lead` authors per-feature highlighted copies under `docs/todo-service/001-todo-api/diagrams/`: `001-todo-api-c4-context.puml`, `001-todo-api-c4-container.puml` (each adds `UpdateElementStyle(...)` for touched elements at the system seam), plus `001-todo-api-seq-create-todo.puml` (intra-service sequence) and `001-todo-api-erd-physical.puml` (persistence touched). No per-feature L3 / L4 copy — feature provenance for service-level diagrams lives in `' #001-todo-api` line comments on the changed lines of `c4-component.puml` / `c4-code.puml`.
+4. `post-write-puml` hook renders every `.svg`. Embed system SVGs in `docs/SAD.md` (`S-CONTEXT-001` / `S-CONTAINERS-001`); embed service SVGs in the service's CSD (`docs/todo-service/todo-service-CSD.md`); embed feature SVGs in `docs/todo-service/001-todo-api/001-todo-api-TDD.md` (`S-COMPONENTS-001`).
+5. Walk Step 6's checklist for every source. Per-feature L1 + L2 copies must differ from system singletons ONLY in styling — never in element identity.

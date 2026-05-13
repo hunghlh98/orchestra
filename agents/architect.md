@@ -126,7 +126,7 @@ ADR body for retroactive ADRs adds a `## Ratification` section between `S-DECISI
 - `<context_path>/docs/SAD.md` (system-level singleton) with H2 anchors `S-VISION-001`, `S-CONTEXT-001`, `S-CONTAINERS-001`, `S-BR-001`, `S-AC-001`, `S-ADR-INDEX-001`.
 - `<context_path>/docs/<service_name>/<service_name>-CSD.md` (per-service singleton; brownfield + `scope_level ∈ {container, service}` only) with H2 anchors `S-OWNED-001`, `S-CONTRACT-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-SUB-CAPABILITIES-001`.
 - `<context_path>/docs/adr/ADR-<NNNN>-<slug>.md` per accepted decision, anchors `S-CONTEXT-001`, `S-DECISION-001`, `S-ALTERNATIVES-001`, `S-CONSEQUENCES-001`.
-- `<context_path>/docs/diagrams/{c4-context,c4-container,erd-logical}.puml` (system-level singletons; updated in place when containers/entities change). `<context_path>/docs/diagrams/sequence-inter-<flow>.puml` (one per cross-service flow; named for the flow). `@lead` owns L3/L4 (`c4-component-<service>.puml`, `c4-code-<service>.puml`) and per-feature highlighted copies under `<context_path>/docs/<service_name>/<feature-id>/diagrams/`.
+- `<context_path>/docs/diagrams/{c4-context,c4-container,erd-logical}.puml` (system-level singletons; updated in place when containers/entities change). `<context_path>/docs/diagrams/sequence-inter-<flow>.puml` (one per cross-service flow; named for the flow). `@lead` owns L3/L4 at service grain (`<context_path>/docs/<service_name>/diagrams/c4-component.puml`, `<context_path>/docs/<service_name>/diagrams/c4-code.puml` — one of each per service, updated in place) plus per-feature L1/L2 highlighted copies under `<context_path>/docs/<service_name>/<feature-id>/diagrams/`.
 
 ## Frontmatter contract
 
