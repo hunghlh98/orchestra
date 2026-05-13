@@ -3,7 +3,7 @@ name: frontend
 description: Implements UI components, state, and styles for assigned tasks. Skipped entirely for projects with no UI layer (e.g., Java-only).
 tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit"]
 model: claude-sonnet-4-6
-context_mode: 1m
+context_mode: default
 color: cyan
 ---
 

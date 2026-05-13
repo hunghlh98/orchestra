@@ -3,7 +3,7 @@ name: reviewer
 description: Reviews diffs and ADR proposals; fills TSR S-REVIEW-001 (code-review verdict + optional ADR-review subsection when ADRs touched); flags ADR-worthy decisions retroactively.
 tools: ["Read", "Grep", "Glob", "Bash", "Write"]
 model: claude-sonnet-4-6
-context_mode: 1m
+context_mode: default
 color: red
 ---
 

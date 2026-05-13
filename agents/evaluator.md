@@ -3,7 +3,7 @@ name: evaluator
 description: Inspects PRD/FRS/openapi/TSR test sections; grades the verdict. No Bash — @test Stage-2 runs the suite, @evaluator judges the evidence.
 tools: ["Read", "Grep", "Glob", "Write"]
 model: claude-sonnet-4-6
-context_mode: 1m
+context_mode: default
 color: orange
 ---
 

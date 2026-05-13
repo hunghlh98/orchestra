@@ -3,7 +3,7 @@ name: backend
 description: Implements server-side code and unit tests for assigned tasks under <context_path>/services/<service_name>/src/main/** and <context_path>/services/<service_name>/src/test/**.
 tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit"]
 model: claude-sonnet-4-6
-context_mode: 1m
+context_mode: default
 color: green
 ---
 
