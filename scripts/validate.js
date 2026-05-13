@@ -307,6 +307,97 @@ walkLeakyCites(resolve(root, "agents"));
 walkLeakyCites(resolve(root, "commands"));
 walkLeakyCites(resolve(root, "skills"));
 
+// === Version-stamp check (project CLAUDE.md: no version stamps in consumer surface) ===
+// Forbids version-stamped current-state rules and migration narration in
+// consumer-loaded prose. Plugin version lives in VERSION + plugin.json +
+// package.json — sprinkling it into rules makes every release drift the prose.
+// Pure function: caller supplies the file body; returns errs[]. Not wired to
+// the main walk yet — predicates land first, prose changes settle in later
+// commits, then commit 5 wires this into the top-level flow.
+// Pattern boundary: vN.M-(brief|design) doc-anchor leaks are cite-purity's job
+// (see scripts/tests/cite-purity.test.js), not this validator's — each stays
+// in its own lane to avoid double-reports.
+const VERSION_STAMP_PATTERNS = [
+  { name: "parenthetical",     re: /\(v\d+\.\d+(?:\.\d+)?\)/,                              why: "(vN.M) parenthetical version stamp" },
+  { name: "pre-version",       re: /\bpre-v\d+\.\d+/i,                                     why: "pre-vN.M migration-narration prefix" },
+  { name: "migration-verb",    re: /\b(?:GONE|dropped|removed)\s+in\s+v\d+\.\d+/i,         why: "migration narration (GONE/dropped/removed in vN.M)" },
+  { name: "in-version-rule",   re: /\bIn\s+v\d+\.\d+\b/,                                   why: "'In vN.M …' rule version-stamp" },
+  { name: "the-version-descr", re: /\bthe\s+v\d+\.\d+\s+[a-z][a-z-]+/i,                    why: "'the vN.M <descriptor>' version-stamp on a current-state rule" },
+];
+
+export function findVersionStamps(relPath, raw) {
+  const errs = [];
+  const lines = raw.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Exempt skill `origin:` attribution per CLAUDE.md "Allowed" list.
+    if (/^origin:\s/.test(line)) continue;
+    for (const { name, re, why } of VERSION_STAMP_PATTERNS) {
+      if (re.test(line)) {
+        const snippet = line.trim().slice(0, 80);
+        errs.push(`${relPath}:${i + 1}: version-stamp [${name}] — ${why} — '${snippet}'`);
+        break;
+      }
+    }
+  }
+  return errs;
+}
+
+// === Phase-tag emission compliance ===
+// agents/lead.md MUST declare the canonical phase values consumed by
+// hooks/scripts/metrics-collector.js (regex /^phase:\s*([a-z-]+)/m). Without
+// the rule, lead-spawned subagent turns attribute to phase=unknown in
+// .orchestra/metrics/cost-by-phase.json. Pure function: caller supplies the
+// file body; returns errs[] enumerating any missing declarations.
+export const PHASE_VALUES = ["discovery", "spec-draft", "verification", "gap-resolution", "gate"];
+
+export function findPhaseTagCompliance(raw) {
+  const errs = [];
+  if (!/^### Phase-tag emission$/m.test(raw)) {
+    errs.push("agents/lead.md: missing '### Phase-tag emission' subsection (consumed by metrics-collector.js)");
+    return errs;
+  }
+  const startMatch = /^### Phase-tag emission$/m.exec(raw);
+  const after = raw.slice(startMatch.index);
+  // Subsection ends at the next ## or ### heading
+  const nextHeading = /\n(?:### |## )/.exec(after.slice(1));
+  const section = nextHeading ? after.slice(0, nextHeading.index + 1) : after;
+  for (const phase of PHASE_VALUES) {
+    if (!section.includes(phase)) {
+      errs.push(`agents/lead.md: '### Phase-tag emission' subsection missing canonical phase value '${phase}'`);
+    }
+  }
+  return errs;
+}
+
+// === Hook ↔ install-modules manifest parity ===
+// Every shipping hook (hooks/scripts/*.js, excluding lib/helpers) MUST have a
+// kind:'hook' entry in manifests/install-modules.json. The failure mode this
+// catches: a hook ships and runs via hooks/hooks.json wiring, but the
+// installer registry doesn't list it — toggle invisible, silent enforcement.
+// Pure function: caller supplies both inputs; returns errs[] enumerating
+// orphan scripts AND orphan registry entries.
+export function findHookManifestParity(hookScriptBasenames, installModulesEntries) {
+  const errs = [];
+  const registered = new Set(
+    (installModulesEntries || [])
+      .filter(m => m && m.kind === "hook" && typeof m.path === "string")
+      .map(m => basename(m.path))
+  );
+  const scripts = new Set(hookScriptBasenames || []);
+  for (const script of scripts) {
+    if (!registered.has(script)) {
+      errs.push(`hooks/scripts/${script}: not registered in manifests/install-modules.json (kind: 'hook')`);
+    }
+  }
+  for (const reg of registered) {
+    if (!scripts.has(reg)) {
+      errs.push(`manifests/install-modules.json: registered hook '${reg}' has no corresponding hooks/scripts/${reg}`);
+    }
+  }
+  return errs;
+}
+
 // === Pipeline artifact validation (PR #3 / DESIGN-005 §S-VALIDATOR-001) ===
 // Pure functions — testable in isolation, not auto-walked by validate.js's
 // main flow (the consumer-side walker lives in scripts/validate-drift.js).
@@ -822,6 +913,140 @@ if (isMain) {
     const errs = findLeakyCites("agents/fixture.md", ok);
     if (errs.length !== 0) {
       mutationErrors.push(`inverse sanity: clean body (no §) should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // === Version-stamp mutation tests (project CLAUDE.md: no version stamps in consumer surface) ===
+  // Mutation VS-1: parenthetical version stamp fails red
+  {
+    const bad = `# /orchestra dispatcher (v4.0)\n\nbody\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[parenthetical\]/.test(e))) {
+      mutationErrors.push("mutation VS-1: parenthetical '(v4.0)' should fail red");
+    }
+  }
+
+  // Mutation VS-2: pre-version prefix fails red
+  {
+    const bad = `pre-v4.1 carryover fields still load at runtime.\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[pre-version\]/.test(e))) {
+      mutationErrors.push("mutation VS-2: 'pre-v4.1' prefix should fail red");
+    }
+  }
+
+  // Mutation VS-3: migration narration fails red
+  {
+    const bad = `Service-level SAD is GONE in v4.2.\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[migration-verb\]/.test(e))) {
+      mutationErrors.push("mutation VS-3: 'GONE in v4.2' migration narration should fail red");
+    }
+  }
+
+  // Mutation VS-4: 'In vN.M …' rule stamp fails red
+  {
+    const bad = `In v4.0 the contract IS authoritative.\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[in-version-rule\]/.test(e))) {
+      mutationErrors.push("mutation VS-4: 'In v4.0 …' rule stamp should fail red");
+    }
+  }
+
+  // Mutation VS-5: 'the vN.M descriptor' fails red
+  {
+    const bad = `the v4.2 two-field set lives at schemas/system.schema.json.\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[the-version-descr\]/.test(e))) {
+      mutationErrors.push("mutation VS-5: 'the v4.2 two-field' descriptor should fail red");
+    }
+  }
+
+  // Inverse sanity: skill `origin:` attribution passes (exempt per CLAUDE.md "Allowed")
+  {
+    const ok = `origin: SpillwaveSolutions/plantuml@MIT (cloned for orchestra v2.0.0; examples/ trimmed)\n`;
+    const errs = findVersionStamps("skills/plantuml/SKILL.md", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: 'origin:' attribution should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // Inverse sanity: clean prose (no version coupling) passes
+  {
+    const ok = `Author PRD-NNN.md per the routing taxonomy. Lock via status: locked.\n`;
+    const errs = findVersionStamps("agents/fixture.md", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: clean prose should pass findVersionStamps, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // === Phase-tag emission mutation tests ===
+  // Mutation PT-1: missing subsection fails red
+  {
+    const bad = `## Some other header\n\nbody without the phase-tag subsection\n`;
+    const errs = findPhaseTagCompliance(bad);
+    if (!errs.some(e => /missing '### Phase-tag emission' subsection/.test(e))) {
+      mutationErrors.push("mutation PT-1: missing '### Phase-tag emission' subsection should fail red");
+    }
+  }
+
+  // Mutation PT-2: subsection present but missing a phase value fails red.
+  // Fixture must NOT mention the missing value anywhere in the section body —
+  // the predicate is a naive substring check (correct for real lead.md prose,
+  // where phase values appear in backticks/tables/directives, never as
+  // narration about what's missing).
+  {
+    const bad = `### Phase-tag emission\n\nPhases: discovery, spec-draft, verification, gate.\n\n## next section\n`;
+    const errs = findPhaseTagCompliance(bad);
+    if (!errs.some(e => /missing canonical phase value 'gap-resolution'/.test(e))) {
+      mutationErrors.push("mutation PT-2: subsection missing 'gap-resolution' should fail red");
+    }
+  }
+
+  // Inverse sanity: complete subsection passes
+  {
+    const ok = `### Phase-tag emission\n\nThe five values: discovery, spec-draft, verification, gap-resolution, gate.\n\n## next\n`;
+    const errs = findPhaseTagCompliance(ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: complete phase-tag subsection should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // === Hook ↔ manifest parity mutation tests ===
+  // Mutation HM-1: hook script unregistered fails red
+  {
+    const scripts = ["pre-write-check.js", "rogue-hook.js"];
+    const entries = [{ name: "hook.pre-write-check", kind: "hook", path: "hooks/scripts/pre-write-check.js" }];
+    const errs = findHookManifestParity(scripts, entries);
+    if (!errs.some(e => /rogue-hook\.js: not registered/.test(e))) {
+      mutationErrors.push("mutation HM-1: unregistered hook script should fail red");
+    }
+  }
+
+  // Mutation HM-2: registered hook without script fails red
+  {
+    const scripts = ["pre-write-check.js"];
+    const entries = [
+      { name: "hook.pre-write-check", kind: "hook", path: "hooks/scripts/pre-write-check.js" },
+      { name: "hook.phantom", kind: "hook", path: "hooks/scripts/phantom.js" },
+    ];
+    const errs = findHookManifestParity(scripts, entries);
+    if (!errs.some(e => /registered hook 'phantom\.js' has no corresponding/.test(e))) {
+      mutationErrors.push("mutation HM-2: registered hook with no script should fail red");
+    }
+  }
+
+  // Inverse sanity: matched sets pass; non-hook entries ignored
+  {
+    const scripts = ["pre-write-check.js", "agent-plan-sync.js"];
+    const entries = [
+      { name: "hook.pre-write-check", kind: "hook", path: "hooks/scripts/pre-write-check.js" },
+      { name: "hook.agent-plan-sync", kind: "hook", path: "hooks/scripts/agent-plan-sync.js" },
+      { name: "skill.foo", kind: "skill", path: "skills/foo/SKILL.md" },
+    ];
+    const errs = findHookManifestParity(scripts, entries);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: matched hook+manifest sets should pass, got: ${errs.join(", ")}`);
     }
   }
 
