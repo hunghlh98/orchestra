@@ -11,6 +11,7 @@
     "service_name": { "type": "string", "minLength": 1 },
     "scope_level": { "enum": ["service", "container", "capability"] },
     "tsr_gate_mode": { "enum": ["blocking", "deferred"] },
+    "verdict_mode": { "enum": ["full", "evaluator-only", "reviewer-only", "none"] },
     "incomplete": { "type": "boolean" },
     "test_depth": { "enum": ["stage1", "stage2"] },
     "source_lock": {
