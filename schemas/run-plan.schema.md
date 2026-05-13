@@ -49,7 +49,7 @@ Invariants:
 Required anchors:
 
 - `S-CONTEXT-001` — `## Context` — `| Field | Value |` table lifted from `system.yaml` + `local.yaml` (workspace_kind, context_path, service_name, scope_level, test_depth, primary_language, framework, pipeline_id).
-- `S-PHASES-001` — `## Phases` — `| Phase | Agents | Output anchors |`. Phase ∈ `discovery | spec-draft | verification | gap-resolution | gate`.
+- `S-PHASES-001` — `## Phases` — `| Phase | Agents | Output anchors |`. Phase ∈ `discovery | spec-draft | verification | gate`. Brownfield DIV resolution runs inside `verification` (`@architect` with `task: div-resolution`) per `agents/architect.md` "DIV resolution paths".
 - `S-FEATURES-001` — `## Features` — `| Feature slug | Authoring agents | Artifacts | Sub-capabilities | Source anchors | State-machine role | Legacy seeds |`. Column semantics:
   - **Sub-capabilities** — under `scope_level: service`, the bullet list of capability-grain surfaces the single feature row aggregates (e.g., `placement, payment-binding, lifecycle, tracking`). Under `scope_level ∈ {container, capability}`, one capability per row → leave as `—`.
   - **Source anchors** — observable code anchors the feature derives from: controller / use-case / domain-package paths (e.g., `services/order/src/main/java/.../OrderController.java`). Brownfield-mandatory; greenfield may use `—`.

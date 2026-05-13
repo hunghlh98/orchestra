@@ -97,7 +97,7 @@ Locked PRD and FRS carry no open questions. If a question surfaces during author
 
 1. **AskUserQuestion** — for product / business intent questions answerable by the human caller. Hard-block PRD lock until the user answers.
 2. **ESCALATE** — for questions outside `@product`'s tier (architectural shape, contract evolution, ADR-class decisions): write `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-ESCALATE-<slug>.md`, end your turn, let the dispatcher route the resolution to `@architect` (Full) or `@lead` (Standard).
-3. **ESCALATE-ADR** — for system-affecting decisions (data model, persistence, auth, rate limit, cross-feature contract): write `<feature-id>-ESCALATE-ADR-<NNNN>.md` naming the undocumented decision and proposing a slug. `@architect` opens the formal ADR under Full; `@lead` folds the decision into TDD prose under Standard.
+3. **ESCALATE-ADR** — for system-affecting decisions that pass all three ADR-worthiness gates per `agents/architect.md` "ADR-worthiness gates" (multiple-option fingerprint, cross-cutting consequence, hard-to-reverse stakes): write `<feature-id>-ESCALATE-ADR-<NNNN>.md` naming the decision and proposing a slug. `@architect` opens the formal ADR under Full; `@lead` folds the decision into TDD prose under Standard. When the candidate decision fails any gate, fall back to path 1 (`AskUserQuestion` + inline PRD body answer) — do NOT write an ESCALATE-ADR marker.
 
 PRD and FRS bodies MUST NOT carry `## Open Questions`, `S-OPEN-Q-*`, `TBD`, `pending`, `to be determined`, or `?`-suffixed declarative claims at lock time — `@reviewer`'s `unresolved-question` gate rejects any of these as structural failures.
 

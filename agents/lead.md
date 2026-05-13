@@ -103,11 +103,11 @@ Triggered by dispatcher spawn with prompt-tag `task: run-plan-author`. One-time 
    - **On accept** — plan mode exits. `Write(<context_path>/.orchestra/<service_name>/run-plan.md, <same body>)` with the frontmatter from step 6. End turn.
    - **On reject** — end turn without writing the canonical path. Dispatcher detects absence and re-spawns you with `revision_notes`.
 
-4. **Greenfield branch (`local.yaml.mode == greenfield`):** Skip plan mode (no source to explore). `Write(<context_path>/.orchestra/<service_name>/run-plan.md, ...)` directly with the anchors in step 5 (omit `gap-resolution` phase; legacy-seeds cells empty) and frontmatter from step 6. End turn. Dispatcher gates approval via `AskUserQuestion(approve|revise)` after end-of-turn.
+4. **Greenfield branch (`local.yaml.mode == greenfield`):** Skip plan mode (no source to explore). `Write(<context_path>/.orchestra/<service_name>/run-plan.md, ...)` directly with the anchors in step 5 (legacy-seeds cells empty) and frontmatter from step 6. End turn. Dispatcher gates approval via `AskUserQuestion(approve|revise)` after end-of-turn.
 
 5. **Required anchors** in `run-plan.md`, in order, identical across both branches:
    - `S-CONTEXT-001` — `| Field | Value |` lift of bootstrap fields above.
-   - `S-PHASES-001` — `| Phase | Agents | Output anchors |`. Phases: `discovery` → `spec-draft` → `verification` → `gap-resolution` → `gate`. Omit `gap-resolution` for greenfield (no divergences to ratify).
+   - `S-PHASES-001` — `| Phase | Agents | Output anchors |`. Phases: `discovery` → `spec-draft` → `verification` → `gate`. Brownfield DIV resolution runs inside `verification` (`@architect` with `task: div-resolution` per `agents/architect.md` "DIV resolution paths"); greenfield runs without DIV rows at all.
    - `S-FEATURES-001` — `| Feature slug | Authoring agents | Artifacts | Legacy seeds |`. Legacy seeds reference `inventory.md` `S-DECISIONS-001` rows with action `migrate-as-regen-seed` or `fold-into-*`; empty cell for greenfield.
    - `S-GATES-001` — `| Gate | Auto-passed under auto_mode | Preserved under auto_mode |`. Preserved column MUST list: reviewer `REVISE` / `BLOCK` / `ALLOW_WITH_GAP`, allowed-set violations, diagram-allowlist violations, schema-validation failures, `ESCALATE` / `DEADLOCK` emission.
    - `S-APPROVAL-001` — `plan_status: drafted`. On revision re-spawn, lift any prior `revision_notes` from the spawn prompt into this section verbatim.
@@ -138,23 +138,27 @@ Bootstrap-scope (one-time):
 
 Forbidden: any other filename pattern. No `*-spec.md`, `*-regen-doc.md`, `*-overview.md`, `CONTRACT-NNN-*.md`, `*-intake.md`. Consumer brownfield-intake templates are READ-ONLY input; their content folds into your TDD body or escalates to `@architect`'s ADR.
 
-## Gap-resolution handoff (brownfield)
+## DIV resolution (brownfield)
 
-After `@architect` populates TSR `S-DIVERGENCES-001` with `DIV-NNN` rows, and `@test` Stage-1 + Stage-2 have written test results: examine each `DIV-NNN` row. If the finding requires a system-level decision (data-shape change, persistence shift, auth-model change, cross-service contract change), declare the `gap-resolution` phase and hand off to `@architect`:
+After `@architect` populates TSR `S-DIVERGENCES-001` with `DIV-NNN` rows, and `@test` Stage-1 + Stage-2 have written test results: examine each `DIV-NNN` row. Each closes via one of two paths per `agents/architect.md` "DIV resolution paths" — **never via a retroactive ADR**. Source IS the spec in brownfield reverse-doc.
+
+For each unresolved row (empty `Resolution` cell), pick a path and hand off:
 
 ```
 Agent({
   subagent_type: "orchestra:architect",
-  prompt: "phase: gap-resolution\n
-           task: retroactive_adr\n
-           triggered_by: DIV-<NNN>\n
-           inputs: docs/<feature-id>/<feature-id>-TSR.md S-DIVERGENCES-001, source at <File:line> from the row\n
-           output: docs/adr/ADR-<next-NNNN>-<slug>.md with S-RATIFICATION-001 section per schemas/pipeline-artifact.schema.md\n
+  prompt: "phase: verification\n
+           task: div-resolution\n
+           div: DIV-<NNN>\n
+           proposed_path: ratify | correct\n
+           inputs: docs/<service_name>/<feature-id>/<feature-id>-TSR.md S-DIVERGENCES-001, source at <File:line>\n
+           output (ratify): docs/<service_name>/<service_name>-CSD.md S-INVARIANTS-001 row append + DIV Resolution cell\n
+           output (correct): <feature-id>-DEFECT-<slug>.md under .orchestra/<service_name>/pipeline/<feature-id>/ + DIV Resolution cell\n
            End turn."
 })
 ```
 
-One spawn per system-affecting `DIV-NNN`. Divergences that don't require a system-level decision (purely-local quirks) get a one-line note in TSR `S-DIVERGENCES-001` Findings column ("local quirk — no ADR") and skip the handoff. Phase ends when every `DIV-NNN` row has either an associated `ADR-NNNN` or a "local quirk" note.
+When the path is unclear (source looks consistent but you suspect product intent disagrees), `AskUserQuestion` the human caller for `ratify | correct` before spawning. Phase ends when every `DIV-NNN` row has a non-empty `Resolution` cell.
 
 ## Workflow
 

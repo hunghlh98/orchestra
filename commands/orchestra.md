@@ -307,7 +307,7 @@ Every other chain artifact must be authored inside its assigned agent's context 
 
 ### Phase-tag emission
 
-Every `Agent({...})` call — dispatcher-side OR agent-side — MUST prepend a `phase: <name>` line on its own to the prompt. The `metrics-collector.js` PreToolUse hook parses it into the `task.subagent.invoked` event and auto-emits `pipeline.phase.start` / `pipeline.phase.end` JSONL events when the value differs from the prior spawn in the same session. Without this line, `/orchestra report` cost-by-phase pivots collapse to bucket `unknown` and observability is unusable. The rule applies to bootstrap spawns, fan-out spawns, DEADLOCK-loop re-spawns, gap-resolution handoffs, reverse-doc spawns, and ship-gate spawns alike — no exceptions.
+Every `Agent({...})` call — dispatcher-side OR agent-side — MUST prepend a `phase: <name>` line on its own to the prompt. The `metrics-collector.js` PreToolUse hook parses it into the `task.subagent.invoked` event and auto-emits `pipeline.phase.start` / `pipeline.phase.end` JSONL events when the value differs from the prior spawn in the same session. Without this line, `/orchestra report` cost-by-phase pivots collapse to bucket `unknown` and observability is unusable. The rule applies to bootstrap spawns, fan-out spawns, DEADLOCK-loop re-spawns, DIV-resolution handoffs, reverse-doc spawns, and ship-gate spawns alike — no exceptions.
 
 Phase taxonomy (literal values; no synonyms):
 
@@ -315,8 +315,7 @@ Phase taxonomy (literal values; no synonyms):
 |---|---|---|
 | `discovery` | brownfield bootstrap, source reading, run-plan authoring | `brownfield-inventory`, `project-discovery`, `@lead` (`task: run-plan-author`), reverse-doc spawns |
 | `spec-draft` | authoring chain artifacts | `@product` (PRD/FRS), `@architect` (SAD/ADR), `@lead` (TDD + openapi/asyncapi) |
-| `verification` | implementing + grading | `@backend`, `@frontend`, `@test` Stage-1 / Stage-2, `@evaluator`, `@reviewer` |
-| `gap-resolution` | brownfield divergence → ADR | `@architect` with `task: retroactive_adr` + `DIV-NNN` payload |
+| `verification` | implementing + grading + brownfield DIV resolution | `@backend`, `@frontend`, `@test` Stage-1 / Stage-2, `@evaluator`, `@reviewer`, `@architect` with `task: div-resolution` (brownfield only) |
 | `gate` | release cut | `/orchestra ship` artifact spawns |
 
 `agent_role` is auto-derived from `subagent_type` by the hook — but pass `subagent_type` honestly (`@backend`-routed spawns use `subagent_type: orchestra:backend`, etc.).

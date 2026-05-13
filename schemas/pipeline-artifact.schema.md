@@ -108,7 +108,7 @@ Workspace-global state at the `.orchestra/` root; per-service execution state pa
     │       ├── <feature-id>-DRAFT-COMPLETE.md      ← deferred-TSR marker (Track D, when tsr_gate_mode: deferred)
     │       ├── <feature-id>-DEADLOCK-<slug>.md     ← transient
     │       ├── <feature-id>-ESCALATE-<slug>.md     ← transient
-    │       └── <feature-id>-ESCALATE-ADR-<NNNN>.md ← reviewer-flagged retroactive ADR escalation
+    │       └── <feature-id>-ESCALATE-ADR-<NNNN>.md ← ADR-trigger marker (@product PRD-time, @reviewer impl-diff gap, @lead/@backend mid-flow); subject to ADR-worthiness gates per agents/architect.md
     └── tasks/<run-id>/<agent>/<feature-id>.md      ← per-agent execution plan (PLAN type); one file per (run-id, agent, feature-id) reused across resumes
 ```
 
@@ -362,7 +362,7 @@ Stage-1 fills `id` / `criterion` / `axis` / `critical` / `fixture` (status + evi
 
 `S-REVIEW-001` (writer `@reviewer`) — per-severity findings keyed on `file:line`; explicit list (`Critical`, `Major`, `Minor`, `Nit`). When ADRs were touched in this feature, append a `## ADR review` subsection to `S-REVIEW-001`; on greenfield/no-ADR runs, no subsection is required. Findings cite source coordinates, never `S-EVAL-001` row ids.
 
-`S-DIVERGENCES-001` (writer `@architect`, brownfield-conditional) — table row shape `| ID | UC slug | File:line | Finding | Guard test ID |`. On greenfield runs, omit the anchor entirely.
+`S-DIVERGENCES-001` (writer `@architect`, brownfield-conditional) — table row shape `| ID | UC slug | File:line | Finding | Guard test ID | Resolution |`. `Resolution` carries `INV-NNN (ratified)` (Path A — CSD INV row appended) or `defect: <slug>` (Path B — `<feature-id>-DEFECT-<slug>.md` written for `@backend`) per `agents/architect.md` "DIV resolution paths". On greenfield runs, omit the anchor entirely.
 
 Final ship verdict lives in frontmatter `ship:` (no body section). `/orchestra ship` reads `eval_verdict` + `rev_verdict` + `local.yaml.tsr_gate_mode` (with `<feature-id>-DRAFT-COMPLETE.md` marker presence under deferred mode) to compute the value and writes it to frontmatter.
 
@@ -385,7 +385,7 @@ verdict: PENDING | APPROVED | REQUEST_CHANGES
 scope: global | service                 # decides path + numbering scheme
 service_name: <string>                  # required when scope == service; omit when global
 superseded_by: ADR-<NNNN>-<slug> | ADR-<service_name>-<NNN>-<slug> | null
-triggered_by: <feature-id>-PRD | <feature-id>-FRS | <feature-id>-TDD | SAD | CSD | DIV-<NNN>
+triggered_by: <feature-id>-PRD | <feature-id>-FRS | <feature-id>-TDD | SAD | CSD
 review_round: <1..3>
 option_count: <int>
 ```
@@ -394,7 +394,7 @@ option_count: <int>
 
 `@architect` writes the body. `@reviewer` Edits only `S-CONSEQUENCES-001` (REQUEST_CHANGES findings) and writes `verdict:` + `review_round:`. `adr-status` state-machine diagram is mandatory.
 
-Required body anchors: `S-CONTEXT-001`, `S-DECISION-001`, `S-ALTERNATIVES-001`, `S-CONSEQUENCES-001`. Retroactive ADRs (those with `triggered_by: DIV-<NNN>`, opened during the `gap-resolution` phase to ratify brownfield divergences per `agents/architect.md`) add a fifth anchor `S-RATIFICATION-001` between `S-DECISION-001` and `S-ALTERNATIVES-001`. Row shape: `| Field | Value |` with fields `Original divergence` (DIV-NNN), `Discovered in` (TSR section), `Pre-existing behavior` (one sentence), `Ratified or corrected` (`ratified` = spec amended, `corrected` = source change scheduled).
+Required body anchors: `S-CONTEXT-001`, `S-DECISION-001`, `S-ALTERNATIVES-001`, `S-CONSEQUENCES-001`. Brownfield reverse-doc divergences do NOT mint ADRs — see `agents/architect.md` "DIV resolution paths".
 
 ### RELEASE-vX.Y.Z.md
 

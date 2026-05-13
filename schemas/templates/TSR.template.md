@@ -32,4 +32,4 @@ ship: PENDING
 
 <!-- FILL (@reviewer, ADR-touched only): ## ADR review subsection — verdict per ADR + findings. Omit subsection when no ADRs in this feature. -->
 
-<!-- BROWNFIELD-ONLY: @architect appends a "Divergences" H2 with anchor S-DIVERGENCES-001 here on brownfield runs; greenfield TSRs omit the anchor entirely. Row shape: | ID | UC slug | File:line | Finding | Guard test ID |. Each system-affecting DIV row opens a retroactive ADR per agents/architect.md. -->
+<!-- BROWNFIELD-ONLY: @architect appends a "Divergences" H2 with anchor S-DIVERGENCES-001 here on brownfield runs; greenfield TSRs omit the anchor entirely. Row shape: | ID | UC slug | File:line | Finding | Guard test ID | Resolution |. Resolution closes via Path A (INV-NNN ratified) or Path B (defect: <slug>) per agents/architect.md "DIV resolution paths" — never via a retroactive ADR. -->

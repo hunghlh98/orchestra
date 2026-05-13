@@ -83,27 +83,16 @@ Write rows to `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TSR.
 | DIV-001 | order-validate | OrderValidator.java:42 | Validation accepts negative quantities; FRS FR-3 says positive only | TSR-T-014 |
 ```
 
-ID format: `DIV-NNN` zero-padded per-feature. `UC slug` references FRS `S-USECASES-001` rows. `Finding` is a single declarative sentence — no hedging, no implementation suggestion (that belongs in a retroactive ADR). `Guard test ID` references the TSR test-plan row (`@test` fills it; you may leave it empty if no test exists yet — the gap-resolution phase will close it).
+ID format: `DIV-NNN` zero-padded per-feature. `UC slug` references FRS `S-USECASES-001` rows. `Finding` is a single declarative sentence — no hedging. `Guard test ID` references the TSR test-plan row (`@test` fills it). `Resolution` carries the closure disposition once `@architect` picks a path (see "DIV resolution paths" below).
 
-Each `DIV-NNN` whose resolution requires a system-level decision (data-shape change, persistence-strategy shift, auth-model change) opens a retroactive ADR per the "Retroactive ADR phase" below.
+### DIV resolution paths
 
-## Retroactive ADR phase (brownfield gap-resolution)
+Each `DIV-NNN` closes via exactly one of two paths — **NEVER an ADR**. Source IS the spec in brownfield reverse-doc; a divergence is captured-state or a defect, not an architectural decision to ratify after the fact.
 
-When `@lead` declares the `gap-resolution` phase and hands off with task type `retroactive_adr`, you open one ADR per system-affecting `DIV-NNN`. The ADR's frontmatter carries `triggered_by: DIV-NNN` (pointing back to the TSR row).
+- **Path A — ratify-as-invariant**: source behavior is consistent and intentional-looking, no comment / commit / doc evidences a forward intent that source contradicts. Append one row to the elected service's CSD `S-INVARIANTS-001` (`INV-NNN`, source-truth precedence: `src=<File:line>`). Write `INV-NNN (ratified)` into the DIV row's `Resolution` cell.
+- **Path B — correct-source**: external evidence (legacy spec, prior ADR, product confirmation via `AskUserQuestion`) says source is wrong. Write `<feature-id>-DEFECT-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` describing the required change for `@backend` (file:line, current vs target behavior). Write `defect: <slug>` into the DIV row's `Resolution` cell.
 
-ADR body for retroactive ADRs adds a `## Ratification` section between `S-DECISION-001` and `S-ALTERNATIVES-001`:
-
-```
-## Ratification <a id="S-RATIFICATION-001"></a>
-
-| Field | Value |
-| Original divergence | DIV-NNN |
-| Discovered in | TSR test section <S-TEST-001> |
-| Pre-existing behavior | <one sentence — what the source actually does> |
-| Ratified or corrected | ratified | corrected |
-```
-
-`ratified` = the divergence is now part of the spec (FRS amended). `corrected` = source will be changed to match the spec (`@backend` task added). Either resolution closes the `DIV-NNN` row.
+When the path is unclear, `AskUserQuestion` the human caller — do not manufacture a deliberation that never happened by routing the DIV into ADR shape.
 
 ## Chain-rigor (per-tier behavior)
 
@@ -142,15 +131,27 @@ Author C4 L1 + L2 `.puml` at `<context_path>/docs/diagrams/c4-context.puml` + `<
 
 After first-feature ships, subsequent features touch SAD only when system shape moves — append a Container row, append an ADR-INDEX row. Don't re-bootstrap; don't churn unrelated sections.
 
+## ADR-worthiness gates
+
+ADRs are expensive — formal review loop, index updates, long-lived reference target. Reserve them for choices that warrant the cost. Before authoring an ADR (and before any upstream tier writes an `ESCALATE-ADR-*.md` marker), run the **three-gate worthiness test**. ALL three must pass; any failure routes to a lighter artifact.
+
+1. **Multiple-option fingerprint** — ≥2 named alternatives were realistically on the table (evidenced by source comment / commit message / external spec / prior ADR / explicit product framing). Framework defaults and "that's just how it works" fail. **Fail → `AskUserQuestion` the human caller, or pick the obvious option inline.**
+2. **Cross-cutting consequence** — reversing the choice forces changes across ≥2 files OR ≥2 components. Local conventions and naming choices fail. **Fail → inline PRD / FRS / TDD body decision; no separate artifact.**
+3. **Hard-to-reverse stakes** — the choice carries at least one of: external-contract impact, data-shape migration, cross-team sign-off requirement, production-behavior change. Code-only refactors fail. **Fail → `AskUserQuestion` and document in PRD / FRS body.**
+
+The gates are evaluated by the **triggering** tier (`@product`, `@lead`, `@reviewer`, `@backend`/`@frontend`) BEFORE writing an `ESCALATE-ADR-*.md` marker — a marker that arrives with weak gate evidence is reviewer-rejectable. `@architect` re-runs the gates as a sanity check before authoring; if evidence is weak, write `<feature-id>-ESCALATE-<slug>.md` back to the triggering tier asking for the gate-fail fallback path instead of opening the ADR.
+
 ## ADR-open subroutine
 
-Open a formal ADR when ANY of these triggers fire:
+Open a formal ADR when ANY of these triggers fire AND all three ADR-worthiness gates pass:
 
 1. `@product` writes `<feature-id>-ESCALATE-ADR-<NNNN>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` before PRD lock (system-affecting question that surfaced during PRD authoring).
 2. FRS authorship surfaces a fork affecting ≥2 components (data shape, persistence, transport, auth model).
 3. `@lead` writes `<feature-id>-ESCALATE-ARCH.md` mid-TDD with a fork affecting SAD's container set.
-4. `@reviewer` writes `<feature-id>-ESCALATE-ADR-<NNNN>.md` retroactively after spotting an undocumented decision.
+4. `@reviewer` writes `<feature-id>-ESCALATE-ADR-<NNNN>.md` after spotting an undocumented decision in the feature implementation diff.
 5. `@backend`/`@frontend` writes `<feature-id>-ESCALATE-ARCH.md` mid-impl with an architectural conflict.
+
+Brownfield reverse-doc `DIV-NNN` rows are NOT triggers — they close via the two paths in "DIV resolution paths" above.
 
 ADR authorship workflow (you are the sole author of ADR body content; `@reviewer` reviews):
 
@@ -179,7 +180,7 @@ When the dispatcher spawns you with prompt-tag `mode: reverse-doc` under `local.
 1. Read `<context_path>/.orchestra/inventory.md` and `<context_path>/.orchestra/<service_name>/local.yaml`. Walk the source tree under `local.yaml.source_lock.read_paths` to inventory containers (binaries, services, frontend bundles, scheduled jobs). Each top-level component → one row in SAD `S-CONTAINERS-001`.
 2. **Author `<context_path>/docs/SAD.md`** (system-level singleton) with frontmatter `notes: "reverse-documented from existing source"` (informational). `S-VISION-001` is inferred from `package.json`/`pom.xml` description fields and README; `S-CONTEXT-001` lists external actors visible in source (clients of public endpoints, upstream brokers, downstream stores); `S-CONTAINERS-001` reflects the actual deployable units (one row per service, with `CSD: docs/<service_name>/<service_name>-CSD.md` in the notes column when CSD exists); `S-BR-001` seeds system-grain policies the source already evidences across ≥2 containers (rate-limit caps, system-wide audit-trail retention, cross-service KYC gate) — each row needs a named human Owner; ESCALATE to surface the human role if source alone can't name them; `S-AC-001` seeds cross-container acceptance from CI integration suites that span ≥2 services (`Traces` cites `SAD/BR-NNN` or `CSD/BR-NNN`); `S-ADR-INDEX-001` starts empty.
 3. **Author `<context_path>/docs/<service_name>/<service_name>-CSD.md`** per the "CSD authoring" procedure above — one CSD for the elected service when `scope_level ∈ {container, service}`. Source walk + inventory `fold-into-CSD` seeds populate the four required anchors. Lock CSD before opening per-feature ADRs.
-4. **Open ADRs only for visible-in-source decisions** with multiple-option fingerprints — e.g., chosen DB (PostgreSQL vs MySQL evident from JDBC URL + dialect class), framework (Spring vs Quarkus from imports), auth mechanism (JWT vs session from filter chain), persistence pattern (event-sourced vs CRUD). Skip speculative ADRs the source doesn't evidence. Each ADR carries the same provenance note.
+4. **Open ADRs only for visible-in-source platform decisions** that pass all three ADR-worthiness gates above. The cleanest reverse-doc fingerprints: chosen DB (PostgreSQL vs MySQL from JDBC URL + dialect class), framework (Spring vs Quarkus from imports), auth mechanism (JWT vs session from filter chain), persistence pattern (event-sourced vs CRUD). Half-implementations and accidental shapes (enum value declared but unreached, asymmetric error responses with no comment) fail gate 1 — route to CSD `S-INVARIANTS-001` via Path A of "DIV resolution paths" instead. Each ADR carries the same provenance note.
 5. Author C4 L1 + L2 `.puml` at `<context_path>/docs/diagrams/` reflecting the observed system. Inter-service sequence diagrams only for cross-service flows that exist in source.
 6. Hand to `@reviewer` for ADR review (standard 3-round loop). Once accepted, `@lead` picks up reverse-doc TDD per feature.
 
@@ -195,7 +196,7 @@ Reverse-doc SAD is project-level (one across all features); CSDs are one per ser
 
    - **`phase: discovery` (bootstrap)** — brownfield + `scope_level ∈ {container, service}` + missing CSD or SAD: run the "Reverse-doc path" procedure above (SAD if missing → CSD per the "CSD authoring" procedure → seed-ADRs). Greenfield + missing SAD: run "Greenfield SAD bootstrap" below. Hand back to `@lead` after locking; do NOT continue to feature-scoped steps in the same turn.
    - **`phase: spec-draft` (per-feature)** — continue to step 3.
-   - **`phase: gap-resolution` (retroactive ADRs)** — continue to step 6 (skip PRD/FRS read; the dispatcher hands you specific `DIV-NNN` IDs to ratify).
+   - **`phase: verification` + `task: div-resolution`** — brownfield-only; close `DIV-NNN` rows via Path A (CSD INV append) or Path B (DEFECT marker) per "DIV resolution paths" above. Never open an ADR from a DIV row.
 
 3. Read `docs/<service_name>/<feature-id>/<feature-id>-PRD.md` + `docs/<service_name>/<feature-id>/<feature-id>-FRS.md`. Enumerate `<feature-id>-ESCALATE-ADR-*.md` files under `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` — each is an ADR trigger from `@product`.
 
