@@ -1,10 +1,10 @@
 ---
 name: orchestra
-description: v4.0 multi-agent SDLC pipeline. Mode-detect → chain-rigor election → spec-to-code chain (PRD/FRS/SAD/ADR/TDD/openapi/code/TSR). Subcommands ship | report | resume.
+description: Multi-agent SDLC pipeline. Mode-detect → chain-rigor election → spec-to-code chain (PRD/FRS/SAD/ADR/TDD/openapi/code/TSR). Subcommands ship | report | resume.
 argument-hint: <subcommand|natural language>
 ---
 
-# /orchestra dispatcher (v4.0)
+# /orchestra dispatcher
 
 One entry surface for the spec-to-code chain. Mode-detect (greenfield vs
 brownfield) and chain-rigor (Full / Standard / Light) elect which layers
@@ -76,8 +76,6 @@ re-runs don't re-prompt.
 
 Path-tier vocabulary: `<context_path>` = session-root, captured at `claude` launch (resolves from `${CLAUDE_PROJECT_DIR}` or `pwd`-at-session-start), persisted to `<context_path>/.orchestra/system.yaml`. `<service_name>` = the elected unit's directory-basename identity (e.g., `order`, `payment-engine`), persisted to `<context_path>/.orchestra/<service_name>/local.yaml`. There is exactly one `.orchestra/` per session; multi-service workspaces add more `<service_name>/` subfolders under it, never a second `.orchestra/` root.
 
-**v4.1.x layout detection (halt-only):** before executing any step below, scan for `scope_path` in any `*/local.yaml` under `<context_path>/.orchestra/**` OR `registered_services` in `<context_path>/.orchestra/system.yaml`. Either signal → write `<context_path>/.orchestra/MIGRATION-REQUIRED.md` (frontmatter `cause: legacy_v4_1_layout_detected`, body: per-service `mv` script lifted from CHANGELOG migration note) and halt before any spawn. The plugin will NOT auto-migrate; the user runs the migration script then re-invokes `/orchestra`.
-
 Each step asks only when its answer cannot be inferred from prompt or repo state. Ask order:
 
 1. **Load cache.** Single-tier read: `<context_path>/.orchestra/system.yaml` (workspace-wide — `workspace_kind`, `context_path`) and `<context_path>/.orchestra/<service_name>/local.yaml` (per-service — every other field; lookup deferred until Step 4 elects `service_name`). If either file exists, lift cached answers — re-runs don't re-prompt.
@@ -123,7 +121,7 @@ Each step asks only when its answer cannot be inferred from prompt or repo state
     Resolution precedence: `--autonomy=<tag>` CLI flag > `local.yaml.autonomy.level` > diagnostic suggestion > `DRAFT_AND_GATE`.
 13. **Persist** answered fields across the workspace + per-service split:
     - `<context_path>/.orchestra/system.yaml` — `workspace_kind`, `context_path` (2-field closed allowlist; `additionalProperties: false`). Already created in Step 3; this step flips `status: locked`.
-    - `<context_path>/.orchestra/<service_name>/local.yaml` — `service_name`, `pipeline_id`, `test_depth`, `source_lock`, `tsr_gate_mode`, `auto_mode`, `run_plan_status` (v4.2 required+core set) plus pre-v4.1 carryover fields (`chain_rigor`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `mode`, `depth`) via the schema union. `source_lock.read_paths` defaults to `["<context_path>/**"]`; `source_lock.write_paths` defaults to `["<context_path>/docs/<service_name>/**", "<context_path>/.orchestra/<service_name>/**"]`.
+    - `<context_path>/.orchestra/<service_name>/local.yaml` — `service_name`, `pipeline_id`, `test_depth`, `source_lock`, `tsr_gate_mode`, `auto_mode`, `run_plan_status`, `chain_rigor`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `mode`, `depth`. `source_lock.read_paths` defaults to `["<context_path>/**"]`; `source_lock.write_paths` defaults to `["<context_path>/docs/<service_name>/**", "<context_path>/.orchestra/<service_name>/**"]`.
     Unknown fields fail schema-load on either file.
 14. **Author run-plan.md + approval gate.** Spawn `@lead` with prompt-tag `task: run-plan-author` (see "Run-plan author" section below). Lead writes `<context_path>/.orchestra/<service_name>/run-plan.md` against `schemas/run-plan.schema.md`. **Brownfield:** lead uses `EnterPlanMode` for source exploration + `ExitPlanMode` for native plan-approval (approval happens inside lead's turn). **Greenfield:** lead writes directly; dispatcher then runs `AskUserQuestion(approve|revise)`. On approval (either branch), dispatcher writes `auto_mode: true` + `run_plan_status: approved` to `local.yaml`. On rejection, dispatcher writes `run_plan_status: revision_requested`, collects revision notes via `AskUserQuestion`, re-spawns lead. Max 3 cycles; cycle 4 → write `<context_path>/.orchestra/<service_name>/pipeline/run-plan-ESCALATE.md`.
 15. **Bootstrap CLAUDE.md.** Run `node ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bootstrap-consumer-claude-md.js <cwd>` via Bash. Idempotent: creates `<cwd>/CLAUDE.md` if missing; otherwise splices the orchestra section between `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers (preserves user content). No-op when current.
@@ -131,10 +129,10 @@ Each step asks only when its answer cannot be inferred from prompt or repo state
 
 ### system.yaml schema (workspace-wide)
 
-Canonical shape is `schemas/system.schema.json` (closed allowlist; `additionalProperties: false`). The v4.2 two-field set lives at `<context_path>/.orchestra/system.yaml`:
+Canonical shape is `schemas/system.schema.json` (closed allowlist; `additionalProperties: false`). The two-field set lives at `<context_path>/.orchestra/system.yaml`:
 
 ```yaml
-# v4.2 system.yaml closed allowlist (2 fields + status)
+# system.yaml closed allowlist (2 fields + status)
 workspace_kind: single-repo | multi-repo | multi-service
 context_path: <abs path; session-root captured at `claude` launch>
 status: draft | locked               # set `locked` after first persist
@@ -149,7 +147,7 @@ Source-tree paths in this document and all agent prompts (`<context_path>/servic
 Canonical shape is `schemas/local.schema.json` (closed allowlist; `additionalProperties: false`). Lives at `<context_path>/.orchestra/<service_name>/local.yaml`:
 
 ```yaml
-# v4.2 local.yaml closed allowlist (per-service partition)
+# local.yaml closed allowlist (per-service partition)
 service_name: <string; directory-basename identity, e.g. "order">
 pipeline_id: <string>
 test_depth: stage1 | stage2          # default stage1
@@ -159,12 +157,8 @@ source_lock:
 tsr_gate_mode: blocking | deferred              # default blocking
 auto_mode: true | false              # default false; flipped on run-plan approval
 run_plan_status: drafted | approved | revision_requested
-
-# scope_level / incomplete fields (closed-allowlist entries; semantics land in Tracks C)
 scope_level: service | container | capability
 incomplete: true | false
-
-# pre-v4.1 carryover fields (still load-bearing at runtime; coexist via schema union)
 mode: greenfield | brownfield
 depth: light | medium | full         # brownfield only
 bootstrap: pending | completed       # brownfield only

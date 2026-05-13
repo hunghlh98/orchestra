@@ -34,7 +34,7 @@ You run **in parallel with `@backend` and `@test` Stage-1** under `@lead`'s open
 
 ## Skills
 
-(none specific to frontend in v4.0; rely on the workflow + universal `code-review`.)
+(none specific to frontend; rely on the workflow + universal `code-review`.)
 
 ## Inputs
 

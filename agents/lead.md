@@ -88,7 +88,7 @@ When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (fires at `lo
 Triggered by dispatcher spawn with prompt-tag `task: run-plan-author`. One-time per `pipeline_id`, at bootstrap completion (after `inventory.md` is `user_gate: accepted`, before any feature-chain spawn).
 
 1. Read `<context_path>/.orchestra/<service_name>/local.yaml` (per-service: `service_name`, `scope_level`, `test_depth`, `primary_language`, `framework`, `pipeline_id`, `mode`) and `<context_path>/.orchestra/system.yaml` (workspace-wide: `workspace_kind`, `context_path`).
-2. Read `<context_path>/.orchestra/inventory.md` — `S-DECISIONS-001` rows with action `migrate-as-regen-seed` / `fold-into-*` are the legacy seeds your `S-FEATURES-001` rows reference. The workspace inventory does NOT list features per service in v4.2; you mint feature slugs from the source walk in step 3. For greenfield (`empty_workspace: true`), inventory body tables are empty; mint features from `$ARGUMENTS` instead. If `<context_path>/docs/<service_name>/<service_name>-CSD.md` exists (brownfield, `scope_level ∈ {container, service}`), also read its `S-SUB-CAPABILITIES-001` index — it may already list features authored under prior runs.
+2. Read `<context_path>/.orchestra/inventory.md` — `S-DECISIONS-001` rows with action `migrate-as-regen-seed` / `fold-into-*` are the legacy seeds your `S-FEATURES-001` rows reference. The workspace inventory does NOT list features per service; you mint feature slugs from the source walk in step 3. For greenfield (`empty_workspace: true`), inventory body tables are empty; mint features from `$ARGUMENTS` instead. If `<context_path>/docs/<service_name>/<service_name>-CSD.md` exists (brownfield, `scope_level ∈ {container, service}`), also read its `S-SUB-CAPABILITIES-001` index — it may already list features authored under prior runs.
 
 3. **Brownfield branch (`local.yaml.mode == brownfield`):**
    - `EnterPlanMode`. In plan mode, explore source under `local.yaml.source_lock.read_paths` via `Glob` / `Grep` / `Read`. Feature-slug minting is your job here: scan controllers / use-case handlers / domain packages (e.g., `services/<service_name>/src/main/java/**/controller/**`, `**/usecase/**`, `**/domain/**`) and mint one `S-FEATURES-001` row per major capability. Slugs MUST be domain noun-phrases (`order-placement`, `payment-binding`, `cart-checkout`); reject verb-prefixed forms (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`, `port-*`) — those name a meta-action on the codebase, not a feature of it. Cross-reference your candidate list with CSD `S-SUB-CAPABILITIES-001` (if present) and inventory `S-DECISIONS-001` seeds; prune misclassifications.
@@ -130,7 +130,7 @@ Feature-scope (under `<context_path>/docs/<service_name>/<feature-id>/`):
 Bootstrap-scope (one-time):
 - `<context_path>/.orchestra/<service_name>/run-plan.md` (under prompt-tag `task: run-plan-author` only).
 
-Forbidden: any other filename pattern. No `*-spec.md`, `*-regen-doc.md`, `*-overview.md`, `CONTRACT-NNN-*.md` (v4.0 dropped — emit `openapi.yaml` / `asyncapi.yaml` directly), `*-intake.md`. Consumer brownfield-intake templates are READ-ONLY input; their content folds into your TDD body or escalates to `@architect`'s ADR.
+Forbidden: any other filename pattern. No `*-spec.md`, `*-regen-doc.md`, `*-overview.md`, `CONTRACT-NNN-*.md`, `*-intake.md`. Consumer brownfield-intake templates are READ-ONLY input; their content folds into your TDD body or escalates to `@architect`'s ADR.
 
 ## Gap-resolution handoff (brownfield)
 

@@ -8,7 +8,7 @@
 - **Out-of-whitelist enforcement**: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-ESCALATE-<slug>.md` with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
 - **ADR sub-flow**: `feature` and `refactor` intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author (under `chain_rigor=Full`); `@reviewer` reviews. 3-round circuit breaker → `<feature-id>-ESCALATE-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-<NNNN>-<slug>`) in plain prose, not by section anchor.
 
-Paths use v4.0 layout: per-feature prose in `docs/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`).
+Paths: per-feature prose in `docs/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`).
 
 ---
 
@@ -100,4 +100,4 @@ This is the only intent that produces the full SDLC artifact set.
 
 ## Versioning
 
-This schema's content matches the routing rules embedded in `commands/orchestra.md` (intent → agents quick-reference). When either side changes, both must update. The dispatcher is canonical for spawn order; this file is canonical for artifact whitelists. v4.0 revision: 3 (was 2 in v2.0; v3 was a rev-only bump).
+This schema's content matches the routing rules embedded in `commands/orchestra.md` (intent → agents quick-reference). When either side changes, both must update. The dispatcher is canonical for spawn order; this file is canonical for artifact whitelists.

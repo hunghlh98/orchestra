@@ -78,7 +78,7 @@ Each adversarial input is a probe with an explicit `expected_result` of "handled
 
 Read `docs/<feature-id>/<feature-id>-TSR.md` (dispatcher-scaffolded shell). Fill the `S-TEST-001` section with the row table; leave `sections.S-TEST-001.status: in_progress` after the Stage-1 write (Stage-2 will fill the `status` + `evidence` cells and flip to `locked`).
 
-In v4.x, TEST is not a separate artifact — plan + results both live in `S-TEST-001` as a single table. Probe DSL lives in `<feature-id>-openapi.yaml` `description:` fields (reference openapi criteria by id; don't re-state). `@evaluator` later writes `S-EVAL-001` keyed on `S-TEST-001` row ids; `@reviewer` writes `S-REVIEW-001` (with ADR-review subsection when ADRs touched).
+TEST is not a separate artifact — plan + results both live in `S-TEST-001` as a single table. Probe DSL lives in `<feature-id>-openapi.yaml` `description:` fields (reference openapi criteria by id; don't re-state). `@evaluator` later writes `S-EVAL-001` keyed on `S-TEST-001` row ids; `@reviewer` writes `S-REVIEW-001` (with ADR-review subsection when ADRs touched).
 
 Row shape (single table — Stage-1 leaves `status` + `evidence` empty; Stage-2 fills in place):
 

@@ -8,7 +8,7 @@ origin: orchestra
 
 Produces `docs/<feature-id>/<feature-id>-openapi.yaml`. `@lead` writes; `@test` lifts criteria into the TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
 
-In v4.0 the contract IS the openapi document — there is no separate CONTRACT.md. Acceptance criteria live as prose in `description:` fields per operation / response. Critical criteria are flagged inline. Probe DSL + grading rules live in `qa-test-planner` (TSR `S-TEST-001`) and `@evaluator`'s rubric — not in this artifact.
+The contract IS the openapi document — there is no separate CONTRACT.md. Acceptance criteria live as prose in `description:` fields per operation / response. Critical criteria are flagged inline. Probe DSL + grading rules live in `qa-test-planner` (TSR `S-TEST-001`) and `@evaluator`'s rubric — not in this artifact.
 
 ## When to use
 

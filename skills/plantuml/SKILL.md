@@ -46,9 +46,9 @@ python scripts/check_setup.py
 
 Universal elements (delimiters, comments, notes, metadata): `references/common_format.md`. Modern styling: `references/styling_guide.md`.
 
-### Step 2 — Author the .puml file using v4.0 fixed-name conventions
+### Step 2 — Author the .puml file using fixed-name conventions
 
-Orchestra v4.0 uses a **two-folder model** so the chain artifacts can reference diagrams by stable name. Project singletons (latest state of the system) live under `docs/diagrams/`; per-feature copies (with feature-touched elements highlighted) live under `docs/<feature-id>/diagrams/` and prefix every filename with `<feature-id>-`. Never invent a new name unless it falls outside this set.
+Orchestra uses a **two-folder model** so the chain artifacts can reference diagrams by stable name. Project singletons (latest state of the system) live under `docs/diagrams/`; per-feature copies (with feature-touched elements highlighted) live under `docs/<feature-id>/diagrams/` and prefix every filename with `<feature-id>-`. Never invent a new name unless it falls outside this set.
 
 **Project-level (singletons under `docs/diagrams/`):**
 

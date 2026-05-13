@@ -89,6 +89,39 @@ When updating consumer-facing prompts (`commands/`, `agents/`, `skills/`) or any
 
 The fix shape is **fold up, don't sprinkle**. Before adding any "DO NOT" / "Note:" prose, check whether the rule already exists somewhere canonical — if yes, link to or rely on it; if no, add it once at the canonical site.
 
+## No version stamps or migration narration in consumer surface
+
+Plugin version is canonical in `.claude-plugin/plugin.json` (kept in sync with `VERSION` and `package.json` by `scripts/bump-version.js`). Consumer-shipped prose MUST NOT carry version stamps or migration narration alongside rules — those are dead tokens at best and stale-at-write at worst.
+
+### Forbidden in `agents/`, `commands/`, `skills/`, `schemas/`
+
+- **Version stamps on current-state rules.** `# /orchestra dispatcher (v4.0)`, `the v4.2 two-field set`, `(only SAD in v4.2)`, `In v4.0 the contract IS…`, `Frontmatter (v2.0 slim):`. The rule reads identically without the stamp.
+- **Migration narration.** `The v4.1 sad_scope field is GONE in v4.2`, `that machinery is gone in v4.0`, `v4.0 dropped — emit openapi.yaml directly`, `Service-level SAD is gone; CSD replaces it`, `pre-v4.1 carryover fields`. This describes what *used to be* — consumers don't have the prior state to compare against.
+- **Self-referential revision history in prose.** `v4.0 revision: 3 (was 2 in v2.0; v3 was a rev-only bump)`. The schema file's frontmatter `revision:` field already carries this; restating in prose duplicates.
+
+### Allowed
+
+- Skill `origin:` attribution metadata (e.g., `origin: SpillwaveSolutions/plantuml@MIT (cloned for orchestra v2.0.0; examples/ trimmed)`) — provenance for an upstream-cloned skill, not orchestra-version stamping.
+- Worked code examples that happen to use semver (e.g., `order-domain v2.1.0` illustrating release-granularity in `skills/clean-architecture/SKILL.md`) — hypothetical user-domain versions, not orchestra versions.
+- `CHANGELOG.md`, commit messages, files under `docs/`, comments in `scripts/` — these have audiences who DO have access to plugin-version history.
+
+### Why
+
+1. **Single source of truth.** The bump script (`scripts/bump-version.js`) atomically updates `VERSION` + `package.json` + `.claude-plugin/plugin.json`. Stamps in prose drift the moment that script runs — every release would otherwise require grep-and-replace across consumer surface.
+2. **Migration narration is dev-trace.** "X is GONE in v4.2" is edit history; it belongs in `CHANGELOG.md` + commit log + `docs/`, not in rules consumers load every session.
+3. **Phantom version anchors.** Same failure mode as the §-anchor rule above: a stamp like `(v4.2)` reads as authoritative — but consumers can't cross-check it against what they actually installed.
+
+### How to apply
+
+The fix shape is **strip the stamp, keep the rule**:
+
+- ❌ `# /orchestra dispatcher (v4.0)` → ✅ `# /orchestra dispatcher`
+- ❌ `Canonical shape is schemas/system.schema.json. The v4.2 two-field set lives at…` → ✅ `Canonical shape is schemas/system.schema.json. The two-field set lives at…`
+- ❌ `The v4.1 sad_scope field is GONE in v4.2; service-level SAD was subsumed by CSD.` → ✅ (delete the sentence; the surrounding paragraph already states "SAD is system-level only")
+- ❌ `# pre-v4.1 carryover fields (still load-bearing at runtime; coexist via schema union)` → ✅ (delete the comment; the schema union already accepts the fields, and the label lies about their "carryover" status)
+
+If a real migration is happening, document it in `CHANGELOG.md` and the commit message — never in the consumer rule the prior shape used to live under.
+
 ## Scope discipline
 
 - `docs/` is dev-only. Do not write methodology notes, session reports, or planning docs anywhere else (in particular, not in the user's private second-brain vault).

@@ -55,7 +55,7 @@ Every per-feature artifact filename embeds the full feature-id as a prefix: `<fe
 ```
 <project>/docs/
 ├── README.md, CONTRIBUTING.md, SLO.md   ← user-authored; plugin doesn't trample
-├── SAD.md                               ← system-level singleton (only SAD in v4.2)
+├── SAD.md                               ← system-level singleton
 ├── adr/
 │   └── ADR-NNNN-<slug>.md               ← global flat numbering; ADRs accrete
 ├── diagrams/                            ← system-level (each *.puml has paired *.svg)
@@ -125,7 +125,7 @@ Type → folder map:
 | `PRD`, `FRS`, `TDD`, `TSR` | `docs/<service_name>/<feature-id>/` | `001-order-placement-PRD.md` | per-feature prose; filename = `<feature-id>-<TYPE>.md` |
 | `API` (openapi/asyncapi) | `docs/<service_name>/<feature-id>/` | `001-order-placement-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
 | `CSD` | `docs/<service_name>/` | `order-CSD.md` | per-service singleton (brownfield + `scope_level ∈ {container, service}`); filename = `<service_name>-CSD.md` |
-| `SAD` | `docs/` | `SAD.md` | system-level singleton (only SAD in v4.2) |
+| `SAD` | `docs/` | `SAD.md` | system-level singleton |
 | `ADR` | `docs/adr/` | `ADR-0001-use-sqlite.md` | global flat numbering — NOT feature-scoped |
 | `RELEASE`, `RUNBOOK` | `docs/releases/`, `docs/runbooks/` | `RELEASE-vX.Y.Z.md` | release-time singletons |
 | `INVENTORY` | `.orchestra/` | `inventory.md` | workspace-global singleton (brownfield only) |

@@ -125,7 +125,7 @@ Per-feature concerns belong in the feature's PRD/FRS/TDD, not in CSD. If a row i
 ## Relationship to other artifacts
 
 - **Inventory** (`<context_path>/.orchestra/inventory.md`) — workspace classification only. Inventory's `S-DECISIONS-001` rows marked `migrate-as-regen-seed` feed CSD authoring; once CSD locks, the inventory rows are read-only history.
-- **SAD** (`<context_path>/docs/SAD.md`) — system-level only in v4.2. Service-level SAD is gone; CSD replaces it. SAD `S-CONTAINERS-001` references CSD presence (`| <service_name> | <tech-label> | CSD: docs/<service_name>/<service_name>-CSD.md |`).
+- **SAD** (`<context_path>/docs/SAD.md`) — system-level only. SAD `S-CONTAINERS-001` references CSD presence (`| <service_name> | <tech-label> | CSD: docs/<service_name>/<service_name>-CSD.md |`).
 - **Feature PRD** (`<context_path>/docs/<service_name>/<feature-id>/<feature-id>-PRD.md`) — under `scope_level ∈ {container, service}`, PRD cites CSD by anchor ("see CSD `S-INVARIANTS-001`") instead of re-narrating service-wide rules. This is the keystone of Track C's PRD compaction.
 - **ADR** (`<context_path>/docs/adr/ADR-NNNN-<slug>.md`) — global flat numbering preserved. ADRs touching service shape append a row to the matching CSD's `S-INVARIANTS-001` if the decision creates a cross-feature invariant; otherwise CSD untouched.
 
