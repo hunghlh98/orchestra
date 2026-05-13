@@ -32,6 +32,12 @@
       "description": "Renders .puml → .svg via plantuml CLI on PostToolUse(Write|Edit|MultiEdit). Non-blocking; warns to stderr when render fails or sibling .md lacks the expected ![..](diagrams/<name>.svg) reference."
     },
     {
+      "module": "hook.agent-plan-sync",
+      "envVar": "ORCHESTRA_HOOK_AGENT_PLAN_SYNC",
+      "default": "on",
+      "description": "Binds Claude Code task IDs to per-agent PLAN files at <cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md — recomputes T-NNN counts, mirrors the ## Tasks checklist, and flips plan status. Disable for runs that don't author plan files."
+    },
+    {
       "module": "mcp.orchestra-fs",
       "envVar": "ORCHESTRA_MCP_ORCHESTRA_FS",
       "default": "on",
