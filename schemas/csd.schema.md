@@ -68,6 +68,9 @@ sections:
   S-AC-001:
     writer: "@architect"
     status: pending | in_progress | locked
+  S-ADR-INDEX-001:
+    writer: "@architect"
+    status: pending | in_progress | locked
   S-SUB-CAPABILITIES-001:
     writer: "@architect"
     status: pending | in_progress | locked
@@ -95,6 +98,7 @@ Required anchors, in order:
 | `S-BR-001` | `## Business rules` | `\| ID \| Rule \| Owner \| Source \|` | Service-scoped business rules — stakeholder-signable policy statements. `ID` format `BR-NNN` zero-padded per CSD. `Owner` MUST be a named human role (`Finance`, `Compliance`, `Platform-Lead`, `Risk-Ops`) — not an agent, not a team alias. `Source` cites the policy of record (`Finance policy 2026-Q2`, `Compliance memo §3.1`, etc.). Feature FRS `S-AC-001` rows trace to a `CSD/BR-NNN`. See "BR vs INV: audience boundary" below. |
 | `S-INVARIANTS-001` | `## Cross-feature invariants` | `\| ID \| Invariant \| Rationale \|` | Service-wide implementer-only invariants every feature must honor (idempotency keys, ordering guarantees, currency precision, identity rotation rules). `ID` format `INV-NNN` zero-padded per CSD. Absorbs what inventory previously called `S-INVARIANTS-001`. |
 | `S-AC-001` | `## Service acceptance criteria` | `\| ID \| Assertion \| Verification surface \| Traces \|` | Service-grain acceptance criteria that hold across all features. `ID` format `AC-NNN` zero-padded per CSD. `Verification surface` names the test layer that proves it (`integration-test`, `contract-test`, `monitoring-alert`). `Traces` cites a parent `BR-NNN` (own CSD) or `INV-NNN` (own CSD) or `SAD/BR-NNN` / `SAD/AC-NNN` (system-level). |
+| `S-ADR-INDEX-001` | `## Service ADR index` | `\| ADR-id \| slug \| status \| accepted_at \|` | Index of service-scoped ADRs (`scope: service`) accepted for this service. ADR id format `ADR-<service_name>-<NNN>` zero-padded per-service starting at 001. Global ADRs (`scope: global`) live in SAD `S-ADR-INDEX-001`, not here. |
 | `S-SUB-CAPABILITIES-001` | `## Sub-capability index` | `\| Feature slug \| Path \| Status \|` | Index pointing to `<context_path>/docs/<service_name>/<feature-id>/` folders authored under this service. `Status ∈ planned \| in-progress \| shipped`. Append-only as features land. |
 
 Anchor regex aligns with `schemas/pipeline-artifact.schema.md` `body-grammar` — `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Bidirectional invariant: every `sections:` key has a matching `<a id>`; every `<a id>` has a matching `sections:` key.
@@ -178,7 +182,7 @@ Per-feature concerns belong in the feature's PRD/FRS/TDD, not in CSD. If a row i
 - **Inventory** (`<context_path>/.orchestra/inventory.md`) — workspace classification only. Inventory's `S-DECISIONS-001` rows marked `migrate-as-regen-seed` feed CSD authoring; once CSD locks, the inventory rows are read-only history.
 - **SAD** (`<context_path>/docs/SAD.md`) — system-level only. SAD `S-CONTAINERS-001` references CSD presence (`| <service_name> | <tech-label> | CSD: docs/<service_name>/<service_name>-CSD.md |`).
 - **Feature PRD** (`<context_path>/docs/<service_name>/<feature-id>/<feature-id>-PRD.md`) — under `scope_level ∈ {container, service}`, PRD cites CSD by anchor ("see CSD `S-INVARIANTS-001`") instead of re-narrating service-wide rules. This is the keystone of Track C's PRD compaction.
-- **ADR** (`<context_path>/docs/adr/ADR-NNNN-<slug>.md`) — global flat numbering preserved. ADRs touching service shape append a row to the matching CSD's `S-INVARIANTS-001` if the decision creates a cross-feature invariant; otherwise CSD untouched.
+- **ADR** — two scopes. Global ADRs (`scope: global`, path `<context_path>/docs/adr/ADR-<NNNN>-<slug>.md`, project-wide flat 4-digit numbering) affect ≥2 services and live in SAD `S-ADR-INDEX-001`. Service-scoped ADRs (`scope: service`, path `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md`, per-service 3-digit numbering starting at 001) affect exactly one service and live in CSD `S-ADR-INDEX-001`. Either kind, when its decision creates a cross-feature invariant for the elected service, ALSO appends a row to that service's CSD `S-INVARIANTS-001`.
 
 ## Versioning
 

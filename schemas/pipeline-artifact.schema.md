@@ -126,7 +126,8 @@ Type → folder map:
 | `API` (openapi/asyncapi) | `docs/<service_name>/<feature-id>/` | `001-order-placement-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
 | `CSD` | `docs/<service_name>/` | `order-CSD.md` | per-service singleton (brownfield + `scope_level ∈ {container, service}`); filename = `<service_name>-CSD.md` |
 | `SAD` | `docs/` | `SAD.md` | system-level singleton |
-| `ADR` | `docs/adr/` | `ADR-0001-use-sqlite.md` | global flat numbering — NOT feature-scoped |
+| `ADR` (global) | `docs/adr/` | `ADR-0001-use-sqlite.md` | affects ≥2 services; project-wide flat 4-digit numbering; tracked in SAD `S-ADR-INDEX-001` |
+| `ADR` (service) | `docs/<service_name>/adr/` | `ADR-order-001-use-outbox.md` | affects exactly one service; per-service 3-digit numbering; tracked in that service's CSD `S-ADR-INDEX-001` |
 | `RELEASE`, `RUNBOOK` | `docs/releases/`, `docs/runbooks/` | `RELEASE-vX.Y.Z.md` | release-time singletons |
 | `INVENTORY` | `.orchestra/` | `inventory.md` | workspace-global singleton (brownfield only) |
 | `RUN-PLAN` | `.orchestra/<service_name>/` | `run-plan.md` | per-service singleton |
@@ -376,16 +377,20 @@ c4_levels_present: [1, 2]
 adr_count: <int>
 ```
 
-### ADR-`<NNNN>`-`<slug>`.md
+### ADR-`<NNNN>`-`<slug>`.md (global) / ADR-`<service_name>`-`<NNN>`-`<slug>`.md (service)
 
 ```yaml
 status: proposed | accepted | superseded | deprecated
 verdict: PENDING | APPROVED | REQUEST_CHANGES
-superseded_by: ADR-<NNNN>-<slug> | null
-triggered_by: <feature-id>-PRD | <feature-id>-FRS | <feature-id>-TDD | SAD | DIV-<NNN>
+scope: global | service                 # decides path + numbering scheme
+service_name: <string>                  # required when scope == service; omit when global
+superseded_by: ADR-<NNNN>-<slug> | ADR-<service_name>-<NNN>-<slug> | null
+triggered_by: <feature-id>-PRD | <feature-id>-FRS | <feature-id>-TDD | SAD | CSD | DIV-<NNN>
 review_round: <1..3>
 option_count: <int>
 ```
+
+`scope: global` → path `<context_path>/docs/adr/ADR-<NNNN>-<slug>.md`, project-wide flat 4-digit numbering. `scope: service` → path `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md`, per-service 3-digit numbering starting at 001. See `agents/architect.md` "ADR-open subroutine" for the scope-decision rule.
 
 `@architect` writes the body. `@reviewer` Edits only `S-CONSEQUENCES-001` (REQUEST_CHANGES findings) and writes `verdict:` + `review_round:`. `adr-status` state-machine diagram is mandatory.
 
