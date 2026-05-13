@@ -74,7 +74,7 @@ When a new feature changes a `Component()` / `Rel()` / class line in either serv
 |---|---|---|
 | `<feature-id>-c4-context.puml` | `@lead` | every TDD; copy of system L1 with this feature's touches highlighted |
 | `<feature-id>-c4-container.puml` | `@lead` | every TDD; copy of system L2 with highlights |
-| `<feature-id>-frs-usecase.puml` | `@product` | every FRS |
+| `<feature-id>-frs-usecase.puml` | `@product` | every FRS; MUST include ≥1 end-user `actor` from PRD `S-STAKEHOLDERS-001` even when the proximate caller is an internal service or operator (model the business actor; internal callers are separate actors or `<<include>>` relays — see `agents/product.md` step 6) |
 | `<feature-id>-state-business.puml` | `@product` | when feature has user-facing lifecycle |
 | `<feature-id>-sequence-intra-<usecase>.puml` | `@lead` | per primary use case |
 | `<feature-id>-state-technical.puml` | `@lead` | when component has internal lifecycle |
