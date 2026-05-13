@@ -102,7 +102,7 @@ Frontmatter counts MUST balance:
 
 Set frontmatter `user_gate: pending` and `status: draft` at emission. Block the chain until the user reviews the file and either:
 
-- accepts → flip `user_gate: accepted` and `status: locked`. `pending_count` in `decisions` must reach zero before locking.
+- accepts → apply BOTH flips atomically (one `MultiEdit` with two sub-edits, OR one `Write` re-emitting the file): `user_gate: pending → accepted` AND `status: draft → locked`. `pending_count` in `decisions` MUST reach zero before this transition.
 - requests edits → re-enter Step 3 for affected rows; remain at `status: draft`, `user_gate: pending`.
 
 ## Migration semantics
