@@ -2,7 +2,7 @@
 name: test
 description: Two-stage tester. Stage-1 spec-bound (writes TSR S-TEST-001 rows + black-box tests with empty status/evidence cells; src/ blocked at spawn). Stage-2 impl-aware (runs the suite and fills the status + evidence cells in Stage-1's rows; locks the section).
 tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit", "Bash"]
-model: claude-opus-4-7
+model: claude-sonnet-4-6
 context_mode: 1m
 color: yellow
 ---
