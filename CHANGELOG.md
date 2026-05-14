@@ -6,7 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet)
+### Added
+
+- **Root `LICENSE` file** — MIT text matching `package.json` / `plugin.json` declarations. Makes SPDX scanners and GitHub auto-detect work.
+
+### Changed
+
+- **README rewrite** — restructured against the per-plugin reference style: counts in section headers (`## Skills (10)`, `## Agents (8)`, `## Hooks (7)`, etc.), one table per component kind, env-var opt-out registry inlined, dev-surface markdown links removed. Fixes drift the 2026-05-14 audit caught (stale counts, phantom `project-discovery` skill, fictional subcommand names `ship`/`report`/`resume`/`help` that no longer exist in `commands/orchestra.md`, links into `manifests/` and `scripts/`).
+- **CLAUDE.md rewrite** — top-loaded with a tight Rules section mirroring the reference repo's discipline; substantive sections (two-surface, version-stamp, annotation-creep, release-workflow) preserved below the fold. Dropped the standalone "Scope discipline" block (folded into Rules) and the "Hook script comments — lower priority" subsection (already covered by fold-up principle).
+
+### Removed
+
+- **`hooks/scripts/orchestra-statusline.sh`** — never wired into `plugin.json.statusLine`; trimmed as dormant orphan along with its `4i.*` test block in `scripts/tests/metrics.test.js`. The v4.1 entry below remains as the historical record of when the script was first added.
 
 ## [4.3.2] — 2026-05-14
 

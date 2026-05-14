@@ -1,157 +1,229 @@
 # orchestra
 
-> A Claude Code plugin that gives one developer a multi-agent SDLC pipeline behind a single entry point.
+Multi-agent SDLC pipeline behind `/orchestra`. One developer, generator/evaluator separation, document-driven gates.
 
-**One-line thesis:** *"The model IS the agent. Build harnesses, not prompt chains."*
+> The model IS the agent. Build harnesses, not prompt chains.
 
-Agent prompts encode roles and boundaries. The harness — hooks, MCP probes, schema-pinned artifacts, observability — encodes everything the model cannot reason about reliably alone.
+## Features
 
-## Install
+- 4 entry shapes (`spec-to-code`, `code-to-spec`, `<intent>` router, empty→usage) — one slash command, mode-detected behavior
+- Greenfield forward chain (PRD → FRS → SAD → ADR → TDD → openapi → code) + brownfield reverse chain against the same schemas
+- Generator/evaluator separation: `@evaluator` strict read-only; `@backend` / `@frontend` deny `Bash` (CI-enforced)
+- Schema-pinned artifacts — every frontmatter under `<project>/docs/` validates against `schemas/pipeline-artifact.schema.md`
+- Capability-first default models (Opus 4.7 1M for spec / review tiers, overridable per-project in `local.yaml`)
+- 7 runtime hooks + 2 MCP servers, env-var opt-out per component
 
-Two commands inside any Claude Code session:
+## Installation
 
-```
+```bash
 /plugin marketplace add hunghlh98/orchestra
 /plugin install orchestra@orchestra-marketplace
 ```
 
-The first registers the orchestra repo as a plugin marketplace (reading `.claude-plugin/marketplace.json`); the second installs the `orchestra` plugin from it. No setup wizard, no follow-up prompts.
+The marketplace is intentionally single-plugin: `.claude-plugin/marketplace.json` declares only `orchestra` because the marketplace surface IS the canonical Claude Code install path. No separate registry, no follow-up wizard.
 
 ## Usage
 
 ```
-/orchestra <intent>     Smart router. Mode-detect → chain-rigor election → spec-to-code chain.
-/orchestra ship         Verify gates → smoke-test install → write RELEASE / RUNBOOK + set TSR frontmatter `ship:` → draft commit message.
-/orchestra report       Render Gantt + cost-by-role + cost-by-phase from events / tokens / runs.
-/orchestra resume       Walk pipeline dirs; respawn the next non-terminal task in any open feature.
-/orchestra help         Print usage.
+/orchestra                  Empty → usage block.
+/orchestra spec-to-code     Greenfield forward chain.
+/orchestra code-to-spec     Brownfield reverse chain. Optional second token: `system` | `service:<name>`.
+/orchestra <intent>         Freeform router. Reverse first, pause, then forward against the locked baseline.
 ```
 
-Optional flag: `--confidence {high,medium,low}` overrides `@lead`'s automatic confidence classification.
+The router path runs three minimum `AskUserQuestion` rounds before any agent spawn (restate-intent / scope / constraints), even at HIGH confidence.
 
-## The chain
+## Pipeline flow per entry shape
 
-```
-Business           Architecture        Component   Boundary
-─────────────────  ─────────────────   ─────────   ────────────────────
-PRD ──→ FRS ──→    SAD ──→ ADR ──→     TDD ──→     openapi.yaml
-                                                        │
-                                                        ▼
-                                                       code + tests
-                                                        │
-                                                        ▼
-                                                       TSR (verify)
-```
+### `/orchestra spec-to-code` — greenfield forward chain
 
-Each layer is a separate, schema-pinned artifact under `<project>/docs/`. The chain runs forward for greenfield work and reverses (to a user-elected depth) for brownfield bootstrap.
-
-**Chain rigor presets** — elected at entry:
-- **Full** — all layers (PRD → FRS → SAD → ADR → TDD → openapi)
-- **Standard** — skip SAD / ADR (PRD → FRS → TDD → openapi)
-- **Light** — TDD only (component-internal change, no spec uplift)
-
-## Two workflows
-
-**Greenfield** — empty repo. `/orchestra` runs the chain forward from PRD to code.
-
-**Brownfield** — existing codebase. `/orchestra` reverse-documents to user-elected depth (`light` = PRD only, `medium` = PRD + FRS + TDD, `full` = full chain), then runs the forward chain on every feature thereafter.
+Empty repo. `@lead` drives layers left to right; the parallel implementer fan-out gates on `openapi.yaml` lock.
 
 ```
-/orchestra (no args)
-  │
-  ├─ detect mode (empty repo → greenfield; src/ exists → brownfield)
-  ├─ mode ambiguous?         → AskUserQuestion: greenfield | brownfield
-  ├─ brownfield only?        → AskUserQuestion: depth (light | medium | full)
-  ├─ always                  → AskUserQuestion: chain rigor (Full | Standard | Light)
-  ├─ greenfield + no lang?   → AskUserQuestion: language + framework
-  └─ spawn @lead with locked decisions
+ Business             Architecture           Component        Boundary
+ ─────────────────    ──────────────────     ─────────        ────────────────
+ PRD ──→ FRS    ──→   SAD ──→ ADR? ──→       TDD       ──→    openapi.yaml
+ @product             @architect             @lead            @lead
+                                                                  │ locked
+                                                                  ▼
+                                              parallel:    @backend  ‖  @frontend  ‖  @test (Stage-1)
+                                                                  │
+                                                                  ▼
+                                              converge:    @test (Stage-2) + @evaluator + @reviewer
+                                                                  │
+                                                                  ▼
+                                                              TSR (verdict locked)
 ```
 
-Each ask is **elidable** when its answer is inferable from prompt or repo state. The plugin asks only when it can't infer.
+`ADR?` opens only when a non-obvious system-affecting decision surfaces in PRD / FRS / TDD. `@frontend` is skipped on projects with no UI layer.
 
-## What ships
+### `/orchestra code-to-spec` — brownfield reverse chain
 
-| Surface | Count | Purpose |
-|---|---|---|
-| **Agents** | 8 | `@product`, `@architect`, `@lead`, `@backend`, `@frontend`, `@test`, `@evaluator`, `@reviewer` — instantiated as a TeamCreate roster on every `/orchestra` run |
-| **Skills** | 8 | `task-breakdown`, `project-discovery`, `code-review`, `qa-test-planner`, `write-contract`, `c4-architecture`, `plantuml`, `java-development` |
-| **Commands** | 1 | `/orchestra` with 5 subcommands (smart router, ship, report, resume, help) |
-| **Schemas** | 5 | `pipeline-artifact.schema.md`, `install-modules.schema.json`, `runtime-toggles.schema.json`, `known-models.schema.json`, `routing-taxonomy.md` |
+Existing codebase. Authors documentation only — never touches `src/`, tests, or TSR. Each artifact runs **classify → author → lock** (`re-author` / `cite-as-is` / `copy-and-modify` per provenance and status).
 
-**Harness** (auto-loaded, env-var opt-out):
+```
+ Source                  Component             Architecture                Business
+ ─────────────           ─────────             ────────────────            ──────────────────
+ src/**/*.{lang}   ──→   TDD            ──→    SAD* + ADR*           ──→   PRD ──→ FRS
+ existing tests          openapi.yaml          business-invariants*               │
+                         clientapi.yaml                                           ▼
+                                                                            BR-AC (per-service)
 
-- **Hooks (5):** `pre-write-check`, `metrics-collector`, `val-calibration`, `post-bash-lint`, `post-write-puml`
-- **MCP servers (2):** `orchestra-fs` (`tree`), `orchestra-probe` (`http_probe` + `db_state`)
-
-Per-component opt-out via env var:
-
-```sh
-export ORCHESTRA_HOOK_METRICS_COLLECTOR=off  # disable local metrics
-export ORCHESTRA_MCP_ORCHESTRA_PROBE=off     # disable runtime probes
-export ORCHESTRA_SKILL_JAVA_DEVELOPMENT=off  # disable Java skill
+* SAD + ADR + business-invariants authored only when workspace_kind = multi-repo
+  AND scope_level = system-wide. Single-repo and per-service scope skip the
+  architecture layer entirely.
 ```
 
-Full toggle list in [`manifests/runtime-toggles.json`](manifests/runtime-toggles.json).
+Optional second token narrows scope: `code-to-spec system` forces `scope_level: system-wide`; `code-to-spec service:<name>` forces `per-service` for the named service.
+
+### `/orchestra <intent>` — router (reverse-then-forward)
+
+Freeform request (anything that isn't `spec-to-code` / `code-to-spec`). Three AskUserQuestion rounds run before any agent spawn; then mode-detection decides whether to reverse-pass first.
+
+```
+ freeform intent
+        │
+        ▼
+ 3× AskUserQuestion   (restate-intent  /  scope  /  constraints)
+        │
+        ├─── greenfield ──────────────────────────────────────────→  spec-to-code
+        │
+        └─── brownfield
+                  │
+                  ▼
+            code-to-spec  (narrowed to touched service(s))
+                  │
+                  ▼
+            pause for review
+                  │
+                  ▼
+            spec-to-code  (against the now-locked baseline)
+```
+
+The brownfield path is **reverse-then-forward**: document the existing surface so the spec-to-code chain runs against a real baseline instead of inventing one.
+
+### `/orchestra` — empty
+
+Emits the Usage block above. No chain, no agent spawn.
+
+## Agents (8)
+
+| Agent | Purpose |
+| --- | --- |
+| `@product` | Authors `<feature-id>-PRD.md` and `<feature-id>-FRS.md`; runs consultant dialogue and flags ADR-worthy decisions for `@architect`. |
+| `@architect` | Authors `SAD.md`, ADRs, workspace `business-invariants.md`, per-service BR-AC, C4 L1+L2, Logical ERD, Inter-service Sequence. |
+| `@lead` | Authors TDD, `openapi.yaml` / `asyncapi.yaml`, TASKS, C4 L3+L4. Spawns the parallel implementer fan-out on openapi lock. |
+| `@backend` | Server-side implementer (endpoints, services, persistence, jobs). Writes source + unit tests under `services/<name>/src/`. |
+| `@frontend` | UI implementer (components, state, styles, accessibility). Ships all four states: loading / empty / error / success. |
+| `@test` | Two-stage tester. Stage-1 authors black-box tests + TSR `S-TEST-001` rows. Stage-2 runs the suite + fills evidence cells. |
+| `@evaluator` | Evidence grader. Reads PRD / FRS / openapi / TSR `S-TEST-001` and writes `S-EVAL-001` (PASS / FAIL / PENDING per row). Strict read-only. |
+| `@reviewer` | Diff and ADR reviewer. Writes TSR `S-REVIEW-001` verdict (APPROVED / REQUEST_CHANGES / PENDING); flags ADR-worthy decisions retroactively. |
+
+## Skills (10)
+
+| Skill | Purpose |
+| --- | --- |
+| `c4-architecture` | C4-model diagrams (Context / Container / Component / Deployment / Dynamic) via C4-PlantUML stdlib. |
+| `clean-architecture` | Dependency-Rule layering (Entities / Use Cases / Adapters / Frameworks) for SAD container layout, TDD components, and review scoring. |
+| `clean-code` | Meaningful names, small functions, exception-based errors, F.I.R.S.T. tests, code-smell heuristics for authoring and review. |
+| `code-review` | Severity-graded checklists for correctness, idioms, performance, security — used by `@reviewer`. |
+| `commit-message` | Authors a Conventional Commits 1.0.0 commit message with the mandatory AI Co-Authored-By trailer. |
+| `java-development` | Java / Spring read-side intel (caller graphs, `@Transactional`, JPA impact) and write-side conventions. Invoked by `@backend` on Java projects. |
+| `plantuml` | Generates PlantUML diagrams from text and converts `.puml` sources to PNG / SVG. |
+| `qa-test-planner` | Test-plan authoring with coverage strategy and adversarial fuzz inputs. Used by `@test` for TSR `S-TEST-001`. |
+| `task-breakdown` | Decomposes intent into a task graph with story-point estimates and agent assignments. Used by `@lead` when routing a feature. |
+| `write-contract` | Lifts PRD/FRS criteria into `<feature-id>-openapi.yaml` (producer endpoints) and `<feature-id>-clientapi.yaml` (consumer contracts on upstream). |
+
+## Commands (1)
+
+| Command | Purpose |
+| --- | --- |
+| `/orchestra` | Dispatcher. 4 entry shapes: `spec-to-code`, `code-to-spec`, `<intent>` router, empty→usage. |
+
+## Hooks (7)
+
+| Hook script | Event | Purpose |
+| --- | --- | --- |
+| `orchestra-preflight.js` | UserPromptSubmit (`^/orchestra`) | Emit `<orchestra-preflight>` block — mode / workspace / scope / cached fields / missing fields. Dispatcher halts without it. |
+| `pre-write-check.js` | PreToolUse (Write / Edit / MultiEdit) | Secret detection + Gate-D portability inverse for `docs/**/*.md`. |
+| `metrics-collector.js` | All major events | Append `events.jsonl` for observability joins. |
+| `val-calibration.js` | PreToolUse (Task / Agent) | Inject confidence-tier calibration into agent prompts. |
+| `agent-plan-sync.js` | PreToolUse / PostToolUse (TaskCreate / TaskUpdate), SubagentStop | Single writer for per-agent PLAN file `tasks:` / `tasks_pending` / `tasks_in_progress` / `tasks_done` / `updated:` / top-level `status:` and the `## Tasks` body. |
+| `post-bash-lint.js` | PostToolUse (Bash) | Observe Bash output; surface lint issues. |
+| `post-write-puml.js` | PostToolUse (Write / Edit / MultiEdit) | Render-on-write for `.puml` files. |
+
+## MCP Servers (2)
+
+| Server | Tools | Purpose |
+| --- | --- | --- |
+| `orchestra-fs` | `tree` | Read-only directory listing with path-escape guards. |
+| `orchestra-probe` | `http_probe`, `db_state` | Auditable runtime probes for `@evaluator` (SELECT-only DB, redacted HTTP). |
+
+## Schemas (12)
+
+| Schema | Purpose |
+| --- | --- |
+| `pipeline-artifact.schema.md` | Frontmatter contract for every `docs/**/*.md` artifact. |
+| `local.schema.json` | `<project>/.orchestra/<service>/local.yaml` closed allowlist. |
+| `system.schema.json` | `<project>/.orchestra/system.yaml` (`workspace_kind`, `context_path`). |
+| `run-plan.schema.md` | Run-plan author / approval contract. |
+| `br-ac.schema.md` | Business-rule / acceptance-criteria layer (per-service). |
+| `business-invariants.schema.md` | System-wide invariants (multi-repo only). |
+| `inventory.schema.md` | `.orchestra/inventory/` index shape. |
+| `inventory.adr-index.schema.md` | ADR-INDEX shape under inventory. |
+| `routing-taxonomy.md` | Intent → authorized-agents and per-intent artifact whitelist; referenced by the dispatcher's spawn prompts. |
+| `install-modules.schema.json` | Manifest module registry (CI-validated). |
+| `runtime-toggles.schema.json` | Env-var opt-out registry (CI-validated). |
+| `known-models.schema.json` | Recognized model IDs (CI-validated). |
 
 ## Architecture
 
-The plugin is built around three load-bearing decisions:
+Three load-bearing decisions:
 
-1. **Generator/evaluator separation.** `@evaluator` is strict read-only (denies `Bash`, `Edit`, `MultiEdit`); implementer agents (`@backend`, `@frontend`) deny `Bash` (structurally enforced by `bash-strip.test.js` in CI). Probe runs route through `@evaluator` calling the `orchestra-probe` MCP — auditable, named, capped.
-2. **Schema-pinned artifacts.** Every artifact under `<project>/docs/` validates against `schemas/pipeline-artifact.schema.md`. Frontmatter carries `phase`, `agent_role`, `artifact_id`, `subagent_session_id` so observability joins are filename arithmetic, not timestamp guesswork.
-3. **Capability-first default models.** Opus 4.7 with 1M context for spec / review tiers. Each agent declares its model in frontmatter; users override per-project in `<project>/.orchestra/local.yaml`.
+1. **Generator/evaluator separation.** `@evaluator` is strict read-only; `@backend` / `@frontend` deny `Bash`. CI-enforced. Probe runs route through `@evaluator` via the `orchestra-probe` MCP — auditable, named, capped.
+2. **Schema-pinned artifacts.** Every artifact under `<project>/docs/` validates against `pipeline-artifact.schema.md`. Frontmatter (`phase`, `agent_role`, `artifact_id`, `subagent_session_id`) makes observability joins filename arithmetic, not timestamp guesswork.
+3. **Capability-first default models.** Opus 4.7 with 1M context for spec / review tiers. Each agent declares its model; users override per-project in `<project>/.orchestra/<service>/local.yaml`.
 
-## Project mode
+## Environment Variables (opt-out)
 
-orchestra auto-bootstraps **greenfield** vs **brownfield** mode on first run. Decision lands in `<project>/.orchestra/local.yaml`. The first `local.bootstrapped` event is appended to `<project>/.orchestra/metrics/events.jsonl` at the same time.
+All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setting any of these to `off`:
 
-For brownfield, the plugin produces reverse-doc artifacts at the elected depth before running the forward chain on the user's first feature ask.
+| Variable | Effect |
+| --- | --- |
+| `ORCHESTRA_HOOK_PRE_WRITE_CHECK` | Disable secret detection + Gate-D inverse. |
+| `ORCHESTRA_HOOK_METRICS_COLLECTOR` | Disable `events.jsonl` append. |
+| `ORCHESTRA_HOOK_VAL_CALIBRATION` | Disable confidence-tier injection. |
+| `ORCHESTRA_HOOK_AGENT_PLAN_SYNC` | Disable PLAN-file single-writer. |
+| `ORCHESTRA_HOOK_POST_BASH_LINT` | Disable Bash lint observer. |
+| `ORCHESTRA_HOOK_POST_WRITE_PUML` | Disable `.puml` render-on-write. |
+| `ORCHESTRA_HOOK_ORCHESTRA_PREFLIGHT` | **Do not disable** — dispatcher halts without it. |
+| `ORCHESTRA_MCP_ORCHESTRA_FS` | Disable `tree` MCP. |
+| `ORCHESTRA_MCP_ORCHESTRA_PROBE` | Disable runtime probes. |
+| `ORCHESTRA_SKILL_<NAME>` | Per-skill opt-out (10 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`). |
 
-## Configuration
+Agents and the dispatcher command have no env-var opt-out — toggle them by removing entries from `plugin.json`.
 
-All hooks, skills, and MCP servers ship `defaultEnabled: true`. Opt-out is env-var only — no config file required for the default path.
+## Requirements
 
-Agents and commands are toggled by removing entries from `plugin.json.agents` / `plugin.json.commands` (the `runtime-toggles.json` env-var surface covers hooks / skills / MCPs only).
+### Required
 
-## Validate (plugin-side)
+- Claude Code with plugin support
+- Node.js 18+ (hook scripts + MCP servers)
 
-```sh
-npm test
-```
+### Optional
 
-Runs the validators on the orchestra repo:
-
-| Validator | What it checks |
-|---|---|
-| `validate.js` | Manifests parse; `plugin.json` ↔ `CHANGELOG` ↔ `VERSION` self-consistent; skill / command frontmatter |
-| `test-hooks.js` | Hook contract: yaml-mini round-trip; pre-write-check secret detection; val-calibration injection; post-bash-lint observer; post-write-puml render-on-puml |
-| `test-scaffold.js` | First-run scaffold writes `<project>/.orchestra/` + `<project>/docs/` correctly |
-| `test-validate-extensions.js` | Pipeline-artifact schema extension surface |
-| `test-validate-backlog.js` | `docs/BACKLOG.md` shape; reject unmoderated entries |
-| `test-agents.js` | Agent frontmatter (name, description ≤30 words, per-role tool denylist, model id, context_mode, ≥1 `<example>`) |
-| `test-bash-strip.js` | No implementer agent permits `Bash` |
-| `test-removability.js` | `install-modules` ↔ `runtime-toggles` 1:1 mapping for hook / skill / mcp kinds |
-| `test-metrics.js` | metrics-collector append safety, rotation, retention, event classification, observability enrichments, env-var opt-out |
-| `test-bootstrap.js` | Mode-detection (empty / src / commits) and render shape |
-| `test-probe.js` | orchestra-probe MCP: redaction, http_probe round-trip, db_state SELECT-only, tree path-escape, JSON-RPC smoke, env-var opt-out |
-| `test-report.js` | `/orchestra report`: Gantt + role pivot + phase pivot via `subagent_session_id` join + warnings shape |
-
-CI runs all validators on every push and PR.
+- PlantUML CLI on `$PATH` — for `post-write-puml` render-on-write (`.puml` → `.png`)
 
 ## Versioning
 
-[Semantic Versioning](https://semver.org/).
-
-- [`CHANGELOG.md`](CHANGELOG.md) — Keep-a-Changelog format
-- Version bumps run through [`scripts/bump-version.js`](scripts/bump-version.js) — atomic update across `VERSION`, `package.json`, `plugin.json`.
+[Semantic Versioning](https://semver.org/). Version bumps run through the bump script, which atomically updates `VERSION`, `package.json`, and `.claude-plugin/plugin.json`. See [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 ## License
 
-MIT. See `package.json` for the canonical license declaration.
+MIT — see [`LICENSE`](LICENSE).
 
 ## Acknowledgments
 
-Parts of orchestra borrow from or adapt upstream work. Credit where due:
-
-- [`skills/plantuml/`](skills/plantuml/) — cloned from [`SpillwaveSolutions/plantuml`](https://github.com/SpillwaveSolutions/plantuml) (MIT). Examples trimmed; conversion scripts unchanged.
-- [`skills/c4-architecture/`](skills/c4-architecture/) — structure adapted from a Mermaid-output upstream skill in `softaworks/agent-toolkit`; output rewritten for C4-PlantUML stdlib.
+- `skills/plantuml/` — cloned from [`SpillwaveSolutions/plantuml`](https://github.com/SpillwaveSolutions/plantuml) (MIT). Examples trimmed; conversion scripts unchanged.
+- `skills/c4-architecture/` — structure adapted from a Mermaid-output upstream skill; output rewritten for C4-PlantUML stdlib.
+- `skills/clean-architecture/` and `skills/clean-code/` — vendored from [`wondelai/skills`](https://github.com/wondelai/skills) (MIT, Wondel.ai sp. z o.o.); frontmatter trimmed for orchestra schema; body and references unchanged.

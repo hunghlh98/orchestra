@@ -1,10 +1,30 @@
-# CLAUDE.md — Orchestra plugin (project-local)
+# CLAUDE.md — orchestra plugin (project-local)
+
+See @README.md for what orchestra is. This file is **plugin-authoring discipline** for this repo.
+
+## Rules
+
+- **Two surfaces, never mix them.** Consumer surface (`agents/`, `commands/`, `skills/`, `schemas/`, `hooks/`) MUST NOT cite developer surface (`docs/`, `manifests/`, `scripts/`) by `§`-anchor or markdown link. Inline the rule, drop the cite.
+- **No version stamps in consumer surface.** Plugin version lives only in `plugin.json` + `VERSION` + `package.json`. No `v4.0`, `(v4.2)`, "X is GONE in v4.Y" inside `agents/` / `commands/` / `skills/` / `schemas/`. Fix shape: strip the stamp, keep the rule.
+- **Fold up, don't sprinkle.** When a rule lives canonically (e.g., `## Invariants` block at the top of `commands/orchestra.md`), trust it. Don't add inline "DO NOT do X" reminders at every call site.
+- **Bump version only via script.** `node scripts/bump-version.js <major|minor|patch>` atomically updates `VERSION` + `package.json` + `.claude-plugin/plugin.json`. Never hand-edit these three.
+- **Default to PATCH bumps** unless explicitly told otherwise.
+- **CHANGELOG is derived from commit log.** Group commits by Conventional Commits type into Added / Fixed / Changed / Breaking. Extract; do not re-narrate.
+- **Before touching >5 files or removing features.** Post a brief plan and wait for go-ahead.
+- **`docs/` is dev-only.** Methodology notes, session reports, planning docs never go elsewhere — and never into the user's private second-brain vault.
+- **`docs/` artifacts link only to other `docs/` artifacts.** No codebase paths, no external URLs.
+- **Schemas carry shape only.** Types, enums, anchors. No version annotations, no `$comment` blocks, no duplicated brief rule tables.
+- **Briefs describe target state.** Edit history belongs in the commit body. Don't narrate what got removed / renumbered / folded.
+- **Business code carries no chain-artifact cites.** Consumer business code (`<consumer>/src/**`) must not embed `FR-N` / `AC-N` / `C-N` / `S-XXX-NNN` / PRD / FRS / TDD references.
+- **Blank-install assumption.** orchestra applies to blank installs. No migration gates, no schema unions, no parallel old/new paths — update files in place.
+- **C4 zoom continuity.** Container = zoom of one Context system. Component = zoom of one Container. Mindset, not just tooling.
 
 ## Two surfaces, never mix them
 
-This repo has two surface classes. They look similar (both are markdown / JS in the same checkout) but they have **different audiences and different lifetimes**.
+The repo has two surface classes. They look similar (markdown / JS in the same checkout) but they have **different audiences and different lifetimes**.
 
 ### Consumer surface — ships to anyone who installs the plugin
+
 - `agents/*.md` — loaded into Claude Code's agent registry on the consumer's machine
 - `commands/*.md` — loaded as slash-command bodies
 - `skills/*/SKILL.md` (and `references/`, `scripts/` under each skill) — loaded when a skill is invoked
@@ -14,102 +34,87 @@ This repo has two surface classes. They look similar (both are markdown / JS in 
 - `README.md`, `CHANGELOG.md` (visible in install but informational)
 
 ### Developer surface — exists only in this repo, never ships
-- `docs/v4.0-brief.md`, `docs/v4.0-design.md` (current major-version planning)
-- `docs/BACKLOG.md`, `docs/HOOKS.md`, `docs/sdlc_knowledge.md` (living dev references)
-- `scripts/test-*.js`, `scripts/validate.js`, `scripts/orchestra-report.js`, `scripts/bootstrap-local.js`, `scripts/bump-version.js` (build/CI tooling)
-- `manifests/install-modules.json`, `manifests/runtime-toggles.json`, `manifests/known-models.json` (CI-validated registries; not loaded by Claude Code at runtime)
 
-A consumer who installs orchestra has **no `docs/` folder, no `manifests/` folder, no `scripts/` folder**. They have only the consumer surface.
+- `docs/` — current major-version planning, living dev references, methodology
+- `scripts/` — build / CI / release tooling
+- `manifests/install-modules.json`, `manifests/runtime-toggles.json`, `manifests/known-models.json` — CI-validated registries; not loaded by Claude Code at runtime
 
-## The rule
+A consumer who installs orchestra has **no `docs/`, no `manifests/`, no `scripts/`** — only the consumer surface.
 
-**Consumer surface MUST NOT cite developer-surface artifacts by section anchor.**
+### Forbidden in `agents/`, `commands/`, `skills/`, `schemas/`
 
-### Forbidden in `agents/`, `commands/`, `skills/`
+- `per v4.0-brief §6`, `(v4.0-design §7.16)`, `per S-AUTONOMY-001`, or any `§X.Y` pointer into a `docs/` file
+- Anything that points the reader at `docs/<file>.md` they don't have
 
-- `per v4.0-brief §6`, `(v4.0-design §7.16)`, `per S-AUTONOMY-001`, or any `§X.Y` pointer into a `docs/` file.
-- Anything that points the reader at `docs/<file>.md` they don't have.
+### Allowed
 
-### Allowed in `agents/`, `commands/`, `skills/`
-
-- Domain nouns the plugin teaches: `PRD-NNN.md`, `FRS-NNN.md`, `TDD-NNN.md`, `TSR-NNN.md`, `SAD.md`, `ADR-NNNN-<slug>.md`, `openapi.yaml`, `asyncapi.yaml`, `run-plan.md`, `inventory.md`, `DEADLOCK-<id>.md`, `ESCALATE-<id>.md`. These are artifact-type names the consumer's pipeline produces in **their own** project.
-- Cross-references between consumer artifacts: `agents/lead.md` may cite `agents/product.md` or `commands/orchestra.md` or `skills/write-contract/SKILL.md`.
-- References into `schemas/`: e.g., `schemas/pipeline-artifact.schema.md` is the normative frontmatter spec for pipeline artifacts. `schemas/` is consumer surface.
+- Domain nouns the plugin teaches: `PRD-NNN.md`, `FRS-NNN.md`, `TDD-NNN.md`, `TSR-NNN.md`, `SAD.md`, `ADR-NNNN-<slug>.md`, `openapi.yaml`, `asyncapi.yaml`, `run-plan.md`, `inventory.md`. These are artifact-type names the consumer's pipeline produces in **their own** project.
+- Cross-references between consumer artifacts: `agents/lead.md` may cite `agents/product.md`, `commands/orchestra.md`, or `skills/write-contract/SKILL.md`.
+- References into `schemas/`.
 - File-shaped references inside the consumer's project: `<cwd>/.claude/.orchestra/pipeline/<id>/...`, `local.yaml`.
 
 ### Why
 
-1. **Phantom anchors.** A cite like "per PRD §8.11" reads as an authoritative pointer, but `docs/PRD-001.md` is not present in the consumer's install. The LLM may hallucinate to fill the gap, or downgrade its own confidence because it can't resolve the source.
-2. **Dead tokens.** Every leaky cite costs tokens on every load and gives the consumer's session zero behavioral lift.
-3. **Drift hazard.** When the dev doc renumbers a section, the consumer-surface cite silently goes stale — and consumers can't notice because they can't see the source.
+1. **Phantom anchors.** A cite like "per PRD §8.11" reads as authoritative, but `docs/PRD-001.md` is not present in the consumer install. The LLM hallucinates to fill the gap, or downgrades confidence because it can't resolve the source.
+2. **Dead tokens.** Every leaky cite costs tokens on every load and gives the consumer session zero behavioral lift.
+3. **Drift hazard.** When the dev doc renumbers, the consumer-surface cite silently goes stale — and consumers can't notice.
 
 ### How to apply
 
-The fix shape is **inline the rule, drop the cite**. Most leaky lines already state the rule next to the cite; the parenthetical is removable surgery.
+The fix shape is **inline the rule, drop the cite**.
 
 - ❌ `Confidence-tier the dialogue per v4.0-brief §7.4: HIGH = no questions, MEDIUM = 1, LOW = 2–3.`
 - ✅ `Confidence-tier the dialogue: HIGH = no questions, MEDIUM = 1, LOW = 2–3.`
-
-- ❌ `## Routing-taxonomy guard (v4.0-brief §7.5)`
-- ✅ `## Routing-taxonomy guard`
-
-- ❌ `Spawn agents per v4.0-design §3 routing taxonomy.`
-- ✅ `Spawn agents per the routing taxonomy below.` (when the table is in the same file)
 
 If the rule isn't already inline next to the cite, copy the relevant 1–3 sentences from `docs/<file>.md` into the consumer artifact, then drop the cite.
 
 ### Authoring consumer surface from a dev-surface draft
 
-When lifting prose from `docs/v4.0-brief.md` (or any dev-surface draft) into `agents/` / `commands/` / `skills/`, scrub every `(see §X)` and `§X.Y` pointer and inline what the §-section actually says. The dev-surface anchor cannot resolve in a consumer install — pasting one creates the same phantom-anchor failure as writing a fresh leaky cite.
+When lifting prose from `docs/v4.0-brief.md` (or any dev-surface draft) into `agents/` / `commands/` / `skills/`, scrub every `(see §X)` and `§X.Y` pointer and inline what the section actually says. Pasting an anchor that cannot resolve in a consumer install creates the same phantom-anchor failure as writing a fresh leaky cite.
 
 ## Where dev-trace cites SHOULD go
 
-The v4.0-brief / v4.0-design anchors (and any successor major-version planning docs) are valuable — just not in shipped artifacts. Cite freely in:
+The brief / design anchors are valuable — just not in shipped artifacts. Cite freely in:
 
 - `CHANGELOG.md` entries
 - Commit messages and PR descriptions
 - Code review comments
 - Other files in `docs/`
-- Comments in build/CI tooling under `scripts/`
+- Comments in build / CI tooling under `scripts/`
 
 These all have audiences who DO have access to `docs/`.
 
-## Hook script comments — lower priority
-
-Code comments at the top of `hooks/scripts/*.js` and `hooks/lib/*.js` referencing dev-design sections (e.g., `// See v4.0-design §3.2`) are read by **plugin maintainers reading source**, not by Claude at runtime. They're defensible as developer-trace inside source comments, similar to RFC references in library source. Trim if pursuing zero-leak; otherwise leave.
-
 ## Update discipline — no annotation creep
 
-When updating consumer-facing prompts (`commands/`, `agents/`, `skills/`) or any file in this repo:
+When updating consumer-facing prompts or any file in this repo:
 
-- Do NOT add inline "DO NOT do X manually" reminders, "Note: ..." annotations, or rule restatements alongside the change.
+- Do NOT add inline "DO NOT do X manually" reminders, "Note: …" annotations, or rule restatements alongside the change.
 - If a load-bearing rule already lives elsewhere (e.g., the `## Invariants` block at the top of `commands/orchestra.md`, the body-grammar section in `schemas/pipeline-artifact.schema.md`), trust it and do NOT re-state it inline.
 - If the rule does NOT exist yet, add it ONCE in the canonical spot — not next to every place it applies.
-- Each repetition of "the hook owns this" / "the model must NOT do X" is a tax on every consumer load AND leaks into model narration when explanatory style is on.
 
-The fix shape is **fold up, don't sprinkle**. Before adding any "DO NOT" / "Note:" prose, check whether the rule already exists somewhere canonical — if yes, link to or rely on it; if no, add it once at the canonical site.
+Each repetition of "the hook owns this" / "the model must NOT do X" is a tax on every consumer load AND leaks into model narration when explanatory style is on. The fix shape is **fold up, don't sprinkle**.
 
 ## No version stamps or migration narration in consumer surface
 
 Plugin version is canonical in `.claude-plugin/plugin.json` (kept in sync with `VERSION` and `package.json` by `scripts/bump-version.js`). Consumer-shipped prose MUST NOT carry version stamps or migration narration alongside rules — those are dead tokens at best and stale-at-write at worst.
 
-### Forbidden in `agents/`, `commands/`, `skills/`, `schemas/`
+### Forbidden
 
 - **Version stamps on current-state rules.** `# /orchestra dispatcher (v4.0)`, `the v4.2 two-field set`, `(only SAD in v4.2)`, `In v4.0 the contract IS…`, `Frontmatter (v2.0 slim):`. The rule reads identically without the stamp.
-- **Migration narration.** `The v4.1 sad_scope field is GONE in v4.2`, `that machinery is gone in v4.0`, `v4.0 dropped — emit openapi.yaml directly`, `Service-level SAD is gone; CSD replaces it`, `pre-v4.1 carryover fields`. This describes what *used to be* — consumers don't have the prior state to compare against.
-- **Self-referential revision history in prose.** `v4.0 revision: 3 (was 2 in v2.0; v3 was a rev-only bump)`. The schema file's frontmatter `revision:` field already carries this; restating in prose duplicates.
+- **Migration narration.** `The v4.1 sad_scope field is GONE in v4.2`, `that machinery is gone in v4.0`, `v4.0 dropped — emit openapi.yaml directly`, `pre-v4.1 carryover fields`. This describes what *used to be* — consumers don't have the prior state to compare against.
+- **Self-referential revision history in prose.** `v4.0 revision: 3 (was 2 in v2.0; v3 was a rev-only bump)`. The schema's `revision:` frontmatter field already carries this.
 
 ### Allowed
 
 - Skill `origin:` attribution metadata (e.g., `origin: SpillwaveSolutions/plantuml@MIT (cloned for orchestra v2.0.0; examples/ trimmed)`) — provenance for an upstream-cloned skill, not orchestra-version stamping.
-- Worked code examples that happen to use semver (e.g., `order-domain v2.1.0` illustrating release-granularity in `skills/clean-architecture/SKILL.md`) — hypothetical user-domain versions, not orchestra versions.
-- `CHANGELOG.md`, commit messages, files under `docs/`, comments in `scripts/` — these have audiences who DO have access to plugin-version history.
+- Worked code examples that happen to use semver (e.g., `order-domain v2.1.0` illustrating release-granularity in `skills/clean-architecture/SKILL.md`) — hypothetical user-domain versions.
+- `CHANGELOG.md`, commit messages, files under `docs/`, comments in `scripts/`.
 
 ### Why
 
-1. **Single source of truth.** The bump script (`scripts/bump-version.js`) atomically updates `VERSION` + `package.json` + `.claude-plugin/plugin.json`. Stamps in prose drift the moment that script runs — every release would otherwise require grep-and-replace across consumer surface.
-2. **Migration narration is dev-trace.** "X is GONE in v4.2" is edit history; it belongs in `CHANGELOG.md` + commit log + `docs/`, not in rules consumers load every session.
-3. **Phantom version anchors.** Same failure mode as the §-anchor rule above: a stamp like `(v4.2)` reads as authoritative — but consumers can't cross-check it against what they actually installed.
+1. **Single source of truth.** The bump script atomically updates `VERSION` + `package.json` + `plugin.json`. Stamps in prose drift the moment that script runs.
+2. **Migration narration is dev-trace.** "X is GONE in v4.2" is edit history; it belongs in `CHANGELOG.md` + commit log + `docs/`.
+3. **Phantom version anchors.** A stamp like `(v4.2)` reads as authoritative — but consumers can't cross-check it against what they installed.
 
 ### How to apply
 
@@ -117,16 +122,8 @@ The fix shape is **strip the stamp, keep the rule**:
 
 - ❌ `# /orchestra dispatcher (v4.0)` → ✅ `# /orchestra dispatcher`
 - ❌ `Canonical shape is schemas/system.schema.json. The v4.2 two-field set lives at…` → ✅ `Canonical shape is schemas/system.schema.json. The two-field set lives at…`
-- ❌ `The v4.1 sad_scope field is GONE in v4.2; service-level SAD was subsumed by CSD.` → ✅ (delete the sentence; the surrounding paragraph already states "SAD is system-level only")
-- ❌ `# pre-v4.1 carryover fields (still load-bearing at runtime; coexist via schema union)` → ✅ (delete the comment; the schema union already accepts the fields, and the label lies about their "carryover" status)
 
 If a real migration is happening, document it in `CHANGELOG.md` and the commit message — never in the consumer rule the prior shape used to live under.
-
-## Scope discipline
-
-- `docs/` is dev-only. Do not write methodology notes, session reports, or planning docs anywhere else (in particular, not in the user's private second-brain vault).
-- Default to PATCH version bumps unless explicitly instructed otherwise.
-- Before making changes that touch >5 files, removing features, or expanding beyond the literal request, post a brief plan and wait for go-ahead.
 
 ## Release workflow
 
@@ -136,14 +133,14 @@ CHANGELOG is **derived from the commit log**, not hand-written. The release flow
 
 1. **Author** — implement the change (code, prose, schema, etc.).
 2. **Human review** — user reviews the staged diff.
-3. **Commit** — author message per `skills/commit-message` (Conventional Commits 1.0.0). The `<type>(<scope>): <description>` line is the source of the eventual CHANGELOG row; type + `!` / `BREAKING CHANGE:` carry the SemVer effect.
+3. **Commit** — message per `skills/commit-message` (Conventional Commits 1.0.0). The `<type>(<scope>): <description>` line is the source of the eventual CHANGELOG row; `!` / `BREAKING CHANGE:` carry the SemVer effect.
 
 **Release-prep cycle** (runs when cutting a version):
 
-4. **Version + CHANGELOG** — read commits since the last release tag (`git log <prev-tag>..HEAD`), group by Conventional Commits type (`feat` → Added, `fix` → Fixed, `refactor`/`perf` → Changed, any `!` or `BREAKING CHANGE:` → Breaking), compute the SemVer bump as `max(semver-effect)` across all commits per the `skills/commit-message` type table, author the CHANGELOG entry from those groups (extract, don't re-narrate), run `node scripts/bump-version.js <semver>`.
-5. **Human review** — user reviews the generated CHANGELOG entry + the three bumped files (`VERSION`, `package.json`, `.claude-plugin/plugin.json`).
-6. **Commit** — `chore(release): vX.Y.Z` (or `chore: release vX.Y.Z`) bundling the CHANGELOG + version-file changes.
+4. **Version + CHANGELOG** — read commits since the last release tag (`git log <prev-tag>..HEAD`), group by Conventional Commits type (`feat` → Added, `fix` → Fixed, `refactor`/`perf` → Changed, any `!` or `BREAKING CHANGE:` → Breaking), compute the SemVer bump as `max(semver-effect)` per the `skills/commit-message` type table, author the CHANGELOG entry from those groups (extract, don't re-narrate), then run `node scripts/bump-version.js <semver>`.
+5. **Human review** — user reviews the generated CHANGELOG entry + the three bumped files.
+6. **Commit** — `chore(release): vX.Y.Z` bundling the CHANGELOG + version-file changes.
 
-**Smoke** is post-release-commit, user-driven. Not a pre-commit gate. CI validators check orchestra-internal invariants but not Claude Code's plugin/marketplace schemas; if manifest-shape drift slips past human review, the smoke loop catches it at user-run time.
+**Smoke** is post-release-commit, user-driven. Not a pre-commit gate. CI validators check orchestra-internal invariants but not Claude Code's plugin / marketplace schemas; if manifest-shape drift slips past human review, the smoke loop catches it at user-run time.
 
-Why commit-derived: hand-authoring the CHANGELOG duplicates work the commit log already encodes, and drifts as the diff evolves. Conventional Commits gives commit messages machine-readable shape; the CHANGELOG becomes a deterministic projection of the log between two tags. Skip the duplication.
+Why commit-derived: hand-authoring duplicates work the commit log already encodes, and drifts as the diff evolves. Conventional Commits gives commit messages machine-readable shape; the CHANGELOG becomes a deterministic projection of the log between two tags. Skip the duplication.
