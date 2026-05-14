@@ -99,7 +99,7 @@ For ADR: `diagrams: [<id>, ...]` only when the decision is illustrated by a dedi
 
 ## Divergences (brownfield, pre-TSR)
 
-Brownfield runs where source diverges from regenerated spec: `@architect` authors divergence ledger BEFORE `@test`/`@evaluator`/`@reviewer` lock TSR.
+Brownfield runs where source diverges from regenerated spec: `@architect` authors divergence ledger BEFORE `@test-author`/`@test-runner`/`@evaluator`/`@reviewer` lock TSR.
 
 Write to `<feature-id>-TSR.md` `S-DIVERGENCES-001`:
 

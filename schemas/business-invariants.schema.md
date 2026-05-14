@@ -37,7 +37,8 @@ readers:
   - "@lead"
   - "@backend"
   - "@frontend"
-  - "@test"
+  - "@test-author"
+  - "@test-runner"
   - "@evaluator"
   - "@reviewer"
 invariant_count: <integer ≥ 0>

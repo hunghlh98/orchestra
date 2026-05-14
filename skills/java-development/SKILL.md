@@ -250,6 +250,6 @@ src/test/java/com/acme/TransferServiceTest.java:42:   service.transferFunds(buil
 
 Read-side output: 3 direct call sites. No method-reference uses (`::transferFunds`). All 3 sites need updating in this PR.
 
-Write-side application: the new overload uses constructor injection (patterns), takes `final` parameters (style), uses `:param` JPQL not string concat (security), and ships with a `shouldExecuteTransfer_whenInputValid()` test using AssertJ + `@Mock` (testing). `@test` Stage-2 runs the suite and confirms PASS.
+Write-side application: the new overload uses constructor injection (patterns), takes `final` parameters (style), uses `:param` JPQL not string concat (security), and ships with a `shouldExecuteTransfer_whenInputValid()` test using AssertJ + `@Mock` (testing). `@test-runner` runs the suite and confirms PASS.
 
 The structural rename is safe to ship as one commit. Beyond 3 sites — recommend splitting into "rename" + "callers updated" commits for cleaner review.

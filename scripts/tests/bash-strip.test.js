@@ -2,8 +2,8 @@
 // scripts/tests/bash-strip.test.js
 // Implementer Bash-strip enforcement.
 // Hard-coded set: agents named in IMPLEMENTER_AGENTS MUST deny Bash. Their
-// authority stops at the source diff; Bash escalation goes through @test
-// (Stage-2 suite execution) or @reviewer (read-only static analysis).
+// authority stops at the source diff; Bash escalation goes through @test-runner
+// (suite execution) or @reviewer (read-only static analysis).
 //
 // Frontmatter shape: either declare `tools` (allowlist) without Bash, OR
 // declare `disallowedTools` (denylist) with Bash included. Mutation test

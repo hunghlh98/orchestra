@@ -14,7 +14,7 @@ Paths: per-feature prose in `docs/<service_name>/<feature-id>/`, ADRs flat in `d
 
 ## feature {#feature}
 
-**Agents (in order):** `@product` → `@architect` → `@lead` → `@backend` / `@frontend` / `@test` Stage-1 (parallel) → `@test` Stage-2 → `@evaluator` → `@reviewer`
+**Agents (in order):** `@product` → `@architect` → `@lead` → `@backend` / `@frontend` / `@test-author` (parallel) → `@test-runner` → `@evaluator` → `@reviewer`
 
 **Artifact whitelist (full set):**
 
@@ -28,13 +28,13 @@ Paths: per-feature prose in `docs/<service_name>/<feature-id>/`, ADRs flat in `d
 - `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`)
 - `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl source under `<context_path>/services/<service_name>/src/` (multi-repo) or `<context_path>/src/` (single-repo)
-- `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (multi-writer: `S-TEST-001` by `@test`, `S-EVAL-001` by `@evaluator`, `S-REVIEW-001` by `@reviewer`)
+- `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (multi-writer: `S-TEST-001` by `@test-author` + `@test-runner`, `S-EVAL-001` by `@evaluator`, `S-REVIEW-001` by `@reviewer`)
 
 This is the only intent that produces the full SDLC artifact set.
 
 ## hotfix {#hotfix}
 
-**Agents (in order):** `@lead` → `@backend` / `@frontend` → `@test` Stage-2 → `@evaluator`
+**Agents (in order):** `@lead` → `@backend` / `@frontend` → `@test-runner` → `@evaluator`
 
 **Artifact whitelist:**
 
@@ -43,11 +43,11 @@ This is the only intent that produces the full SDLC artifact set.
 - impl-fix
 - `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (no review half required — `S-REVIEW-001` stays `pending`)
 
-**Excluded:** PRD, FRS, openapi (unchanged from broken release), SAD, ADR, BR-AC. Hotfixes skip Planning + Analysis (the bug is the spec). `@reviewer` is NOT spawned. `@test` Stage-1 is skipped because spec is unchanged; Stage-2 still runs the suite.
+**Excluded:** PRD, FRS, openapi (unchanged from broken release), SAD, ADR, BR-AC. Hotfixes skip Planning + Analysis (the bug is the spec). `@reviewer` is NOT spawned. `@test-author` is skipped because spec is unchanged; `@test-runner` still runs the suite.
 
 ## template {#template}
 
-**Agents (in order):** `@product` (intent triage only) → `@lead` → `@backend` / `@frontend` → `@test` Stage-1 + Stage-2 → `@evaluator` → `@reviewer`
+**Agents (in order):** `@product` (intent triage only) → `@lead` → `@backend` / `@frontend` → `@test-author` + `@test-runner` → `@evaluator` → `@reviewer`
 
 **Artifact whitelist:**
 
@@ -61,7 +61,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 ## refactor {#refactor}
 
-**Agents (in order):** `@reviewer` (pre-impl assessment) → `@lead` (TDD update) → `@backend` / `@frontend` → `@test` Stage-2 → `@evaluator`
+**Agents (in order):** `@reviewer` (pre-impl assessment) → `@lead` (TDD update) → `@backend` / `@frontend` → `@test-runner` → `@evaluator`
 
 **Artifact whitelist:**
 

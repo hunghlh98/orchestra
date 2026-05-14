@@ -216,7 +216,7 @@ List of agents authorized to read this artifact. **Soft enforcement** — prompt
 
 ### `sections:` <a id="S-SECTIONS-001"></a>
 
-Multi-writer coordination. Map of `S-<TYPE>-NNN → { writer, status }` where `status ∈ {pending, in_progress, locked}`. Most artifacts have a single owning writer and a flat sections list; TSR exercises this most because it has three writers (`@test` for `§test-plan`, `@evaluator` for `§verdict-evaluator`, `@reviewer` for `§verdict-reviewer`).
+Multi-writer coordination. Map of `S-<TYPE>-NNN → { writer, status }` where `status ∈ {pending, in_progress, locked}`. Most artifacts have a single owning writer and a flat sections list; TSR exercises this most because `S-TEST-001` itself accepts a sequential dual-write (`@test-author` lays the plan rows with empty `status`/`evidence` cells; `@test-runner` fills those cells in place and locks). Other TSR sections: `@evaluator` owns `S-EVAL-001`; `@reviewer` owns `S-REVIEW-001`.
 
 `pre-write-check.js` Gate-B enforces:
 - A writer not listed for a section's `writer:` cannot write to that section.
@@ -251,7 +251,7 @@ Artifacts under `docs/` are stakeholder deliverables. Deliver decisions and cont
 - **Personas: real, business-domain, system-interacting.** Use names from the consumer's actual domain (`Client`, `Web`, `App`, `Customer`, `Driver`, `Merchant`, `Operator`). A persona is a role that uses the *running system*. Do not invent meta-narrative stand-ins.
 - **Out-of-scope = what the request scoped out.** List items the user explicitly excluded.
 - **Bullets over prose.** Default to bullets. Reserve paragraphs for connected reasoning that genuinely needs them.
-- **No orchestra plumbing in stakeholder bodies.** Do not name `@product` / `@lead` / `@architect` / `@test` / `@evaluator` / `@reviewer` in PRD / FRS / SAD / TDD / ADR / TSR bodies. The chain is invisible to the human reading the artifact. Cross-references between consumer artifacts ARE fine.
+- **No orchestra plumbing in stakeholder bodies.** Do not name `@product` / `@lead` / `@architect` / `@test-author` / `@test-runner` / `@evaluator` / `@reviewer` in PRD / FRS / SAD / TDD / ADR / TSR bodies. The chain is invisible to the human reading the artifact. Cross-references between consumer artifacts ARE fine.
 
 ## Diagram bindings via `diagrams: [...]` relations array <a id="diagrams"></a>
 
@@ -319,7 +319,8 @@ OpenAPI/AsyncAPI document is the artifact body. Frontmatter contract lives in a 
 #     - "@lead"
 #     - "@backend"
 #     - "@frontend"
-#     - "@test"
+#     - "@test-author"
+#     - "@test-runner"
 #     - "@evaluator"
 #     - "@reviewer"
 #   sections:
@@ -348,7 +349,7 @@ rev_verdict: PENDING                          # PENDING | APPROVED | REQUEST_CHA
 rev_round: 1                                  # 1..3
 sections:
   S-TEST-001:
-    writer: "@test"
+    writer: "@test-author"                      # @test-author lays plan rows; @test-runner fills status+evidence cells, locks
     status: in_progress
   S-EVAL-001:
     writer: "@evaluator"
@@ -360,13 +361,13 @@ sections:
 
 **Body-row grammar (no duplication between sections).** Each TSR section is a single source of truth for its concern.
 
-`S-TEST-001` (writer `@test`, both stages) — one table, row shape:
+`S-TEST-001` (sequential dual-writer: `@test-author` lays plan rows; `@test-runner` fills cells + locks) — one table, row shape:
 
 ```
 | id | criterion | axis | critical | fixture | status | evidence |
 ```
 
-Stage-1 fills `id` / `criterion` / `axis` / `critical` / `fixture` (status + evidence cells empty); section `status: in_progress`. Stage-2 fills `status` + `evidence` cells in place and appends new rows only for newly-introduced white-box tests; section `status: locked`.
+`@test-author` fills `id` / `criterion` / `axis` / `critical` / `fixture` (status + evidence cells empty); section `status: in_progress`. `@test-runner` fills `status` + `evidence` cells in place and appends new rows only for newly-introduced white-box tests; section `status: locked`.
 
 `S-EVAL-001` (writer `@evaluator`) — one table, row shape:
 
@@ -374,7 +375,7 @@ Stage-1 fills `id` / `criterion` / `axis` / `critical` / `fixture` (status + evi
 | id | verdict | reason |
 ```
 
-`id` MUST reference an existing `S-TEST-001` row id; `verdict ∈ PASS | FAIL | PENDING`; `reason` is one short sentence (≤120 chars) citing the Stage-2 `evidence` excerpt.
+`id` MUST reference an existing `S-TEST-001` row id; `verdict ∈ PASS | FAIL | PENDING`; `reason` is one short sentence (≤120 chars) citing the `@test-runner` `evidence` excerpt.
 
 `S-REVIEW-001` (writer `@reviewer`) — per-severity findings (`Critical`, `Major`, `Minor`, `Nit`). When ADRs were touched in this feature, append a `## ADR review` subsection to `S-REVIEW-001`.
 

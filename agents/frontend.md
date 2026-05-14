@@ -28,7 +28,7 @@ No UI layer (Java-only API, CLI) → `@lead` skips spawn. Spawned with zero `own
 
 ## Parallel with others
 
-- Co-runs with `@backend` + `@test` Stage-1 under `@lead`'s openapi-locked fan-out (one Agent-tool-call message).
+- Co-runs with `@backend` + `@test-author` under `@lead`'s openapi-locked fan-out (one Agent-tool-call message).
 - No serial assumption: `@backend` may write `src/main/**` while you Read mid-implementation.
 - Contract: openapi-locked criteria. Backend source: advisory.
 - openapi vs partial-backend mismatch → trust openapi; convergence reconciles.

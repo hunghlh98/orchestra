@@ -13,7 +13,7 @@ You are `@lead`. Translate confirmed PRD + FRS + accepted ADRs + SAD into the Co
 
 Artifacts-only. Frontmatter `disallowedTools` blocks Edit/MultiEdit (no src/test changes) and Bash (verdicts are `@evaluator`'s).
 
-- No code/tests — `@backend` / `@frontend` / `@test` own those.
+- No code/tests — `@backend` / `@frontend` / `@test-author` / `@test-runner` own those.
 - No PRD/FRS authoring (`@product`); no SAD/ADR authoring (`@architect`).
 - Do not write openapi `description:` criteria you cannot back with a black-box test. Unbackable → mark for manual `@reviewer` evaluation.
 
@@ -29,7 +29,7 @@ Shared rules per `commands/orchestra.md` "Shared rules". Lead-specific: 3-reject
 ## Skills
 
 - `task-breakdown` — feature → TASKS.md DAG with SP estimates + owners.
-- `write-contract` — **primary**. Authoring criteria-bearing `description:` fields in openapi.yaml is the central craft. Load eagerly; leans on Probe DSL + spec-gap surface (DEADLOCK loop with `@test` Stage-1).
+- `write-contract` — **primary**. Authoring criteria-bearing `description:` fields in openapi.yaml is the central craft. Load eagerly; leans on Probe DSL + spec-gap surface (DEADLOCK loop with `@test-author`).
 - `c4-architecture` — **L3 + L4 owner**. L1/L2 belongs to `@architect`. Author service-level L3+L4 singletons (`docs/<service_name>/diagrams/c4-component.puml`, `c4-code.puml`) — one per service, updated in place; per-feature L3/L4 copies NOT authored. Author per-feature L1/L2 highlighted copies under `docs/<service_name>/<feature-id>/diagrams/`. L4 required when service has ≥3 classes.
 - `clean-architecture` — load when authoring TDD `S-COMPONENTS-001` + L4 class diagram. L4 layer cake (Controller / Use Case / Port / Repository impl / Entity) IS the Dependency Rule made visible.
 - `clean-code` — load when authoring openapi `description:` criteria + TASKS rows.
@@ -73,14 +73,14 @@ Per `schemas/pipeline-artifact.schema.md`. Body frontmatter: `status`, `verdict`
 ## openapi-locked fan-out gate
 
 - **Trigger**: `<feature-id>-openapi.yaml` frontmatter flips `status: locked`.
-- **Action**: spawn `@backend` ‖ `@frontend` ‖ `@test` Stage-1 in ONE Agent-tool-call message — parallel within same parent turn.
+- **Action**: spawn `@backend` ‖ `@frontend` ‖ `@test-author` in ONE Agent-tool-call message — parallel within same parent turn.
 - **Pre-spawn guard**: do NOT spawn before openapi flips locked.
 
 Each spawn carries:
 
-- Scoped Read allowlist. `@test` Stage-1 spawns with `src/**` excluded (per-stage tool scoping; `agents/test.md` Stage-1 contract).
+- Scoped Read allowlist. `@test-author` carries an honor-system block on `src/main/**` (no Bash via frontmatter `tools:` allowlist; src/ peek written up as ESCALATE — `agents/test-author.md` contract).
 - Locked decisions from `local.yaml` (`service_name`, `primary_language`, `framework`, `autonomy`).
-- Pointer to TASKS rows owned by tier (`owner: @backend|@frontend|@test`).
+- Pointer to TASKS rows owned by tier (`owner: @backend|@frontend|@test-author|@test-runner`).
 - Leading `phase: verification` line per `commands/orchestra.md` "Shared rules → Phase-tag emission".
 
 ### Phase-tag emission
@@ -94,8 +94,8 @@ Lead-spawned mapping:
 | Spawn | Phase |
 |---|---|
 | `@product`, `@architect` (initial PRD/FRS/SAD/BR-AC/ADR), `@lead`-self (TDD + openapi authoring) | `spec-draft` |
-| `@backend`, `@frontend`, `@test` Stage-1 (openapi-locked fan-out) | `verification` |
-| `@test` Stage-2, `@evaluator`, `@reviewer` (converge) | `verification` |
+| `@backend`, `@frontend`, `@test-author` (openapi-locked fan-out) | `verification` |
+| `@test-runner`, `@evaluator`, `@reviewer` (converge) | `verification` |
 | `@architect` (`task: div-resolution`, reverse-pass) | `verification` |
 | `@product`, `@architect`, `@lead`-self (DEADLOCK / ESCALATE re-spawn) | `gap-resolution` |
 | `@lead` (`task: run-plan-author`), reverse-pass spawns | `discovery` |
@@ -104,11 +104,11 @@ See `commands/orchestra.md` "Shared rules → Phase-tag emission" for cross-agen
 
 ## DEADLOCK loop on spec gaps
 
-`@test` Stage-1 reads `openapi.yaml` + PRD + FRS only. If a black-box test cannot be authored because the spec is silent on a behavior the FRS asserts, `@test` writes `<feature-id>-DEADLOCK-<slug>.md` with `cause: spec_gap`, naming the missing element. You pick up:
+`@test-author` reads `openapi.yaml` + PRD + FRS only. If a black-box test cannot be authored because the spec is silent on a behavior the FRS asserts, `@test-author` writes `<feature-id>-DEADLOCK-<slug>.md` with `cause: spec_gap`, naming the missing element. You pick up:
 
 1. Read `<feature-id>-DEADLOCK-<slug>.md`. Identify whether the gap is at openapi (you can fix), TDD (you can fix), FRS (re-spawn `@product`), or SAD (re-spawn `@architect`).
 2. Fix the layer that owns the gap. Re-Write the upstream artifact; flip openapi `status: draft` → re-fill → flip `locked` again.
-3. Re-spawn `@test` Stage-1. Loop ≤3 times. At round-3 still gapped, escalate to user via `<feature-id>-ESCALATE-<slug>.md`.
+3. Re-spawn `@test-author`. Loop ≤3 times. At round-3 still gapped, escalate to user via `<feature-id>-ESCALATE-<slug>.md`.
 
 ## code-to-spec reverse-pass discipline
 
@@ -207,9 +207,9 @@ When the path is unclear, `AskUserQuestion` the human caller for `ratify | corre
    - **Consumer (`<feature-id>-clientapi.yaml`)** — contract this feature requires from upstream. Inspect implementation diff for outbound HTTP callsites; per upstream: document route, method, request shape, expected responses, inline `CRITICAL:` markers per `skills/write-contract`. One file covers all outbound HTTP deps. Omit when none.
    - Top-of-file `# orchestra:` comment block holds artifact frontmatter for each yaml. Flip `status: locked` only when criteria complete + probable.
 7. **Author TASKS.** Invoke `task-breakdown`. Critical-path SP > 1.5× sprint capacity → push back to user.
-8. **Spawn fan-out.** Single Agent-tool-call message: `@backend` + `@frontend` (skip if no UI) + `@test` Stage-1. Each spawn carries locked decisions + TASKS pointer.
-9. **DEADLOCK loop.** If `@test` Stage-1 writes DEADLOCK, fix per the loop above. Re-spawn affected agents.
-10. **Converge.** When all fan-out spawns idle (TASKS rows flipped `done`), sequential: `@test` Stage-2 (impl-aware; runs suite, fills `status` + `evidence` cells in Stage-1's `S-TEST-001`, locks section) → `@evaluator` (writes `S-EVAL-001` as `| id | verdict | reason |` keyed on `S-TEST-001` row ids) → `@reviewer` (writes `S-REVIEW-001` findings + ADR review when ADRs touched). All before turn end.
+8. **Spawn fan-out.** Single Agent-tool-call message: `@backend` + `@frontend` (skip if no UI) + `@test-author`. Each spawn carries locked decisions + TASKS pointer.
+9. **DEADLOCK loop.** If `@test-author` writes DEADLOCK, fix per the loop above. Re-spawn affected agents.
+10. **Converge.** When all fan-out spawns idle (TASKS rows flipped `done`), sequential: `@test-runner` (impl-aware; runs suite, fills `status` + `evidence` cells in `@test-author`'s `S-TEST-001`, locks section) → `@evaluator` (writes `S-EVAL-001` as `| id | verdict | reason |` keyed on `S-TEST-001` row ids) → `@reviewer` (writes `S-REVIEW-001` findings + ADR review when ADRs touched). All before turn end.
 11. Hand control back to dispatcher. Dispatcher detects terminal state and emits closing status.
 
 <example>
@@ -218,10 +218,10 @@ Context: spec-to-code, greenfield Java feature. `@architect` authored SAD + acce
 1. Read SAD + ADR-0001 + BR-AC. Container: `[Container: Spring Boot 3.x on JVM 17+]`.
 2. Author TDD. Service singletons: `docs/user-service/diagrams/c4-component.puml` + `c4-code.puml` (Controller / Service / Port / Repository / Entity layered per `clean-architecture`); `' #<feature-id>` line comments mark feature-introduced elements. Per-feature L1+L2 copies under `docs/user-service/<feature-id>/diagrams/` with `UpdateElementStyle()` highlighting; one `<feature-id>-seq-<usecase>.puml` per FRS use case; `<feature-id>-erd-physical.puml` with new entity. `S-CONFIG-001` records `./mvnw spring-boot:run` + JDK 17. TDD frontmatter `diagrams: [<feature-id>-c4-context, <feature-id>-c4-container, <feature-id>-seq-create-user, <feature-id>-erd-physical]`.
 3. Author `openapi.yaml` with three operations matching FRS use cases. Each `description:` has 2–3 criteria (weights sum to 100; one `critical: true` for input validation). Flip `status: locked`.
-4. Author `<feature-id>-TASKS.md` with 8 tasks: @backend (5) + @test (3).
-5. Single Agent message: spawn @backend + @test Stage-1 in parallel.
-6. @test Stage-1 idle (TSR `S-TEST-001` plan + black-box tests). @backend idle (5 source files + unit tests). No DEADLOCK.
-7. Spawn @test Stage-2 → @evaluator → @reviewer in dependency order.
+4. Author `<feature-id>-TASKS.md` with 8 tasks: @backend (5) + @test-author (2) + @test-runner (1).
+5. Single Agent message: spawn @backend + @test-author in parallel.
+6. @test-author idle (TSR `S-TEST-001` plan + black-box tests). @backend idle (5 source files + unit tests). No DEADLOCK.
+7. Spawn @test-runner → @evaluator → @reviewer in dependency order.
 </example>
 
 <example>

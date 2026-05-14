@@ -46,10 +46,10 @@ Empty repo. `@lead` drives layers left to right; the parallel implementer fan-ou
  @product             @architect             @lead            @lead
                                                                   │ locked
                                                                   ▼
-                                              parallel:    @backend  ‖  @frontend  ‖  @test (Stage-1)
+                                              parallel:    @backend  ‖  @frontend  ‖  @test-author
                                                                   │
                                                                   ▼
-                                              converge:    @test (Stage-2) + @evaluator + @reviewer
+                                              converge:    @test-runner + @evaluator + @reviewer
                                                                   │
                                                                   ▼
                                                               TSR (verdict locked)
@@ -106,7 +106,7 @@ The brownfield path is **reverse-then-forward**: document the existing surface s
 
 Emits the Usage block above. No chain, no agent spawn.
 
-## Agents (8)
+## Agents (9)
 
 | Agent | Purpose |
 | --- | --- |
@@ -115,7 +115,8 @@ Emits the Usage block above. No chain, no agent spawn.
 | `@lead` | Authors TDD, `openapi.yaml` / `asyncapi.yaml`, TASKS, C4 L3+L4. Spawns the parallel implementer fan-out on openapi lock. |
 | `@backend` | Server-side implementer (endpoints, services, persistence, jobs). Writes source + unit tests under `services/<name>/src/`. |
 | `@frontend` | UI implementer (components, state, styles, accessibility). Ships all four states: loading / empty / error / success. |
-| `@test` | Two-stage tester. Stage-1 authors black-box tests + TSR `S-TEST-001` rows. Stage-2 runs the suite + fills evidence cells. |
+| `@test-author` | Spec-bound test author. Lays out black-box tests + TSR `S-TEST-001` plan rows from openapi + PRD + FRS only; no Bash, no `src/main/**` read. |
+| `@test-runner` | Impl-aware test runner. Reads `src/main/**`, adds white-box / edge-case tests, runs the suite via Bash, fills `status` + `evidence` cells, locks the section. |
 | `@evaluator` | Evidence grader. Reads PRD / FRS / openapi / TSR `S-TEST-001` and writes `S-EVAL-001` (PASS / FAIL / PENDING per row). Strict read-only. |
 | `@reviewer` | Diff and ADR reviewer. Writes TSR `S-REVIEW-001` verdict (APPROVED / REQUEST_CHANGES / PENDING); flags ADR-worthy decisions retroactively. |
 
@@ -130,7 +131,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `commit-message` | Authors a Conventional Commits 1.0.0 commit message with the mandatory AI Co-Authored-By trailer. |
 | `java-development` | Java / Spring read-side intel (caller graphs, `@Transactional`, JPA impact) and write-side conventions. Invoked by `@backend` on Java projects. |
 | `plantuml` | Generates PlantUML diagrams from text and converts `.puml` sources to PNG / SVG. |
-| `qa-test-planner` | Test-plan authoring with coverage strategy and adversarial fuzz inputs. Used by `@test` for TSR `S-TEST-001`. |
+| `qa-test-planner` | Test-plan authoring with coverage strategy and adversarial fuzz inputs. Used by `@test-author` for TSR `S-TEST-001`. |
 | `task-breakdown` | Decomposes intent into a task graph with story-point estimates and agent assignments. Used by `@lead` when routing a feature. |
 | `write-contract` | Lifts PRD/FRS criteria into `<feature-id>-openapi.yaml` (producer endpoints) and `<feature-id>-clientapi.yaml` (consumer contracts on upstream). |
 

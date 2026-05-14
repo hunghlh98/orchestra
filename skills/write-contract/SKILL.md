@@ -8,7 +8,7 @@ origin: orchestra
 
 Produces TWO artifacts:
 
-- `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` — **producer contract**: endpoints this feature *publishes*. `@lead` writes; `@test` lifts criteria into the TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
+- `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` — **producer contract**: endpoints this feature *publishes*. `@lead` writes; `@test-author` lifts criteria into the TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
 - `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml` — **consumer contract**: the contract this feature *requires from upstream services it calls* (one file covers all outbound HTTP deps for the feature; `info.title: "client-contract: <upstream-service>"` — one document per upstream, or a single multi-paths document with each `paths.<route>` carrying an `x-orchestra-upstream: <service>` extension). Authored when the feature's implementation diff has outbound HTTP callsites (`RestTemplate` / `WebClient` / Feign / `RestClient` / `HttpClient`).
 
 The contract IS the openapi document — there is no separate CONTRACT.md. Acceptance criteria live as prose in `description:` fields per operation / response. Critical criteria are flagged inline. Probe DSL + grading rules live in `qa-test-planner` (TSR `S-TEST-001`) and `@evaluator`'s rubric — not in this artifact.
@@ -18,7 +18,7 @@ AsyncAPI already handles both publish + subscribe shapes natively; one `<feature
 ## When to use
 
 - `docs/<feature-id>/<feature-id>-PRD.md` and `<feature-id>-FRS.md` are `status: locked` and execution is next.
-- An existing openapi needs revision because criteria proved unclear during testing (`@test` Stage-1 found a coverage gap).
+- An existing openapi needs revision because criteria proved unclear during testing (`@test-author` found a coverage gap).
 - Brownfield migration needs a locked interface contract before refactor.
 
 ## Approach
@@ -52,7 +52,8 @@ Path: `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml`. Top-of-file 
 #     - "@lead"
 #     - "@backend"
 #     - "@frontend"
-#     - "@test"
+#     - "@test-author"
+#     - "@test-runner"
 #     - "@evaluator"
 #     - "@reviewer"
 #   sections:
@@ -82,7 +83,7 @@ paths:
         "409": { ... description: "Replay rejected; idempotency_key already used." }
 ```
 
-Set frontmatter `sections.S-API-001.status: locked` after the body is final. `@test` Stage-1 reads this `locked` shell as its single source of truth for criteria.
+Set frontmatter `sections.S-API-001.status: locked` after the body is final. `@test-author` reads this `locked` shell as its single source of truth for criteria.
 
 ### Step 3b — Author the consumer clientapi document (when outbound HTTP deps exist)
 
@@ -99,7 +100,8 @@ Top-of-file `# orchestra:` block:
 #     - "@architect"
 #     - "@lead"
 #     - "@backend"
-#     - "@test"
+#     - "@test-author"
+#     - "@test-runner"
 #     - "@evaluator"
 #     - "@reviewer"
 #   sections:
@@ -127,7 +129,7 @@ paths:
         "409": { ... }
 ```
 
-One `clientapi.yaml` covers all outbound HTTP deps for the feature. `@test` lifts each `CRITICAL:` clientapi criterion into a contract-test row in TSR `S-TEST-001` so a breaking change upstream is caught at the seam.
+One `clientapi.yaml` covers all outbound HTTP deps for the feature. `@test-author` lifts each `CRITICAL:` clientapi criterion into a contract-test row in TSR `S-TEST-001` so a breaking change upstream is caught at the seam.
 
 ### Step 3c — Annotate operation stability
 
@@ -159,14 +161,14 @@ Filename convention matches the `c4-architecture` skill's three-scope model (sys
 
 ## Probe DSL — quick reference
 
-This skill does not author probes — `qa-test-planner` does, into TSR `S-TEST-001`. But `@lead` should know what's machine-probable when writing `description:` prose, so `@test` can later turn each criterion into a real probe row:
+This skill does not author probes — `qa-test-planner` does, into TSR `S-TEST-001`. But `@lead` should know what's machine-probable when writing `description:` prose, so `@test-author` can later turn each criterion into a real probe row:
 
 | `tool:` | What it probes | Assertion shapes |
 |---|---|---|
 | `http_probe` | HTTP request/response | `status: <int>`, `body_contains: ["str"]`, `body_equals: "..."`, `header.<key>: <value>` |
 | `db_state` | Persistence side effects | `rows_count: <int>`, `rows[N].<field>: <value>`, `rows_count_at_least: <int>` |
 
-Anything else (latency p95, third-party API behavior, OS-level state) is `manual_evaluation: true` — `@evaluator` grades manually. Mark such criteria with the inline token `manual_evaluation:` in the `description:` so `@test` knows to skip a probe row.
+Anything else (latency p95, third-party API behavior, OS-level state) is `manual_evaluation: true` — `@evaluator` grades manually. Mark such criteria with the inline token `manual_evaluation:` in the `description:` so `@test-author` knows to skip a probe row.
 
 ## When to escalate
 
@@ -194,4 +196,4 @@ Anything else (latency p95, third-party API behavior, OS-level state) is `manual
 | Rejects replay (different body) | `POST /v1/users/{id}/transfer` 409 | **yes** |
 | p95 < 500ms at 100 RPS | non-functional | no (manual_evaluation) |
 
-Author `001-transfer-openapi.yaml` per Step 3 with each criterion folded into the operation's `description:`. The replay criterion is tagged `CRITICAL:` inline. Author `001-transfer-sequence-intra-replay-rejection.puml` per Step 4 (one sequence diagram for the critical path). Hand to `@test` Stage-1 to build the coverage matrix in TSR `S-TEST-001`.
+Author `001-transfer-openapi.yaml` per Step 3 with each criterion folded into the operation's `description:`. The replay criterion is tagged `CRITICAL:` inline. Author `001-transfer-sequence-intra-replay-rejection.puml` per Step 4 (one sequence diagram for the critical path). Hand to `@test-author` to build the coverage matrix in TSR `S-TEST-001`.

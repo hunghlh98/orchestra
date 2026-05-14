@@ -80,10 +80,10 @@ One fixed chain. Spawn `@lead` with locked decisions:
 phase: spec-draft
 task: forward-chain
 inputs: <context_path>/.orchestra/<service_name>/local.yaml, run-plan.md, docs/business-invariants.md (multi-repo only), docs/<service_name>/<service_name>-BR-AC.md
-chain: PRD → FRS → SAD → ADR (when triggered) → TDD → openapi/asyncapi → backend code + unit tests → @test Stage-1 → @test Stage-2 + @evaluator + @reviewer → TSR
+chain: PRD → FRS → SAD → ADR (when triggered) → TDD → openapi/asyncapi → backend code + unit tests → @test-author → @test-runner + @evaluator + @reviewer → TSR
 ```
 
-`@lead` routes hard-sequential layers and the parallel fan-out (`@backend` ‖ `@frontend` ‖ `@test` Stage-1) gated on `openapi.yaml status: locked`. Converge on `@test` Stage-2 + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
+`@lead` routes hard-sequential layers and the parallel fan-out (`@backend` ‖ `@frontend` ‖ `@test-author`) gated on `openapi.yaml status: locked`. Converge on `@test-runner` + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
 
 Mint `<feature-id>` per major feature: `<NNN>-<noun-phrase-slug>`. `NNN = max(existing <NNN>-... under docs/<service_name>/) + 1`. Verb-prefixed slugs rejected; re-prompt for noun-phrase.
 
@@ -159,7 +159,7 @@ End turn after writing — `@lead` (or dispatcher) picks up on parent Read.
 
 ### Coordination protocol
 
-8 orchestra agents (`@product`, `@architect`, `@lead`, `@backend`, `@frontend`, `@test`, `@evaluator`, `@reviewer`) are filesystem-coupled. Handoff pattern: parent writes its `Agent(...)` prompt directing the spawned agent to write to a designated path; spawned agent writes; turn ends; idle fires; parent `Read(<path>)` consumes.
+9 orchestra agents (`@product`, `@architect`, `@lead`, `@backend`, `@frontend`, `@test-author`, `@test-runner`, `@evaluator`, `@reviewer`) are filesystem-coupled. Handoff pattern: parent writes its `Agent(...)` prompt directing the spawned agent to write to a designated path; spawned agent writes; turn ends; idle fires; parent `Read(<path>)` consumes.
 
 **Parent-write carve-out** (narrowly enumerated):
 

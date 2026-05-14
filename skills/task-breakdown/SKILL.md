@@ -33,7 +33,7 @@ One owner per task; cross-tier handoffs become explicit edges.
 |---|---|
 | Backend code/tests | `@backend` writes; `@evaluator` runs verdict |
 | Frontend code/tests | `@frontend` writes; `@evaluator` runs verdict |
-| Test plan / fuzz inputs | `@test` writes; `@evaluator` runs verdict |
+| Test plan / fuzz inputs | `@test-author` writes plan rows; `@test-runner` fills cells + locks; `@evaluator` runs verdict |
 | PRD / FRS / SAD / CONTRACT | `@product` or `@lead` writes |
 | Code review | `@reviewer` |
 
@@ -101,7 +101,7 @@ Body:
 | ID | Owner | SP | Blocks | Blocked by | Exit criteria | Status |
 |---|---|---|---|---|---|---|
 | T-001 | @backend | 3 | T-002, T-003 | — | endpoint at /v1/foo returns 201; CONTRACT criterion `foo.persists` PASS | pending |
-| T-002 | @test | 2 | T-005 | T-001 | adversarial fuzz: malformed JSON returns 400 | pending |
+| T-002 | @test-author | 2 | T-005 | T-001 | adversarial fuzz: malformed JSON returns 400 | pending |
 | ... | ... | ... | ... | ... | ... | ... |
 ```
 
@@ -128,7 +128,7 @@ User: *"Add a `/v1/users/:id/transfer` endpoint that records to the ledger and e
 |---|---|---|---|---|---|---|
 | T-001 | @lead | 1 | T-002 | — | `docs/001-transfer/001-transfer-openapi.yaml` written with 4 criteria | pending |
 | T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit | pending |
-| T-003 | @test | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
+| T-003 | @test-author | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
 | T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic | pending |
 | T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `docs/001-transfer/001-transfer-TSR.md S-EVAL-001`: all 4 criteria PASS | pending |
 | T-006 | @reviewer | 2 | — | T-005 | `docs/001-transfer/001-transfer-TSR.md S-REVIEW-001`: APPROVED | pending |

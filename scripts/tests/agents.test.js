@@ -15,23 +15,29 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const agentsDir = resolve(root, "agents");
 
 const VALID_NAMES = new Set([
-  "product", "architect", "lead", "backend", "frontend", "test", "evaluator", "reviewer",
+  "product", "architect", "lead", "backend", "frontend",
+  "test-author", "test-runner", "evaluator", "reviewer",
 ]);
 
-// Per-role forbidden tools. Authoritative orchestra policy: every agent must
-// neither (a) declare these in its `tools` allowlist, nor (b) omit them from
-// its `disallowedTools` denylist when denials are required. @test has no
-// denials — it inherits the broadest surface; its path-scoped Stage-1 src/
-// block is enforced separately (not in frontmatter).
+// Per-role forbidden tools. Every agent declares either a `tools` allowlist
+// or a `disallowedTools` denylist: orchestra policy is exactly-one-of.
+// Forbidden tools = tools that MUST NOT appear in `tools` allowlist (or MUST
+// appear in `disallowedTools` denylist when that form is chosen).
+//
+// @test-author has no Bash by design — spec-bound test authoring, suite
+// execution belongs to @test-runner. The src/main/** read-block is honor-
+// system (frontmatter `tools:` only blocks tool kinds, not paths).
+// @test-runner gets Bash for project test-harness invocation.
 export const FORBIDDEN_TOOLS_PER_AGENT = {
-  product:    ["Bash", "Edit", "MultiEdit"],
-  architect:  ["Bash", "Edit", "MultiEdit"],
-  lead:       ["Bash", "Edit", "MultiEdit"],
-  evaluator:  ["Bash", "Edit", "MultiEdit"],
-  reviewer:   ["Edit", "MultiEdit"],
-  backend:    ["Bash"],
-  frontend:   ["Bash"],
-  test:       [],
+  product:     ["Bash", "Edit", "MultiEdit"],
+  architect:   ["Bash", "Edit", "MultiEdit"],
+  lead:        ["Bash", "Edit", "MultiEdit"],
+  evaluator:   ["Bash", "Edit", "MultiEdit"],
+  reviewer:    ["Edit", "MultiEdit"],
+  backend:     ["Bash"],
+  frontend:    ["Bash"],
+  "test-author": ["Bash"],
+  "test-runner": [],
 };
 
 const REQUIRED_KEYS = ["name", "description", "model", "context_mode", "color"];
@@ -123,8 +129,7 @@ export function validateAgent(name, parsed) {
   }
 
   // Check 4: per-role tool surface — exactly one of `tools` (allowlist) or
-  // `disallowedTools` (denylist) is set per agent, EXCEPT @test which must
-  // have neither (inherits the broadest surface). Orchestra-local policy;
+  // `disallowedTools` (denylist) is set per agent. Orchestra-local policy;
   // not required by official Claude Code docs.
   const forbidden = FORBIDDEN_TOOLS_PER_AGENT[fm.name];
   if (forbidden === undefined) {
@@ -132,11 +137,7 @@ export function validateAgent(name, parsed) {
   } else {
     const hasTools = fm.tools !== undefined;
     const hasDisallowed = fm.disallowedTools !== undefined;
-    if (fm.name === "test") {
-      if (hasTools || hasDisallowed) {
-        errors.push(`@test must declare neither tools nor disallowedTools (inherits broadest surface)`);
-      }
-    } else if (hasTools && hasDisallowed) {
+    if (hasTools && hasDisallowed) {
       errors.push(`exactly one of tools/disallowedTools allowed per orchestra policy (both set)`);
     } else if (!hasTools && !hasDisallowed) {
       errors.push(`exactly one of tools/disallowedTools required per orchestra policy (neither set)`);
@@ -263,19 +264,20 @@ console.log("Mutation tests (validator must fail red on bad input):");
     `mutation: @reviewer over-restrictive disallowedTools flagged`);
 }
 
-// Fixture 2c: @test with tools field set — must flag (@test must declare neither)
+// Fixture 2c: @test-author with Bash in tools allowlist — must flag (Bash is
+// the structural deny for the spec-bound role)
 {
   const bad = {
     fm: {
-      name: "test", description: "ok",
-      tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit", "Bash"],
+      name: "test-author", description: "ok",
+      tools: ["Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Skill", "Bash"],
       model: "claude-sonnet-4-6", context_mode: "default", color: "yellow",
     },
     body: "<example>x</example>",
   };
-  const errs = validateAgent("test", bad);
-  check(errs.some(e => /test must declare neither/.test(e)),
-    `mutation: @test with tools field flagged`);
+  const errs = validateAgent("test-author", bad);
+  check(errs.some(e => /forbidden tool.*test-author.*Bash/.test(e)),
+    `mutation: @test-author with Bash in tools flagged`);
 }
 
 // Fixture 3: unknown model id

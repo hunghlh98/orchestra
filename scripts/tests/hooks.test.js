@@ -155,7 +155,7 @@ status: draft
 verdict: PENDING
 sections:
   S-TEST-001:
-    writer: "@test"
+    writer: "@test-author"
     status: locked
   S-EVAL-001:
     writer: "@evaluator"
@@ -182,7 +182,7 @@ status: draft
 verdict: PENDING
 sections:
   S-TEST-001:
-    writer: "@test"
+    writer: "@test-author"
     status: locked
   S-EVAL-001:
     writer: "@evaluator"

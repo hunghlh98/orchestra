@@ -1,12 +1,12 @@
 ---
 name: qa-test-planner
-description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test designs the TSR S-TEST-001 section from a locked openapi."
+description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test-author designs the TSR S-TEST-001 section from a locked openapi."
 origin: orchestra
 ---
 
 # qa-test-planner
 
-Designs the TSR test section (S-TEST-001): which black-box tests to author, what edge cases to cover, what adversarial inputs to send. `@test` Stage-1 writes the row table into S-TEST-001 with `status` + `evidence` cells empty (leaves `status: in_progress`); `@test` Stage-2 runs the suite and fills those cells in place (flips `status: locked`). Pairs with `write-contract` (criteria definition).
+Designs the TSR test section (S-TEST-001): which black-box tests to author, what edge cases to cover, what adversarial inputs to send. `@test-author` writes the row table into S-TEST-001 with `status` + `evidence` cells empty (leaves `status: in_progress`); `@test-runner` runs the suite and fills those cells in place (flips `status: locked`). Pairs with `write-contract` (criteria definition).
 
 ## When to use
 
@@ -76,11 +76,11 @@ Each adversarial input is a probe with an explicit `expected_result` of "handled
 
 ### Step 4 — Fill TSR `S-TEST-001`
 
-Read `docs/<feature-id>/<feature-id>-TSR.md` (dispatcher-scaffolded shell). Fill the `S-TEST-001` section with the row table; leave `sections.S-TEST-001.status: in_progress` after the Stage-1 write (Stage-2 will fill the `status` + `evidence` cells and flip to `locked`).
+Read `docs/<feature-id>/<feature-id>-TSR.md` (dispatcher-scaffolded shell). Fill the `S-TEST-001` section with the row table; leave `sections.S-TEST-001.status: in_progress` after the `@test-author` write (`@test-runner` will fill the `status` + `evidence` cells and flip to `locked`).
 
 TEST is not a separate artifact — plan + results both live in `S-TEST-001` as a single table. Probe DSL lives in `<feature-id>-openapi.yaml` `description:` fields (reference openapi criteria by id; don't re-state). `@evaluator` later writes `S-EVAL-001` keyed on `S-TEST-001` row ids; `@reviewer` writes `S-REVIEW-001` (with ADR-review subsection when ADRs touched).
 
-Row shape (single table — Stage-1 leaves `status` + `evidence` empty; Stage-2 fills in place):
+Row shape (single table — `@test-author` leaves `status` + `evidence` empty; `@test-runner` fills in place):
 
 ```markdown
 ## Test plan + results <a id="S-TEST-001"></a>
@@ -95,7 +95,7 @@ Row shape (single table — Stage-1 leaves `status` + `evidence` empty; Stage-2 
 
 `id` is a stable `T-NNN` token that `@evaluator`'s `S-EVAL-001` keys on. `critical: true` when the openapi `description:` for the criterion carries inline `CRITICAL:`. The live probe / openapi binding is implied by the `criterion` column and the openapi `description:` field — don't re-state probe DSL in the table.
 
-Stage-2 does not append a subsection. It fills the `status` (`PASS|FAIL`) and `evidence` (last 5–10 lines of stdout; append `flake=N` if non-zero) cells in place. Stage-1's `id` / `criterion` / `axis` / `critical` / `fixture` cells are preserved verbatim. Newly-introduced white-box tests get new rows with fresh `T-NNN` ids past the Stage-1 max.
+`@test-runner` does not append a subsection. It fills the `status` (`PASS|FAIL`) and `evidence` (last 5–10 lines of stdout; append `flake=N` if non-zero) cells in place. `@test-author`'s `id` / `criterion` / `axis` / `critical` / `fixture` cells are preserved verbatim. Newly-introduced white-box tests get new rows with fresh `T-NNN` ids past the `@test-author` max.
 
 ## When to escalate
 
@@ -110,7 +110,7 @@ Stage-2 does not append a subsection. It fills the `status` (`PASS|FAIL`) and `e
 
 ## Worked example
 
-`docs/001-transfer/001-transfer-openapi.yaml` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test` builds:
+`docs/001-transfer/001-transfer-openapi.yaml` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test-author` builds:
 
 | Criterion | Probes |
 |---|---|
@@ -118,4 +118,4 @@ Stage-2 does not append a subsection. It fills the `status` (`PASS|FAIL`) and `e
 | transfer.emits_event | (1) http_probe POST → 201; (2) db_state SELECT FROM event_log WHERE topic='transfer'; **boundary**: zero-amount transfer → still emit? (per contract: yes) |
 | transfer.idempotent | (1) **adversarial replay**: POST twice with same key, expect second is no-op; (2) db_state SELECT count(*) FROM ledger WHERE key='k1' = 1 |
 
-Write `docs/<feature-id>/<feature-id>-TSR.md` `S-TEST-001` with all rows laid out per the column shape above; `status` + `evidence` cells empty; section `status: in_progress`. `@test` Stage-2 runs the suite, fills those cells in place, flips to `status: locked`; `@evaluator` then writes `S-EVAL-001` as `| id | verdict | reason |` keyed on these row ids.
+Write `docs/<feature-id>/<feature-id>-TSR.md` `S-TEST-001` with all rows laid out per the column shape above; `status` + `evidence` cells empty; section `status: in_progress`. `@test-runner` runs the suite, fills those cells in place, flips to `status: locked`; `@evaluator` then writes `S-EVAL-001` as `| id | verdict | reason |` keyed on these row ids.

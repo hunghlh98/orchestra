@@ -39,7 +39,8 @@ readers:
   - "@lead"
   - "@backend"
   - "@frontend"
-  - "@test"
+  - "@test-author"
+  - "@test-runner"
   - "@evaluator"
   - "@reviewer"
 service_name: <string>
