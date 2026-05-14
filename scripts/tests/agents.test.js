@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // scripts/tests/agents.test.js
-// Full agent-frontmatter validation per DESIGN-002-leaves §2.3 (PR #6).
+// Full agent-frontmatter validation.
 // 7 checks: frontmatter shape, name in valid set, description ≤30 words,
-// tools tier match, model id known, context_mode supported, ≥1 <example>.
-// Plus mutation-test fixtures: missing model fails red; bad tools fails red.
+// per-role tools/denylist surface, model id known, context_mode supported,
+// ≥1 <example>. Plus mutation-test fixtures: missing model fails red;
+// forbidden tool in role allowlist fails red; over-restrictive denylist
+// fails red.
 
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -16,20 +18,23 @@ const VALID_NAMES = new Set([
   "product", "architect", "lead", "backend", "frontend", "test", "evaluator", "reviewer",
 ]);
 
-// Four valid tools-tier sets. Sorted for stable comparison.
-//   T-A  read-only with Bash for static analysis (@reviewer).
-//   T-B  read-only inspection / artifact author (@product, @architect, @lead, @evaluator).
-//   T-C  implementer (@backend, @frontend) — Bash forbidden by test-bash-strip.
-//   T-D  implementer + Bash — v4.0 hybrid for @test Stage-2 suite execution
-//        (Stage-1 src/ block enforced at spawn-time, not in static frontmatter).
-const TIER_TOOLS = {
-  "T-A": ["Bash", "Glob", "Grep", "Read", "Write"].sort(),
-  "T-B": ["Glob", "Grep", "Read", "Write"].sort(),
-  "T-C": ["Edit", "Glob", "Grep", "MultiEdit", "Read", "Write"].sort(),
-  "T-D": ["Bash", "Edit", "Glob", "Grep", "MultiEdit", "Read", "Write"].sort(),
+// Per-role forbidden tools. Authoritative orchestra policy: every agent must
+// neither (a) declare these in its `tools` allowlist, nor (b) omit them from
+// its `disallowedTools` denylist when denials are required. @test has no
+// denials — it inherits the broadest surface; its path-scoped Stage-1 src/
+// block is enforced separately (not in frontmatter).
+export const FORBIDDEN_TOOLS_PER_AGENT = {
+  product:    ["Bash", "Edit", "MultiEdit"],
+  architect:  ["Bash", "Edit", "MultiEdit"],
+  lead:       ["Bash", "Edit", "MultiEdit"],
+  evaluator:  ["Bash", "Edit", "MultiEdit"],
+  reviewer:   ["Edit", "MultiEdit"],
+  backend:    ["Bash"],
+  frontend:   ["Bash"],
+  test:       [],
 };
 
-const REQUIRED_KEYS = ["name", "description", "tools", "model", "context_mode", "color"];
+const REQUIRED_KEYS = ["name", "description", "model", "context_mode", "color"];
 
 const knownModels = JSON.parse(
   readFileSync(resolve(root, "manifests/known-models.json"), "utf8")
@@ -42,6 +47,20 @@ let failures = 0;
 function check(cond, msg) {
   if (cond) { passes++; }
   else { failures++; console.error(`  FAIL: ${msg}`); }
+}
+
+// Normalize a tools/disallowedTools field value to a string[]. Accepts:
+//   - native array (already parsed from JSON flow-sequence form `["A","B"]`)
+//   - comma-separated string (`"A, B"`) — the form shown in official docs
+// Returns null on invalid input.
+export function normalizeToolList(val) {
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (trimmed === "") return [];
+    return trimmed.split(",").map(s => s.trim()).filter(Boolean);
+  }
+  return null;
 }
 
 // Lightweight agent-frontmatter parser. Agent frontmatter is Claude Code's
@@ -103,16 +122,47 @@ export function validateAgent(name, parsed) {
     errors.push(`description ${wordCount} words > 30 cap`);
   }
 
-  // Check 4: tools array matches one of three tier sets
-  if (!Array.isArray(fm.tools)) {
-    errors.push(`tools must be an array (got ${typeof fm.tools})`);
+  // Check 4: per-role tool surface — exactly one of `tools` (allowlist) or
+  // `disallowedTools` (denylist) is set per agent, EXCEPT @test which must
+  // have neither (inherits the broadest surface). Orchestra-local policy;
+  // not required by official Claude Code docs.
+  const forbidden = FORBIDDEN_TOOLS_PER_AGENT[fm.name];
+  if (forbidden === undefined) {
+    // name already flagged by Check 2; skip
   } else {
-    const sorted = [...fm.tools].sort();
-    const matched = Object.values(TIER_TOOLS).some(
-      tier => tier.length === sorted.length && tier.every((t, i) => t === sorted[i])
-    );
-    if (!matched) {
-      errors.push(`tools ${JSON.stringify(sorted)} matches no tier set (T-A/T-B/T-C)`);
+    const hasTools = fm.tools !== undefined;
+    const hasDisallowed = fm.disallowedTools !== undefined;
+    if (fm.name === "test") {
+      if (hasTools || hasDisallowed) {
+        errors.push(`@test must declare neither tools nor disallowedTools (inherits broadest surface)`);
+      }
+    } else if (hasTools && hasDisallowed) {
+      errors.push(`exactly one of tools/disallowedTools allowed per orchestra policy (both set)`);
+    } else if (!hasTools && !hasDisallowed) {
+      errors.push(`exactly one of tools/disallowedTools required per orchestra policy (neither set)`);
+    } else if (hasTools) {
+      const list = normalizeToolList(fm.tools);
+      if (list === null) {
+        errors.push(`tools must be a JSON array or comma-separated string`);
+      } else {
+        const violations = forbidden.filter(t => list.includes(t));
+        if (violations.length > 0) {
+          errors.push(`tools includes forbidden tool(s) for role '${fm.name}': ${violations.join(", ")}`);
+        }
+      }
+    } else if (hasDisallowed) {
+      const list = normalizeToolList(fm.disallowedTools);
+      if (list === null) {
+        errors.push(`disallowedTools must be a JSON array or comma-separated string`);
+      } else {
+        const sorted = [...list].sort();
+        const expected = [...forbidden].sort();
+        const matches = sorted.length === expected.length &&
+                        sorted.every((t, i) => t === expected[i]);
+        if (!matches) {
+          errors.push(`disallowedTools ${JSON.stringify(sorted)} ≠ forbidden list for '${fm.name}' (${JSON.stringify(expected)})`);
+        }
+      }
     }
   }
 
@@ -182,19 +232,50 @@ console.log("Mutation tests (validator must fail red on bad input):");
     `mutation: missing model field flagged`);
 }
 
-// Fixture 2: tools-tier mismatch (extra non-tier tool added to T-C)
+// Fixture 2a: @product with Bash in tools allowlist — must flag forbidden tool
 {
   const bad = {
     fm: {
-      name: "backend", description: "ok",
-      tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit", "WebSearch"], // T-C + WebSearch → 7 elems, no tier
-      model: "claude-opus-4-7", context_mode: "1m", color: "green",
+      name: "product", description: "ok",
+      tools: ["Read", "Grep", "Glob", "Write", "Bash"],
+      model: "claude-opus-4-7", context_mode: "1m", color: "purple",
     },
     body: "<example>x</example>",
   };
-  const errs = validateAgent("backend", bad);
-  check(errs.some(e => /matches no tier set/.test(e)),
-    `mutation: tools-tier mismatch flagged`);
+  const errs = validateAgent("product", bad);
+  check(errs.some(e => /forbidden tool.*product.*Bash/.test(e)),
+    `mutation: @product with Bash in tools flagged`);
+}
+
+// Fixture 2b: @reviewer with over-restrictive disallowedTools (denies Bash) —
+// reviewer is allowed Bash for static analysis; denying it violates the role.
+{
+  const bad = {
+    fm: {
+      name: "reviewer", description: "ok",
+      disallowedTools: ["Bash", "Edit", "MultiEdit"],
+      model: "claude-sonnet-4-6", context_mode: "default", color: "red",
+    },
+    body: "<example>x</example>",
+  };
+  const errs = validateAgent("reviewer", bad);
+  check(errs.some(e => /disallowedTools.*forbidden list/.test(e)),
+    `mutation: @reviewer over-restrictive disallowedTools flagged`);
+}
+
+// Fixture 2c: @test with tools field set — must flag (@test must declare neither)
+{
+  const bad = {
+    fm: {
+      name: "test", description: "ok",
+      tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit", "Bash"],
+      model: "claude-sonnet-4-6", context_mode: "default", color: "yellow",
+    },
+    body: "<example>x</example>",
+  };
+  const errs = validateAgent("test", bad);
+  check(errs.some(e => /test must declare neither/.test(e)),
+    `mutation: @test with tools field flagged`);
 }
 
 // Fixture 3: unknown model id

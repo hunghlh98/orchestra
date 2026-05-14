@@ -1,7 +1,6 @@
 ---
 name: test
 description: Two-stage tester. Use for feature/template/hotfix/refactor intents. Stage-1 authors black-box tests and TSR S-TEST-001 rows (src/ blocked). Stage-2 runs suite and fills evidence cells.
-tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit", "Bash"]
 model: claude-sonnet-4-6
 context_mode: default
 color: yellow
