@@ -8,6 +8,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 (no entries yet)
 
+## [4.3.2] — 2026-05-14
+
+Patch release covering the consumer-side plugin install summary, an audience-boundary seal on `docs/`, removal of the T-A/B/C/D tier enumeration from consumer surface + validator + dev docs (replaced by per-role `disallowedTools`), a terse-pass over agents and the `/orchestra` dispatcher prose, and a tightening of the C4 zoom-continuity Step 1b protocol after it failed to bite in an authoring session.
+
+### Added
+
+- **`docs/` link discipline** — normative section in `schemas/pipeline-artifact.schema.md` forbidding codebase paths, external URLs, `.orchestra/` siblings, and project-root files inside any `docs/*` artifact body. SAD template + CSD schema carry one-line pointers, not restatements.
+- **Workspace-global ADR index** — `S-ADR-INDEX-001` relocates out of SAD and per-service CSD to `.orchestra/inventory/adr/index.md` with `S-GLOBAL-001` + `S-SERVICES-001` anchors. Schema at `schemas/inventory.adr-index.schema.md`. Individual ADR bodies stay under `docs/`; only the index relocates.
+
+### Changed
+
+- **Agent frontmatter shape** — all 8 agents migrate from the closed T-A/T-B/T-C/T-D tier allowlist to Claude Code's official `disallowedTools` denylist (`@product` / `@architect` / `@lead` / `@evaluator` ban Bash/Edit/MultiEdit; `@reviewer` keeps Bash for static analysis; `@backend` / `@frontend` ban Bash; `@test` declares neither). Each agent's `## Tier` body heading becomes `## Allowed surface`.
+- **Agent validator** (`scripts/tests/agents.test.js`) — Check 4 drops the closed-tier toolset enumeration in favor of a per-role `FORBIDDEN_TOOLS_PER_AGENT` map; accepts either allowlist or denylist shape per agent (XOR), and now parses the comma-separated `tools:` string form documented in the official subagents docs.
+- **"Tier-A" rule names** — three sites rename "Tier-A single-writer invariant" → "Single-writer invariant" (`skills/code-review/SKILL.md`, `agents/evaluator.md`, `agents/reviewer.md`). Two dev-surface narratives drop residual T-A / T-C labels (`README.md` Architecture + table row, `docs/blog-orchestra-technical.md` Tier Separation heading + table). Repo-wide `\bT-[ABCD]\b` now matches only `CHANGELOG.md` history.
+- **Consumer-surface terse pass** — prose tightening across the 8 agents and `commands/orchestra.md`. Same rules, shorter wording. Stale v4.0/v4.1 planning briefs drop from `docs/`; three official-doc scrapes (agent-teams, hook-guide, skill-authoring) added under `docs/` for maintainer reference.
+
+### Fixed
+
+- **`plugin.json` install summary** — drop the explicit `agents` + `commands` arrays. Claude Code's manifest treats custom paths as supplements (not replacements) for the default `agents/` and `commands/` auto-discovery, so listing every file caused each component to register twice and the consumer-side "Installed components:" summary lost the Agents/Commands buckets in the dedup.
+- **C4 zoom-continuity Step 1b** (`skills/c4-diagrams/SKILL.md`) — restructure the three declarative rules into a four-step numbered action protocol opening with a literal Read-parent step. Lead with the three named failure modes (missing parent boundary, dropped actor across the seam, wrong outer wrap at L2/L3). Generalize the wrong-outer-wrap rule to cover the symmetric L3 trap. Worked counter-examples relocate to `references/c4-rules.md` with abstract placeholders so consumers can't lift them as ghost templates.
+
 ## [4.3.1] — 2026-05-14
 
 Patch release: align consumer-surface lifecycle prose with `pre-write-check.js` Gate-A semantics. Six sites where sequential `Edit` calls could trip Gate-A mid-sequence — the on-disk `status: locked` read meant the second Edit was rejected when prose listed the status-flip first. Fix shape across the family: state status-flip LAST in every ordered lifecycle; drop phantom "carve-out matching the local.yaml exception" cross-cites that referenced a hook exception that never existed.
