@@ -307,6 +307,20 @@ walkLeakyCites(resolve(root, "agents"));
 walkLeakyCites(resolve(root, "commands"));
 walkLeakyCites(resolve(root, "skills"));
 
+function walkVersionStamps(dir) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const st = statSync(full);
+    if (st.isDirectory()) walkVersionStamps(full);
+    else if (st.isFile() && entry.endsWith(".md")) {
+      const relPath = full.slice(root.length + 1);
+      const raw = readFileSync(full, "utf8");
+      for (const e of findVersionStamps(relPath, raw)) errors.push(e);
+    }
+  }
+}
+
 // === Version-stamp check (project CLAUDE.md: no version stamps in consumer surface) ===
 // Forbids version-stamped current-state rules and migration narration in
 // consumer-loaded prose. Plugin version lives in VERSION + plugin.json +
@@ -318,14 +332,31 @@ walkLeakyCites(resolve(root, "skills"));
 // (see scripts/tests/cite-purity.test.js), not this validator's — each stays
 // in its own lane to avoid double-reports.
 const VERSION_STAMP_PATTERNS = [
-  { name: "parenthetical",     re: /\(v\d+\.\d+(?:\.\d+)?\)/,                              why: "(vN.M) parenthetical version stamp" },
-  { name: "pre-version",       re: /\bpre-v\d+\.\d+/i,                                     why: "pre-vN.M migration-narration prefix" },
-  { name: "migration-verb",    re: /\b(?:GONE|dropped|removed)\s+in\s+v\d+\.\d+/i,         why: "migration narration (GONE/dropped/removed in vN.M)" },
-  { name: "in-version-rule",   re: /\bIn\s+v\d+\.\d+\b/,                                   why: "'In vN.M …' rule version-stamp" },
-  { name: "the-version-descr", re: /\bthe\s+v\d+\.\d+\s+[a-z][a-z-]+/i,                    why: "'the vN.M <descriptor>' version-stamp on a current-state rule" },
+  { name: "parenthetical",       re: /\(v\d+\.\d+(?:\.\d+)?\)/,                              why: "(vN.M) parenthetical version stamp" },
+  { name: "pre-version",         re: /\bpre-v\d+\.\d+/i,                                     why: "pre-vN.M migration-narration prefix" },
+  { name: "migration-verb",      re: /\b(?:GONE|dropped|removed)\s+in\s+v\d+\.\d+/i,         why: "migration narration (GONE/dropped/removed in vN.M)" },
+  { name: "in-version-rule",     re: /\bin\s+v\d+\.\d+\b/i,                                  why: "'in vN.M …' rule version-stamp" },
+  { name: "the-version-descr",   re: /\bthe\s+v\d+\.\d+\s+[a-z][a-z-]+/i,                    why: "'the vN.M <descriptor>' version-stamp on a current-state rule" },
+  { name: "standalone-3segment", re: /(?<![\/\-\w@])\bv\d+\.\d+\.\d+(?![\/\-\w])/,           why: "standalone vN.M.P version stamp" },
+  { name: "future-open",         re: /\bv\d+\.\d+\+/,                                        why: "future-version stamp 'vN.M+'" },
+  { name: "migration-narration", re: /\b(?:formerly|previously\s+called|previously\s+named|no\s+longer\s+authors|sidecars\s+are\s+gone|are\s+gone\b|is\s+gone\b|was\s+gone\b|absorbs\s+what\s+\S+\s+previously)/i, why: "migration narration without version number" },
+];
+
+// Whole-file exemptions per CLAUDE.md "Allowed" list. PlantUML's references/
+// carry upstream external-tool versions; LICENSE files carry upstream-source
+// attribution; clean-architecture's order-domain v2.1.0 illustrates release
+// granularity with a hypothetical user-domain version; commit-message carries
+// the Conventional Commits spec link + BREAKING-CHANGE example body. None are
+// orchestra version stamps.
+export const VERSION_STAMP_EXEMPT_FILES = [
+  /^skills\/plantuml\/references\//,
+  /^skills\/[^/]+\/LICENSE$/,
+  /^skills\/clean-architecture\/SKILL\.md$/,
+  /^skills\/commit-message\/SKILL\.md$/,
 ];
 
 export function findVersionStamps(relPath, raw) {
+  if (VERSION_STAMP_EXEMPT_FILES.some(re => re.test(relPath))) return [];
   const errs = [];
   const lines = raw.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -603,6 +634,36 @@ export function validateSoftCap(relPath, body, type, mode, opts = {}) {
     errs.push(opts.strict ? msg : `WARN ${msg}`);
   }
   return errs;
+}
+
+// === Wire findVersionStamps / findPhaseTagCompliance / findHookManifestParity into the main walk ===
+// Walk the consumer surface for version-stamp leaks. Roots match the
+// "consumer surface" defined in CLAUDE.md (agents/, commands/, skills/,
+// schemas/) plus runtime-data dirs (hooks/calibration, hooks/references).
+for (const r of ["agents", "commands", "skills", "schemas", "hooks/calibration", "hooks/references"]) {
+  walkVersionStamps(resolve(root, r));
+}
+
+// Phase-tag emission compliance for agents/lead.md (consumed by metrics-collector.js).
+{
+  const leadPath = resolve(root, "agents/lead.md");
+  if (existsSync(leadPath)) {
+    for (const e of findPhaseTagCompliance(readFileSync(leadPath, "utf8"))) errors.push(e);
+  }
+}
+
+// Hook-to-manifest parity. Scope: scripts wired by hooks/hooks.json (the real
+// hook handlers), not every .js in hooks/scripts/ — that directory may also
+// hold command-invoked utilities (e.g., bootstrap-consumer-claude-md.js)
+// which are not hooks and don't belong in install-modules.json as `kind: hook`.
+{
+  const hooksJsonPath = resolve(root, "hooks/hooks.json");
+  if (existsSync(hooksJsonPath) && installModules && Array.isArray(installModules.modules)) {
+    const hooksJsonRaw = readFileSync(hooksJsonPath, "utf8");
+    const wired = new Set();
+    hooksJsonRaw.replace(/hooks\/scripts\/([\w-]+\.js)/g, (_, f) => { wired.add(f); return _; });
+    for (const e of findHookManifestParity([...wired], installModules.modules)) errors.push(e);
+  }
 }
 
 // === Inline mutation tests for the rule + command validators (PR #7 T-716) ===
@@ -980,6 +1041,74 @@ if (isMain) {
     const errs = findVersionStamps("agents/fixture.md", ok);
     if (errs.length !== 0) {
       mutationErrors.push(`inverse sanity: clean prose should pass findVersionStamps, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // Mutation VS-6: standalone vN.M.P version stamp fails red
+  {
+    const bad = `v1.0.0: suggestion-only — the diagnostic never changes the resolved level.\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[standalone-3segment\]/.test(e))) {
+      mutationErrors.push("mutation VS-6: standalone 'v1.0.0' should fail red");
+    }
+  }
+
+  // Mutation VS-7: future-open 'vN.M+' fails red
+  {
+    const bad = `Deferred to v1.1+ for a follow-up release.\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[future-open\]/.test(e))) {
+      mutationErrors.push("mutation VS-7: 'v1.1+' future-version stamp should fail red");
+    }
+  }
+
+  // Mutation VS-8: migration narration without a version number fails red
+  {
+    const bad = `Per-service feature lists (formerly S-REGEN-PLAN-001) live here.\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[migration-narration\]/.test(e))) {
+      mutationErrors.push("mutation VS-8: 'formerly' migration narration should fail red");
+    }
+  }
+
+  // Mutation VS-9: lowercase 'in vN.M' fails red (proves case-insensitivity)
+  {
+    const bad = `Lightweight in v1.0.0 (no profiling).\n`;
+    const errs = findVersionStamps("agents/fixture.md", bad);
+    if (!errs.some(e => /\[(in-version-rule|standalone-3segment)\]/.test(e))) {
+      mutationErrors.push("mutation VS-9: lowercase 'in v1.0.0' should fail red");
+    }
+  }
+
+  // Inverse sanity: URL containing /vN.M.P/ does NOT fire (lookbehind/lookahead correctness)
+  {
+    const ok = `Download from https://github.com/plantuml/plantuml/releases/download/v1.2025.0/plantuml.jar\n`;
+    const errs = findVersionStamps("docs/fixture.md", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: URL-embedded /v1.2025.0/ should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // Inverse sanity: filename containing -vN.M.P does NOT fire
+  {
+    const ok = `cache key: plantuml-jar-v1.2025.0\n`;
+    const errs = findVersionStamps("docs/fixture.md", ok);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: 'plantuml-jar-v1.2025.0' filename should pass, got: ${errs.join(", ")}`);
+    }
+  }
+
+  // Inverse sanity: whole-file exempt list returns [] regardless of content
+  for (const exemptPath of [
+    "skills/plantuml/references/troubleshooting/installation_setup_guide.md",
+    "skills/plantuml/LICENSE",
+    "skills/clean-architecture/SKILL.md",
+    "skills/commit-message/SKILL.md",
+  ]) {
+    const bad = `pre-v4.1 carryover (v4.0) the v4.2 two-field set v1.0.0 in v1.0.0 formerly known\n`;
+    const errs = findVersionStamps(exemptPath, bad);
+    if (errs.length !== 0) {
+      mutationErrors.push(`inverse sanity: exempt file ${exemptPath} should return [], got: ${errs.join(", ")}`);
     }
   }
 
