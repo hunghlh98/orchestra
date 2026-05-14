@@ -25,10 +25,10 @@ The marketplace is intentionally single-plugin: `.claude-plugin/marketplace.json
 ## Usage
 
 ```
-/orchestra                  Empty → usage block.
-/orchestra spec-to-code     Greenfield forward chain.
-/orchestra code-to-spec     Brownfield reverse chain. Optional second token: `system` | `service:<name>`.
-/orchestra <intent>         Freeform router. Reverse first, pause, then forward against the locked baseline.
+/orchestra                                              Empty → usage block.
+/orchestra spec-to-code                                 Greenfield forward chain.
+/orchestra code-to-spec                                 Brownfield reverse chain. Optional second token: `system` | `service:<name> --source=<path>`.
+/orchestra <intent>                                     Freeform router. Reverse first, pause, then forward against the locked baseline.
 ```
 
 The router path runs three minimum `AskUserQuestion` rounds before any agent spawn (restate-intent / scope / constraints), even at HIGH confidence.
@@ -74,7 +74,7 @@ Existing codebase. Authors documentation only — never touches `src/`, tests, o
   architecture layer entirely.
 ```
 
-Optional second token narrows scope: `code-to-spec system` forces `scope_level: system-wide`; `code-to-spec service:<name>` forces `per-service` for the named service.
+Optional second token narrows scope: `code-to-spec system` forces `scope_level: system-wide`; `code-to-spec service:<name> --source=<path>` forces `per-service` for the named service and pins the source read-root (the `--source=<path>` flag is REQUIRED whenever the resolved scope is per-service; it persists to `local.yaml.source_path`).
 
 ### `/orchestra <intent>` — router (reverse-then-forward)
 

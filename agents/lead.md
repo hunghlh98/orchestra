@@ -126,25 +126,24 @@ Spawn prompt-tag `task: reverse-pass` → produce per-feature TDD + openapi by o
 
 Triggered by dispatcher spawn with prompt-tag `task: run-plan-author`. One-time per run, at bootstrap completion.
 
-1. Read `<context_path>/.orchestra/<service_name>/local.yaml` + `<context_path>/.orchestra/system.yaml`.
-2. **Brownfield branch** (preflight reports `mode: brownfield`):
-   - `EnterPlanMode`. Plan-mode walk is a validation pass over the service's observable surface: enumerate public entry points (controllers, message handlers, scheduled jobs) and group them into feature slugs (domain noun-phrases). Reject verb-prefixed forms (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`).
-   - Promote a candidate to `S-FEATURES-001` iff it can start alone (removable without breaking earlier features) AND has enough surface to warrant its own PRD-FRS-TDD-openapi-TSR chain.
-   - Author the run-plan body (anchors below) into plan mode's designated plan file.
-   - `ExitPlanMode`. Claude Code renders the native plan-approval pane. User accept / reject is the gate signal.
-   - **On accept** — `Write(<context_path>/.orchestra/<service_name>/run-plan.md, <same body>)`. End turn.
-   - **On reject** — end turn without writing the canonical path. Dispatcher detects absence and re-spawns with `revision_notes`.
+1. Read `<context_path>/.orchestra/<service_name>/local.yaml` + `<context_path>/.orchestra/system.yaml`. Read the dispatcher-passed `chain:` tag from the spawn prompt (`reverse-pass` or `forward-chain`). The approval gate keys on `chain:`, not on `mode` — `mode: brownfield` is compatible with `chain: forward-chain` (e.g., adding a new feature to an existing repo).
 
-3. **Greenfield branch** (preflight reports `mode: greenfield`): Skip plan mode (no source to explore). `Write(<context_path>/.orchestra/<service_name>/run-plan.md, ...)` directly with anchors below. Dispatcher gates approval via `AskUserQuestion(approve|revise)` after end-of-turn.
+2. Author the run-plan body per anchors in step 3. Approval flow forks on the `chain:` tag:
+   - **`chain: reverse-pass`** — `EnterPlanMode`. Plan-mode walk is a validation pass over the service's observable surface: enumerate public entry points (controllers, message handlers, scheduled jobs) and group them into feature slugs. Reject verb-prefixed forms (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`).
+     - **Aggregate-cohesion gate.** Group entry points by **domain aggregate root**, not per CRUD operation. Two endpoints share an aggregate root when they manipulate the same primary domain entity (typically the same first segment of their resource path, or the same persisted aggregate type returned/persisted). All CRUD operations and lifecycle transitions on one aggregate collapse into ONE feature whose `FRS S-USECASES-001` enumerates them as use-case rows. Feature slug = **bare aggregate noun** (`order`, `inventory`, `customer`, `payment`) — no `-creation` / `-retrieval` / `-cancellation` / `-refund` suffix on the same aggregate. **Hard reject + re-group**: if candidate `S-FEATURES-001` contains ≥2 siblings whose slugs share an aggregate prefix, collapse them into the bare-noun feature before promoting; emit a one-line plan-mode note `[orchestra] re-grouped {creation, retrieval, cancellation, refund} into 001-<aggregate> (shared aggregate root).`. Inverse case (separate aggregates sharing a URL prefix, e.g., `/admin/users` vs `/admin/audit-logs`) — do NOT collapse; aggregate identity is by domain entity, not URL path alone.
+       - Worked example: service `order` exposes `POST /orders`, `GET /orders/:id`, `DELETE /orders/:id`, `POST /orders/:id/refunds`. All four manipulate the `Order` aggregate. Promote ONE feature `001-order` with use-cases `UC-001 Create order` / `UC-002 Retrieve order` / `UC-003 Cancel order` / `UC-004 Refund order`. Reject candidate set `{001-order-creation, 002-order-retrieval, 003-order-cancellation, 004-order-refund}`.
+     - Promote a candidate to `S-FEATURES-001` iff it can start alone (removable without breaking earlier features) AND has enough surface to warrant its own PRD-FRS-TDD-openapi-TSR chain.
+     - Author the run-plan body into plan mode's designated plan file. `ExitPlanMode`. Claude Code renders the native plan-approval pane. On accept → `Write(<context_path>/.orchestra/<service_name>/run-plan.md, <same body>)`, end turn. On reject → end turn without writing the canonical path; dispatcher detects absence and re-spawns with `revision_notes`.
+   - **`chain: forward-chain`** — Skip plan mode (the feature is being minted from user intent, not enumerated from source). `Write(<context_path>/.orchestra/<service_name>/run-plan.md, ...)` directly with the anchors below. Dispatcher gates approval via `AskUserQuestion(approve|revise)` after end-of-turn.
 
-4. **Required anchors** in `run-plan.md`, in order:
+3. **Required anchors** in `run-plan.md`, in order:
    - `S-CONTEXT-001` — `| Field | Value |` lift of bootstrap fields.
    - `S-PHASES-001` — `| Phase | Agents | Output anchors |`. Phases: `discovery` → `spec-draft` → `verification` → `gate`. Brownfield DIV resolution runs inside `verification`.
    - `S-FEATURES-001` — `| Feature slug | Authoring agents | Artifacts |`.
    - `S-GATES-001` — `| Gate | Auto-passed under auto_mode | Preserved under auto_mode |`. Preserved column MUST list: reviewer `REQUEST_CHANGES` / `PENDING`, allowed-set violations, diagram-allowlist violations, schema-validation failures, `ESCALATE` / `DEADLOCK` emission.
    - `S-APPROVAL-001` — `plan_status: drafted`. On revision re-spawn, lift any prior `revision_notes` from the spawn prompt verbatim.
 
-5. **Frontmatter**: `id: run-plan`, `type: RUN-PLAN`, `status: draft`, `run_plan_status: drafted`, `revision_cycle: 0` (or incremented from prior spawn).
+4. **Frontmatter**: `id: run-plan`, `type: RUN-PLAN`, `status: draft`, `run_plan_status: drafted`, `revision_cycle: 0` (or incremented from prior spawn).
 
 Do NOT write `local.yaml` yourself — the dispatcher owns approval and writes. On revision re-spawn, lift `revision_notes` verbatim into a new `## Revision notes` subsection of `S-APPROVAL-001`.
 

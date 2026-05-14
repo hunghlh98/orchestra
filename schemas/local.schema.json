@@ -9,6 +9,7 @@
   "properties": {
     "$schema": { "type": "string" },
     "service_name": { "type": "string", "minLength": 1 },
+    "source_path": { "type": "string", "minLength": 1 },
     "scope_level": { "enum": ["system-wide", "per-service"] },
     "auto_mode": { "type": "boolean" },
     "run_plan_status": { "enum": ["drafted", "approved", "revision_requested"] },

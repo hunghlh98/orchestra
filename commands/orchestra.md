@@ -20,8 +20,10 @@ First whitespace-token of `$ARGUMENTS`:
 
 - empty → emit "Usage" block below + end turn.
 - `spec-to-code` → **spec-to-code algorithm**.
-- `code-to-spec` → **code-to-spec algorithm**. Optional second token: `system` (force `scope_level: system-wide`) or `service:<name>` (force `scope_level: per-service` for named service).
+- `code-to-spec` → **code-to-spec algorithm**. Optional second token: `system` (force `scope_level: system-wide`) or `service:<name>` (force `scope_level: per-service` for named service). When the resolved `scope_level` is `per-service`, `--source=<path>` is REQUIRED (the read-root for source inspection).
 - anything else → **`<intent>` router**.
+
+The `--source=<path>` flag accepts an absolute path or a path relative to `cwd`. A leading `@` (Claude Code path-mention shorthand) is stripped by the preflight hook.
 
 ## Preflight contract
 
@@ -38,6 +40,7 @@ First whitespace-token of `$ARGUMENTS`:
     spawn_mode: <value> | null
     primary_language: <value> | null   # greenfield only
     framework: <value> | null          # greenfield only
+    source_path: <value> | null        # brownfield per-service only
   missing_fields: [<field>, ...]
   docs_provenance: orchestra-generated | unknown
   claude_md_state: synced | bootstrapped | absent
@@ -56,17 +59,18 @@ Per-field question shape:
 - `service_name` (only when null AND `workspace_kind: multi-repo`) — walk repo-root one level deep for build manifests; surface candidates via `AskUserQuestion`. Reject names containing `/`, `\`, whitespace, `..`, or `system | metrics | inventory`.
 - `scope_level` (only when null AND `workspace_kind: multi-repo`) — `system-wide` | `per-service`. Single-repo auto-set to `per-service` by preflight.
 - `primary_language`, `framework` (only when `mode: greenfield` AND null) — `AskUserQuestion`.
+- `source_path` (only when `mode: brownfield` AND `scope_level: per-service` AND null) — `AskUserQuestion` with the conventional `./services/<service_name>/` path as default plus an Other option for free-text entry. Reject empty values; require the directory exists.
 
 Persist to `<context_path>/.orchestra/<service_name>/local.yaml` against `schemas/local.schema.json` closed allowlist. Persist `workspace_kind` + `context_path` to `<context_path>/.orchestra/system.yaml` against `schemas/system.schema.json`. Unknown fields fail schema-load.
 
 ## Run-plan + approval gate
 
-After bootstrap locks: spawn `@lead` with `task: run-plan-author`. Output: `<context_path>/.orchestra/<service_name>/run-plan.md` per `schemas/run-plan.schema.md`. Emit `run_plan_status: drafted`.
+After bootstrap locks: spawn `@lead` with `task: run-plan-author` AND `chain: reverse-pass | forward-chain` (dispatcher sets `chain:` based on which algorithm follows — `code-to-spec` → `reverse-pass`, `spec-to-code` → `forward-chain`, `<intent>` router brownfield → `reverse-pass` on first spawn then `forward-chain` on the post-pause re-spawn). Output: `<context_path>/.orchestra/<service_name>/run-plan.md` per `schemas/run-plan.schema.md`. Emit `run_plan_status: drafted`.
 
-Approval mechanism splits by `mode`:
+Approval mechanism splits by `chain:` tag (not by `mode` — `mode: brownfield` may still author a forward chain, e.g. adding a new feature to an existing repo):
 
-- **Brownfield** — `@lead` validates `S-FEATURES-001` inside `EnterPlanMode` + native `ExitPlanMode` approval.
-- **Greenfield** — `@lead` writes directly; dispatcher then `AskUserQuestion(approve | revise)`.
+- **`chain: reverse-pass`** — `@lead` validates `S-FEATURES-001` inside `EnterPlanMode` + native `ExitPlanMode` approval (plan mode walks the existing source to verify the feature enumeration).
+- **`chain: forward-chain`** — `@lead` writes the run-plan directly; dispatcher then `AskUserQuestion(approve | revise)` (no source to walk for a feature being minted from intent).
 
 On approval: write `local.yaml.auto_mode: true` + `run_plan_status: approved`; flip `run-plan.md` frontmatter `run_plan_status: approved` + `status: locked`. On rejection: `run_plan_status: revision_requested`, collect notes, re-spawn `@lead`. Max 3 cycles; cycle 4 → `<context_path>/.orchestra/<service_name>/pipeline/run-plan-ESCALATE.md` with `resolution: pending`.
 
@@ -89,13 +93,19 @@ Mint `<feature-id>` per major feature: `<NNN>-<noun-phrase-slug>`. `NNN = max(ex
 
 ## code-to-spec algorithm
 
-Reverse-pass. Never authors source code, tests, or TSR. Scope resolves from `workspace_kind` + `scope_level` + the optional second token:
+Reverse-pass. Never authors source code, tests, or TSR.
+
+**Authorized agent set.** Reverse-pass spawns are restricted to `{@product, @architect, @lead}` — the three documentation-tier agents. Forbidden during `task: reverse-pass`: `{@backend, @frontend, @test-author, @test-runner, @evaluator, @reviewer}`. The dispatcher MUST NOT spawn any forbidden agent; `@lead` MUST NOT fan out to forbidden agents (also stated in `agents/lead.md` "No fan-out spawn during reverse-pass"). TSR files, test code under `src/test/**`, and source files under `src/main/**` are forward-chain output only. Reverse-pass that emits any of these is a structural defect.
+
+Scope resolves from `workspace_kind` + `scope_level` + the optional second token:
 
 | Inputs | Authored artifact set |
 |---|---|
 | `single-repo` (auto `per-service`) | per-feature `{PRD, FRS, TDD, openapi.yaml}` + service `<service_name>-BR-AC.md`. No SAD. No ADR. No `business-invariants.md`. |
 | `multi-repo` + `system-wide` (or `code-to-spec system`) | workspace `SAD.md` + `docs/adr/ADR-*.md` (visible-in-source decisions) + `docs/business-invariants.md` + per-service `<service_name>-BR-AC.md` + per-feature `{PRD, FRS, TDD, openapi.yaml}`. |
 | `multi-repo` + `per-service` (or `code-to-spec service:<name>`) | if workspace `SAD.md` absent → first run the `system-wide` row above (auto-promote), then narrow. If present → per-feature `{PRD, FRS, TDD, openapi.yaml}` for the named service only. |
+
+**Source read-root.** When `scope_level: per-service`, every chain agent reads source files from `local.yaml.source_path` (the value persisted from `--source=<path>`). Agents never walk above this root for source inspection. `system-wide` scope ignores `source_path` and reads from `<context_path>` (the workspace root).
 
 **Provenance marker.** First action on first run when preflight reports `docs_provenance: unknown`: spawn `@architect` with `task: provenance-marker` to author `docs/README.md` carrying frontmatter `generated_by: orchestra`. Subsequent runs read this marker before classifying existing artifacts.
 
@@ -184,14 +194,15 @@ End turn after writing — `@lead` (or dispatcher) picks up on parent Read.
 ## Usage
 
 ```
-/orchestra                              Print this usage block.
-/orchestra spec-to-code <intent>        Forward chain (PRD → FRS → SAD → ADR? → TDD → openapi → code+tests → TSR).
-/orchestra code-to-spec                 Reverse chain. Scope derives from workspace_kind + scope_level.
-/orchestra code-to-spec system          Force scope_level: system-wide (multi-repo).
-/orchestra code-to-spec service:<name>  Force scope_level: per-service for the named service.
-/orchestra <intent>                     Smart router. ≥3 AskUserQuestion clarifications before any spawn.
+/orchestra                                                       Print this usage block.
+/orchestra spec-to-code <intent>                                 Forward chain (PRD → FRS → SAD → ADR? → TDD → openapi → code+tests → TSR).
+/orchestra code-to-spec                                          Reverse chain. Scope derives from workspace_kind + scope_level.
+/orchestra code-to-spec system                                   Force scope_level: system-wide (multi-repo).
+/orchestra code-to-spec service:<name> --source=<path>           Force scope_level: per-service for the named service; --source is required.
+/orchestra <intent>                                              Smart router. ≥3 AskUserQuestion clarifications before any spawn.
 ```
 
 Flags:
 - `--autonomy={EXECUTION_ONLY,JOINT_PROCESSING,OPTION_SYNTHESIS,DRAFT_AND_GATE,FULL_AUTONOMY}` — highest-precedence autonomy resolution.
 - `--spawn-mode={subagent,teams}` — override `spawn_mode`.
+- `--source=<path>` — read-root for source inspection. REQUIRED when `scope_level: per-service`. Accepts absolute or `cwd`-relative paths; leading `@` (Claude Code path-mention shorthand) is stripped. Persists to `local.yaml.source_path`.

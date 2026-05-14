@@ -16,6 +16,7 @@
 //       spawn_mode: <value> | null
 //       primary_language: <value> | null
 //       framework: <value> | null
+//       source_path: <value> | null
 //     missing_fields: [<field>, ...]
 //     docs_provenance: orchestra-generated | unknown
 //     claude_md_state: synced | bootstrapped | absent
@@ -56,7 +57,9 @@ async function main() {
     }
 
     const cwd = input.cwd || process.cwd();
-    const block = buildPreflightBlock(cwd);
+    const sourceFromPrompt = parseSourceFlag(prompt);
+    const perServiceFromPrompt = /(^|\s)service:\S+/.test(prompt);
+    const block = buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt);
     process.stdout.write(block);
     process.exit(0);
   } catch (err) {
@@ -65,7 +68,7 @@ async function main() {
   }
 }
 
-function buildPreflightBlock(cwd) {
+function buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt) {
   const mode = detectMode(cwd);
   const systemYaml = loadYaml(join(cwd, ".orchestra/system.yaml"));
   const serviceName = systemYaml?.context_path
@@ -83,6 +86,7 @@ function buildPreflightBlock(cwd) {
     "spawn_mode": localYaml?.spawn_mode || null,
     "primary_language": localYaml?.primary_language || null,
     "framework": localYaml?.framework || null,
+    "source_path": sourceFromPrompt || localYaml?.source_path || null,
   };
 
   const missing = detectMissingFields({
@@ -91,6 +95,7 @@ function buildPreflightBlock(cwd) {
     serviceName,
     scopeLevel,
     cached,
+    perServiceFromPrompt,
   });
 
   const docsProvenance = detectDocsProvenance(cwd) ? "orchestra-generated" : "unknown";
@@ -189,7 +194,7 @@ function detectFirstLocalServiceName(cwd) {
   return null;
 }
 
-function detectMissingFields({ mode, workspaceKind, serviceName, scopeLevel, cached }) {
+function detectMissingFields({ mode, workspaceKind, serviceName, scopeLevel, cached, perServiceFromPrompt }) {
   const missing = [];
   if (!workspaceKind) missing.push("workspace_kind");
   if (!serviceName) missing.push("service_name");
@@ -199,6 +204,10 @@ function detectMissingFields({ mode, workspaceKind, serviceName, scopeLevel, cac
   if (mode === "greenfield") {
     if (!cached["primary_language"]) missing.push("primary_language");
     if (!cached["framework"]) missing.push("framework");
+  }
+  const perServiceScope = scopeLevel === "per-service" || perServiceFromPrompt;
+  if (mode === "brownfield" && perServiceScope && !cached["source_path"]) {
+    missing.push("source_path");
   }
   return missing;
 }
@@ -225,6 +234,7 @@ function renderBlock(s) {
     `    spawn_mode: ${s.cached["spawn_mode"] || "null"}`,
     `    primary_language: ${s.cached["primary_language"] || "null"}`,
     `    framework: ${s.cached["framework"] || "null"}`,
+    `    source_path: ${s.cached["source_path"] || "null"}`,
     `  missing_fields: [${s.missing.join(", ")}]`,
     `  docs_provenance: ${s.docsProvenance}`,
     `  claude_md_state: ${s.claudeMdState}`,
@@ -251,4 +261,10 @@ function safeParse(text) {
 function lastSegment(p) {
   const parts = p.split("/").filter(Boolean);
   return parts[parts.length - 1] || null;
+}
+
+function parseSourceFlag(prompt) {
+  const m = prompt.match(/--source=(\S+)/);
+  if (!m) return null;
+  return m[1].replace(/^@/, "");
 }

@@ -212,9 +212,27 @@ Spawn prompt-tag `task: reverse-pass` → produce SAD + BR-AC + `business-invari
    - `multi-repo` + `system-wide`: workspace SAD + `business-invariants.md` + per-service BR-AC for every service + accepted ADRs + per-feature `{PRD, FRS, TDD, openapi.yaml}`.
    - `multi-repo` + `per-service`: per-feature `{PRD, FRS, TDD, openapi.yaml}` for named service only (after auto-promote, if triggered).
 
-5. **No code, no tests, no TSR.** Reverse-pass authors specification artifacts only. Source IS the spec; verifying it via test runs is forward-chain territory.
+5. **Bind every authored diagram.** After authoring any `.puml` file alongside SAD (or BR-AC, or `business-invariants.md`), append its basename (without `.puml`) to the parent artifact's `diagrams: [...]` frontmatter array IN THE SAME EDIT. The array is the declarative binding; an authored `.puml` with no array entry is a structural defect, not a non-blocking warning. SAD's `diagrams:` array MUST resolve to the union of:
+   - `c4-context`, `c4-container` (REQUIRED, system-wide scope).
+   - `erd-logical` (REQUIRED when ≥1 container owns persisted state).
+   - Every `sequence-inter-<flow>` authored under the same `docs/diagrams/` directory (REQUIRED — one entry per file).
 
-6. **ADRs only for visible-in-source platform decisions** passing all three worthiness gates. Half-implementations + accidental shapes fail gate 1 — route to BR-AC `S-INVARIANTS-001` via Path A of "DIV resolution paths".
+6. **Cross-service flow enumeration.** "Per cross-service flow" means systematic discovery from source, not curated happy paths. Enumeration is **scope-aware**:
+   - **`scope_level: system-wide`** — enumerate every cross-service flow in the workspace.
+   - **`scope_level: per-service` (named service `<S>`)** — enumerate only flows where `<S>` is a participant: producer or consumer of a Kafka topic; caller or callee in a multi-hop synchronous chain; owner of an aggregate whose state transition fans out; subject of a failure-handling contract. Flows that do not mention `<S>` are out of scope for the run.
+   - **Auto-promote case** (per-service scope + SAD absent → run system-wide first, then narrow): the system-wide pass enumerates ALL flows. The subsequent narrow-pass to `<S>` does NOT re-author or prune — the SAD is shared by every per-service narrow that follows.
+
+   Author one `sequence-inter-<flow>.puml` for EACH in-scope flow, per the discovery heuristics:
+   1. **Kafka topics** — one diagram per topic with ≥1 cross-service consumer. Show producer, payload envelope, every consumer + side effect. Topics with only in-service consumers are intra-service; skip.
+   2. **Multi-hop synchronous chains** — one diagram per request-response chain crossing ≥2 service boundaries (e.g., `bff → cashier → order → inventory`).
+   3. **State-transition fan-outs** — for every aggregate state transition (per `business-invariants.md` state machines) that triggers cross-service side effects (Kafka publish, outbound HTTP, distributed lock acquisition), author one flow showing the transition + fan-out.
+   4. **Failure-handling contracts** — for every documented compensation, retry-then-abandon, or idempotent-replay contract visible in source (saga `@Compensable`, `Resilience4j` retry+circuit-breaker config, idempotency-table reads), author one flow showing the failure variant. Happy paths alone are insufficient when source declares failure handling.
+
+   Flow naming: `sequence-inter-<aggregate>-<transition-or-failure>.puml` (e.g., `sequence-inter-order-creation`, `sequence-inter-payment-failure`, `sequence-inter-reservation-ttl-expiry`). Bind every authored file to SAD's `diagrams:` array per step 5.
+
+7. **No code, no tests, no TSR.** Reverse-pass authors specification artifacts only. Source IS the spec; verifying it via test runs is forward-chain territory.
+
+8. **ADRs only for visible-in-source platform decisions** passing all three worthiness gates. Half-implementations + accidental shapes fail gate 1 — route to BR-AC `S-INVARIANTS-001` via Path A of "DIV resolution paths".
 
 ## Workflow
 
@@ -245,7 +263,7 @@ Context: spec-to-code, greenfield Java, first feature. `<feature-id>-ESCALATE-AD
 Context: code-to-spec, multi-repo + `scope_level: per-service` (`/orchestra code-to-spec service:order`). SAD absent.
 
 1. Read `docs/README.md`: absent → author provenance marker first.
-2. Auto-promote: detect SAD + `business-invariants.md` absent. Run system-wide pass FIRST — emit SAD, workspace `business-invariants.md`, per-service BR-AC for every detected service, and accepted ADRs from visible-in-source decisions. Each artifact carries `reverse_authoring_mode: re-author`.
-3. Narrow to `order` service: emit per-feature `{PRD, FRS, TDD, openapi.yaml}` for the order feature surface only.
+2. Auto-promote: detect SAD + `business-invariants.md` absent. Run system-wide pass FIRST. Enumerate every cross-service flow in the workspace (per step 6's heuristics) — Kafka topics with cross-service consumers, multi-hop synchronous chains, state-transition fan-outs, failure-handling contracts. Author SAD with `diagrams: [c4-context, c4-container, erd-logical, sequence-inter-<flow-1>, sequence-inter-<flow-2>, ...]` listing every enumerated flow. Author each named `.puml` in the same edit — every authored file corresponds to an array entry; every array entry corresponds to a file. No orphans. Also emit workspace `business-invariants.md`, per-service BR-AC for every detected service, and accepted ADRs from visible-in-source decisions. Each artifact carries `reverse_authoring_mode: re-author`.
+3. Narrow to `order` service: emit per-feature `{PRD, FRS, TDD, openapi.yaml}` for the order feature surface only. SAD authored in step 2 is shared — do not re-author or prune flows out of `diagrams: [...]`.
 4. No code, no tests, no TSR. Hand back to dispatcher.
 </example>
