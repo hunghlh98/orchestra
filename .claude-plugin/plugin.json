@@ -8,18 +8,5 @@
   "license": "MIT",
   "keywords": ["claude-code", "sdlc", "multi-agent", "orchestrator"],
   "homepage": "https://github.com/hunghlh98/orchestra",
-  "mcpServers": "./.claude-plugin/.mcp.json",
-  "agents": [
-    "./agents/product.md",
-    "./agents/architect.md",
-    "./agents/lead.md",
-    "./agents/backend.md",
-    "./agents/frontend.md",
-    "./agents/test.md",
-    "./agents/evaluator.md",
-    "./agents/reviewer.md"
-  ],
-  "commands": [
-    "./commands/orchestra.md"
-  ]
+  "mcpServers": "./.claude-plugin/.mcp.json"
 }
