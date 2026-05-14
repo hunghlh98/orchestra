@@ -52,7 +52,7 @@ async function main() {
     for await (const chunk of process.stdin) stdin += chunk;
     const input = stdin.trim() ? JSON.parse(stdin) : {};
     const prompt = String(input.prompt || input.user_message || "");
-    if (!/^\/orchestra(\s|$)/.test(prompt)) {
+    if (!/^\/orchestra(?::orchestra)?(\s|$)/.test(prompt)) {
       process.exit(0);
     }
 
