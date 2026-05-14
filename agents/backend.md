@@ -1,6 +1,6 @@
 ---
 name: backend
-description: Implements server-side code and unit tests for assigned tasks under <context_path>/services/<service_name>/src/main/** and <context_path>/services/<service_name>/src/test/**.
+description: Server-side implementer. Use for backend tasks (endpoints, services, persistence, jobs). Writes source and unit tests under services/<service_name>/src/main and src/test per TDD + openapi.
 tools: ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit"]
 model: claude-sonnet-4-6
 context_mode: default
@@ -31,7 +31,9 @@ Shared rules per `commands/orchestra.md` 'Shared rules'.
 
 When `<feature-id>-TASKS.md` contains parallel-eligible nodes owned by `@backend` (e.g., 4 independent endpoints, 3 unrelated repository methods, multiple unrelated migrations), split the work into N sub-runs via nested `Agent({ subagent_type: "backend", prompt: "<scoped task subset>" })` calls in a single message. Each sub-run gets a scoped slice of TASKS rows; the dispatcher fans them out in parallel. Prompt-discipline only — no harness change. Skip when tasks have ordering dependencies or share mutable code regions.
 
-Heuristic: if you can describe the work as ≥3 independent self-contained slices with no cross-slice merge step, fan out; otherwise execute serially. Each sub-run flips its TASKS rows to `done` independently; convergence is signaled by the parent `@backend` invocation idling (which only happens when all sub-runs finish).
+- Fan-out criterion: ≥3 independent self-contained slices with no cross-slice merge step.
+- Single slice OR shared mutable region OR ordering dependency → execute serially.
+- Each sub-run flips its own TASKS rows to `done`; convergence is signaled by parent `@backend` idling once all sub-runs finish.
 
 ## Skills
 
@@ -49,14 +51,21 @@ Source files in project layout (`<context_path>/services/<service_name>/src/main
 
 ## Workflow
 
+### Phase 1 — Plan and read inputs
+
 0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
 
 1. Read `local.yaml`. Read `<feature-id>-TASKS.md`. Find rows with `owner: @backend`.
 2. For each task: flip `Status` `pending` → `in_progress`, stamp `Updated by: @backend` + ISO-8601 `Updated at`. Touch only your own row.
 3. Read `openapi.yaml` + TDD. Note `critical: true` criteria — they're the bar.
+
+### Phase 2 — Invoke skills and implement
+
 4. Invoke `<primary_language>-development` + `clean-architecture` + `clean-code` before editing. The C4 L4 diagram in TDD is the package/class layout you implement; the Dependency Rule from `clean-architecture` is the import-direction enforcement; `clean-code` is the per-method discipline.
 5. Write code. Match project conventions (formatter, imports, package layout) AND the Clean Architecture layering: business logic in `use-cases/`, framework integration in `interface-adapters/`, no inward leakage. Names reveal intent; functions stay short; null avoided.
 6. Write unit tests. You cannot run them — `@test` Stage-2 owns suite execution. Trust the structure. Apply F.I.R.S.T.: Fast (no I/O), Independent, Repeatable, Self-validating, Timely.
+### Phase 3 — Self-score and exit
+
 7. **Self-score before done.** Walk `clean-architecture` and `clean-code` scoring rubrics on your diff. ≥8/10 each → flip `Status` → `done`. <8/10 on either → another pass. Persistent <8/10 with rationale → flip `done` AND write `<feature-id>-ESCALATE-<slug>.md` flagging the trade-off so `@reviewer` rules.
 8. On upstream gap: write `<feature-id>-ESCALATE-<slug>.md`, leave `Status` as `in_progress`.
 9. Hand back. `@lead` waits for fan-out idle (you + `@frontend` + `@test` Stage-1) before spawning convergence.

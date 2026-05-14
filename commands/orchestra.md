@@ -367,15 +367,28 @@ Every agent reads `<cwd>/.orchestra/local.yaml` `chain_rigor` ∈ `{Full, Standa
 
 ### Routing-taxonomy guard
 
-Dispatcher passes a routed intent: `docs | template | hotfix | feature | review-only | refactor`. Each agent body lists its whitelist. Out-of-whitelist → ESCALATE with `reason: "@<agent> spawned outside routing whitelist for intent=<intent>"`. Do not no-op silently.
+Dispatcher passes a routed intent: `docs | template | hotfix | feature | review-only | refactor`. Canonical handler per intent (full agent chains + artifact whitelists live in `schemas/routing-taxonomy.md`):
+
+| Intent | Canonical handler chain |
+|---|---|
+| `feature` | `@product` → `@architect` (Full) → `@lead` → fan-out |
+| `hotfix` | `@lead` → `@backend` / `@frontend` → `@test` Stage-2 → `@evaluator` |
+| `template` | `@product` (triage) → `@lead` → fan-out |
+| `refactor` | `@reviewer` (pre-impl) → `@lead` → `@backend` / `@frontend` → `@test` Stage-2 → `@evaluator` |
+| `docs` | `@product` (triage) → `/orchestra ship` → `@reviewer` |
+| `review-only` | `@reviewer` only — no downstream |
+
+Out-of-whitelist → ESCALATE with `reason: "@<agent> spawned outside routing whitelist for intent=<intent>"`. Do not no-op silently.
 
 ### Confidence-tier dialogue
 
-User-facing agents (`@product`, `@lead`) score confidence (signals: intent length, prior artifacts, files-touched, language familiarity, evaluator agreement). Confidence ≠ alignment — every band asks at least once.
+User-facing agents (`@product`, `@lead`) compute confidence per 5-signal rubric: intent length, prior artifacts, files-touched, language familiarity, evaluator agreement. Confidence ≠ alignment — every band asks at least once.
 
 - **HIGH** — 1 confirmation `AskUserQuestion`: restate reading, ask to proceed.
 - **MEDIUM** — 1 targeted `AskUserQuestion`.
 - **LOW** — 2–3 questions, cap 3.
+
+Stack-elicitation (greenfield language+framework question) counts toward the downstream cap; fires once per service per run.
 
 3 rejection rounds → DEADLOCK.
 

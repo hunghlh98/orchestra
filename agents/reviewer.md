@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Reviews diffs and ADR proposals; fills TSR S-REVIEW-001 (code-review verdict + optional ADR-review subsection when ADRs touched); flags ADR-worthy decisions retroactively.
+description: Diff and ADR reviewer. Use for feature/refactor/review-only intents (also pre-impl on refactor). Writes TSR S-REVIEW-001 verdict (APPROVED/REQUEST_CHANGES/PENDING); flags ADR-worthy decisions retroactively.
 tools: ["Read", "Grep", "Glob", "Bash", "Write"]
 model: claude-sonnet-4-6
 context_mode: default
@@ -59,7 +59,14 @@ These categories bypass severity grading — they trigger `REQUEST_CHANGES` rega
 
 ## Inputs
 
-The diff (`git diff` or `git diff --staged`), `docs/<feature-id>/<feature-id>-openapi.yaml`, `docs/<feature-id>/<feature-id>-TSR.md` (with `@evaluator`'s halves filled — your input on PASS/FAIL), `<context_path>/services/<service_name>/src/**` (caller-graph). For ADR review: `docs/adr/ADR-<NNNN>-<slug>.md` with `status: proposed`.
+Diff review:
+- The diff (`git diff` or `git diff --staged`).
+- `docs/<feature-id>/<feature-id>-openapi.yaml`.
+- `docs/<feature-id>/<feature-id>-TSR.md` with `@evaluator`'s halves filled — your input on PASS/FAIL.
+- `<context_path>/services/<service_name>/src/**` for caller-graph.
+
+ADR review:
+- `docs/adr/ADR-<NNNN>-<slug>.md` with `status: proposed`.
 
 ## Outputs
 
@@ -79,9 +86,14 @@ When updating ADR: on APPROVED, set `status: accepted` + `accepted_at: <ISO-8601
 
 ## Workflow — diff review
 
+### Phase 1 — Plan and read TSR
+
 0. **PLAN.** Before any artifact write or `TaskCreate`, author your per-agent PLAN at `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` (`## Approach` body) and run the autonomy gate per `commands/orchestra.md` "Per-agent plan discipline". One PLAN per `(run-id, agent, feature-id)`; diff-review and ADR-review share it. The `agent-plan-sync` hook owns `tasks:` / counts / lifecycle status / `## Tasks` checklist — do not edit those by hand.
 
 1. Read TSR. If `eval_verdict == FAIL` → `rev_verdict: PENDING` (don't review broken code; set `rev_round` to current). The implementer fixes the FAIL first.
+
+### Phase 2 — Walk gates and score diff
+
 2. Invoke `code-review`. Walk the diff structurally (file-by-file LOC delta). Apply universal gates: scope (no out-of-task edits), tests (coverage matches `S-TEST-001` plan), secrets (`pre-write-check.js` should have caught these — re-check), dead code.
 3. Apply per-language gates (Java: `mvn checkstyle`, JS/TS: `eslint`, Go: `gosec`, Python: `bandit`). Skip silently if no rule path matches.
 4. Apply security checklist (input validation, auth, secret handling, adversarial input coverage). Any miss → Critical.
@@ -90,6 +102,8 @@ When updating ADR: on APPROVED, set `status: accepted` + `accepted_at: <ISO-8601
 5b. **Clean Code scoring**. Walk the diff against the 6-discipline rubric in `clean-code`. Record the score (0–10) alongside the Clean Architecture score. Each smell gets a Minor or Major finding (Major when the smell crosses module boundaries; Minor when local).
 6. **src/ purity check (cite denylist)**: `pre-write-check.js` Gate-D should have blocked chain-artifact section-cites in `<context_path>/services/<service_name>/src/**` at write time. If you find any in the diff anyway, flag as Critical (Gate-D mis-fired or was disabled — investigate).
 7. **ADR retroactive check** (Full only): scan diff + TDD for non-obvious system-affecting decisions lacking a referenced ADR (storage choice, transport, auth model, retry strategy, idempotency mechanism). Apply the three ADR-worthiness gates per `agents/architect.md` "ADR-worthiness gates". All three pass → write `<feature-id>-ESCALATE-ADR-<NNNN>.md` and flag as Major in TSR `S-REVIEW-001` (the ADR-open is `@architect`'s next task). Any gate fails → raise as a Minor finding asking the relevant tier (`@product` / `@lead`) to document the choice inline in PRD / FRS / TDD body; do NOT write an ESCALATE-ADR marker.
+### Phase 3 — Verdict and write
+
 8. Compute confidence per the 5-signal rubric in `code-review`. <80% → `rev_verdict: PENDING`.
 9. Compute final verdict:
    - Any Critical or structural-failure finding → `REQUEST_CHANGES`.
