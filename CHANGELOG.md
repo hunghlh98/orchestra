@@ -8,6 +8,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 (no entries yet)
 
+## [4.3.1] — 2026-05-14
+
+Patch release: align consumer-surface lifecycle prose with `pre-write-check.js` Gate-A semantics. Six sites where sequential `Edit` calls could trip Gate-A mid-sequence — the on-disk `status: locked` read meant the second Edit was rejected when prose listed the status-flip first. Fix shape across the family: state status-flip LAST in every ordered lifecycle; drop phantom "carve-out matching the local.yaml exception" cross-cites that referenced a hook exception that never existed.
+
+### Fixed
+
+- **`skills/brownfield-inventory/SKILL.md`** — inventory accept step flips `user_gate: pending → accepted` before `status: draft → locked`; `decisions.pending_count == 0` precondition moved up-front.
+- **`commands/orchestra.md` run-plan approval** — both brownfield (line 208) and greenfield (line 215) branches reordered so `run_plan_status: drafted → approved` lands before `status: draft → locked` on `run-plan.md`, and `local.yaml`'s three terminal-state writes (`auto_mode`, `run_plan_status`, `status`) land with `status` last.
+- **`commands/orchestra.md` lock-lifecycle invariant** (line 178) — clarified staggered lock points: `system.yaml` at step 12 cache-persist, `local.yaml` at run-plan approval (no "after first answer cache" claim that contradicted the run-plan-approval writes).
+- **`commands/orchestra.md` phantom carve-outs** (lines 513, 532) — dropped "(parent-context carve-out, mirrors `system.yaml` / `local.yaml` exception)" parentheticals. Metrics-runs `<run-id>.json` has no frontmatter so no gate fires; TSR top-level `status` stays `draft` through `/orchestra ship`'s `ship:` write so Gate-A doesn't trip.
+- **`hooks/scripts/pre-write-check.js` Gate-A stderr** — dropped the "or transition status to draft via Edit" suggestion. That recovery path is impossible because the corrective Edit is itself rejected by Gate-A; only `ORCHESTRA_HOOK_PRE_WRITE_CHECK=off` works.
+- **`agents/architect.md` CSD lock** — explicit "then flip `status: locked`" so the three-count + status frontmatter sequence is unambiguously ordered.
+
 ## [4.3.0] — 2026-05-14
 
 Minor release: post-v4.2 hardening across consumer-surface discipline, brownfield workflow, and artifact-grain rules. PRD/FRS gain business-rule anchors (BR/AC) and a tech-leakage prohibition; FRS use-case diagrams require an end-user actor; C4 placement moves L3/L4 into service folders with parent→child zoom continuity enforced. CSD becomes living service-grain state (no feature attribution; `S-CONTRACT-001` dropped, stability shifts to the `.yaml` extension). ADRs split global vs service-scoped, gated by a three-test worthiness check. Brownfield source-explore dual-modes implementers, mints `S-FEATURES-001` rows at user-journey grain, and folds slug-minting into the inventory accept; `local.yaml` lock flip is now atomic. Cost-tier toggles let evaluator/reviewer run on Sonnet 4.6 with a `verdict_mode` opt-back to Opus. `validate.js` adds version-stamp, phase-tag, and hook-parity predicates; `bootstrap-consumer-claude-md` moves to `hooks/lib/` for the hook-dir contract. `S-OPEN-Q-001` is dropped — open questions become a hard-pause before lock, not an artifact anchor. Workflow doc updated to commit-derived CHANGELOG aligned with Conventional Commits 1.0.0.
