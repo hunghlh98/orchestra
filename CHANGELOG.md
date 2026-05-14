@@ -4,6 +4,14 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.2] — 2026-05-15
+
+Patch release. Restores the preflight hook against the plugin-namespaced `/orchestra:orchestra` invocation form, which Claude Code accepts alongside the bare `/orchestra` shorthand.
+
+### Fixed
+
+- **`hooks/scripts/orchestra-preflight.js` prompt-prefix regex** widened from `^/orchestra(\s|$)` to `^/orchestra(?::orchestra)?(\s|$)`. The previous narrower form silently early-exited (exit 0, no stdout) when users invoked the dispatcher via the fully-qualified `/orchestra:orchestra <subcommand>` form, causing `commands/orchestra.md` to halt with "preflight hook did not emit". The fix matches both forms while still rejecting unrelated `/orchestra…`-prefixed prompts (e.g., `/orchestrasomethingelse`).
+
 ## [4.4.1] — 2026-05-15
 
 Patch release. Tightens reverse-pass discipline against four defects observed in a real `/orchestra code-to-spec service:order` run against a multi-repo brownfield workspace (feature over-fragmentation, orphan diagrams, cross-service flow under-enumeration, forward-chain agent spawn leak), re-keys the run-plan approval gate from `mode:` to spawn-prompt `chain:` tag so `spec-to-code`-on-brownfield routes correctly, and introduces the `--source=<path>` flag required to point per-service brownfield invocations at the actual source root.
