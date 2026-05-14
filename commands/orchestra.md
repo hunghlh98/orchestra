@@ -175,10 +175,7 @@ Invariants enforced by `scripts/validate.js`: `auto_mode: true` requires `run_pl
 
 `spawn_mode: subagent` (default) — agents spawned via `Agent({subagent_type, prompt, ...})` with no team coordination; no `team_name` field on the call. `spawn_mode: teams` — dispatcher calls `TeamCreate({team_name: "orchestra-<run-id-short>", agent_type: "orchestra-coordinator", description: <one-line intent summary>})` immediately after `local.yaml` is locked and before any agent spawn; every subsequent `Agent({...})` call passes `team_name` matching that string; on terminal state the dispatcher calls `TeamDelete` after the closing status line. The metrics hook reads both transcript layouts (sibling-dir `<parent_sid>/subagents/agent-*.jsonl` and project-root `<sid>.jsonl` fallback) regardless of mode, so observability is robust either way.
 
-`status: locked` MUST be set on `system.yaml` AND `local.yaml` after first
-answer cache so `pre-write-check.js` Gate-A protects them from accidental
-rewrite. (Gate overridable via `ORCHESTRA_HOOK_PRE_WRITE_CHECK=off` if the
-user wants to re-elicit.)
+`system.yaml` locks at step 12 cache-persist. `local.yaml` locks at run-plan approval, in the same write window as `auto_mode: true` + `run_plan_status: approved` (status field last). After lock, `pre-write-check.js` Gate-A protects them. (Gate overridable via `ORCHESTRA_HOOK_PRE_WRITE_CHECK=off` if the user wants to re-elicit.)
 
 ## Run-plan author
 
@@ -205,14 +202,14 @@ After `@lead` ends turn from `task: run-plan-author`, dispatcher behavior splits
 **Brownfield (`local.yaml.mode == brownfield`)** — @lead used `EnterPlanMode` + `ExitPlanMode`; user approve / reject already happened natively inside @lead's turn.
 
 1. Check `<context_path>/.orchestra/<service_name>/run-plan.md` exists at the canonical path.
-2. **If present** (user accepted in `ExitPlanMode`) — write to `local.yaml`: `auto_mode: true`, `run_plan_status: approved`. Flip `run-plan.md` frontmatter `status: draft → locked`, `run_plan_status: drafted → approved` (via `@lead` re-spawn with prompt-tag `task: run-plan-lock`, or via dispatcher `Edit` carve-out matching the local.yaml exception).
+2. **If present** (user accepted in `ExitPlanMode`) — write to `local.yaml`: `auto_mode: true`, then `run_plan_status: approved`, then `status: draft → locked` (status last). Flip `run-plan.md` frontmatter `run_plan_status: drafted → approved`, then `status: draft → locked` (via `@lead` re-spawn with prompt-tag `task: run-plan-lock`, or via two sequential dispatcher `Edit`s in that order).
 3. **If absent** (user rejected in `ExitPlanMode`) — `AskUserQuestion` free-text for revision notes; write `local.yaml`: `run_plan_status: revision_requested`. Re-spawn `@lead` with prompt-tag `task: run-plan-author` AND `revision_notes: <user text>`, incrementing `revision_cycle` in run-plan.md frontmatter.
 
 **Greenfield (`local.yaml.mode == greenfield`)** — @lead wrote `run-plan.md` directly without plan mode; dispatcher owns the gate.
 
 1. `Read(<context_path>/.orchestra/<service_name>/run-plan.md)`.
 2. `AskUserQuestion`: present a single-line summary (phase count + feature count + auto-gated vs preserved gate count); options: `approve` / `revise`.
-3. **On `approve`** — write to `local.yaml`: `auto_mode: true`, `run_plan_status: approved`. Flip `run-plan.md` frontmatter `status: draft → locked`, `run_plan_status: drafted → approved` (as above).
+3. **On `approve`** — write to `local.yaml`: `auto_mode: true`, then `run_plan_status: approved`, then `status: draft → locked` (status last). Flip `run-plan.md` frontmatter `run_plan_status: drafted → approved`, then `status: draft → locked` (as above).
 4. **On `revise`** — `AskUserQuestion` free-text for revision notes; write `local.yaml`: `run_plan_status: revision_requested`. Re-spawn `@lead` with prompt-tag `task: run-plan-author` AND `revision_notes: <user text>`, incrementing `revision_cycle` in run-plan.md frontmatter.
 
 ### Rejection-cycle cap
@@ -510,7 +507,7 @@ parallel-eligible nodes. Prompt-discipline only — no harness change.
       | <NNN>-<slug> | <feature-id>-TSR.md (absent); <feature-id>-TDD.md (status: draft) |
       | ... | ... |
       ```
-      Also patch `<context_path>/.orchestra/metrics/runs/<run-id>.json` with `incomplete: true` (carve-out for parent write, mirrors the `system.yaml` / `local.yaml` exception). The `<run-id>.json.status` field is NOT touched — `terminal_state = "success"` AND `incomplete: true` is a valid combination indicating "the run completed without halt, but didn't fully cover the planned `S-FEATURES-001` scope."
+      Also patch `<context_path>/.orchestra/metrics/runs/<run-id>.json` with `incomplete: true`. The `<run-id>.json.status` field is NOT touched — `terminal_state = "success"` AND `incomplete: true` is a valid combination indicating "the run completed without halt, but didn't fully cover the planned `S-FEATURES-001` scope."
    6. The status banner (line 50) lifts `path:` from the INCOMPLETE artifact so the user sees the partial-completion warning on read.
 
 ### src/ purity (enforced)
@@ -529,7 +526,7 @@ Algorithm:
    - Any `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TSR.md` with `eval_verdict: FAIL`, `rev_verdict: REQUEST_CHANGES`, or `eval_score < passing_score` from openapi description.
    - `git diff`-detected drift on a `status: locked` artifact.
    - **Deferred-mode tolerance:** if `local.yaml.tsr_gate_mode: deferred` AND `<feature-id>-DRAFT-COMPLETE.md` exists for the feature, absent `eval_verdict` / `rev_verdict` cells (verdicts not yet appended by the parallel @evaluator / @reviewer spawns) are tolerated and the feature is allowed to ship with `ship: ALLOW_WITH_GAP`. Any other absence is rejected.
-2. **Set TSR `ship:` frontmatter.** For each gated feature: write `ship:` ∈ `ALLOW | ALLOW_WITH_GAP | HOLD` into `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TSR.md` frontmatter (parent-context carve-out, mirrors `system.yaml` / `local.yaml` exception). Verdict is frontmatter-only; no body section. `ALLOW_WITH_GAP` is auto-selected under deferred-mode tolerance; `ALLOW` / `HOLD` are user-chosen on REVIEW verdict.
+2. **Set TSR `ship:` frontmatter.** For each gated feature: write `ship:` ∈ `ALLOW | ALLOW_WITH_GAP | HOLD` into `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TSR.md` frontmatter. TSR top-level `status` stays `draft` through this write (Gate-A only fires when top-level `status: locked`). Verdict is frontmatter-only; no body section. `ALLOW_WITH_GAP` is auto-selected under deferred-mode tolerance; `ALLOW` / `HOLD` are user-chosen on REVIEW verdict.
 3. **Commit.** Invoke `skills/commit-message/SKILL.md` to author the message (Conventional Commits 1.0.0 + mandatory AI `Co-Authored-By:` trailer). Empty stage → halt with `[orchestra] ship: nothing staged; stage chain artifacts (and any related source) first`. Run `git commit -m "<message>"` against what the user staged. **MUST NOT** run `git push`, `git push --tags`, or `git tag` — pushing and tagging stay in the user's hands (they may release through whatever flow their team uses; the plugin doesn't presume). Print the new commit SHA + message so the user can amend if needed.
 
 ## /orchestra report

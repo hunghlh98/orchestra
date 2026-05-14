@@ -113,7 +113,7 @@ function runGateD(filePath, content) {
 function runGateA(filePath, fm) {
   if (fm.status === "locked") {
     process.stderr.write(
-      `pre-write-check: gate-A — ${filePath} is locked (status: locked). Set ORCHESTRA_HOOK_PRE_WRITE_CHECK=off to override, or transition status to draft via Edit on the frontmatter.\n`
+      `pre-write-check: gate-A — ${filePath} is locked (status: locked). Set ORCHESTRA_HOOK_PRE_WRITE_CHECK=off to override.\n`
     );
     process.exit(2);
   }
