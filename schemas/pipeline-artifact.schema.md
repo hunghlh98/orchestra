@@ -90,7 +90,7 @@ The reverse pass authors `<context_path>/docs/README.md` on first run with front
 │   ├── erd-logical.{puml,svg}
 │   └── sequence-inter-<flow>.{puml,svg}
 └── <service_name>/                      ← per-service partition
-    ├── <service_name>-BR-AC.md          ← per-service BR + AC (replaces CSD)
+    ├── <service_name>-BR-AC.md          ← per-service BR + AC singleton
     └── <feature-id>/                    ← per-feature
         ├── <feature-id>-PRD.md
         ├── <feature-id>-FRS.md
@@ -143,7 +143,7 @@ Type → folder map:
 |---|---|---|---|
 | `PRD`, `FRS`, `TDD`, `TSR` | `docs/<service_name>/<feature-id>/` | `001-order-placement-PRD.md` | per-feature; filename = `<feature-id>-<TYPE>.md` |
 | `API` (openapi/asyncapi) | `docs/<service_name>/<feature-id>/` | `001-order-placement-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
-| `BR-AC` | `docs/<service_name>/` | `order-BR-AC.md` | per-service BR + AC; replaces CSD |
+| `BR-AC` | `docs/<service_name>/` | `order-BR-AC.md` | per-service BR + AC singleton |
 | `BUSINESS-INVARIANTS` | `docs/` | `business-invariants.md` | workspace-grain singleton; cross-service business rules |
 | `SAD` | `docs/` | `SAD.md` | system-level singleton |
 | `ADR` (global) | `docs/adr/` | `ADR-0001-use-sqlite.md` | affects ≥2 services; project-wide flat 4-digit numbering |
@@ -197,7 +197,6 @@ Applies to TSR (eval / review verdicts), ADR (review verdict). Other types omit.
 | `PENDING` | Initial state |
 | `PASS` / `FAIL` | Empirical (evaluator on tests) |
 | `APPROVED` / `REQUEST_CHANGES` | Inspection (reviewer) |
-| `ALLOW_WITH_GAP` | Reviewer-emitted "approved with caveat" |
 
 ### `reverse_authoring_mode:` <a id="S-REVERSE-MODE-001"></a>
 
@@ -345,7 +344,7 @@ status: draft                                 # draft | locked
 verdict: PENDING
 eval_verdict: PENDING                         # PENDING | PASS | FAIL
 eval_score: 0                                 # 0..100
-rev_verdict: PENDING                          # PENDING | APPROVED | ALLOW_WITH_GAP | REQUEST_CHANGES
+rev_verdict: PENDING                          # PENDING | APPROVED | REQUEST_CHANGES
 rev_round: 1                                  # 1..3
 sections:
   S-TEST-001:

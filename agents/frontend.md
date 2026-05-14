@@ -22,27 +22,9 @@ Implementer. Frontmatter `disallowedTools` blocks Bash (CI-enforced via `bash-st
 
 Shared rules: `commands/orchestra.md` 'Shared rules'.
 
-## Brownfield mode — source exploration
+## Spawn-gate
 
-Trigger: spawn prompt `task: source-explore`. Caller: `@product` or `@lead`. Read-only sibling mode. Skipped if inventory shows no UI. Triggers + caching: `schemas/routing-taxonomy.md#implementer-dual-mode-invocation`.
-
-- Allowed reads: `<context_path>/services/<service_name>/src/components/**` (or framework equivalent), routes, hooks, state slices, package manifest.
-- Forbidden writes: all except the single SOURCE-INTEL artifact.
-- Deliverable: `<context_path>/.orchestra/<service_name>/source-intel/frontend-intel.md` per `schemas/pipeline-artifact.schema.md` SOURCE-INTEL section.
-
-Per-stack slug heuristic:
-
-- React/Next: routes under `pages/` or `app/`; one slug per route group. `OrderCheckout.tsx` → `order-checkout`.
-- Vue: `views/` or `pages/`; SFCs map 1:1 to slugs.
-- Svelte: `routes/`; `+page.svelte` per slug.
-
-`S-FEATURE-CANDIDATES-001` rows: `| Slug candidate | Source evidence | Confidence | Notes |`. Confidence: route-component cohesion + state-slice locality.
-
-Workflow: enumerate routes → map components → catalog state slices + design-system tokens → write intel artifact → flip `status: locked`. End turn.
-
-## Chain-rigor
-
-Identical across `Full | Standard | Light`; inputs differ as `@backend`'s. No UI layer (Java-only API, CLI) → `@lead` skips spawn. Spawned with zero `owner: @frontend` TASKS rows → ESCALATE: `reason: "@frontend spawned but no frontend tasks in <feature-id>-TASKS.md"`.
+No UI layer (Java-only API, CLI) → `@lead` skips spawn. Spawned with zero `owner: @frontend` TASKS rows → ESCALATE: `reason: "@frontend spawned but no frontend tasks in <feature-id>-TASKS.md"`.
 
 ## Parallel with others
 

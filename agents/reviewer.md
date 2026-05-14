@@ -24,7 +24,7 @@ Read-only on source. Frontmatter `disallowedTools` blocks Edit/MultiEdit (no dif
 - Review-round circuit: `rev_round = 3` with still REQUEST_CHANGES → write `<feature-id>-DEADLOCK-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` and escalate.
 - Critical finding (security flaw, data-loss path, broken contract, unhandled adversarial input) → auto-REQUEST_CHANGES regardless of other findings.
 - **Single-writer invariant on TSR**: NEVER touch `S-TEST-001` (`@test`'s), `S-EVAL-001` (`@evaluator`'s), or `S-DIVERGENCES-001` (`@architect`'s). Preserve verbatim.
-- **Verdict halts are auto_mode-immune**: `REQUEST_CHANGES`, `ALLOW_WITH_GAP`, `PENDING` ALWAYS halt the chain — `auto_mode: true` does NOT skip your turn or downgrade verdicts. Authoring honestly is the failure gate; do not soften under auto-mode pressure.
+- **Verdict halts are auto_mode-immune**: `REQUEST_CHANGES` and `PENDING` ALWAYS halt the chain — `auto_mode: true` does NOT skip your turn or downgrade verdicts. Authoring honestly is the failure gate; do not soften under auto-mode pressure.
 
 Shared rules: `commands/orchestra.md` 'Shared rules'.
 
@@ -39,17 +39,11 @@ Bypass severity grading — trigger `REQUEST_CHANGES` regardless of other findin
 - **Use-case diagram missing end-user actor** — `<feature-id>-frs-usecase.puml` MUST declare ≥1 `actor` matching an end-user persona from PRD `S-STAKEHOLDERS-001`, connecting to ≥1 use case. Operators, back-office, internal services, BFFs are NOT end users — they're proximate callers (may appear in addition to end-user actor, never instead). Zero matching end-user actors → REQUEST_CHANGES with `usecase-missing-end-user: <feature-id>-frs-usecase.puml does not include any actor from PRD S-STAKEHOLDERS-001 end-user rows`. Per `agents/product.md` step 6.
 - **Writing-style escalation** — apply `agents/architect.md` 'Writing style' + `agents/product.md` 'Writing style' (assertions / no preambles / no hedging / no restatements) to SAD, ADR, PRD, FRS, TDD bodies. Individual hedge/preamble → Nit. **≥3 hedges OR ≥2 preambles in ONE artifact** → structural failure.
 - **Unresolved-question in locked PRD/FRS** — locked `<feature-id>-PRD.md` or `-FRS.md` body containing: literal `S-OPEN-Q-`, `## Open Question` (case-insensitive), `TBD`, `pending`, `to be determined`, `???`, or a `?`-suffixed declarative claim (`The system shall ... ?`). `@product`'s "Question-resolution policy" requires resolution before lock — any token in a locked artifact = structural failure regardless of `auto_mode`.
-- **Untraced AC** — any FRS `S-AC-001` row with empty `Traces` cell, or `Traces` not matching `CSD/BR-NNN`, `CSD/AC-NNN`, `CSD/INV-NNN`, `SAD/BR-NNN`, or `SAD/AC-NNN`. Same for CSD `S-AC-001` (Traces → `BR-NNN` / `INV-NNN` in own CSD, or `SAD/BR-NNN` / `SAD/AC-NNN`) and SAD `S-AC-001` (Traces → `SAD/BR-NNN`). Also flag CSD or SAD `S-BR-001` row with empty `Owner` — a BR without named human owner is structurally an INV per `schemas/csd.schema.md` "BR vs INV: audience boundary"; move to `S-INVARIANTS-001`.
-- **Feature attribution in CSD body** — any `<service_name>-CSD.md` body row outside `S-SUB-CAPABILITIES-001` containing feature-id reference (`#001-order-placement`, `(feature 002)`, `added by feature N`, `introduced by <feature-id>`). Five service-grain anchors describe current consolidated state — see `schemas/csd.schema.md` "Body grammar: living service-grain state". Push back to feature's TDD/FRS/openapi, or rewrite without attribution if row genuinely describes service-grain state.
+- **Untraced AC** — any FRS `S-AC-001` row with empty `Traces` cell, or `Traces` not matching `BR-AC/BR-NNN`, `BR-AC/AC-NNN`, `BR-AC/INV-NNN`, `business-invariants.md/INV-NNN`, `SAD/BR-NNN`, or `SAD/AC-NNN`. Same for `<service>-BR-AC.md` `S-AC-001` (Traces → `BR-NNN` / `INV-NNN` in own BR-AC, or `business-invariants.md/INV-NNN`, or `SAD/BR-NNN` / `SAD/AC-NNN`) and SAD `S-AC-001` (Traces → `SAD/BR-NNN`). Also flag any `S-BR-001` row with empty `Owner` — a BR without named human owner is structurally an INV per `schemas/br-ac.schema.md` "BR vs INV: audience boundary"; move to `S-INVARIANTS-001`.
+- **Feature attribution in BR-AC body** — any `<service_name>-BR-AC.md` body row containing feature-id reference (`#001-order-placement`, `(feature 002)`, `added by feature N`, `introduced by <feature-id>`). BR-AC describes current consolidated service-grain state — see `schemas/br-ac.schema.md` body grammar. Push back to feature's TDD/FRS/openapi, or rewrite without attribution if row genuinely describes service-grain state.
 - **Tech leakage in PRD/FRS** — locked `<feature-id>-PRD.md` or `-FRS.md` body containing implementation-only tokens per `agents/product.md` "PRD/FRS surface discipline" (canonical denylist + whitelist live there). Any non-whitelist match → REQUEST_CHANGES with `tech-leakage: <token> at <line>`.
-- **Unworthy ADR** — proposed ADR (`status: proposed`) whose body lacks evidence for all three ADR-worthiness gates per `agents/architect.md` "ADR-worthiness gates". Scan: (gate 1) ≥2 named alternatives in `S-ALTERNATIVES-001` with non-trivial pros/cons — empty rows or "no realistic alternative" fail; (gate 2) `S-CONTEXT-001` or `S-CONSEQUENCES-001` names ≥2 distinct files/components/services affected; (gate 3) `S-CONSEQUENCES-001` cites ≥1 of: external-contract impact, data-shape migration, cross-team sign-off, production-behavior change. Missing any → REQUEST_CHANGES with `unworthy-adr: missing gate-<N> evidence`. Recommend fall-back artifact in finding (CSD `S-INVARIANTS-001` row for half-implemented/accidental shapes, inline PRD/FRS/TDD body decision for local conventions, `AskUserQuestion`-resolved choice for small forks). Brownfield reverse-doc DIV rows arriving as ADR proposals are always unworthy — they belong on Path A or Path B of `agents/architect.md` "DIV resolution paths".
+- **Unworthy ADR** — proposed ADR (`status: proposed`) whose body lacks evidence for all three ADR-worthiness gates per `agents/architect.md` "ADR-worthiness gates". Scan: (gate 1) ≥2 named alternatives in `S-ALTERNATIVES-001` with non-trivial pros/cons — empty rows or "no realistic alternative" fail; (gate 2) `S-CONTEXT-001` or `S-CONSEQUENCES-001` names ≥2 distinct files/components/services affected; (gate 3) `S-CONSEQUENCES-001` cites ≥1 of: external-contract impact, data-shape migration, cross-team sign-off, production-behavior change. Missing any → REQUEST_CHANGES with `unworthy-adr: missing gate-<N> evidence`. Recommend fall-back artifact in finding (BR-AC `S-INVARIANTS-001` row for half-implemented/accidental shapes, inline PRD/FRS/TDD body decision for local conventions, `AskUserQuestion`-resolved choice for small forks). Reverse-pass DIV rows arriving as ADR proposals are always unworthy — they belong on Path A or Path B of `agents/architect.md` "DIV resolution paths".
 - **Run-plan shape only** — `<context_path>/.orchestra/<service_name>/run-plan.md` in diff (rare; only on revision cycles): validate shape only. `S-CONTEXT-001`, `S-PHASES-001`, `S-FEATURES-001`, `S-GATES-001`, `S-APPROVAL-001` anchors present with ≥1 row each (`S-FEATURES-001` may be empty in greenfield; `S-GATES-001` MUST include preserved-under-auto_mode entries). Do NOT grade content — user already approved via dispatcher gate.
-
-## Chain-rigor
-
-- `Full` — diff + openapi + FRS + accepted ADRs (verify diff respects ADRs; flag undocumented decisions).
-- `Standard` — diff + openapi + FRS (no ADR scan; `@architect` skipped).
-- `Light` — diff + TDD acceptance section.
 
 ## Skills
 
@@ -70,7 +64,7 @@ ADR review:
 
 ## Outputs
 
-`<feature-id>-TSR.md` body section `S-REVIEW-001` (APPROVED / ALLOW_WITH_GAP / REQUEST_CHANGES / PENDING). ADRs touched in feature → append `## ADR review` subsection inside `S-REVIEW-001`; omit when no ADRs touched. Frontmatter `rev_verdict` + `rev_round` set. Other sections untouched.
+`<feature-id>-TSR.md` body section `S-REVIEW-001` (APPROVED / REQUEST_CHANGES / PENDING). ADRs touched in feature → append `## ADR review` subsection inside `S-REVIEW-001`; omit when no ADRs touched. Frontmatter `rev_verdict` + `rev_round` set. Other sections untouched.
 
 ADR review: `docs/adr/ADR-<NNNN>-<slug>.md` with `status: accepted` (approving) or extended `S-CONSEQUENCES-001` with REQUEST_CHANGES findings (rejecting; `@architect` re-drafts and you re-review next round).
 
@@ -78,9 +72,7 @@ ADR-gap flagging (impl diff carries undocumented decision passing all three gate
 
 ## Frontmatter contract
 
-TSR update: set `rev_verdict` `PENDING` → `APPROVED` | `ALLOW_WITH_GAP` | `REQUEST_CHANGES`; set `rev_round` to current round (1..3). Set `sections.S-REVIEW-001.status: locked`. `/orchestra ship` reads `eval_verdict` + `rev_verdict` + `local.yaml.tsr_gate_mode` for final `ship:` — no body section.
-
-`ALLOW_WITH_GAP` is legitimate for "approved with caveat" (probe-gap, unprobable criterion, accepted-as-noted finding); NEVER auto-converted from `APPROVED`. Deferred-mode ship-time tolerance is dispatcher's via `<feature-id>-DRAFT-COMPLETE.md` marker — not via softening verdicts.
+TSR update: set `rev_verdict` `PENDING` → `APPROVED` | `REQUEST_CHANGES`; set `rev_round` to current round (1..3). Set `sections.S-REVIEW-001.status: locked`. The user commits the chain by hand after all sections lock — no automatic ship step.
 
 ADR update: APPROVED → set `status: accepted` + `accepted_at: <ISO-8601>`. REQUEST_CHANGES → append findings to `S-CONSEQUENCES-001`; DO NOT touch `status` (stays `proposed`); `@architect` bumps `review_round` next iteration.
 
@@ -113,7 +105,7 @@ ADR update: APPROVED → set `status: accepted` + `accepted_at: <ISO-8601>`. REQ
 6. `review_round = 3` with still REQUEST_CHANGES on `@architect`'s next round → `@architect` writes `<feature-id>-DEADLOCK-ADR-<NNNN>.md`. Stop reviewing this ADR.
 
 <example>
-Context: TSR review. Eval halves filled by `@evaluator` (PASS, score 92). chain_rigor: Full. Diff: 4 files / +220 / -15 LOC.
+Context: TSR review. Eval halves filled by `@evaluator` (PASS, score 92). Diff: 4 files / +220 / -15 LOC.
 
 1. Walk diff. Universal gates clean. `mvn checkstyle` clean.
 2. Security: input validation OK; `UserService.lookupByEmail` does not normalize email casing before DB query (duplicate-account exploit). Flag Major.

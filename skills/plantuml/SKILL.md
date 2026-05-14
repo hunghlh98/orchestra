@@ -64,7 +64,7 @@ Orchestra uses a **three-scope model** so chain artifacts reference diagrams by 
 | File | Owner | Trigger |
 |---|---|---|
 | `c4-component.puml` | `@lead` | every TDD; one per service, updated in place |
-| `c4-code.puml` | `@lead` | every TDD under `chain_rigor: Full`; one per service when service has ≥3 classes |
+| `c4-code.puml` | `@lead` | optional; one per service when service has ≥3 classes |
 
 When a new feature changes a `Component()` / `Rel()` / class line in either service-level file, leave a `' #<feature-id>` PlantUML line comment immediately above the changed line. Provenance lives in comments; the rendered diagram stays uncluttered.
 
@@ -87,7 +87,7 @@ Per-feature L1 + L2 copies differ from system singletons ONLY in styling (`Updat
 Diagrams MUST match one of the names in the three tables above, scoped by directory:
 
 - Under `docs/diagrams/` (system): `c4-context.puml`, `c4-container.puml`, `erd-logical.puml`, `sequence-inter-<flow>.puml`.
-- Under `docs/<service_name>/diagrams/` (service): `c4-component.puml`, `c4-code.puml` (opt-in: only when `chain_rigor: Full` AND service has ≥3 classes).
+- Under `docs/<service_name>/diagrams/` (service): `c4-component.puml`, `c4-code.puml` (opt-in: when service has ≥3 classes).
 - Under `docs/<service_name>/<feature-id>/diagrams/` (per-feature): `<feature-id>-c4-context.puml`, `<feature-id>-c4-container.puml` (highlighted L1/L2 copies only — NO L3/L4 per-feature copies), plus `<feature-id>-frs-usecase.puml`, `<feature-id>-state-business.puml`, `<feature-id>-sequence-intra-<usecase>.puml`, `<feature-id>-state-technical.puml`, `<feature-id>-erd-physical.puml`.
 
 Forbidden by default: `AD-*` (activity), `SAGA-*`, `SD-*` (sequence — use the `sequence-inter-<flow>.puml` / `<feature-id>-sequence-intra-<usecase>.puml` names instead), `ERD-*` (use `erd-logical.puml` / `<feature-id>-erd-physical.puml`), `C2-*` / `C3-*` short-hands, ad-hoc names like `*-overview.puml` / `*-architecture.puml`, and **any L3/L4 file outside the service's own `diagrams/` folder** (no `c4-component-<service>.puml` at system grain, no `<feature-id>-c4-component-*` at feature grain).
@@ -102,7 +102,7 @@ C3 (component) diagrams describe service-internal *components*, not Java classes
 - Label by responsibility (`OrderValidator`, `PaymentDispatcher`), not by Java class name (`OrderServiceImpl`).
 - No methods, no fields, no parameter lists in C3.
 - Internal class structure belongs in TDD prose or in C4 L4 (when the service warrants L4).
-- L4 (code-level) is opt-in only: brownfield agents default OFF, even under `chain_rigor: Full`, unless the TDD explicitly justifies L4 in `S-COMPONENTS-001`.
+- L4 (code-level) is opt-in only: code-to-spec reverse-pass authors default OFF unless the TDD explicitly justifies L4 in `S-COMPONENTS-001`.
 
 ### Step 3 — Render is hook-enforced (do not run conversion manually)
 

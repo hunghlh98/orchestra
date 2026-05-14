@@ -768,20 +768,15 @@ console.log("metrics-collector UserPromptSubmit context injection:");
   }
 }
 {
-  // 4g.2: local.yaml present, no phase events → phase="—", round_trip + source_lock from yaml.
+  // 4g.2: local.yaml present, no phase events → phase="—", round_trip from yaml.
   const tmp = mkdtempSync(join(tmpdir(), "orchestra-ctx-yaml-"));
   try {
     mkdirSync(join(tmp, ".orchestra"), { recursive: true });
     writeFileSync(
       join(tmp, ".orchestra/local.yaml"),
       [
-        "pipeline_id: 001-hello",
+        "service_name: hello",
         "round_trip: DEFERRED",
-        "source_lock:",
-        "  read_paths:",
-        '    - "project-poc/**"',
-        "  write_paths:",
-        '    - "project-poc/**"',
         "",
       ].join("\n"),
     );
@@ -794,8 +789,8 @@ console.log("metrics-collector UserPromptSubmit context injection:");
     check(ctx.startsWith("[orchestra]"), `additionalContext starts with [orchestra] (got ${JSON.stringify(ctx)})`);
     check(ctx.includes("phase: —"), `phase falls back to em-dash when no phase events (got ${JSON.stringify(ctx)})`);
     check(ctx.includes("round_trip: DEFERRED"), `round_trip lifted from yaml (got ${JSON.stringify(ctx)})`);
-    check(ctx.includes("source_lock: project-poc/**"),
-      `first source_lock.read_paths entry surfaced (got ${JSON.stringify(ctx)})`);
+    check(!ctx.includes("source_lock"),
+      `source_lock segment dropped from context line (got ${JSON.stringify(ctx)})`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

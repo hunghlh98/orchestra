@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "orchestra:local",
   "title": "orchestra consumer-side local.yaml",
-  "description": "Closed allowlist for <context_path>/.orchestra/<service_name>/local.yaml. Strict brief-only: drop pipeline_id, source_lock (derive at hook time), tsr_gate_mode, verdict_mode, mode, depth, bootstrap, chain_rigor, test_depth, discovery, incomplete.",
+  "description": "Closed allowlist for <context_path>/.orchestra/<service_name>/local.yaml — per-service bootstrap fields surfaced by the orchestra-preflight hook.",
   "type": "object",
   "additionalProperties": false,
   "required": ["service_name"],

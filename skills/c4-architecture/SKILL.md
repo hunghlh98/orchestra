@@ -23,11 +23,11 @@ Generates C4-model diagrams (Context / Container / Component / Deployment / Dyna
 | 1 | **C4_Context** | Everyone | System + external actors | Always (required for SAD); per-feature highlighted copy on feature impact |
 | 2 | **C4_Container** | Technical | Apps, databases, services | Always (required for SAD); per-feature highlighted copy on feature impact |
 | 3 | **C4_Component** | Developers | Internal components of one container | Required for TDD; per-feature highlighted copy on feature impact |
-| 4 | **C4_Code** | Backend devs | Class structure of one component (Controller / Service / Repository / Entity) | Required for TDD under Full rigor; aligned to clean-architecture concentric circles |
+| 4 | **C4_Code** | Backend devs | Class structure of one component (Controller / Service / Repository / Entity) | Optional TDD addition when service has ≥2 components; aligned to clean-architecture concentric circles |
 | — | **C4_Dynamic** | Technical | Numbered request flows | Complex workflows; required for TDD critical-path sequences |
 | — | **C4_Deployment** | DevOps | Infrastructure nodes | Production systems only |
 
-L1 + L2 + L3 are mandatory under Full rigor (L1 + L2 under Standard); L4 ships when chain_rigor=Full and component count ≥ 2 (omit per Step 4 protocol when trivial). Deployment is opt-in for production topologies.
+L1 + L2 + L3 are mandatory; L4 ships when component count ≥ 2 (omit per Step 4 protocol when trivial). Deployment is opt-in for production topologies.
 
 ### Step 1b — Zoom continuity protocol (MANDATORY before any non-context level)
 

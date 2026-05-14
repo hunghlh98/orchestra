@@ -8,7 +8,7 @@
 
 - On first spawn for a new feature_id (no prior `intent.yaml` recorded): Read this file before issuing PAUSE-1.
 - On subsequent spawns within the same feature_id: skip — autonomy was already classified at PAUSE-1; the level is locked in `intent.yaml` for the duration.
-- On `/orchestra resume`: the autonomy level was already resolved in the original run — do NOT re-Read this file. Surface the existing level from `intent.yaml`.
+- On re-invocation within an existing run: the autonomy level was already resolved — do NOT re-Read this file. Surface the existing level from `intent.yaml`.
 
 ## Diagnostic — 5 ordered yes/no questions, first yes wins
 

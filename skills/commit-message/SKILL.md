@@ -10,12 +10,12 @@ Constructs a Conventional Commits 1.0.0 compliant message (https://www.conventio
 
 ## When to use
 
-- `/orchestra ship` has verified gates and set TSR `ship:` frontmatter, and is about to run `git commit -m`.
-- The user has staged the chain artifacts (and any related source) themselves; this skill drafts the message text only — it does not stage, push, or tag.
+- The orchestra forward chain has locked all TSR sections (eval + review APPROVED), and the user is about to commit the chain artifacts + source by hand.
+- This skill drafts the message text only — it does not stage, push, or tag.
 
 ## When NOT to use
 
-- Commits authored by the consumer outside `/orchestra ship`. Those follow the consumer's team conventions, not this skill.
+- Commits authored under team conventions that diverge from Conventional Commits.
 - Non-commit prose: CHANGELOG entries, PR descriptions, release notes. Different format conventions apply there.
 
 ## Canonical format
@@ -66,7 +66,7 @@ Spec MUST/MAY language preserved. Skim before composing:
 
 ## AI Co-Authored-By trailer (mandatory; orchestra extension)
 
-Because `/orchestra ship` runs `git commit` non-interactively on the user's behalf, every message authored by this skill MUST include a `Co-Authored-By:` trailer naming the active model. Format:
+Every message authored by this skill MUST include a `Co-Authored-By:` trailer naming the active model — the AI did the spec/code/test authoring, so the commit-history attribution must reflect that. Format:
 
 ```
 Co-Authored-By: <model-name> <noreply@anthropic.com>
@@ -79,7 +79,7 @@ Co-Authored-By: <model-name> <noreply@anthropic.com>
 
 ## Algorithm
 
-1. **Read staged diff.** `git diff --staged --stat` for the file shape; `git diff --staged` for content. If the stage is empty, do nothing — the caller halts with `[orchestra] ship: nothing staged`.
+1. **Read staged diff.** `git diff --staged --stat` for the file shape; `git diff --staged` for content. If the stage is empty, do nothing — caller halts (nothing to commit).
 2. **Pick type.** Walk the diff; choose the dominant change kind per the type table. If a single dominant type is unclear (mixed feat + fix), prefer `feat` if any feature was added; otherwise the higher-precedence type per spec rule 2.
 3. **Pick scope.** Default to the feature slug derived from `<feature-id>` paths in the diff. Fall back to the service name when the diff spans multiple features. Omit the scope (no parens) if neither applies.
 4. **Compose description.** Imperative-mood summary capturing the dominant change. Soft cap ≤72 chars for `git log --oneline` readability; no trailing period.

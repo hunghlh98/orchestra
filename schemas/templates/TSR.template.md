@@ -27,6 +27,6 @@ rev_round: 1
 
 ## Reviewer verdict <a id="S-REVIEW-001"></a>
 
-<!-- FILL (@reviewer): One-paragraph APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING summary + per-severity findings (Critical|Major|Minor|Nit) referencing file:line. Set frontmatter rev_verdict + rev_round. -->
+<!-- FILL (@reviewer): One-paragraph APPROVED|REQUEST_CHANGES|PENDING summary + per-severity findings (Critical|Major|Minor|Nit) referencing file:line. Set frontmatter rev_verdict + rev_round. -->
 
 <!-- FILL (@reviewer, ADR-touched only): ## ADR review subsection — verdict per ADR + findings. Omit subsection when no ADRs in this feature. -->

@@ -96,15 +96,15 @@ Below 80% → `rev_verdict: PENDING`. Below 60% → `PENDING` plus request `@lea
 
 Read `docs/<feature-id>/<feature-id>-TSR.md` (`S-EVAL-001` filled by `@evaluator`). Fill `S-REVIEW-001`:
 
-- One-paragraph verdict (APPROVED / ALLOW_WITH_GAP / REQUEST_CHANGES / PENDING) + per-severity findings table (Critical / Major / Minor / Nit) referencing `<file>:<line>` for each finding.
+- One-paragraph verdict (APPROVED / REQUEST_CHANGES / PENDING) + per-severity findings table (Critical / Major / Minor / Nit) referencing `<file>:<line>` for each finding.
 - If the feature touched ADRs, append a `## ADR review` subsection inside `S-REVIEW-001`; omit when no ADRs were touched.
 
-Set frontmatter `rev_verdict` (APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING) + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — single-writer invariant. The final `ship:` frontmatter value is computed by `/orchestra ship` from `eval_verdict` + `rev_verdict` + `local.yaml.tsr_gate_mode` (with `<feature-id>-DRAFT-COMPLETE.md` marker presence under deferred mode).
+Set frontmatter `rev_verdict` (APPROVED|REQUEST_CHANGES|PENDING) + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — single-writer invariant. After all TSR sections lock, the user commits by hand.
 
 ```markdown
 ## Reviewer verdict <a id="S-REVIEW-001"></a>
 
-<APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING> at confidence 0.<NN>. <one-paragraph summary>
+<APPROVED|REQUEST_CHANGES|PENDING> at confidence 0.<NN>. <one-paragraph summary>
 
 ### Critical
 - (none) | <one-line summary> at <file:line> — <rationale>
@@ -149,4 +149,4 @@ Diff: backend adds `POST /v1/transfer`, ~180 LOC across 3 files. Tests exist. La
 6. **Performance** — single DB call per request. No loops. Pass.
 7. **Confidence** — diff small (+20), tests exist (+20), java-development loaded (+20), openapi concrete (+20), evaluator agreed (+20) = **100%**.
 
-Verdict: **APPROVED** with one Minor finding. Fill `S-REVIEW-001` in `docs/001-foo/001-foo-TSR.md`. Set `rev_verdict: APPROVED`, `rev_round: 1`. Hand to `/orchestra ship`.
+Verdict: **APPROVED** with one Minor finding. Fill `S-REVIEW-001` in `docs/001-foo/001-foo-TSR.md`. Set `rev_verdict: APPROVED`, `rev_round: 1`. User commits the chain by hand.

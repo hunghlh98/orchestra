@@ -482,45 +482,67 @@ console.log("hooks.json matcher validation:");
   check(ok3.length === 0, `inverse: matcher="mcp__orchestra-.*" passes clean`);
 }
 
-// ---------- orchestra.md v4.0 decision-tree + chain-rigor + subcommand fixture ----------
-// Pins v4.0 surface: 4 locked decisions, chain-rigor presets, ship/report/resume
-// subcommands. Negative assertions guard against v3 vestiges being pasted back.
-console.log("orchestra.md v4.0 surface fixture:");
+// ---------- orchestra.md 4-subcommand surface fixture ----------
+// Pins the dispatcher surface: 4 subcommand shapes (empty / spec-to-code /
+// code-to-spec / <intent>), preflight hook contract, 3-question floor in the
+// intent router. Negative assertions guard against legacy shapes being pasted
+// back: chain-rigor presets, ship/report/resume/help subcommands, mode/depth/
+// chain_rigor decision-tree.
+console.log("orchestra.md 4-subcommand surface fixture:");
 {
   const orchestraPath = resolve(root, "commands/orchestra.md");
   const body = readFileSync(orchestraPath, "utf8");
 
-  // v4.0 surface (must contain)
-  check(/Decision tree/i.test(body), `commands/orchestra.md has Decision tree section`);
-  for (const decision of ["mode", "depth", "chain_rigor", "language"]) {
-    check(new RegExp(`\\b${decision}\\b`).test(body),
-      `commands/orchestra.md mentions locked decision: ${decision}`);
-  }
-  for (const rigor of ["Full", "Standard", "Light"]) {
-    check(body.includes(rigor), `commands/orchestra.md enumerates chain-rigor preset: ${rigor}`);
+  // Subcommand surface (must contain).
+  for (const sub of ["spec-to-code", "code-to-spec", "<intent>"]) {
+    check(body.includes(sub), `commands/orchestra.md documents subcommand surface: ${sub}`);
   }
   check(/AskUserQuestion/.test(body), `commands/orchestra.md references AskUserQuestion primitive`);
-  check(/local\.yaml/.test(body), `commands/orchestra.md documents local.yaml schema`);
-  check(/chain_rigor/.test(body), `commands/orchestra.md persists chain_rigor in local.yaml`);
-  for (const sub of ["/orchestra ship", "/orchestra report", "/orchestra resume", "/orchestra help"]) {
-    check(body.includes(sub), `commands/orchestra.md documents subcommand: ${sub}`);
+  check(/local\.yaml/.test(body), `commands/orchestra.md references local.yaml`);
+  check(/system\.yaml/.test(body), `commands/orchestra.md references system.yaml`);
+  check(/orchestra-preflight/.test(body), `commands/orchestra.md references the orchestra-preflight hook`);
+  check(/<orchestra-preflight>/.test(body), `commands/orchestra.md describes the preflight block contract`);
+  check(/reverse_authoring_mode/.test(body), `commands/orchestra.md documents reverse_authoring_mode field`);
+  for (const mode of ["cite-as-is", "copy-and-modify", "re-author"]) {
+    check(body.includes(mode), `commands/orchestra.md enumerates reverse_authoring_mode value: ${mode}`);
   }
-  check(/Coordination protocol/i.test(body), `commands/orchestra.md has Coordination protocol section`);
+  check(/3.*AskUserQuestion|three.*AskUserQuestion|at least three|minimum of three/i.test(body),
+    `commands/orchestra.md documents intent-router 3-question floor`);
+  check(/BR-AC|business-invariants\.md/.test(body),
+    `commands/orchestra.md references BR-AC and/or business-invariants.md`);
 
-  // v3 PAUSE-N terminology stays forbidden (gates moved to decision-tree prose).
-  for (let i = 1; i <= 4; i++) {
-    check(!body.includes(`PAUSE-${i}`), `commands/orchestra.md MUST NOT reference v3 PAUSE-${i}`);
+  // Legacy surface (must NOT contain — guard against paste-back).
+  for (const dead of ["chain_rigor", "/orchestra ship", "/orchestra report", "/orchestra resume", "/orchestra help",
+                       "tsr_gate_mode", "test_depth", "CSD"]) {
+    check(!body.includes(dead), `commands/orchestra.md MUST NOT reference legacy token: ${dead}`);
+  }
+  for (const rigor of ["Full chain", "Standard chain", "Light chain"]) {
+    check(!body.includes(rigor), `commands/orchestra.md MUST NOT enumerate chain-rigor preset: ${rigor}`);
   }
 
-  // v4.0.3 — autonomy + spawn_mode gates restored to dispatcher (smoke-test feedback).
+  // Workspace + scope enums (must enumerate new binary shape).
+  for (const wk of ["single-repo", "multi-repo"]) {
+    check(body.includes(wk), `commands/orchestra.md enumerates workspace_kind: ${wk}`);
+  }
+  for (const sl of ["system-wide", "per-service"]) {
+    check(body.includes(sl), `commands/orchestra.md enumerates scope_level: ${sl}`);
+  }
+  for (const dead of ["multi-service", "scope_level: service", "scope_level: container", "scope_level: capability"]) {
+    check(!body.includes(dead), `commands/orchestra.md MUST NOT reference dropped enum: ${dead}`);
+  }
+
+  // Autonomy + spawn_mode surface (CLI override flags + 5 enum tags).
   check(/--autonomy/.test(body), `commands/orchestra.md documents --autonomy CLI flag`);
   check(/--spawn-mode/.test(body), `commands/orchestra.md documents --spawn-mode CLI flag`);
   for (const tag of ["EXECUTION_ONLY", "JOINT_PROCESSING", "OPTION_SYNTHESIS", "DRAFT_AND_GATE", "FULL_AUTONOMY"]) {
     check(body.includes(tag), `commands/orchestra.md enumerates autonomy tag: ${tag}`);
   }
-  check(/spawn_mode/.test(body), `commands/orchestra.md asks for spawn_mode in decision tree`);
-  check(/autonomy\.level|autonomy:\s*\n\s*level/.test(body), `commands/orchestra.md persists autonomy.level in local.yaml schema`);
-  check(/autonomy-diagnostic\.md/.test(body), `commands/orchestra.md cites task-breakdown/references/autonomy-diagnostic.md as source for the suggestion`);
+  check(/spawn_mode/.test(body), `commands/orchestra.md references spawn_mode`);
+  check(/autonomy\.level|autonomy:\s*\n\s*level/.test(body), `commands/orchestra.md references autonomy.level`);
+
+  // Coordination + diagram surface.
+  check(/Coordination protocol/i.test(body), `commands/orchestra.md has Coordination protocol section`);
+  check(/diagrams:/.test(body), `commands/orchestra.md references diagrams: [...] relations array`);
 }
 
 // v4.2 — c4-architecture skill enforces consistent noun-based naming (layer prefix dropped).

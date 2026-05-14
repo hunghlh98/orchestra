@@ -28,11 +28,6 @@ Read-only. Frontmatter `disallowedTools` blocks Bash, Edit, MultiEdit. Authorize
 
 Shared rules: `commands/orchestra.md` 'Shared rules'.
 
-## Chain-rigor
-
-- `Full` / `Standard` — openapi `description:` criteria + FRS use cases.
-- `Light` — TDD acceptance section + existing test suite (regression-only).
-
 ## Skills
 
 Calibration auto-injected via `val-calibration` hook (reads `hooks/calibration/calibration-examples.md`). No explicit invocation.

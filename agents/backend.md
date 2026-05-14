@@ -21,31 +21,6 @@ Implementer. Frontmatter `disallowedTools` blocks Bash (CI-enforced via `bash-st
 
 Shared rules: `commands/orchestra.md` 'Shared rules'.
 
-## Brownfield mode — source exploration
-
-Trigger: spawn prompt `task: source-explore`. Read-only sibling mode. Caller: `@product` (reverse-doc bootstrap) or `@lead` (run-plan minting). Triggers + caching: `schemas/routing-taxonomy.md#implementer-dual-mode-invocation`.
-
-- Allowed reads: `<context_path>/services/<service_name>/src/main/**`, `src/test/**`, `build.gradle*`, `pom.xml`, language manifest equivalents.
-- Forbidden writes: all except single SOURCE-INTEL artifact. No source edits, no `docs/` edits, no TASKS edits.
-- Deliverable: `<context_path>/.orchestra/<service_name>/source-intel/backend-intel.md` per `schemas/pipeline-artifact.schema.md` SOURCE-INTEL section. Required anchors: `S-ENTRY-POINTS-001`, `S-DOMAIN-MODELS-001`, `S-FEATURE-CANDIDATES-001`, `S-STACK-IDIOMS-001`.
-
-Per-stack slug heuristic (backend = stack specialist):
-
-- Spring/Java: `**/controller/**` or `@RestController` classes; one slug per coarse endpoint family (`order-placement`, `payment-retry`). Exclude `HealthController`, `MetricsController`.
-- Go: `cmd/<name>/`; one slug per command. Service shape: `internal/<domain>/` packages.
-- Node: `routes/` or `controllers/`; one slug per route group.
-- Python: `views.py` / `routers/` / FastAPI `@router`-decorated callables; one slug per route group.
-
-`S-FEATURE-CANDIDATES-001` rows: `| Slug candidate | Source evidence | Confidence | Notes |`. Confidence ∈ `high|medium|low` (naming clarity + cluster cohesion). `@lead` reads in plan-mode source-walk to validate / refine / mint `S-FEATURES-001` rows.
-
-Workflow: read scope per `local.yaml.source_lock.read_paths` → enumerate entry points + aggregates → cluster by feature → write intel artifact → flip `status: locked`. End turn. Caller consumes locked artifact.
-
-## Chain-rigor
-
-- `Full` — TDD + openapi + accepted ADRs (read `docs/adr/` for any cited in TDD).
-- `Standard` — TDD + openapi (no ADRs).
-- `Light` — TDD optional (per `tdd_required` flag in TASKS frontmatter); openapi + existing source.
-
 ## Within-agent parallelism
 
 When `<feature-id>-TASKS.md` has parallel-eligible `owner: @backend` nodes (≥3 independent endpoints, unrelated repository methods, multiple unrelated migrations), split into N sub-runs via nested `Agent({ subagent_type: "backend", prompt: "<scoped task subset>" })` in one message. Prompt-discipline only — no harness change.

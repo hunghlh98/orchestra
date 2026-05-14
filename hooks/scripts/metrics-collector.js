@@ -911,13 +911,13 @@ function extractInsightsFromJsonl(jsonlPath) {
   return found;
 }
 
-// === UserPromptSubmit context line: phase + round_trip + source_lock ===
+// === UserPromptSubmit context line: phase + round_trip ===
 // Returns the single-line additionalContext string, or null when local.yaml
 // is absent / unreadable (greenfield pre-bootstrap stays silent). phase is
 // derived from events.jsonl (most recent pipeline.phase.start without a
-// matching pipeline.phase.end emitted by the lead agent); round_trip and
-// source_lock are sourced from local.yaml via line-match (no full YAML
-// parser, matching the rest of the file's parse strategy).
+// matching pipeline.phase.end emitted by the lead agent); round_trip is
+// sourced from local.yaml via line-match (no full YAML parser, matching the
+// rest of the file's parse strategy).
 function composeOrchestraContext(cwd) {
   const localPath = join(cwd, ".orchestra/local.yaml");
   const buf = safeRead(localPath, 65536);
@@ -925,8 +925,7 @@ function composeOrchestraContext(cwd) {
   const text = buf.toString("utf8");
   const phase = readActivePhase(join(cwd, ".orchestra/metrics/events.jsonl")) || "—";
   const roundTrip = matchField(text, /^round_trip:\s*([A-Z_]+)/m) || "—";
-  const sourceLock = extractFirstSourceLockReadPath(text) || "—";
-  return `[orchestra] phase: ${phase} | round_trip: ${roundTrip} | source_lock: ${sourceLock}`;
+  return `[orchestra] phase: ${phase} | round_trip: ${roundTrip}`;
 }
 
 // Active phase = most-recent pipeline.phase.start whose matching
@@ -956,25 +955,6 @@ function readActivePhase(eventsPath) {
     if (ts >= latestTs) { latest = p; latestTs = ts; }
   }
   return latest;
-}
-
-// Extract the first source_lock.read_paths entry from local.yaml content.
-// Format: "first-glob" when only one; "first-glob +N" when more. Returns
-// null when source_lock.read_paths is absent or empty. Tolerates quoted
-// and bare glob strings; ignores write_paths.
-function extractFirstSourceLockReadPath(text) {
-  const m = text.match(/^source_lock:\s*\n((?:\s+\S.*\n?)+)/m);
-  if (!m) return null;
-  const readBlock = m[1].match(/^\s+read_paths:\s*\n((?:\s+-\s.*\n?)*)/m);
-  if (!readBlock) return null;
-  const reads = [];
-  for (const line of readBlock[1].split("\n")) {
-    const lm = line.match(/^\s+-\s*"?([^"\n]+?)"?\s*$/);
-    if (lm) reads.push(lm[1].trim());
-  }
-  if (reads.length === 0) return null;
-  if (reads.length === 1) return reads[0];
-  return `${reads[0]} +${reads.length - 1}`;
 }
 
 // === Cost-by-phase aggregator (workspace-wide, regenerated at every Stop) ===

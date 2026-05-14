@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // hooks/scripts/pre-write-check.js
 // PreToolUse(Write|Edit|MultiEdit) hook. Gates run in order:
-//   secrets — exit 2 on detection
-//   Gate-D  — src/ cite denylist; exit 2 on hit when target is business src/
-//   Gate-A  — frontmatter `status: locked` rejects writes
-//   Gate-B  — frontmatter `sections:` map; reject if all sections locked
-//   Gate-C  — frontmatter `readers:` allowlist; non-blocking warning to stderr
+//   secrets         — exit 2 on detection
+//   Gate-D          — src/ cite denylist; exit 2 on hit when target is business src/
+//   Gate-D-inverse  — docs/ codebase-identifier denylist; exit 2 on hit when target is chain artifact under docs/
+//   Gate-A          — frontmatter `status: locked` rejects writes
+//   Gate-B          — frontmatter `sections:` map; reject if all sections locked
+//   Gate-C          — frontmatter `readers:` allowlist; non-blocking warning to stderr
 
 import { existsSync, readFileSync } from "node:fs";
 import { parse as parseYaml } from "../lib/yaml-mini.js";
@@ -46,6 +47,30 @@ const CITE_DENYLIST_RE = /(?:PRD|FRS|TDD|CONTRACT|TSR)\s*§\s*\d+|ADR-\d{4}\s*§
 const SRC_PATH_RE = /(^|\/)(src|app|cmd|pkg|internal|lib)\//;
 const SRC_EXEMPT_EXT_RE = /\.(md|yaml|yml|json|txt)$/i;
 
+// Gate-D-inverse — chain-artifact-under-docs codebase-identifier denylist.
+// Activates when the target is a chain artifact in docs/. Rejects src/** path
+// tokens (mirror of Gate-D), commit SHAs, branch names, repo URLs, and (for
+// PRD/FRS) fenced code blocks. Enforces the portability contract: docs/**/*.md
+// authored in project A must be valid as spec-to-code inputs in project B.
+const DOCS_PREFIX_RE = /(^|\/)docs\//;
+const DOCS_CHAIN_PRDFRS_RE = /-(?:PRD|FRS)\.md$/;
+const SRC_PATH_TOKEN_RE = /(?:^|[\s`(])(?:src|app|cmd|pkg|internal|lib)\/[\w./-]+/;
+const COMMIT_SHA_RE = /\b(?:commit|sha|hash|rev|revision)[:\s]+[0-9a-f]{7,40}\b/i;
+const BRANCH_RE = /\b(?:feature|release|hotfix|bugfix)\/[\w./-]+/;
+const REPO_URL_RE = /\b(?:github|gitlab|bitbucket)\.com\/[\w./-]+/i;
+const FENCED_CODE_RE = /^```[a-z0-9_-]*\s*$/i;
+
+function isChainArtifactUnderDocs(filePath) {
+  if (!DOCS_PREFIX_RE.test(filePath)) return false;
+  const base = filePath.split("/").pop();
+  if (/^.+-(?:PRD|FRS|TDD|TSR|BR-AC|openapi|asyncapi|clientapi)\.(?:md|yaml)$/.test(base)) return true;
+  if (base === "SAD.md") return true;
+  if (base === "business-invariants.md") return true;
+  if (/^ADR-\d{4}-.+\.md$/.test(base)) return true;
+  if (/^ADR-[a-z][a-z0-9-]*-\d{3}-.+\.md$/.test(base)) return true;
+  return false;
+}
+
 main();
 
 async function main() {
@@ -60,6 +85,7 @@ async function main() {
 
     runSecretsGate(content);
     runGateD(filePath, content);
+    runGateDInverse(filePath, content);
 
     if (filePath && existsSync(filePath)) {
       const fm = readFrontmatter(filePath);
@@ -110,6 +136,60 @@ function runGateD(filePath, content) {
   }
 }
 
+function runGateDInverse(filePath, content) {
+  if (!filePath) return;
+  if (!isChainArtifactUnderDocs(filePath)) return;
+  const isPRDorFRS = DOCS_CHAIN_PRDFRS_RE.test(filePath);
+  const lines = content.split(/\r?\n/);
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // (b) PRD/FRS fenced-code rejection — line-anchored ``` (with optional lang tag)
+    if (isPRDorFRS && FENCED_CODE_RE.test(line)) {
+      process.stderr.write(
+        `pre-write-check: gate-D-inverse (b) — fenced code block at line ${i + 1} forbidden in PRD/FRS. PRD/FRS describe behavior; inline backtick spans for type names are allowed.\n`
+      );
+      process.exit(2);
+    }
+
+    // Track fenced state for SAD/TDD/etc (allowed) — but we still scan their content for codebase identifiers
+    if (FENCED_CODE_RE.test(line)) { inFence = !inFence; continue; }
+
+    // (a) src/** path token rejection
+    const sm = line.match(SRC_PATH_TOKEN_RE);
+    if (sm) {
+      process.stderr.write(
+        `pre-write-check: gate-D-inverse (a) — codebase path token '${sm[0].trim()}' at line ${i + 1} forbidden under docs/. Docs must be project-portable; describe shapes domain-only.\n`
+      );
+      process.exit(2);
+    }
+
+    // (c) codebase-specific identifier rejection
+    const cm = line.match(COMMIT_SHA_RE);
+    if (cm && !inFence) {
+      process.stderr.write(
+        `pre-write-check: gate-D-inverse (c) — commit SHA '${cm[0].trim()}' at line ${i + 1} forbidden under docs/. Portability: docs must not pin to a specific repo state.\n`
+      );
+      process.exit(2);
+    }
+    const bm = line.match(BRANCH_RE);
+    if (bm) {
+      process.stderr.write(
+        `pre-write-check: gate-D-inverse (c) — branch name '${bm[0]}' at line ${i + 1} forbidden under docs/.\n`
+      );
+      process.exit(2);
+    }
+    const rm = line.match(REPO_URL_RE);
+    if (rm) {
+      process.stderr.write(
+        `pre-write-check: gate-D-inverse (c) — repo URL '${rm[0]}' at line ${i + 1} forbidden under docs/.\n`
+      );
+      process.exit(2);
+    }
+  }
+}
+
 function runGateA(filePath, fm) {
   if (fm.status === "locked") {
     process.stderr.write(
@@ -136,9 +216,9 @@ function runGateB(filePath, fm) {
 function runGateC(filePath, fm) {
   if (!Array.isArray(fm.readers) || fm.readers.length === 0) return;
   // Soft enforcement; non-blocking. The reporter aggregates these warnings
-  // into the readers-violations summary at /orchestra report time.
+  // when summarising readers-violations.
   process.stderr.write(
-    `pre-write-check: gate-C — readers-scope: ${filePath} readers=[${fm.readers.join(",")}] (non-blocking; reporter cross-checks at /orchestra report).\n`
+    `pre-write-check: gate-C — readers-scope: ${filePath} readers=[${fm.readers.join(",")}] (non-blocking).\n`
   );
 }
 

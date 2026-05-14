@@ -27,7 +27,7 @@ Write-side triggers:
 - `@backend` is adding new Java source under `src/main/java/**` or tests under `src/test/java/**`.
 - A diff hunk introduces or modifies an `@Entity`, `@Service`, `@RestController`, repository, or DTO.
 
-Skip on non-Java projects. `project-discovery` should have flagged the language; if `primary_language != "java"`, return a no-op.
+Skip on non-Java projects. Read `local.yaml.primary_language`; if `primary_language != "java"`, return a no-op.
 
 ---
 

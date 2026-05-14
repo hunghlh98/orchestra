@@ -59,7 +59,7 @@ Edges are unidirectional: `A → B` means B starts after A completes.
 - **Spec → impl** — PRD/FRS/CONTRACT precede backend/frontend/test code.
 - **Impl → verdict** — implementer-tier task → `@evaluator` task that grades it.
 - **Verdict → review** — `@evaluator` PASS → `@reviewer` task.
-- **Review → ship** — `@reviewer` APPROVED → user invokes `/orchestra ship` (manual; not a task-graph node).
+- **Review → commit** — `@reviewer` APPROVED → user commits by hand (manual; not a task-graph node).
 
 Avoid implicit ordering ("backend ships before frontend by tradition"). Make every dependency explicit so the wave team (Pattern C) can parallelize correctly.
 

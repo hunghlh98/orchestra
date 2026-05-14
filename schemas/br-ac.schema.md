@@ -9,7 +9,7 @@ scope: shape of `<context_path>/docs/<service_name>/<service_name>-BR-AC.md` (pe
 
 # orchestra BR-AC schema
 
-Per-service singleton holding the service's business rules, acceptance criteria, and implementer-only invariants. Replaces CSD's role with a sharper, BR-AC-only mandate. Authored by `@architect` (system-wide reverse pass) or as a side-effect of `@product`'s first feature in a service (forward chain).
+Per-service singleton holding the service's business rules, acceptance criteria, and implementer-only invariants. Authored by `@architect` (system-wide reverse pass) or as a side-effect of `@product`'s first feature in a service (forward chain).
 
 In the C4 mental model: system-level SAD covers C1+C2 (project-wide containers); per-feature TDDs cover C3 components. BR-AC carries the cross-feature business contract for one service.
 

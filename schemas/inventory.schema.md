@@ -58,10 +58,10 @@ Required anchors:
 
 - `S-SCAN-001` — `## Scan` — depth-limited `tree -L N` output.
 - `S-CLASSIFICATION-001` — `## Classification` — `| Path | Bucket | Confidence | Detected as |`. Bucket ∈ `plugin-equivalent | out-of-taxonomy | redundant | stale`. Confidence ∈ `HIGH | LOW | —`.
-- `S-DECISIONS-001` — `## Decisions` — `| Path | Bucket | Action | Target |`. Action ∈ `migrate-as-regen-seed | keep-as-legacy-reference | fold-into-CSD | fold-into-PRD | fold-into-FRS | fold-into-TDD | fold-into-ADR | archive | discard`.
+- `S-DECISIONS-001` — `## Decisions` — `| Path | Bucket | Action | Target |`. Action ∈ `migrate-as-regen-seed | keep-as-legacy-reference | fold-into-BR-AC | fold-into-business-invariants | fold-into-PRD | fold-into-FRS | fold-into-TDD | fold-into-ADR | archive | discard`.
 - `S-WARNINGS-001` — `## Warnings` — `| Path | Warning |`.
 
-Per-service shape (invariants, frozen contract surface, owned schema, sub-capability index) lives in the per-service CSD (`<context_path>/docs/<service_name>/<service_name>-CSD.md`) — NOT in inventory. The `S-DECISIONS-001` `fold-into-CSD` action routes legacy material describing service-wide invariants or contract surfaces into the matching CSD anchor at `@architect`'s CSD authoring time.
+Per-service business shape (BRs, ACs, INVs) lives in the per-service BR-AC (`<context_path>/docs/<service_name>/<service_name>-BR-AC.md`) — NOT in inventory. Cross-service business invariants live in workspace `docs/business-invariants.md`. The `S-DECISIONS-001` `fold-into-BR-AC` and `fold-into-business-invariants` actions route legacy material into the matching artifact at `@architect`'s authoring time.
 
 Per-service feature lists live in the per-service run-plan (`<context_path>/.orchestra/<service_name>/run-plan.md`) `S-FEATURES-001` — authored by `@lead` after the workspace inventory is `user_gate: accepted`.
 

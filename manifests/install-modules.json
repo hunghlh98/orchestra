@@ -44,6 +44,13 @@
       "stability": "stable"
     },
     {
+      "name": "hook.orchestra-preflight",
+      "kind": "hook",
+      "path": "hooks/scripts/orchestra-preflight.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
       "name": "mcp.orchestra-fs",
       "kind": "mcp",
       "path": "scripts/mcp-servers/orchestra-fs.js",

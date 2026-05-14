@@ -29,7 +29,13 @@
       "module": "hook.post-write-puml",
       "envVar": "ORCHESTRA_HOOK_POST_WRITE_PUML",
       "default": "on",
-      "description": "Renders .puml → .svg via plantuml CLI on PostToolUse(Write|Edit|MultiEdit). Non-blocking; warns to stderr when render fails or sibling .md lacks the expected ![..](diagrams/<name>.svg) reference."
+      "description": "Renders .puml → .svg via plantuml CLI on PostToolUse(Write|Edit|MultiEdit). Non-blocking; warns to stderr when the puml id is not declared in any sibling SAD/TDD frontmatter `diagrams: [...]` array."
+    },
+    {
+      "module": "hook.orchestra-preflight",
+      "envVar": "ORCHESTRA_HOOK_PREFLIGHT",
+      "default": "on",
+      "description": "On UserPromptSubmit, when the prompt starts with `/orchestra`, emits an <orchestra-preflight> YAML block to additional context: mode (greenfield/brownfield), workspace_kind, service_name, scope_level, cached fields, missing_fields, docs provenance, CLAUDE.md state. The dispatcher reads it to skip already-resolved bootstrap prompts."
     },
     {
       "module": "hook.agent-plan-sync",

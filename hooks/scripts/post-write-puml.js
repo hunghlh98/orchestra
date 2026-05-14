@@ -4,8 +4,9 @@
 //
 // On PostToolUse(Write|Edit|MultiEdit) targeting a *.puml file, invoke the
 // plantuml CLI to produce a paired .svg next to the source. After rendering,
-// scan the embedding markdown directory for a matching `![...](diagrams/<name>.svg)`
-// line; emit a non-blocking stderr warning when missing.
+// check the parent dir's *.md frontmatter for a `diagrams: [...]` array
+// listing the puml's stable id; emit a non-blocking stderr warning when the
+// puml is not declared as a sub-artifact of any sibling SAD/TDD.
 //
 // PostToolUse hooks are observers — never blocks the write. plantuml binary
 // resolution: PLANTUML_JAR env var → ~/plantuml.jar → `plantuml` on PATH.
@@ -17,6 +18,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, basename, join, extname } from "node:path";
 import { homedir } from "node:os";
+import { parse as parseYaml } from "../lib/yaml-mini.js";
 
 const NAME = "ORCHESTRA_HOOK_POST_WRITE_PUML";
 
@@ -49,20 +51,25 @@ async function main() {
       process.exit(0);
     }
 
-    // Check parent markdown(s) for a paired ![..](diagrams/<name>.svg) line.
-    // The convention is <feature-dir>/diagrams/<name>.puml embedded by
-    // <feature-dir>/<TYPE>-NNN.md (or by docs/SAD.md for project-level).
+    // Check the puml's stable id against `diagrams: [...]` frontmatter on
+    // sibling SAD/TDD markdown(s). Convention: <feature-dir>/diagrams/<id>.puml
+    // is declared in <feature-dir>/<TYPE>-NNN.md frontmatter as
+    //   diagrams: [<id>, ...]
+    // (system-level SAD lives at docs/SAD.md with diagrams: alongside).
     const diagramsDir = dirname(filePath);
     const parentDir = dirname(diagramsDir);
-    const svgName = basename(svgPath);
-    const expectedRef = `diagrams/${svgName}`;
+    const pumlId = basename(filePath, ".puml");
 
     let referenced = false;
     try {
       for (const f of readdirSync(parentDir)) {
         if (!f.endsWith(".md")) continue;
         const md = readFileSync(join(parentDir, f), "utf8");
-        if (md.includes(expectedRef)) {
+        const fmMatch = md.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        if (!fmMatch) continue;
+        let fm = null;
+        try { fm = parseYaml(fmMatch[1]); } catch { continue; }
+        if (Array.isArray(fm?.diagrams) && fm.diagrams.includes(pumlId)) {
           referenced = true;
           break;
         }
@@ -72,7 +79,7 @@ async function main() {
     }
 
     if (!referenced) {
-      process.stderr.write(`post-write-puml: warning — ${svgPath} not referenced via ![..](${expectedRef}) in any sibling .md (non-blocking)\n`);
+      process.stderr.write(`post-write-puml: warning — ${pumlId} not listed in any sibling SAD/TDD frontmatter \`diagrams: [...]\` array (non-blocking)\n`);
     }
 
     process.exit(0);
