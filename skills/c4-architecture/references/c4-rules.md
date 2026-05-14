@@ -186,3 +186,103 @@ UpdateRelStyle("from", "to", $textColor="blue", $lineColor="blue", $offsetX="5",
 ```
 
 `$offsetX` / `$offsetY` fix overlapping relationship labels when the auto-layout collides them.
+
+## Zoom-continuity counter-examples
+
+The Step 1b protocol in `SKILL.md` lays out the four mandatory actions; the two counter-examples below show what happens when steps 2 + 3 are skipped. Labels are abstract placeholders (`<system-name>`, `<container-A>`, `<actor-A>`) — substitute your actual domain at authoring time. Do NOT copy `<...>` placeholders into `.puml` source.
+
+### L1 → L2 trap
+
+L1 (`c4-context.puml`) declares one system, two persons crossing the seam, and two external systems:
+
+```plantuml
+System(systemX, "<system-name>", "<short description>")
+Person(actorA, "<actor-A>", "<role>")
+Person(actorB, "<actor-B>", "<role>")
+System_Ext(extX, "<external-X>", "<description>")
+System_Ext(extY, "<external-Y>", "<description>")
+
+Rel(actorA, systemX, "<action>", "<protocol>")
+Rel(actorB, systemX, "<action>", "<protocol>")
+Rel(systemX, extX, "<action>", "<protocol>")
+Rel(systemX, extY, "<action>", "<protocol>")
+```
+
+**WRONG L2** (fast-pass authoring; the structural failure to avoid):
+
+```plantuml
+Person(actorA, "<actor-A>", "<role>")
+' actorB SILENTLY DROPPED — Step 3 violated
+System_Ext(extX, ...)
+' ... other externals ...
+
+Container_Boundary(tier1, "<tier-1>") {   ' Step 2 violated: Container_Boundary misused at L2
+    Container(svc1, "<container-1>", "<tech>", "<responsibility>")
+}
+Container_Boundary(tier2, "<tier-2>") {   ' L1 system identity vanished — no System_Boundary("<system-name>")
+    Container(svc2, "<container-2>", "<tech>", "<responsibility>")
+    Container(svc3, "<container-3>", "<tech>", "<responsibility>")
+}
+```
+
+Three failures stacked: (a) no `System_Boundary("<system-name>")` carrying the L1 name → system identity vanishes at L2; (b) `Person(actorB)` dropped without justification → seam drift; (c) `Container_Boundary` misused for L2 sub-grouping → wrong macro for the level.
+
+**RIGHT L2:**
+
+```plantuml
+Person(actorA, "<actor-A>", "<role>")
+Person(actorB, "<actor-B>", "<role>")     ' carried verbatim from L1
+System_Ext(extX, ...)
+System_Ext(extY, ...)                     ' all L1 externals carried verbatim
+
+System_Boundary(systemX, "<system-name>") {    ' L1 system name verbatim; id matches L1 System() id
+    Boundary(tier1, "<tier-1>", "tier") {
+        Container(svc1, "<container-1>", "<tech>", "<responsibility>")
+    }
+    Boundary(tier2, "<tier-2>", "tier") {
+        Container(svc2, "<container-2>", "<tech>", "<responsibility>")
+        Container(svc3, "<container-3>", "<tech>", "<responsibility>")
+    }
+    ContainerQueue(broker, "<broker>", "<tech>", "<purpose>")
+    ContainerDb(db, "<db>", "<tech>", "<purpose>")
+}
+```
+
+Reader scrolling L1 → L2 sees `systemX` on L1 → `System_Boundary("<system-name>")` on L2 → identical actor list across the seam. The zoom trace is intact.
+
+### L2 → L3 trap
+
+L2 (`c4-container.puml`) declares `Container(svcA, "<container-A>", "<tech>", "<responsibility>")` and shows `svcB`, `svcC`, `svcD` as siblings calling into or being called from `svcA`.
+
+**WRONG L3** (`c4-component.puml` for the `svcA` service):
+
+```plantuml
+System_Boundary(svcASystem, "<container-A> service") {   ' wrong macro (System_Boundary at L3) AND name diverges from L2
+    Component(comp1, "<component-1>", "<tech>", "<responsibility>")
+    Component(comp2, "<component-2>", "<tech>", "<responsibility>")
+    Component(comp3, "<component-3>", "<tech>", "<responsibility>")
+}
+' L2 siblings (svcB, svcC, svcD) SILENTLY DROPPED
+```
+
+Three failures stacked: (a) `System_Boundary` instead of `Container_Boundary` → wrong macro for L3; (b) name `"<container-A> service"` ≠ L2 name `"<container-A>"` → boundary label drift; (c) every L2 sibling that crossed the boundary into `svcA` was dropped → reader cannot see callers or callees.
+
+**RIGHT L3:**
+
+```plantuml
+Container(svcB, "<container-B>", "<tech>", "<responsibility>")    ' carried verbatim from L2 (caller of svcA)
+Container(svcC, "<container-C>", "<tech>", "<responsibility>")    ' carried verbatim from L2 (called by svcA)
+Container(svcD, "<container-D>", "<tech>", "<responsibility>")
+
+Container_Boundary(svcA, "<container-A>") {              ' L2 container name verbatim; id matches L2 Container() id
+    Component(comp1, "<component-1>", "<tech>", "<responsibility>")
+    Component(comp2, "<component-2>", "<tech>", "<responsibility>")
+    Component(comp3, "<component-3>", "<tech>", "<responsibility>")
+}
+
+Rel(svcB, comp1, "<action>", "<protocol>")
+Rel(comp2, svcC, "<action>", "<protocol>")
+Rel(comp3, svcD, "<action>", "<protocol>")
+```
+
+Reader scrolling L2 → L3 sees `svcA` highlighted on L2 → `Container_Boundary("<container-A>")` on L3 → identical seam-crossing siblings on both sides. The zoom trace is intact at L3 the same way it is at L2.
