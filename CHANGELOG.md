@@ -6,7 +6,48 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-(no entries yet — placeholder for post-4.2.0 work)
+(no entries yet)
+
+## [4.3.0] — 2026-05-14
+
+Minor release: post-v4.2 hardening across consumer-surface discipline, brownfield workflow, and artifact-grain rules. PRD/FRS gain business-rule anchors (BR/AC) and a tech-leakage prohibition; FRS use-case diagrams require an end-user actor; C4 placement moves L3/L4 into service folders with parent→child zoom continuity enforced. CSD becomes living service-grain state (no feature attribution; `S-CONTRACT-001` dropped, stability shifts to the `.yaml` extension). ADRs split global vs service-scoped, gated by a three-test worthiness check. Brownfield source-explore dual-modes implementers, mints `S-FEATURES-001` rows at user-journey grain, and folds slug-minting into the inventory accept; `local.yaml` lock flip is now atomic. Cost-tier toggles let evaluator/reviewer run on Sonnet 4.6 with a `verdict_mode` opt-back to Opus. `validate.js` adds version-stamp, phase-tag, and hook-parity predicates; `bootstrap-consumer-claude-md` moves to `hooks/lib/` for the hook-dir contract. `S-OPEN-Q-001` is dropped — open questions become a hard-pause before lock, not an artifact anchor. Workflow doc updated to commit-derived CHANGELOG aligned with Conventional Commits 1.0.0.
+
+### Added
+
+- **`clientapi.yaml`** — consumer-side OpenAPI doc for outbound HTTP dependencies (companion to `openapi.yaml` for inbound surface). Implementers author one per service in brownfield + greenfield.
+- **BR/AC anchors** — `S-BR-001` (business rules) + `S-AC-001` (acceptance criteria) on PRD (system grain) and FRS (service grain). Anchors complement the existing chain instead of replacing it.
+- **Three-gate ADR worthiness test** in `skills/write-adr/SKILL.md` — routes a decision to ADR vs lighter artifact (inline note, CSD invariant, FRS anchor). Prevents ADR sprawl on every routine choice.
+- **Brownfield source-explore dual mode** — implementers (`@be`, `@fe`, etc.) run an exploratory pass before drafting, producing an `intel` artifact captured under the run. `S-FEATURES-001` rows mint at user-journey grain (not technical grain) and slug-minting folds into the inventory user-accept.
+- **`verdict_mode` toggle** on `local.yaml` — `cost` (default; evaluator + reviewer on Sonnet 4.6) vs `quality` (Opus 4.7). Verdict-tier downgrade is opt-out, not opt-in.
+- **`validate.js` predicates** — `findVersionStamps` (catches `v4.X`-style stamps + migration narration in consumer surface), phase-tag presence on `Agent({...})` spawns, hook-parity between `hooks/scripts/` and `hooks/lib/`. All wired into the main walk.
+- **End-user actor requirement** on every FRS use-case PlantUML diagram — caught a class of diagrams that drew internal-call flows masquerading as use cases.
+- **C4 parent→child zoom continuity** rule — every child diagram must zoom into a parent container/component; orphan diagrams fail diagram-lint.
+
+### Changed
+
+- **CSD lifecycle → living service-grain state.** `<service_name>-CSD.md` no longer attributes lines to features; it represents the *current* shape of the service. Feature-diff context moves to line comments on C4-L3/L4 diagrams.
+- **C4-L3/L4 placement** — diagrams live under `docs/<service_name>/diagrams/` (not the feature folder), with feature-diff line comments tagging what changed per pipeline run.
+- **ADR scope split** — global ADRs at `docs/decisions/`, service-scoped ADRs at `docs/<service_name>/decisions/`. The worthiness gate routes a decision to one or the other.
+- **PRD/FRS discipline** — body MUST NOT contain tech-leakage (framework names, library choices, infra terms). Tech choices belong in TDD / ADR / CSD, never in product or functional prose.
+- **Agents** — minimal-lift persona graft (each role gains a short voice block without bloating the system prompt), phase-tag emission canonical rule consolidated, tone hits added, routing taxonomy unified across `commands/orchestra.md` and per-agent prompts.
+- **Hooks dir contract** — `bootstrap-consumer-claude-md` moved from `hooks/scripts/` to `hooks/lib/` (it's a library imported by other handlers, not a top-level event handler). `validate.js` enforces the script/lib split.
+- **Agent frontmatter** — `context_mode` aligned across `agents/*.md`; `agents/test.md` description tightened.
+- **Implementer model tier** — downgraded to Sonnet 4.6 (was Opus 4.7) for cost; quality-mode opt-in still routes Opus.
+- **Manifests** — `agent-plan-sync` registered in `manifests/install-modules.json`.
+- **`commands/orchestra.md` consumer-surface scrub** — version stamps + migration narration removed (matches the no-version-stamps rule in CLAUDE.md).
+- **Release workflow doc** — `docs/sdlc_knowledge.md` aligned with Conventional Commits 1.0.0; CHANGELOG is now explicitly commit-derived (group by type, compute SemVer as max).
+
+### Removed
+
+- **`S-OPEN-Q-001` anchor** from PRD/FRS — open questions no longer materialize as a chain artifact. Authoring agents hard-pause and surface unresolved questions in the approval dialogue before lock; once locked, no open-question anchor persists. (Breaking for any consumer that referenced `S-OPEN-Q-001` cells — none exist in blank installs.)
+- **`S-CONTRACT-001` anchor** from CSD — contract stability moves to file extension semantics (`.yaml` = stable, `.draft.yaml` = drafting). The anchor was double-bookkeeping with the OpenAPI file itself.
+
+### Fixed
+
+- **Brownfield inventory accept** — `local.yaml` lock flip is atomic on user-accept (was previously two writes with a window where lock was unset but mode was committed).
+- **Consumer-surface version stamps** — removed lingering `v4.0` / `v4.2` stamps and migration narration ("X is GONE in v4.Y") missed by the v4.2.0 scrub.
+
+---
 
 ## [4.2.0] — 2026-05-13
 
