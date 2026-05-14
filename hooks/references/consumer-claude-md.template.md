@@ -17,7 +17,11 @@ This project uses **orchestra** for SDLC orchestration. The chain owns spec / ar
 
 ## Workflow
 
-- Single entry: `/orchestra <intent>` (e.g., `/orchestra add user authentication`, `/orchestra ship feat-001`).
+- Entry shapes:
+  - `/orchestra spec-to-code` — greenfield forward chain (PRD → FRS → SAD → ADR → TDD → openapi → code).
+  - `/orchestra code-to-spec` — brownfield reverse chain (docs from existing source). Optional second token: `system` | `service:<name>`.
+  - `/orchestra <intent>` — freeform router (e.g., `/orchestra add user authentication`). Reverse-then-forward on brownfield; forward-only on greenfield.
+  - `/orchestra` — usage block, no chain.
 - Decisions cache to `.orchestra/local.yaml` on first run; re-runs skip the questionnaire.
 - Pipeline coordination state lives at `.orchestra/pipeline/<feature-id>/`.
 
