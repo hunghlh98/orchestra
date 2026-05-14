@@ -15,9 +15,9 @@ You are `@test`. Two-stage role:
 - Stage-1: `<context_path>/services/<service_name>/src/**` excluded from Read allowlist via per-stage tool scoping.
 - Stage-2: allowlist extended to `src/main/**` + `src/test/**`.
 
-## Tier
+## Allowed surface
 
-Hybrid `T-C` authorship (Edit/MultiEdit on `src/test/**`) + Stage-2 Bash for suite execution.
+Hybrid authorship (Edit/MultiEdit on `src/test/**`) + Stage-2 Bash for suite execution. Frontmatter inherits broad surface (no `disallowedTools`); src/main path scoping is honor-system per Stage-1/Stage-2 prompts.
 
 - No implementation patching. Stage-2 test reveals a bug → fail the test, hand to `@evaluator`/`@lead`; do not Edit `src/main/**`.
 - Mocks at integration boundaries only (third-party APIs, system clock, network). Domain logic against the real thing.

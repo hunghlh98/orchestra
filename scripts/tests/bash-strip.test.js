@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 // scripts/tests/bash-strip.test.js
-// Implementer-tier Bash strip enforcement.
-// Hard-coded set: agents named in IMPLEMENTER_AGENTS MUST NOT have `Bash`
-// in their `tools` array. Mutation test verifies the validator fails red
-// when an implementer gains Bash.
+// Implementer Bash-strip enforcement.
+// Hard-coded set: agents named in IMPLEMENTER_AGENTS MUST deny Bash. Their
+// authority stops at the source diff; Bash escalation goes through @test
+// (Stage-2 suite execution) or @reviewer (read-only static analysis).
 //
-// v4.0: @test moved from T-C (no Bash) to T-D (Bash + Edit/MultiEdit) so
-// Stage-2 can execute the test suite. @backend and @frontend remain
-// strip-bashed — their authority stops at the source diff.
+// Frontmatter shape: either declare `tools` (allowlist) without Bash, OR
+// declare `disallowedTools` (denylist) with Bash included. Mutation test
+// verifies the validator fails red when an implementer gains Bash.
 
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseAgentFrontmatter } from "./agents.test.js";
+import { parseAgentFrontmatter, normalizeToolList } from "./agents.test.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const agentsDir = resolve(root, "agents");
@@ -27,14 +27,18 @@ function check(cond, msg) {
   else { failures++; console.error(`  FAIL: ${msg}`); }
 }
 
-export function hasBash(toolsArray) {
-  return Array.isArray(toolsArray) && toolsArray.includes("Bash");
-}
-
 export function assertNoBashIfImplementer(name, fm) {
   if (!IMPLEMENTER_AGENTS.has(name)) return null;
-  if (hasBash(fm.tools)) {
-    return `agent '${name}' is in implementer tier (T-C); Bash MUST NOT appear in tools (got ${JSON.stringify(fm.tools)})`;
+  const tools = normalizeToolList(fm.tools);
+  const disallowed = normalizeToolList(fm.disallowedTools);
+  if (tools !== null && tools.includes("Bash")) {
+    return `implementer agent '${name}' must deny Bash: found Bash in tools allowlist (${JSON.stringify(tools)})`;
+  }
+  if (disallowed !== null && !disallowed.includes("Bash")) {
+    return `implementer agent '${name}' must declare Bash in disallowedTools (got ${JSON.stringify(disallowed)})`;
+  }
+  if (tools === null && disallowed === null) {
+    return `implementer agent '${name}' must declare either tools (without Bash) or disallowedTools (with Bash); both missing`;
   }
   return null;
 }
@@ -63,25 +67,29 @@ for (const file of files) {
   check(violation === null, violation || `agents/${file}: Bash absent ✓`);
 }
 
-// === Mutation test: T-C agent with Bash MUST be flagged ===
+// === Mutation test: implementer agent with Bash MUST be flagged ===
 console.log("Mutation test (validator must fail red when implementer gains Bash):");
 {
+  // Allowlist form: implementer with Bash in tools → violation
   const mutatedTools = ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit", "Bash"];
   const violation = assertNoBashIfImplementer("backend", { tools: mutatedTools });
-  check(violation !== null && /Bash MUST NOT appear/.test(violation),
+  check(violation !== null && /must deny Bash.*Bash in tools allowlist/.test(violation),
     `mutation: backend with Bash in tools is flagged`);
 
-  // Inverse: a T-A agent (evaluator/reviewer) with Bash is FINE
-  const evaluatorOk = assertNoBashIfImplementer("evaluator", {
+  // Denylist form: implementer with disallowedTools missing Bash → violation
+  const missingBan = assertNoBashIfImplementer("backend", { disallowedTools: ["Edit", "MultiEdit"] });
+  check(missingBan !== null && /must declare Bash in disallowedTools/.test(missingBan),
+    `mutation: backend with disallowedTools missing Bash is flagged`);
+
+  // Inverse: a non-implementer (e.g., reviewer) with Bash is FINE
+  const reviewerOk = assertNoBashIfImplementer("reviewer", {
     tools: ["Read", "Grep", "Glob", "Bash", "Write"],
   });
-  check(evaluatorOk === null, `inverse: evaluator (T-A) with Bash is allowed`);
+  check(reviewerOk === null, `inverse: reviewer (non-implementer) with Bash is allowed`);
 
-  // Inverse: a T-B agent (product/lead/ship) with no Bash is FINE
-  const productOk = assertNoBashIfImplementer("product", {
-    tools: ["Read", "Grep", "Glob", "Write"],
-  });
-  check(productOk === null, `inverse: product (T-B) without Bash is allowed`);
+  // Inverse: implementer with denylist containing Bash is FINE
+  const backendDenylistOk = assertNoBashIfImplementer("backend", { disallowedTools: ["Bash"] });
+  check(backendDenylistOk === null, `inverse: backend with Bash in disallowedTools is allowed`);
 }
 
 if (failures > 0) {

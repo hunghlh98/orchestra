@@ -69,7 +69,7 @@ export function normalizeToolList(val) {
 export function parseAgentFrontmatter(fmText) {
   const out = {};
   for (const line of fmText.split("\n")) {
-    const m = line.match(/^([a-z_]+):\s*(.*)$/);
+    const m = line.match(/^([a-zA-Z_]+):\s*(.*)$/);
     if (!m) continue;
     const key = m[1];
     let val = m[2].trim();
