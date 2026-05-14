@@ -652,17 +652,15 @@ for (const r of ["agents", "commands", "skills", "schemas", "hooks/calibration",
   }
 }
 
-// Hook-to-manifest parity. Scope: scripts wired by hooks/hooks.json (the real
-// hook handlers), not every .js in hooks/scripts/ — that directory may also
-// hold command-invoked utilities (e.g., bootstrap-consumer-claude-md.js)
-// which are not hooks and don't belong in install-modules.json as `kind: hook`.
+// Hook-to-manifest parity. Every .js under hooks/scripts/ must register in
+// manifests/install-modules.json with kind: 'hook'. Shared utilities live in
+// hooks/lib/ — keep hooks/scripts/ as a directory-as-contract: everything
+// here is a hook handler.
 {
-  const hooksJsonPath = resolve(root, "hooks/hooks.json");
-  if (existsSync(hooksJsonPath) && installModules && Array.isArray(installModules.modules)) {
-    const hooksJsonRaw = readFileSync(hooksJsonPath, "utf8");
-    const wired = new Set();
-    hooksJsonRaw.replace(/hooks\/scripts\/([\w-]+\.js)/g, (_, f) => { wired.add(f); return _; });
-    for (const e of findHookManifestParity([...wired], installModules.modules)) errors.push(e);
+  const hooksDir = resolve(root, "hooks/scripts");
+  if (existsSync(hooksDir) && installModules && Array.isArray(installModules.modules)) {
+    const scripts = readdirSync(hooksDir).filter(f => f.endsWith(".js"));
+    for (const e of findHookManifestParity(scripts, installModules.modules)) errors.push(e);
   }
 }
 
