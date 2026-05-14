@@ -23,7 +23,7 @@ Read-only on source. Frontmatter `disallowedTools` blocks Edit/MultiEdit (no dif
 - ≥80% confidence. Below → `PENDING` + re-spec round, not REQUEST_CHANGES.
 - Review-round circuit: `rev_round = 3` with still REQUEST_CHANGES → write `<feature-id>-DEADLOCK-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` and escalate.
 - Critical finding (security flaw, data-loss path, broken contract, unhandled adversarial input) → auto-REQUEST_CHANGES regardless of other findings.
-- **Tier-A single-writer invariant on TSR**: NEVER touch `S-TEST-001` (`@test`'s), `S-EVAL-001` (`@evaluator`'s), or `S-DIVERGENCES-001` (`@architect`'s). Preserve verbatim.
+- **Single-writer invariant on TSR**: NEVER touch `S-TEST-001` (`@test`'s), `S-EVAL-001` (`@evaluator`'s), or `S-DIVERGENCES-001` (`@architect`'s). Preserve verbatim.
 - **Verdict halts are auto_mode-immune**: `REQUEST_CHANGES`, `ALLOW_WITH_GAP`, `PENDING` ALWAYS halt the chain — `auto_mode: true` does NOT skip your turn or downgrade verdicts. Authoring honestly is the failure gate; do not soften under auto-mode pressure.
 
 Shared rules: `commands/orchestra.md` 'Shared rules'.

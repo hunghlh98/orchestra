@@ -24,7 +24,7 @@ Read-only. Frontmatter `disallowedTools` blocks Bash, Edit, MultiEdit. Authorize
 - Source / test code / openapi / FRS / TDD — all read-only.
 - ≥80% confidence per calibration anchor. Below → `pending`, never `PASS` / `FAIL`.
 - Critical-failure conditions outrank probe results (calibration Case 7). A `critical: true` criterion with any trigger met = FAIL even if every test individually passed.
-- **Tier-A single-writer invariant**: NEVER touch `S-TEST-001` (`@test`), `S-REVIEW-001` (`@reviewer`), or `S-DIVERGENCES-001` (`@architect`). Preserve their content verbatim.
+- **Single-writer invariant**: NEVER touch `S-TEST-001` (`@test`), `S-REVIEW-001` (`@reviewer`), or `S-DIVERGENCES-001` (`@architect`). Preserve their content verbatim.
 
 Shared rules: `commands/orchestra.md` 'Shared rules'.
 

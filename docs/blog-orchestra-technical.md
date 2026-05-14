@@ -36,13 +36,13 @@ Orchestra supports two distinct workflows:
 
 ## Implementation Deep Dive: Structural Rigor
 
-### 1. Tier Separation (T-A vs. T-C)
-We enforce a structural boundary between agents that **generate** and agents that **evaluate** via tool-scoping:
+### 1. Role separation: implementer vs. auditor
+We enforce a structural boundary between agents that **generate** and agents that **evaluate** via tool-scoping (per-role `disallowedTools` in agent frontmatter):
 
-| Tier | Role | Tools | Constraint |
+| Role | Agents | Tools | Constraint |
 |---|---|---|---|
-| **T-C (Constructor / Implementer)** | `@backend`, `@frontend` | `Read`, `Write`, `Edit` | **No `Bash`**. Cannot run tests or see output. |
-| **T-A (Auditor / Evaluator)** | `@evaluator`, `@reviewer` | `Read`, `MCP:Probe` | **No `Write`**. Cannot modify source code. |
+| **Implementer** | `@backend`, `@frontend` | `Read`, `Write`, `Edit` | **No `Bash`**. Cannot run tests or see output. |
+| **Auditor** | `@evaluator`, `@reviewer` | `Read`, `MCP:Probe` | **No `Write`**. Cannot modify source code. |
 
 
 By stripping `Bash` from implementers, we force a handoff to `@test`. The `@evaluator` then grades the Test Summary Report (TSR) against OpenAPI criteria. If a `critical: true` criterion fails, `@evaluator` issues a `FAIL` verdict that implementers cannot bypass or "patch away."

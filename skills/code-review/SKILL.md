@@ -99,7 +99,7 @@ Read `docs/<feature-id>/<feature-id>-TSR.md` (`S-EVAL-001` filled by `@evaluator
 - One-paragraph verdict (APPROVED / ALLOW_WITH_GAP / REQUEST_CHANGES / PENDING) + per-severity findings table (Critical / Major / Minor / Nit) referencing `<file>:<line>` for each finding.
 - If the feature touched ADRs, append a `## ADR review` subsection inside `S-REVIEW-001`; omit when no ADRs were touched.
 
-Set frontmatter `rev_verdict` (APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING) + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — Tier-A single-writer invariant. The final `ship:` frontmatter value is computed by `/orchestra ship` from `eval_verdict` + `rev_verdict` + `local.yaml.tsr_gate_mode` (with `<feature-id>-DRAFT-COMPLETE.md` marker presence under deferred mode).
+Set frontmatter `rev_verdict` (APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING) + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — single-writer invariant. The final `ship:` frontmatter value is computed by `/orchestra ship` from `eval_verdict` + `rev_verdict` + `local.yaml.tsr_gate_mode` (with `<feature-id>-DRAFT-COMPLETE.md` marker presence under deferred mode).
 
 ```markdown
 ## Reviewer verdict <a id="S-REVIEW-001"></a>

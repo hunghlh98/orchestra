@@ -97,7 +97,7 @@ Full toggle list in [`manifests/runtime-toggles.json`](manifests/runtime-toggles
 
 The plugin is built around three load-bearing decisions:
 
-1. **Generator/evaluator separation.** `@evaluator` is strict-read-only (T-A tier); implementer agents (`@backend`, `@frontend`) have **no `Bash`** (T-C tier, structurally enforced by `test-bash-strip.js` in CI). Probe runs route through `@evaluator` calling the `orchestra-probe` MCP — auditable, named, capped.
+1. **Generator/evaluator separation.** `@evaluator` is strict read-only (denies `Bash`, `Edit`, `MultiEdit`); implementer agents (`@backend`, `@frontend`) deny `Bash` (structurally enforced by `bash-strip.test.js` in CI). Probe runs route through `@evaluator` calling the `orchestra-probe` MCP — auditable, named, capped.
 2. **Schema-pinned artifacts.** Every artifact under `<project>/docs/` validates against `schemas/pipeline-artifact.schema.md`. Frontmatter carries `phase`, `agent_role`, `artifact_id`, `subagent_session_id` so observability joins are filename arithmetic, not timestamp guesswork.
 3. **Capability-first default models.** Opus 4.7 with 1M context for spec / review tiers. Each agent declares its model in frontmatter; users override per-project in `<project>/.orchestra/local.yaml`.
 
@@ -128,8 +128,8 @@ Runs the validators on the orchestra repo:
 | `test-scaffold.js` | First-run scaffold writes `<project>/.orchestra/` + `<project>/docs/` correctly |
 | `test-validate-extensions.js` | Pipeline-artifact schema extension surface |
 | `test-validate-backlog.js` | `docs/BACKLOG.md` shape; reject unmoderated entries |
-| `test-agents.js` | Agent frontmatter (name, description ≤200 chars, tools tier, model id, context_mode, ≥1 `<example>`) |
-| `test-bash-strip.js` | No implementer-tier agent has `Bash` |
+| `test-agents.js` | Agent frontmatter (name, description ≤30 words, per-role tool denylist, model id, context_mode, ≥1 `<example>`) |
+| `test-bash-strip.js` | No implementer agent permits `Bash` |
 | `test-removability.js` | `install-modules` ↔ `runtime-toggles` 1:1 mapping for hook / skill / mcp kinds |
 | `test-metrics.js` | metrics-collector append safety, rotation, retention, event classification, observability enrichments, env-var opt-out |
 | `test-bootstrap.js` | Mode-detection (empty / src / commits) and render shape |
