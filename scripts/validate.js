@@ -419,6 +419,7 @@ export const REQUIRED_ANCHORS = {
   ADR: ["S-STATUS-001", "S-CONTEXT-001", "S-DECISION-001", "S-CONSEQUENCES-001", "S-ALTERNATIVES-001"],
   INVENTORY: ["S-SCAN-001", "S-CLASSIFICATION-001", "S-DECISIONS-001", "S-REGEN-PLAN-001", "S-WARNINGS-001"],
   "RUN-PLAN": ["S-CONTEXT-001", "S-PHASES-001", "S-FEATURES-001", "S-GATES-001", "S-APPROVAL-001"],
+  "SOURCE-INTEL": ["S-ENTRY-POINTS-001", "S-DOMAIN-MODELS-001", "S-FEATURE-CANDIDATES-001", "S-STACK-IDIOMS-001"],
 };
 
 export const SOFT_CAPS = {
@@ -426,6 +427,7 @@ export const SOFT_CAPS = {
   TASKS: 60, TEST: 200, TSR: 150, RELEASE: 120, RUNBOOK: 180, ADR: 100,
   INVENTORY: 250,
   "RUN-PLAN": 250,
+  "SOURCE-INTEL": 200,
 };
 
 // Filename patterns that v2 .orchestra/ MUST NOT contain (folded / dropped per DESIGN-005 §1).
@@ -460,6 +462,7 @@ export function typeFromFilename(filePath) {
   if (/^ADR-\d{4}/.test(base)) return "ADR";
   if (/^RELEASE-v/.test(base)) return "RELEASE";
   if (/^RUNBOOK-v/.test(base)) return "RUNBOOK";
+  if (/^(?:backend|frontend|test)-intel\.md$/.test(base)) return "SOURCE-INTEL";
   let m;
   if ((m = base.match(/^\d+-([A-Z]+)\.md$/))) {
     return Object.hasOwn(REQUIRED_ANCHORS, m[1]) ? m[1] : null;

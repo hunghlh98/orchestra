@@ -135,13 +135,14 @@ Type → folder map:
 | `PLAN` | `.orchestra/<service_name>/tasks/<run-id>/<agent>/` | `001-order-placement.md` | per-agent execution plan; filename = `<feature-id>.md`; one file per `(run-id, agent, feature-id)` |
 | `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `001-order-placement-ESCALATE-spec-gap.md` | transient; filename = `<feature-id>-<TYPE>-<slug>.md` (or `<feature-id>-ESCALATE-ADR-<NNNN>.md`) |
 | `INCOMPLETE` | `.orchestra/<service_name>/pipeline/` | `r2026-05-13T14-22-INCOMPLETE.md` | run-scoped (NOT feature-scoped); filename = `<run-id>-INCOMPLETE.md`; written by terminal-state parity probe |
+| `SOURCE-INTEL` | `.orchestra/<service_name>/source-intel/` | `backend-intel.md` | brownfield-only; written by `@backend`/`@frontend`/`@test` in `task: source-explore` mode; filename = `<stack>-intel.md` (`stack ∈ backend|frontend|test`); one-shot per `pipeline_id`, cached |
 
 ## Common shape (all artifacts)
 
 ```yaml
 ---
 id: <basename-without-extension>
-type: <PRD|FRS|TDD|API|TSR|SAD|ADR|RELEASE|RUNBOOK|TASKS|PLAN|ESCALATE|DEADLOCK|INCOMPLETE|CSD|INVENTORY|RUN-PLAN>
+type: <PRD|FRS|TDD|API|TSR|SAD|ADR|RELEASE|RUNBOOK|TASKS|PLAN|ESCALATE|DEADLOCK|INCOMPLETE|CSD|INVENTORY|RUN-PLAN|SOURCE-INTEL>
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                    # draft | locked
@@ -478,6 +479,42 @@ Body grammar (free-form, no `<a id>` anchors required):
 ```
 
 The agent body owns the `## Approach` section. The hook owns the `## Tasks` checklist sync (mirror of `tasks:` frontmatter). The agent body MUST NOT manually flip `tasks:` frontmatter or `## Tasks` checkbox state — those drift across the hook's source of truth (Claude Code's native Task tool calls).
+
+### `<stack>-intel.md` SOURCE-INTEL (`.orchestra/<service_name>/source-intel/`)
+
+Brownfield source-exploration intel. Written by `@backend` / `@frontend` / `@test` when spawned with prompt-tag `task: source-explore` (read-only mode). Cached one-shot per pipeline_id; consumed by `@product` reverse-doc and `@lead` run-plan minting before either reads source directly.
+
+```yaml
+id: <stack>-intel                              # backend-intel | frontend-intel | test-intel
+type: SOURCE-INTEL
+stack: backend | frontend | test
+service_name: <service>
+pipeline_id: <pipeline-id>
+created: <ISO-8601>
+status: draft | locked
+sections:
+  S-ENTRY-POINTS-001:
+    writer: "@<stack>"
+    status: in_progress
+  S-DOMAIN-MODELS-001:
+    writer: "@<stack>"
+    status: pending
+  S-FEATURE-CANDIDATES-001:
+    writer: "@<stack>"
+    status: pending
+  S-STACK-IDIOMS-001:
+    writer: "@<stack>"
+    status: pending
+```
+
+Required body anchors: `S-ENTRY-POINTS-001` (controllers / route handlers / CLI entry), `S-DOMAIN-MODELS-001` (aggregates + persistence), `S-FEATURE-CANDIDATES-001` (slug candidates with source evidence), `S-STACK-IDIOMS-001` (framework + persistence + test patterns observed).
+
+Triggers (all must hold for `@lead` / `@product` to spawn):
+- `local.yaml.mode == brownfield`.
+- `local.yaml.depth ∈ {medium, full}`.
+- No locked `<stack>-intel.md` exists for the current `pipeline_id` (one-shot per pipeline).
+- `@frontend` skipped if `inventory.md` shows no UI layer.
+- `@test` skipped if no existing test sources detected.
 
 ### `<feature-id>-ESCALATE-<slug>.md`, `<feature-id>-ESCALATE-ADR-<NNNN>.md`, `<feature-id>-DEADLOCK-<slug>.md`
 

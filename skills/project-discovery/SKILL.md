@@ -92,15 +92,7 @@ When `mode == "brownfield"` AND `local.yaml.depth` is unset, elect a depth prese
 | `medium` | `<feature-id>-PRD.md` + `<feature-id>-FRS.md` + `<feature-id>-TDD.md` | `@product`, `@lead` | Default for typical brownfield bootstraps; gives requirements + design baseline |
 | `full` | `<feature-id>-PRD.md` + `<feature-id>-FRS.md` + `SAD.md` + `<feature-id>-TDD.md` + `<feature-id>-openapi.yaml` | `@product`, `@architect` (SAD), `@lead` | Architecturally rich projects with multiple services or non-trivial system boundaries; matches `chain_rigor: Full` |
 
-**Major feature** = a domain noun-phrase identifiable from the source tree. Each candidate becomes one row in `<context_path>/.orchestra/<service_name>/run-plan.md` `S-FEATURES-001` when `@lead` authors the run-plan (downstream of this discovery skill).
-
-Per-stack heuristic:
-- **Spring / Java:** each top-level controller class under `services/<name>/src/main/java/.../controller/` or `web/`; each command/query handler under `application/usecase/` or `application/<verb>/`; each `@RestController`-annotated class.
-- **Go:** each binary under `cmd/<name>/`; each `internal/<domain>/` package exposing public types or HTTP/RPC handlers.
-- **Node / TypeScript:** each route group under `routes/`, `controllers/`, or `api/<resource>/`; each NestJS controller class.
-- **Python:** each FastAPI `APIRouter`; each Django `app/` with `views.py`; each Flask blueprint.
-
-Slug candidates MUST be domain noun-phrases (`order-placement`, `payment-binding`, `cart-checkout`). Verb-prefixed candidates (`regen-docs`, `refactor-X`, `fix-bug`, `redoc-Y`) are not features of the service — discard and re-derive from the source tree, or escalate to the user for a domain noun-phrase. Heuristic, not exhaustive — consumers can re-run with `--rediscover` after manual edits to feature scope.
+**Major feature** = a domain noun-phrase identifiable from the source tree. Slug minting and per-stack heuristics live in `@backend` / `@frontend` / `@test` source-explore mode (the stack-specialist agent owns its idioms); each candidate becomes one row in `<stack>-intel.md` `S-FEATURE-CANDIDATES-001`, which `@lead` reads when authoring `S-FEATURES-001`. This skill ends at depth election — it does not enumerate candidates.
 
 **Election logic.**
 

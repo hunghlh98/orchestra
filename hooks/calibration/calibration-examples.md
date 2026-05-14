@@ -21,7 +21,7 @@ A criterion is graded against its CONTRACT-defined `weight:` (sum across all cri
 - Every listed probe returned the expected status / body / DB row state.
 - No `critical:` condition in the CONTRACT triggered (e.g., "5xx on any happy-path probe").
 - All `adversarial:` inputs were handled per the documented contract (status, body, side effects).
-- The artifact under review (verify/<NNN>-TEST.md, code, etc.) is present and well-formed per pipeline-schema.md.
+- The artifact under review (verify/<NNN>-TEST.md, code, etc.) is present and well-formed per pipeline-artifact.schema.md.
 - Confidence in PASS ≥80%. If `@evaluator` is uncertain — even after re-running probes — return `pending`, not `PASS`.
 
 ## FAIL criteria (any triggers FAIL)
@@ -44,7 +44,7 @@ A criterion is graded against its CONTRACT-defined `weight:` (sum across all cri
 
 ## Boundary cases
 
-The 8 cases below are the v1.0.0 calibration baseline. `@evaluator` must judge similar shapes the same way unless the CONTRACT explicitly overrides.
+The 8 cases below are the calibration baseline. `@evaluator` must judge similar shapes the same way unless the CONTRACT explicitly overrides.
 
 ### Case 1: Probe returns 200, body empty
 **Scenario:** A `GET /health` probe expects status 200 and `body.contains("ok")`. The server returns status 200 with an empty body (`Content-Length: 0`).
@@ -86,7 +86,7 @@ The 8 cases below are the v1.0.0 calibration baseline. `@evaluator` must judge s
 **Scenario:** Mid-evaluation, `git diff` shows that an upstream PRD section this openapi criterion depends on has changed since the openapi was locked.
 **Verdict for the criterion:** Continue the evaluation. The criterion's verdict stands on its own test results.
 **Verdict for the feature:** Note the drift in the TSR verdict-evaluator section. `@reviewer` sees the note and decides whether to require an upstream re-lock + re-spawn or accept the drift.
-**Why:** v4.0 detects drift via `git diff` against `status: locked` artifacts (the v3 lockfile sidecars are gone). A locked-but-drifted artifact is a signal to re-spec, not an automatic FAIL — the criterion's evidence still binds.
+**Why:** Drift is detected via `git diff` against `status: locked` artifacts. A locked-but-drifted artifact is a signal to re-spec, not an automatic FAIL — the criterion's evidence still binds.
 
 ---
 

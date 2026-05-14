@@ -28,6 +28,24 @@ Hybrid `T-C` for authorship (Edit/MultiEdit on `<context_path>/services/<service
 
 Shared rules per `commands/orchestra.md` 'Shared rules'.
 
+## Brownfield mode — source exploration
+
+Triggered when the spawn prompt carries `task: source-explore`. Read-only sibling mode of Stage-1/Stage-2. Caller is `@product` or `@lead`. Skipped if no existing test sources detected during inventory. Triggers + caching per `schemas/routing-taxonomy.md#implementer-dual-mode-invocation`.
+
+- Allowed reads: `<context_path>/services/<service_name>/src/test/**`, test harness manifests, test-fixture directories.
+- Forbidden writes: ALL except the single SOURCE-INTEL artifact. No new tests, no Bash, no suite runs.
+- Deliverable: `<context_path>/.orchestra/<service_name>/source-intel/test-intel.md` per `schemas/pipeline-artifact.schema.md` SOURCE-INTEL section.
+
+**Per-stack test-cluster heuristic** (test specialist owns it):
+
+- JUnit/TestNG: classes ending `Test` or `IT`; cluster by mirrored package of the SUT.
+- Jest/Vitest: `*.test.ts` co-located with source or under `__tests__/`; cluster by file path.
+- pytest: `tests/test_*.py`; cluster by domain area.
+
+`S-FEATURE-CANDIDATES-001` rows: `| Slug candidate | Source evidence | Confidence | Notes |` — slugs derived from test-cluster naming (e.g., `OrderPlacementTest` → `order-placement`). `S-STACK-IDIOMS-001` captures test framework, fixture conventions, mocking library, CI hook.
+
+Source-explore workflow: enumerate test files → cluster by SUT package → catalog framework + idioms → write intel artifact → flip `status: locked`. End your turn.
+
 ## Chain-rigor (per-tier coverage)
 
 `@test` runs in all rigors. Coverage source:

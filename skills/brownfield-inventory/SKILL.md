@@ -93,8 +93,6 @@ Frontmatter and body shape are normative — see `schemas/inventory.schema.md`. 
 - `S-DECISIONS-001` — `| Path | Bucket | Action | Target |`.
 - `S-WARNINGS-001` — `| Path | Warning |`. One row per content-sniff override or low-confidence classification the user should review before approving.
 
-Feature-slug discipline is enforced downstream where it applies — `@lead` mints `run-plan.md` `S-FEATURES-001` rows with domain noun-phrase slugs (`order-placement`, `payment-binding`, `cart-checkout`, `refund-issuance`); verb-prefixed slugs (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`, `port-*`) name a meta-action on the codebase, not a feature of it, and `@lead` rejects them at run-plan-authoring time. The inventory skill no longer authors that table.
-
 Frontmatter counts MUST balance:
 
 - `Σ classification.* == Σ decisions.* == scan.entries_scanned` when `empty_workspace: false`.

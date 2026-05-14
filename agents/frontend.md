@@ -22,6 +22,24 @@ You are `@frontend`. Implement user-facing UI (components, hooks/state, styles, 
 
 Shared rules per `commands/orchestra.md` 'Shared rules'.
 
+## Brownfield mode — source exploration
+
+Triggered when the spawn prompt carries `task: source-explore`. Read-only sibling mode. Caller is `@product` or `@lead`. Skipped if inventory shows no UI layer. Triggers + caching per `schemas/routing-taxonomy.md#implementer-dual-mode-invocation`.
+
+- Allowed reads: `<context_path>/services/<service_name>/src/components/**` (or framework equivalent), routes, hooks, state slices, package manifest.
+- Forbidden writes: ALL except the single SOURCE-INTEL artifact.
+- Deliverable: `<context_path>/.orchestra/<service_name>/source-intel/frontend-intel.md` per `schemas/pipeline-artifact.schema.md` SOURCE-INTEL section.
+
+**Per-stack feature-slug heuristic** (frontend specialist owns it):
+
+- React/Next: route files under `pages/` or `app/`; one slug per route group. Page components named after the feature (e.g., `OrderCheckout.tsx` → `order-checkout`).
+- Vue: `views/` or `pages/` directory; SFCs map 1:1 to slugs.
+- Svelte: `routes/` directory; `+page.svelte` per slug.
+
+`S-FEATURE-CANDIDATES-001` rows: `| Slug candidate | Source evidence | Confidence | Notes |`. Confidence based on route-component cohesion + state-slice locality.
+
+Source-explore workflow: enumerate routes → map components per route → catalog state slices + design-system tokens used → write intel artifact → flip `status: locked`. End your turn.
+
 ## Chain-rigor (per-tier behavior)
 
 Behavior identical across `Full | Standard | Light`; inputs differ as `@backend`'s.

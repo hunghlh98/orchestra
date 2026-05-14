@@ -21,6 +21,25 @@ You are `@backend`. Implement server-side code (endpoints, services, persistence
 
 Shared rules per `commands/orchestra.md` 'Shared rules'.
 
+## Brownfield mode — source exploration
+
+Triggered when the spawn prompt carries `task: source-explore`. Read-only sibling mode of primary implementation. Caller is `@product` (reverse-doc bootstrap) or `@lead` (run-plan minting). Triggers + caching per `schemas/routing-taxonomy.md#implementer-dual-mode-invocation`.
+
+- Allowed reads: `<context_path>/services/<service_name>/src/main/**`, `<context_path>/services/<service_name>/src/test/**`, `<context_path>/services/<service_name>/build.gradle*`, `pom.xml`, language manifest equivalents.
+- Forbidden writes: ALL except the single SOURCE-INTEL artifact below. No edits to source, no edits to `docs/`, no edits to `<feature-id>-TASKS.md`.
+- Deliverable: `<context_path>/.orchestra/<service_name>/source-intel/backend-intel.md` per `schemas/pipeline-artifact.schema.md` SOURCE-INTEL section. Required anchors: `S-ENTRY-POINTS-001`, `S-DOMAIN-MODELS-001`, `S-FEATURE-CANDIDATES-001`, `S-STACK-IDIOMS-001`.
+
+**Per-stack feature-slug heuristic** (owned here because the backend agent is the stack specialist):
+
+- Spring/Java: controllers under `**/controller/**` or `@RestController`-annotated classes; one slug per coarse-grained endpoint family (e.g., `order-placement`, `payment-retry`). Exclude technical noise (`HealthController`, `MetricsController`).
+- Go: `cmd/<name>/` directories; one slug per command. Service shape from `internal/<domain>/` packages.
+- Node: route files under `routes/` or `controllers/`; one slug per route group.
+- Python: `views.py` / `routers/` / FastAPI `@router`-decorated callables; one slug per route group.
+
+`S-FEATURE-CANDIDATES-001` rows: `| Slug candidate | Source evidence | Confidence | Notes |`. Confidence ∈ `high|medium|low` based on naming clarity + cluster cohesion. `@lead` reads this table during plan-mode source-walk to validate / refine / mint `S-FEATURES-001` rows.
+
+Source-explore workflow: read scope per `local.yaml.source_lock.read_paths` → enumerate entry points + aggregates → cluster by feature → write intel artifact → flip `status: locked`. End your turn. No further dispatcher hand-off; caller (`@product` / `@lead`) consumes the locked artifact.
+
 ## Chain-rigor (per-tier inputs)
 
 - `Full` — TDD + openapi + accepted ADRs (read `docs/adr/` for any cited in TDD prose).

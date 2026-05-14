@@ -119,12 +119,13 @@ Soft target under `scope_level ∈ {container, service}`: ~150 lines per PRD. Th
 
 ## Reverse-doc path (brownfield bootstrap)
 
-When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (set on first brownfield run after `project-discovery` elects `local.yaml.depth`), produce per-major-feature PRD (and FRS at depth ≥ medium) by **observing the source**, not inventing requirements:
+When the dispatcher spawns you with prompt-tag `mode: reverse-doc` (set on first brownfield run after `project-discovery` elects `local.yaml.depth`), produce per-major-feature PRD (and FRS at depth ≥ medium) by **reading the cached intel artifacts**, not by direct source-walk:
 
-1. Read `local.yaml.discovery` — note `depth`, `primary_language`, `framework`, `scope_hints`. Read the source tree for the major feature passed in your prompt (`<context_path>/services/<service_name>/src/<domain>/`, `services/<name>/`, etc.).
-2. **Author `<feature-id>-PRD.md`** (all depths). Frontmatter MUST include `notes: "reverse-documented from existing source"` (informational; no validator behavior change). `S-VISION-001` and `S-GOALS-001` are inferred from observable behavior — endpoints, jobs, UX flows — not speculative future intent. Genuine unknowns surfaced during source-walk MUST be resolved before lock via the three-path "Question-resolution policy" above — no `S-OPEN-Q-*` carry-forward.
-3. **Author `<feature-id>-FRS.md`** (depth medium or full). FRs (`S-FR-001`) map 1:1 to observable controller/service surfaces. ACs (`S-AC-001`) describe the existing input/output shape with row-grain `AC-NNN` ids; each `Traces` cell cites a parent rule from CSD (own service) or SAD — if no parent rule exists yet to trace to, ESCALATE-BR to surface the implicit policy. Use cases reflect the actual entry points found. Do NOT add aspirational FRs.
-4. Lock both with `status: locked` once observation stabilizes. `@architect` (depth=full) and `@lead` (depth ≥ medium) pick up next per the dispatcher's reverse-doc fan-out.
+1. Read `local.yaml.discovery` — note `depth`, `primary_language`, `framework`, `scope_hints`.
+2. Read `<context_path>/.orchestra/<service_name>/source-intel/backend-intel.md` (always) and `frontend-intel.md` (when UI layer present). Both carry `status: locked` — the dispatcher fans out `@backend` / `@frontend` in `task: source-explore` mode BEFORE spawning you, so the artifacts are guaranteed present at depth ≥ medium. If either expected artifact is missing / unlocked, write `<feature-id>-DEADLOCK-source-intel-missing.md` and end your turn.
+3. **Author `<feature-id>-PRD.md`** (all depths). Frontmatter MUST include `notes: "reverse-documented from existing source"`. `S-VISION-001` and `S-GOALS-001` are inferred from intel `S-FEATURE-CANDIDATES-001` + `S-DOMAIN-MODELS-001`. PRD prose may cite intel-artifact anchors (`per source-intel/backend-intel.md S-FEATURE-CANDIDATES-001`) — these are consumer-runtime artifacts, not dev-surface. Genuine unknowns MUST resolve before lock per "Question-resolution policy" — no `S-OPEN-Q-*` carry-forward.
+4. **Author `<feature-id>-FRS.md`** (depth medium or full). FRs (`S-FR-001`) map 1:1 to intel `S-ENTRY-POINTS-001` rows. ACs (`S-AC-001`) describe the existing input/output shape; `Traces` cells cite parent CSD/SAD rules — ESCALATE-BR when no parent rule exists yet. Use cases reflect `S-ENTRY-POINTS-001`. No aspirational FRs.
+5. Lock both once observation stabilizes. `@architect` (depth=full) and `@lead` (depth ≥ medium) pick up next per the dispatcher's reverse-doc fan-out.
 
 ## Workflow
 

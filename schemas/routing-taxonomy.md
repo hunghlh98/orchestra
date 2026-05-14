@@ -98,6 +98,31 @@ This is the only intent that produces the full SDLC artifact set.
 
 ---
 
+## Implementer dual-mode invocation
+
+Independent of intent. `@backend`, `@frontend`, and `@test` carry a second invocation mode for brownfield source exploration. Triggered by spawn prompt-tag `task: source-explore`.
+
+**Triggers (all must hold):**
+
+- `local.yaml.mode == brownfield`.
+- `local.yaml.depth ∈ {medium, full}`.
+- Caller is `@product` (reverse-doc bootstrap) or `@lead` (run-plan minting).
+- No `<stack>-intel.md` with `status: locked` exists for the current pipeline_id.
+- For `@frontend`: `inventory.md` shows a UI layer present.
+- For `@test`: existing test sources detected during inventory.
+
+**Read-only:** spawn omits `Write`/`Edit`/`Bash` permissions except for the single SOURCE-INTEL artifact write.
+
+**Artifact whitelist (source-explore mode only):**
+
+- `<context_path>/.orchestra/<service_name>/source-intel/<stack>-intel.md` — one file per stack; required anchors per `schemas/pipeline-artifact.schema.md` SOURCE-INTEL section.
+
+**Excluded:** any artifact under `docs/`, any `src/**` write, any test execution. Source-explore is inspection only; deliverable is the intel artifact.
+
+**Caching:** one-shot per pipeline_id. Re-spawn only when `local.yaml.source_lock.read_paths` changes.
+
+---
+
 ## Versioning
 
 This schema's content matches the routing rules embedded in `commands/orchestra.md` (intent → agents quick-reference). When either side changes, both must update. The dispatcher is canonical for spawn order; this file is canonical for artifact whitelists.
