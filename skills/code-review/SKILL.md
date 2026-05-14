@@ -69,7 +69,7 @@ A miss here is **Critical** — auto-`REQUEST_CHANGES`.
 
 ### Step 5 — Apply performance checklist
 
-Lightweight in v1.0.0 (no profiling). Flag obvious shapes:
+Lightweight (no profiling). Flag obvious shapes:
 
 - N+1 queries (loops calling DB).
 - Synchronous I/O on a hot path.

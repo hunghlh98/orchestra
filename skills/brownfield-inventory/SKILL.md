@@ -8,7 +8,7 @@ origin: orchestra
 
 Inventory a brownfield workspace before the forward chain runs. Scan the doc tree, classify each entry against the plugin's artifact taxonomy, ask the user how to migrate, emit `<context_path>/.orchestra/inventory.md` (workspace-global singleton). Chain agents read `inventory.md` at start-of-run to know what legacy material to consult and what to author from scratch.
 
-This skill is scoped to **workspace classification only** — it records what legacy material exists, what bucket each entry lands in, and what the user wants done with it. Per-service shape (invariants, frozen contract surface, owned schema, sub-capability index) is downstream `@architect` work captured in the per-service CSD (`<context_path>/docs/<service_name>/<service_name>-CSD.md`). Per-service feature lists are downstream `@lead` work captured in the per-service run-plan (`<context_path>/.orchestra/<service_name>/run-plan.md`) `S-FEATURES-001`. This skill no longer authors those rows.
+This skill is scoped to **workspace classification only** — it records what legacy material exists, what bucket each entry lands in, and what the user wants done with it. Per-service shape (invariants, frozen contract surface, owned schema, sub-capability index) is `@architect`'s CSD at `<context_path>/docs/<service_name>/<service_name>-CSD.md`. Per-service feature lists are `@lead`'s run-plan at `<context_path>/.orchestra/<service_name>/run-plan.md` `S-FEATURES-001`.
 
 ## When to use
 

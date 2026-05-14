@@ -63,7 +63,7 @@ Required anchors:
 
 Per-service shape (invariants, frozen contract surface, owned schema, sub-capability index) lives in the per-service CSD (`<context_path>/docs/<service_name>/<service_name>-CSD.md`) — NOT in inventory. The `S-DECISIONS-001` `fold-into-CSD` action routes legacy material describing service-wide invariants or contract surfaces into the matching CSD anchor at `@architect`'s CSD authoring time.
 
-Per-service feature lists (formerly `S-REGEN-PLAN-001`) live in the per-service run-plan (`<context_path>/.orchestra/<service_name>/run-plan.md`) `S-FEATURES-001` — authored by `@lead` after the workspace inventory is `user_gate: accepted`.
+Per-service feature lists live in the per-service run-plan (`<context_path>/.orchestra/<service_name>/run-plan.md`) `S-FEATURES-001` — authored by `@lead` after the workspace inventory is `user_gate: accepted`.
 
 ## Validation
 

@@ -1,8 +1,8 @@
 # Autonomy Diagnostic (5-Q + 3-axis decomposition)
 
-> Reference loaded by `@lead` on first spawn for a new feature_id when classifying the autonomy level for a `/orchestra <natural language>` run. Surfaced as the suggested tag at PAUSE-1; the user accepts or overrides. v1.0.0: suggestion-only — the diagnostic never changes the resolved level without user assent.
+> Reference loaded by `@lead` on first spawn for a new feature_id when classifying the autonomy level for a `/orchestra <natural language>` run. Surfaced as the suggested tag at PAUSE-1; the user accepts or overrides. Suggestion-only — the diagnostic never changes the resolved level without user assent.
 >
-> Filed under `skills/task-breakdown/` per the v1.0.1 architectural decision to keep autonomy classification co-located with `@lead`'s existing skill orbit rather than create a new skill. Topical fit is imperfect — this is a `@lead` diagnostic, not a `task-breakdown` resource — but co-location avoids adding a new skill description to the always-loaded metadata layer. Future relocation to a dedicated `lead-orchestration` skill remains possible in v1.1+.
+> Filed under `skills/task-breakdown/` to keep autonomy classification co-located with `@lead`'s existing skill orbit. Topical fit is imperfect — this is a `@lead` diagnostic, not a `task-breakdown` resource — but co-location avoids adding a new skill description to the always-loaded metadata layer.
 
 ## When `@lead` Reads this file
 
@@ -30,7 +30,7 @@ No yes anywhere → not delegable in current form; tighten the spec or keep the 
 | `DRAFT_AND_GATE` | AI | Human | AI |
 | `FULL_AUTONOMY` | AI | AI | AI |
 
-The Consultant inversion is real: at `OPTION_SYNTHESIS`, execution returns to the human after AI does the strategy work. Use it for high-leverage, irreversible decisions (architecture proposals, vendor selection, datastore evaluation). v1.0.0 routes `OPTION_SYNTHESIS` to a halt-after-options form — full `PROPOSAL-<id>.md` artifacts are deferred to v1.1+.
+The Consultant inversion is real: at `OPTION_SYNTHESIS`, execution returns to the human after AI does the strategy work. Use it for high-leverage, irreversible decisions (architecture proposals, vendor selection, datastore evaluation). `OPTION_SYNTHESIS` routes to a halt-after-options form; full `PROPOSAL-<id>.md` artifacts are out of scope.
 
 ## Resolved precedence
 

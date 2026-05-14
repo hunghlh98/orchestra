@@ -11,10 +11,9 @@ scope: type-specific frontmatter shapes for every artifact authored by the orche
 
 > Frontmatter contract for every consumer-side artifact the chain produces.
 > The chain spine: PRD → FRS → SAD → ADR → TDD → openapi (or asyncapi) →
-> code + tests → TSR. Lockfile sidecars are gone; review-state,
-> reader-scope, and per-section locks live in artifact frontmatter.
-> Drift detection moves to `git diff`; idempotency keys live in
-> `<project>/.orchestra/manifest.json`.
+> code + tests → TSR. Review-state, reader-scope, and per-section locks
+> live in artifact frontmatter. Drift detection runs via `git diff`;
+> idempotency keys live in `<project>/.orchestra/manifest.json`.
 
 ## Placement model — `docs/` vs `.orchestra/`
 
