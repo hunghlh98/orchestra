@@ -36,6 +36,31 @@ Litmus: would you link this from a PR description for a non-engineer reviewer? `
 
 Every artifact path embeds the elected `service_name` (workspace-relative basename of the service directory; persisted in `<context_path>/.orchestra/<service_name>/local.yaml`). Single-service workspaces still nest under `<context_path>/docs/<service_name>/` — the partition is uniform, not conditional on `workspace_kind`. `diagrams/` always nests under the matching tier's `docs/` root — bare `<context_path>/diagrams/` is forbidden.
 
+## Link discipline — `docs/` is a sealed narrative tree <a id="link-discipline"></a>
+
+The `<context_path>/docs/` tree is a self-contained narrative for human stakeholders. A reader walking it MUST NOT have to open the codebase, an external URL, or the `.orchestra/` sibling to resolve references. This applies to every artifact under `docs/` — SAD, CSD, PRD, FRS, TDD, openapi/asyncapi/clientapi, ADR bodies, RELEASE, RUNBOOK, TSR, and any `diagrams/*.puml` prose.
+
+**Forbidden links / references inside `docs/*` artifact bodies:**
+
+- **Codebase paths** — `src/foo/Bar.java`, `services/order/src/main/...`, `path/to/file:42`, `[Bar.java](../src/foo/Bar.java)`. Describe components by their architectural role, not their file location.
+- **External URLs** — RFCs, vendor documentation, GitHub, Stack Overflow, internal wikis. If an external reference is genuinely needed, capture the constraint inline in prose (paraphrase the RFC's relevant clause; cite by name without URL).
+- **`.orchestra/` sibling paths** — `.orchestra/inventory/...`, `.orchestra/<service_name>/run-plan.md`, `.orchestra/manifest.json`. The plugin's internal coordination state is opaque to readers of `docs/`.
+- **Project root paths** — root `README.md`, `build.gradle`, `package.json`, CI configs.
+
+**Allowed links / references inside `docs/*` artifact bodies:**
+
+- **Cross-references between `docs/*` artifacts** — relative paths within `docs/`. `docs/SAD.md` may reference `docs/<service_name>/<service_name>-CSD.md`; CSD may reference `docs/<service_name>/<feature-id>/<feature-id>-PRD.md`; TDD may reference `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml`.
+- **ADR citations by ID in plain prose** — "per ADR-0007-use-postgres, ..." or "per ADR-order-003-use-outbox, ...". The reader resolves the ID against `docs/adr/...` (global) or `docs/<service_name>/adr/...` (service) — both are under `docs/`.
+- **Anchor citations within `docs/*`** — `SAD/S-CONTAINERS-001`, `CSD/S-INVARIANTS-001`. These resolve inside `docs/`.
+
+**Inventory-style indexes belong outside `docs/`.** ADR index (`<context_path>/.orchestra/inventory/adr/index.md`), workspace inventory (`<context_path>/.orchestra/inventory.md`), source-walk intel (`<context_path>/.orchestra/<service_name>/source-intel/*-intel.md`), and any future index that maps over current state live under `.orchestra/inventory/`. Indexes mutate frequently and are derivative; `docs/` carries stable narrative.
+
+**Brownfield codebase pointers** — when brownfield analysis genuinely needs to record specific file paths in the codebase (e.g., "the `OrderState` enum lives at `services/order/src/main/.../OrderState.java`"), they go into the brownfield inventory at `.orchestra/inventory.md` `S-DECISIONS-001` or into a per-stack source-intel file at `.orchestra/<service_name>/source-intel/<stack>-intel.md` — never into a `docs/*` artifact body. The corresponding `docs/*` artifact references the architectural role only ("the order-state machine"), not the file path.
+
+**Why sealed:** `docs/` is the artifact tier humans review and stakeholders sign. Codebase paths rot the moment files move and leak implementation detail into the design layer. External URLs may go dead, be paywalled, or contradict the captured constraint. `.orchestra/` references push readers into agent-internal coordination state they shouldn't need. Keeping the tree sealed gives the reader exactly one place to look — and a future reader (six months out, new team member, audit) can walk the whole narrative without leaving the directory.
+
+Validators: `scripts/validate.js` flags `docs/*` bodies containing codebase-path patterns (`src/`, `services/<service>/src/`), `.orchestra/` references, or external `http(s)://` URLs (with named exceptions: `localhost`, `example.com`, illustration-only URLs in quick-start blocks). The reviewer (`@reviewer`) also catches link-discipline violations at PR-review time.
+
 ## Folder layout
 
 ### Feature-id format <a id="S-FEATURE-ID-FMT-001"></a>
@@ -125,8 +150,8 @@ Type → folder map:
 | `API` (openapi/asyncapi) | `docs/<service_name>/<feature-id>/` | `001-order-placement-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
 | `CSD` | `docs/<service_name>/` | `order-CSD.md` | per-service singleton (brownfield + `scope_level ∈ {container, service}`); filename = `<service_name>-CSD.md` |
 | `SAD` | `docs/` | `SAD.md` | system-level singleton |
-| `ADR` (global) | `docs/adr/` | `ADR-0001-use-sqlite.md` | affects ≥2 services; project-wide flat 4-digit numbering; tracked in SAD `S-ADR-INDEX-001` |
-| `ADR` (service) | `docs/<service_name>/adr/` | `ADR-order-001-use-outbox.md` | affects exactly one service; per-service 3-digit numbering; tracked in that service's CSD `S-ADR-INDEX-001` |
+| `ADR` (global) | `docs/adr/` | `ADR-0001-use-sqlite.md` | affects ≥2 services; project-wide flat 4-digit numbering; indexed in `.orchestra/inventory/adr/index.md` `S-GLOBAL-001` |
+| `ADR` (service) | `docs/<service_name>/adr/` | `ADR-order-001-use-outbox.md` | affects exactly one service; per-service 3-digit numbering; indexed in `.orchestra/inventory/adr/index.md` `S-SERVICES-001` |
 | `RELEASE`, `RUNBOOK` | `docs/releases/`, `docs/runbooks/` | `RELEASE-vX.Y.Z.md` | release-time singletons |
 | `INVENTORY` | `.orchestra/` | `inventory.md` | workspace-global singleton (brownfield only) |
 | `RUN-PLAN` | `.orchestra/<service_name>/` | `run-plan.md` | per-service singleton |
@@ -374,8 +399,9 @@ Final ship verdict lives in frontmatter `ship:` (no body section). `/orchestra s
 status: draft | locked
 project_mode: greenfield | brownfield
 c4_levels_present: [1, 2]
-adr_count: <int>
 ```
+
+ADR count lives in `.orchestra/inventory/adr/index.md` frontmatter (`adr_count`, `global_count`, `service_count`), not in SAD — see `schemas/inventory.adr-index.schema.md`.
 
 ### ADR-`<NNNN>`-`<slug>`.md (global) / ADR-`<service_name>`-`<NNN>`-`<slug>`.md (service)
 

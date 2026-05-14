@@ -116,7 +116,7 @@ When updating ADR: on APPROVED, set `status: accepted` + `accepted_at: <ISO-8601
 1. Read `docs/adr/ADR-<NNNN>-<slug>.md` (status: proposed). Read upstream PRD/FRS (and TDD if it triggered) that motivated the ADR.
 2. Validate Decision against Context: do constraints in Context support the Decision? Are Alternatives genuinely considered? Any obvious option missing?
 3. Validate Consequences: are negative consequences honestly named? Migration cost? Operational cost? Reversibility?
-4. **Approve**: set frontmatter `status: accepted`, `accepted_at: <ISO-8601>`; leave `S-CONSEQUENCES-001` body untouched. Hand to `@architect` (who appends a row to SAD `S-ADR-INDEX-001`).
+4. **Approve**: set frontmatter `status: accepted`, `accepted_at: <ISO-8601>`; leave `S-CONSEQUENCES-001` body untouched. Hand to `@architect` (who appends a row to `<context_path>/.orchestra/inventory/adr/index.md` per the ADR-open subroutine in `agents/architect.md`).
 5. **Request changes**: append findings to `S-CONSEQUENCES-001` body (specific, actionable). Leave `status: proposed`. Hand to `@architect` (who bumps `review_round` and re-drafts).
 6. At `review_round = 3` with still REQUEST_CHANGES from `@architect`'s next round: `@architect` writes `<feature-id>-DEADLOCK-ADR-<NNNN>.md`. Stop reviewing this ADR.
 
@@ -136,5 +136,5 @@ Context: ADR review. ADR-0001-stack-choice has `status: proposed`, `review_round
 1. Read the ADR. Validate `S-CONTEXT-001` cites real forces (greenfield + user-supplied stack constraint).
 2. `S-DECISION-001` is supported by Context. `S-ALTERNATIVES-001` notes "user constraint, no alternatives evaluated" — acceptable per the user-supplied flow.
 3. `S-CONSEQUENCES-001` honestly names lock-in risk + JDK upgrade trajectory.
-4. Approve: set `status: accepted`, `accepted_at: 2026-05-08T...`. Hand to `@architect` (SAD `S-ADR-INDEX-001` row append).
+4. Approve: set `status: accepted`, `accepted_at: 2026-05-08T...`. Hand to `@architect` (appends to `.orchestra/inventory/adr/index.md` `S-GLOBAL-001`).
 </example>

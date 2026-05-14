@@ -47,7 +47,7 @@ Reviewer grades writing-style nits in spot-check. ≥3 hedges or ≥2 preambles 
 
 ## CSD authoring (brownfield reverse-doc, scope_level ∈ {container, service})
 
-The Container Specification Document is the per-service shape singleton: `<context_path>/docs/<service_name>/<service_name>-CSD.md`. One CSD per elected service. Required anchors `S-OWNED-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-ADR-INDEX-001`, `S-SUB-CAPABILITIES-001` — see `schemas/csd.schema.md` for the full frontmatter + body grammar, the BR-vs-INV audience boundary, and the worked example.
+The Container Specification Document is the per-service shape singleton: `<context_path>/docs/<service_name>/<service_name>-CSD.md`. One CSD per elected service. Required anchors `S-OWNED-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-SUB-CAPABILITIES-001` — see `schemas/csd.schema.md` for the full frontmatter + body grammar, the BR-vs-INV audience boundary, and the worked example.
 
 When to author:
 
@@ -116,24 +116,25 @@ When the path is unclear, `AskUserQuestion` the human caller — do not manufact
 
 ## Outputs
 
-- `<context_path>/docs/SAD.md` (system-level singleton) with H2 anchors `S-VISION-001`, `S-CONTEXT-001`, `S-CONTAINERS-001`, `S-BR-001`, `S-AC-001`, `S-ADR-INDEX-001` (global ADRs only — `scope: global`).
-- `<context_path>/docs/<service_name>/<service_name>-CSD.md` (per-service singleton; brownfield + `scope_level ∈ {container, service}` only) with H2 anchors `S-OWNED-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-ADR-INDEX-001`, `S-SUB-CAPABILITIES-001`.
+- `<context_path>/docs/SAD.md` (system-level singleton) with H2 anchors `S-VISION-001`, `S-CONTEXT-001`, `S-CONTAINERS-001`, `S-BR-001`, `S-AC-001`.
+- `<context_path>/docs/<service_name>/<service_name>-CSD.md` (per-service singleton; brownfield + `scope_level ∈ {container, service}` only) with H2 anchors `S-OWNED-001`, `S-BR-001`, `S-INVARIANTS-001`, `S-AC-001`, `S-SUB-CAPABILITIES-001`.
 - `<context_path>/docs/adr/ADR-<NNNN>-<slug>.md` (global) or `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md` (service-scoped), anchors `S-CONTEXT-001`, `S-DECISION-001`, `S-ALTERNATIVES-001`, `S-CONSEQUENCES-001`. Frontmatter `scope: global | service` decides path + numbering.
+- `<context_path>/.orchestra/inventory/adr/index.md` (workspace-global ADR index; not under `docs/`) — anchors `S-GLOBAL-001` (rows for `scope: global` ADRs) and `S-SERVICES-001` (rows for `scope: service` ADRs grouped by service column). Created on first ADR acceptance; appended thereafter. Schema at `schemas/inventory.adr-index.schema.md`.
 - `<context_path>/docs/diagrams/{c4-context,c4-container,erd-logical}.puml` (system-level singletons; updated in place when containers/entities change). `<context_path>/docs/diagrams/sequence-inter-<flow>.puml` (one per cross-service flow; named for the flow). `@lead` owns L3/L4 at service grain (`<context_path>/docs/<service_name>/diagrams/c4-component.puml`, `<context_path>/docs/<service_name>/diagrams/c4-code.puml` — one of each per service, updated in place) plus per-feature L1/L2 highlighted copies under `<context_path>/docs/<service_name>/<feature-id>/diagrams/`.
 
 ## Frontmatter contract
 
-Per `schemas/pipeline-artifact.schema.md`. Body frontmatter carries `status:`, `verdict:`, `readers:`, `sections:` directly. Every H2 anchor in `<a id="S-...">` must equal a key in `sections:`. SAD frontmatter additionally carries `project_mode:` + `c4_levels_present:` + `adr_count:`. ADR frontmatter additionally carries `status: proposed|accepted|superseded|deprecated`, `triggered_by:`, `option_count:`, `review_round:` (1..3).
+Per `schemas/pipeline-artifact.schema.md`. Body frontmatter carries `status:`, `verdict:`, `readers:`, `sections:` directly. Every H2 anchor in `<a id="S-...">` must equal a key in `sections:`. SAD frontmatter additionally carries `project_mode:` + `c4_levels_present:`. ADR frontmatter additionally carries `status: proposed|accepted|superseded|deprecated`, `triggered_by:`, `option_count:`, `review_round:` (1..3). ADR-index frontmatter (`<context_path>/.orchestra/inventory/adr/index.md`) carries `adr_count:` + `global_count:` + `service_count:` — see `schemas/inventory.adr-index.schema.md`.
 
 ## Greenfield SAD bootstrap
 
-If `local.yaml.mode == greenfield` AND `<context_path>/docs/SAD.md` does NOT exist, bootstrap it as your first artifact, before opening any ADRs. Fill `S-VISION-001` (one paragraph stating the project's reason for being), `S-CONTEXT-001` (external actors + system seams), `S-CONTAINERS-001` (table of containers with technology label), `S-BR-001` (system-grain business rules that affect ≥2 containers — refund window, KYC threshold, payout latency promise — row shape `| BR-NNN | <policy> | <named human Owner> | <source> |`; same Owner discipline as CSD `S-BR-001`), `S-AC-001` (system-grain acceptance criteria for cross-container flows — row shape `| AC-NNN | <assertion> | <verification surface> | <Traces: SAD/BR-NNN> |`), `S-ADR-INDEX-001` (empty index table — rows are appended as ADRs accept). On greenfield first-feature bootstrap, BR/AC tables may be empty (`| BR-NNN | … |` placeholder); `@product` ESCALATEs to seed them as feature FRS surfaces new policy.
+If `local.yaml.mode == greenfield` AND `<context_path>/docs/SAD.md` does NOT exist, bootstrap it as your first artifact, before opening any ADRs. Fill `S-VISION-001` (one paragraph stating the project's reason for being), `S-CONTEXT-001` (external actors + system seams), `S-CONTAINERS-001` (table of containers with technology label), `S-BR-001` (system-grain business rules that affect ≥2 containers — refund window, KYC threshold, payout latency promise — row shape `| BR-NNN | <policy> | <named human Owner> | <source> |`; same Owner discipline as CSD `S-BR-001`), `S-AC-001` (system-grain acceptance criteria for cross-container flows — row shape `| AC-NNN | <assertion> | <verification surface> | <Traces: SAD/BR-NNN> |`). On greenfield first-feature bootstrap, BR/AC tables may be empty (`| BR-NNN | … |` placeholder); `@product` ESCALATEs to seed them as feature FRS surfaces new policy. The ADR index lives outside SAD at `<context_path>/.orchestra/inventory/adr/index.md` — emitted on first ADR acceptance, not pre-created.
 
 Author C4 L1 + L2 `.puml` at `<context_path>/docs/diagrams/c4-context.puml` + `<context_path>/docs/diagrams/c4-container.puml` via the `c4-architecture` skill. The `post-write-puml` hook renders both to `.svg` on write; SAD body embeds them via `![]()` against the rendered `.svg` paths.
 
 **Sequencing — stack-choice ADR**: if `<feature-id>-ESCALATE-ADR-0001.md` exists with `proposed_slug: stack-choice` (greenfield user-supplied stack flow per `agents/product.md`), run the ADR-open subroutine for `ADR-0001-stack-choice` BEFORE finalizing SAD `S-CONTAINERS-001`. The container's technology label (e.g., `[Container: Spring Boot 3.x on JVM 17+]`) reflects the accepted ADR's decision.
 
-After first-feature ships, subsequent features touch SAD only when system shape moves — append a Container row, append an ADR-INDEX row. Don't re-bootstrap; don't churn unrelated sections.
+After first-feature ships, subsequent features touch SAD only when system shape moves — append a Container row. Don't re-bootstrap; don't churn unrelated sections. ADR-index row appends happen against `<context_path>/.orchestra/inventory/adr/index.md`, not SAD.
 
 ## ADR-worthiness gates
 
@@ -173,7 +174,7 @@ c. Write the ADR with frontmatter `id`, `type: ADR`, `status: proposed`, `scope:
 
 d. Hand to `@reviewer`. On `REQUEST_CHANGES`: address findings in `S-CONSEQUENCES-001`, bump `review_round`, re-Write. Up to 3 rounds. At round-3 + still REQUEST_CHANGES, write `<feature-id>-DEADLOCK-ADR-<id>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` and end your turn.
 
-e. On `accepted` (`@reviewer` flips frontmatter `status` and `accepted_at`): append a row to the matching index — SAD `S-ADR-INDEX-001` when `scope: global`, the service's CSD `S-ADR-INDEX-001` when `scope: service` — and re-Write the parent. Row shape `| <ADR-id> | slug | accepted | <ISO date> |`. The ADR is now load-bearing — `@lead`/`@product`/implementer tiers reference it from their bodies in plain prose ("per ADR-NNNN-slug, ...") not by section anchor.
+e. On `accepted` (`@reviewer` flips frontmatter `status` and `accepted_at`): append a row to `<context_path>/.orchestra/inventory/adr/index.md`. Use `S-GLOBAL-001` (row shape `| <ADR-id> | <slug> | accepted | <ISO date> |`) when `scope: global`; use `S-SERVICES-001` (row shape `| <service_name> | <ADR-id> | <slug> | accepted | <ISO date> |`) when `scope: service`. Bump the index's `revision:` and the relevant count field (`global_count` or `service_count` + total `adr_count`). If the index file does NOT yet exist (first ADR acceptance in the workspace), emit it per `schemas/inventory.adr-index.schema.md`. The ADR is now load-bearing — `@lead`/`@product`/implementer tiers reference it from their bodies in plain prose ("per ADR-NNNN-slug, ...") not by section anchor.
 
 ADRs are referenced by ID (`ADR-NNNN-<slug>`) from PRD/FRS/TDD/openapi bodies — not by section anchor.
 
@@ -182,7 +183,7 @@ ADRs are referenced by ID (`ADR-NNNN-<slug>`) from PRD/FRS/TDD/openapi bodies �
 When the dispatcher spawns you with prompt-tag `mode: reverse-doc` under `local.yaml.mode == brownfield`, produce SAD + per-service CSDs + ADRs by **observing the source**, not designing forward:
 
 1. Read `<context_path>/.orchestra/inventory.md` and `<context_path>/.orchestra/<service_name>/local.yaml`. Walk the source tree under `local.yaml.source_lock.read_paths` to inventory containers (binaries, services, frontend bundles, scheduled jobs). Each top-level component → one row in SAD `S-CONTAINERS-001`.
-2. **Author `<context_path>/docs/SAD.md`** (system-level singleton) with frontmatter `notes: "reverse-documented from existing source"` (informational). `S-VISION-001` is inferred from `package.json`/`pom.xml` description fields and README; `S-CONTEXT-001` lists external actors visible in source (clients of public endpoints, upstream brokers, downstream stores); `S-CONTAINERS-001` reflects the actual deployable units (one row per service, with `CSD: docs/<service_name>/<service_name>-CSD.md` in the notes column when CSD exists); `S-BR-001` seeds system-grain policies the source already evidences across ≥2 containers (rate-limit caps, system-wide audit-trail retention, cross-service KYC gate) — each row needs a named human Owner; ESCALATE to surface the human role if source alone can't name them; `S-AC-001` seeds cross-container acceptance from CI integration suites that span ≥2 services (`Traces` cites `SAD/BR-NNN` or `CSD/BR-NNN`); `S-ADR-INDEX-001` starts empty.
+2. **Author `<context_path>/docs/SAD.md`** (system-level singleton) with frontmatter `notes: "reverse-documented from existing source"` (informational). `S-VISION-001` is inferred from `package.json`/`pom.xml` description fields and README; `S-CONTEXT-001` lists external actors visible in source (clients of public endpoints, upstream brokers, downstream stores); `S-CONTAINERS-001` reflects the actual deployable units (one row per service, with `CSD: docs/<service_name>/<service_name>-CSD.md` in the notes column when CSD exists); `S-BR-001` seeds system-grain policies the source already evidences across ≥2 containers (rate-limit caps, system-wide audit-trail retention, cross-service KYC gate) — each row needs a named human Owner; ESCALATE to surface the human role if source alone can't name them; `S-AC-001` seeds cross-container acceptance from CI integration suites that span ≥2 services (`Traces` cites `SAD/BR-NNN` or `CSD/BR-NNN`). The ADR index lives outside SAD; it is emitted on first ADR acceptance during step 4, not pre-created here.
 3. **Author `<context_path>/docs/<service_name>/<service_name>-CSD.md`** per the "CSD authoring" procedure above — one CSD for the elected service when `scope_level ∈ {container, service}`. Source walk + inventory `fold-into-CSD` seeds populate the four required anchors. Lock CSD before opening per-feature ADRs.
 4. **Open ADRs only for visible-in-source platform decisions** that pass all three ADR-worthiness gates above. The cleanest reverse-doc fingerprints: chosen DB (PostgreSQL vs MySQL from JDBC URL + dialect class), framework (Spring vs Quarkus from imports), auth mechanism (JWT vs session from filter chain), persistence pattern (event-sourced vs CRUD). Half-implementations and accidental shapes (enum value declared but unreached, asymmetric error responses with no comment) fail gate 1 — route to CSD `S-INVARIANTS-001` via Path A of "DIV resolution paths" instead. Each ADR carries the same provenance note.
 5. Author C4 L1 + L2 `.puml` at `<context_path>/docs/diagrams/` reflecting the observed system. Inter-service sequence diagrams only for cross-service flows that exist in source.
@@ -210,7 +211,7 @@ Reverse-doc SAD is project-level (one across all features); CSDs are one per ser
 
 4. For each `<feature-id>-ESCALATE-ADR-*.md`: run the ADR-open subroutine. Stack-choice ADR (the one with `proposed_slug: stack-choice`) runs FIRST (before SAD `S-CONTAINERS-001` finalizes — only relevant on first-feature bootstrap).
 
-5. Update the matching ADR index once each ADR accepts: SAD `S-ADR-INDEX-001` for `scope: global`, the service's CSD `S-ADR-INDEX-001` for `scope: service`. Update SAD `S-CONTAINERS-001` only when an accepted global ADR shifts the container set; otherwise leave SAD untouched. When the accepted ADR creates a cross-feature invariant for the elected service, ALSO append a row to CSD `S-INVARIANTS-001`.
+5. Update `<context_path>/.orchestra/inventory/adr/index.md` once each ADR accepts — append to `S-GLOBAL-001` for `scope: global` or `S-SERVICES-001` for `scope: service` (full row shape and `revision:` / count-bump rules in the ADR-open subroutine step e above). Update SAD `S-CONTAINERS-001` only when an accepted global ADR shifts the container set; otherwise leave SAD untouched. When the accepted ADR creates a cross-feature invariant for the elected service, ALSO append a row to CSD `S-INVARIANTS-001`.
 
 ### Phase 3 — Diagrams and hand-back
 
@@ -221,9 +222,9 @@ Reverse-doc SAD is project-level (one across all features); CSDs are one per ser
 <example>
 Context: greenfield Java project, `chain_rigor=Full`. `<feature-id>-ESCALATE-ADR-0001.md` exists with `proposed_slug: stack-choice; context: user-supplied Spring Boot 3.x on JVM 17+`. SAD does not exist yet.
 
-1. Bootstrap `<context_path>/docs/SAD.md` shell (frontmatter + 4 anchors with `<!-- FILL: ... -->` placeholders for now).
+1. Bootstrap `<context_path>/docs/SAD.md` shell (frontmatter + the five anchors with `<!-- FILL: ... -->` placeholders for now).
 2. Run ADR-open for `ADR-0001-stack-choice`. Hand to `@reviewer`.
-3. On accepted: stack-choice ADR is `scope: global` (affects every service in the workspace), so append SAD `S-ADR-INDEX-001` row; finalize `S-CONTAINERS-001` with `[Container: Spring Boot 3.x on JVM 17+]` label.
+3. On accepted: stack-choice ADR is `scope: global` (affects every service in the workspace), so emit `<context_path>/.orchestra/inventory/adr/index.md` with the first `S-GLOBAL-001` row appended; finalize SAD `S-CONTAINERS-001` with `[Container: Spring Boot 3.x on JVM 17+]` label.
 4. Author C4 L1 (`<context_path>/docs/diagrams/c4-context.puml`) + C4 L2 (`<context_path>/docs/diagrams/c4-container.puml`) via `c4-architecture`. The `post-write-puml` hook renders both to `.svg`. Embed both in SAD `S-CONTAINERS-001` via `![]()`.
 5. Hand to `@lead` for TDD authorship at the Component layer.
 </example>

@@ -72,7 +72,7 @@ This is the only intent that produces the full SDLC artifact set.
 - impl
 - `docs/adr/ADR-<NNNN>-<slug>.md` (conditional — refactors often hit forks)
 
-**Excluded:** PRD, FRS, openapi, new SAD. Refactors preserve external behavior; openapi is unchanged by definition. SAD updates are limited to component touches (append components, append `S-ADR-INDEX-001` rows), not new architecture.
+**Excluded:** PRD, FRS, openapi, new SAD. Refactors preserve external behavior; openapi is unchanged by definition. SAD updates are limited to component touches (append container rows), not new architecture. ADR acceptances append rows to `.orchestra/inventory/adr/index.md`, not to SAD.
 
 ## docs {#docs}
 

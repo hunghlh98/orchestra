@@ -53,7 +53,7 @@ const TYPE_SPEC = {
     folder: "architecture",
     template: "SAD.template.md",
     filename: "SAD.md",
-    anchors: ["S-VISION-001", "S-CONTEXT-001", "S-CONTAINERS-001", "S-ADR-INDEX-001"],
+    anchors: ["S-VISION-001", "S-CONTEXT-001", "S-CONTAINERS-001"],
     diagrams: [
       { kind: "c4-context", source: "diagrams/sad-c4-context.puml", rendered: "diagrams/sad-c4-context.svg" },
       { kind: "c4-container", source: "diagrams/sad-c4-container.puml", rendered: "diagrams/sad-c4-container.svg" },

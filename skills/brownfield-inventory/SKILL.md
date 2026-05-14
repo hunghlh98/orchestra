@@ -112,7 +112,7 @@ Authoring-agent routing by action:
 | Action | Authoring agent | Target anchor |
 |---|---|---|
 | `migrate-as-regen-seed` (SAD-equivalent → system-level SAD) | `@architect` | `<context_path>/docs/SAD.md` `S-CONTAINERS-001` / `S-VISION-001` / `S-CONTEXT-001` |
-| `migrate-as-regen-seed` (ADR dir) | `@architect` | `<context_path>/docs/adr/ADR-NNNN-<slug>.md` |
+| `migrate-as-regen-seed` (ADR dir) | `@architect` | `<context_path>/docs/adr/ADR-NNNN-<slug>.md` (ADR body) + `<context_path>/.orchestra/inventory/adr/index.md` `S-GLOBAL-001` row (index entry; emit the index file on the first migrated row if it doesn't exist yet) |
 | `migrate-as-regen-seed` (allowlisted diagram) | `@architect` (L1/L2) or `@lead` (L3/L4) | `<context_path>/docs/<service_name>/diagrams/` or `<context_path>/docs/diagrams/` per tier |
 | `fold-into-CSD` | `@architect` | `<context_path>/docs/<service_name>/<service_name>-CSD.md` `S-OWNED-001` / `S-BR-001` / `S-INVARIANTS-001` |
 | `fold-into-PRD` | `@product` | per-feature PRD `S-PROBLEM-001` / `S-SCOPE-001` |

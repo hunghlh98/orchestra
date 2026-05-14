@@ -5,8 +5,16 @@ created: {{CREATED}}
 revision: 1
 project_mode: greenfield
 c4_levels_present: [1, 2]
-adr_count: 0
 ---
+
+<!--
+Link discipline: this document is part of the sealed `docs/` narrative tree.
+MUST NOT link to codebase paths (src/...), external URLs, .orchestra/ siblings,
+or project-root files. MAY link only to other `docs/*` artifacts by relative
+path and cite ADRs by ID in plain prose ("per ADR-0007-use-postgres, ...").
+ADR index lives at .orchestra/inventory/adr/index.md, NOT in this document.
+Full rule: schemas/pipeline-artifact.schema.md#link-discipline.
+-->
 
 # Software Architecture Document
 
@@ -22,14 +30,6 @@ adr_count: 0
 
 ## Containers <a id="S-CONTAINERS-001"></a>
 
-<!-- FILL: One bullet per container (deployable unit). Name + technology + responsibility. C4 Level 2. -->
+<!-- FILL: One bullet per container (deployable unit). Name + technology + responsibility. C4 Level 2. Describe each container by its architectural role and technology label only — no codebase paths. -->
 
 ![C4 Level 2 — Containers](diagrams/sad-c4-container.svg)
-
-## ADR Index <a id="S-ADR-INDEX-001"></a>
-
-<!-- FILL: Table of accepted ADRs. One row per ADR. ADR bodies live at docs/adr/ADR-NNNN-<slug>.md — DO NOT inline them here. -->
-
-| ADR | Slug | Status | Accepted at |
-|---|---|---|---|
-| _none yet_ | | | |
