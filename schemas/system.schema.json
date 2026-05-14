@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "orchestra:system",
   "title": "orchestra context-level system.yaml",
-  "description": "Closed allowlist for <context_path>/.orchestra/system.yaml — workspace-wide facts shared across all services in a multi-* workspace.",
+  "description": "Closed allowlist for <context_path>/.orchestra/system.yaml — workspace-wide facts shared across all services.",
   "type": "object",
   "additionalProperties": false,
   "required": ["workspace_kind", "context_path"],
   "properties": {
     "$schema": { "type": "string" },
-    "workspace_kind": { "enum": ["single-repo", "multi-repo", "multi-service"] },
+    "workspace_kind": { "enum": ["single-repo", "multi-repo"] },
     "context_path": { "type": "string", "minLength": 1 },
     "status": { "enum": ["draft", "locked"] }
   }

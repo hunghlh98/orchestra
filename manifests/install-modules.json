@@ -65,13 +65,6 @@
       "stability": "stable"
     },
     {
-      "name": "skill.project-discovery",
-      "kind": "skill",
-      "path": "skills/project-discovery/SKILL.md",
-      "defaultEnabled": true,
-      "stability": "stable"
-    },
-    {
       "name": "skill.code-review",
       "kind": "skill",
       "path": "skills/code-review/SKILL.md",

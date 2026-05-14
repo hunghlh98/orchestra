@@ -4,47 +4,46 @@
 
 ## How agents use this file
 
-- **Spawn prompt mandate**: every `Agent({ subagent_type, prompt })` call from the dispatcher embeds `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent>` plus a 1-line summary. Agents may Read this file when the inline summary is insufficient (e.g., an artifact name they're uncertain about).
+- **Spawn prompt mandate**: every `Agent({ subagent_type, prompt })` call from the dispatcher embeds `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent>` plus a 1-line summary. Agents may Read this file when the inline summary is insufficient.
 - **Out-of-whitelist enforcement**: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-ESCALATE-<slug>.md` with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
-- **ADR sub-flow**: `feature` and `refactor` intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author (under `chain_rigor=Full`); `@reviewer` reviews. 3-round circuit breaker → `<feature-id>-ESCALATE-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-<NNNN>-<slug>`) in plain prose, not by section anchor.
+- **ADR sub-flow**: `feature` and `refactor` intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author; `@reviewer` reviews. 3-round circuit breaker → `<feature-id>-ESCALATE-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-<NNNN>-<slug>`) in plain prose, not by section anchor.
 
-Paths: per-feature prose in `docs/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`).
+Paths: per-feature prose in `docs/<service_name>/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`).
 
 ---
 
 ## feature {#feature}
 
-**Agents (in order):** `@product` → `@architect` (Full only) → `@lead` → `@backend` / `@frontend` / `@test` Stage-1 (parallel) → `@test` Stage-2 → `@evaluator` → `@reviewer` → `/orchestra ship`
+**Agents (in order):** `@product` → `@architect` → `@lead` → `@backend` / `@frontend` / `@test` Stage-1 (parallel) → `@test` Stage-2 → `@evaluator` → `@reviewer`
 
 **Artifact whitelist (full set):**
 
-- `docs/<feature-id>/<feature-id>-PRD.md`
-- `docs/<feature-id>/<feature-id>-FRS.md`
+- `docs/<service_name>/<feature-id>/<feature-id>-PRD.md`
+- `docs/<service_name>/<feature-id>/<feature-id>-FRS.md`
+- `docs/<service_name>/<service_name>-BR-AC.md` (per-service BR + AC singleton; updated in place)
+- `docs/business-invariants.md` (workspace-grain singleton; updated in place when cross-service invariants apply)
 - `docs/SAD.md` (project singleton; updated in place)
 - `docs/adr/ADR-<NNNN>-<slug>.md` (conditional, per ADR sub-flow)
-- `docs/<feature-id>/<feature-id>-TDD.md`
-- `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`; CONTRACT narrative folds inline)
+- `docs/<service_name>/<feature-id>/<feature-id>-TDD.md`
+- `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`)
 - `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
-- impl source (project's normal layout under `<context_path>/services/<service_name>/src/`)
-- `docs/<feature-id>/<feature-id>-TSR.md` (multi-writer: `S-TEST-001` by `@test` Stage-1+Stage-2, `S-EVAL-001` by `@evaluator`, `S-REVIEW-001` by `@reviewer` (with ADR-review subsection when ADRs touched), `S-DIVERGENCES-001` by `@architect` (brownfield only); ship verdict in frontmatter `ship:` set by `/orchestra ship`)
-- `docs/releases/RELEASE-vX.Y.Z.md` (singleton; absorbs ANNOUNCEMENT into `S-ANNOUNCEMENT-001`)
-- `docs/runbooks/RUNBOOK-vX.Y.Z.md` (singleton; conditional)
+- impl source under `<context_path>/services/<service_name>/src/` (multi-repo) or `<context_path>/src/` (single-repo)
+- `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (multi-writer: `S-TEST-001` by `@test`, `S-EVAL-001` by `@evaluator`, `S-REVIEW-001` by `@reviewer`)
 
 This is the only intent that produces the full SDLC artifact set.
 
 ## hotfix {#hotfix}
 
-**Agents (in order):** `@lead` → `@backend` / `@frontend` → `@test` Stage-2 → `@evaluator` → `/orchestra ship`
+**Agents (in order):** `@lead` → `@backend` / `@frontend` → `@test` Stage-2 → `@evaluator`
 
 **Artifact whitelist:**
 
-- `docs/<feature-id>/<feature-id>-TDD.md`
+- `docs/<service_name>/<feature-id>/<feature-id>-TDD.md`
 - `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl-fix
-- `docs/<feature-id>/<feature-id>-TSR.md` (no review half required — `S-REVIEW-001` stays `pending`)
-- `docs/releases/RELEASE-vX.Y.Z.md`
+- `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (no review half required — `S-REVIEW-001` stays `pending`)
 
-**Excluded:** PRD, FRS, openapi (unchanged from broken release), SAD, ADR. Hotfixes skip Planning + Analysis (the bug is the spec). `@reviewer` is NOT spawned (review folds into the implementer's diff for speed). `@test` Stage-1 is skipped because spec is unchanged; Stage-2 still runs the suite.
+**Excluded:** PRD, FRS, openapi (unchanged from broken release), SAD, ADR, BR-AC. Hotfixes skip Planning + Analysis (the bug is the spec). `@reviewer` is NOT spawned. `@test` Stage-1 is skipped because spec is unchanged; Stage-2 still runs the suite.
 
 ## template {#template}
 
@@ -52,13 +51,13 @@ This is the only intent that produces the full SDLC artifact set.
 
 **Artifact whitelist:**
 
-- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/intent.yaml` (routing decision; `@product` triages but writes no PRD)
-- `docs/<feature-id>/<feature-id>-TDD.md`
+- `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/intent.yaml`
+- `docs/<service_name>/<feature-id>/<feature-id>-TDD.md`
 - `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl source
-- `docs/<feature-id>/<feature-id>-TSR.md`
+- `docs/<service_name>/<feature-id>/<feature-id>-TSR.md`
 
-**Excluded:** PRD, FRS, openapi, SAD, ADR. Templates are infrastructure scaffolding; they don't define new contracts. `@product` is spawned for upstream classification only and writes the routing `intent.yaml`, no narrative.
+**Excluded:** PRD, FRS, openapi, SAD, ADR, BR-AC. Templates are infrastructure scaffolding; they don't define new contracts. `@product` is spawned for upstream classification only and writes the routing `intent.yaml`, no narrative.
 
 ## refactor {#refactor}
 
@@ -66,25 +65,25 @@ This is the only intent that produces the full SDLC artifact set.
 
 **Artifact whitelist:**
 
-- `docs/<feature-id>/<feature-id>-TSR.md` (pre-impl assessment in `S-REVIEW-001`; post-impl `S-EVAL-001` by `@evaluator`)
-- `docs/<feature-id>/<feature-id>-TDD.md` (update — not net-new)
+- `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (pre-impl assessment in `S-REVIEW-001`; post-impl `S-EVAL-001` by `@evaluator`)
+- `docs/<service_name>/<feature-id>/<feature-id>-TDD.md` (update — not net-new)
 - `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`
 - impl
 - `docs/adr/ADR-<NNNN>-<slug>.md` (conditional — refactors often hit forks)
 
-**Excluded:** PRD, FRS, openapi, new SAD. Refactors preserve external behavior; openapi is unchanged by definition. SAD updates are limited to component touches (append container rows), not new architecture. ADR acceptances append rows to `.orchestra/inventory/adr/index.md`, not to SAD.
+**Excluded:** PRD, FRS, openapi, new SAD, BR-AC. Refactors preserve external behavior; openapi is unchanged by definition. SAD updates are limited to component touches.
 
 ## docs {#docs}
 
-**Agents (in order):** `@product` (intent triage only) → `/orchestra ship` → `@reviewer`
+**Agents (in order):** `@product` (intent triage only) → `@reviewer`
 
 **Artifact whitelist:**
 
 - `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/intent.yaml`
 - The doc files themselves (whatever the user asked for — README updates, ADR additions outside a feature, rule docs, etc.)
-- `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending`)
+- `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending`)
 
-**Excluded:** PRD, FRS, TDD, openapi, TASKS, RELEASE. `@product` triages without authoring narrative. `@lead` MUST refuse this route — if spawned, write `<feature-id>-ESCALATE-<slug>.md` and end the turn.
+**Excluded:** PRD, FRS, TDD, openapi, TASKS, BR-AC. `@product` triages without authoring narrative. `@lead` MUST refuse this route — if spawned, write `<feature-id>-ESCALATE-<slug>.md` and end the turn.
 
 ## review-only {#review-only}
 
@@ -92,34 +91,9 @@ This is the only intent that produces the full SDLC artifact set.
 
 **Artifact whitelist:**
 
-- `docs/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending` indefinitely)
+- `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending` indefinitely)
 
-**Excluded:** PRD, FRS, TDD, openapi, TASKS, RELEASE. The user wants a review of existing work, not new work. `@lead` MUST refuse this route.
-
----
-
-## Implementer dual-mode invocation
-
-Independent of intent. `@backend`, `@frontend`, and `@test` carry a second invocation mode for brownfield source exploration. Triggered by spawn prompt-tag `task: source-explore`.
-
-**Triggers (all must hold):**
-
-- `local.yaml.mode == brownfield`.
-- `local.yaml.depth ∈ {medium, full}`.
-- Caller is `@product` (reverse-doc bootstrap) or `@lead` (run-plan minting).
-- No `<stack>-intel.md` with `status: locked` exists for the current pipeline_id.
-- For `@frontend`: `inventory.md` shows a UI layer present.
-- For `@test`: existing test sources detected during inventory.
-
-**Read-only:** spawn omits `Write`/`Edit`/`Bash` permissions except for the single SOURCE-INTEL artifact write.
-
-**Artifact whitelist (source-explore mode only):**
-
-- `<context_path>/.orchestra/<service_name>/source-intel/<stack>-intel.md` — one file per stack; required anchors per `schemas/pipeline-artifact.schema.md` SOURCE-INTEL section.
-
-**Excluded:** any artifact under `docs/`, any `src/**` write, any test execution. Source-explore is inspection only; deliverable is the intel artifact.
-
-**Caching:** one-shot per pipeline_id. Re-spawn only when `local.yaml.source_lock.read_paths` changes.
+**Excluded:** PRD, FRS, TDD, openapi, TASKS, BR-AC. The user wants a review of existing work, not new work. `@lead` MUST refuse this route.
 
 ---
 

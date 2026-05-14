@@ -528,7 +528,7 @@ console.log("c4-architecture skill enumerates Levels 1–4:");
 {
   const skillPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "skills", "c4-architecture", "SKILL.md");
   const body = readFileSync(skillPath, "utf8");
-  for (const lvl of ["c4-context", "c4-container", "c4-component-<service>", "c4-code-<service>"]) {
+  for (const lvl of ["c4-context", "c4-container", "c4-component", "c4-code"]) {
     check(body.includes(lvl), `skills/c4-architecture/SKILL.md documents diagram-name shape: ${lvl}`);
   }
   check(/Level 4 — Code/i.test(body), `skills/c4-architecture/SKILL.md has Level 4 — Code section`);

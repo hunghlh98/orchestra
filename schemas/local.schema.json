@@ -2,38 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "orchestra:local",
   "title": "orchestra consumer-side local.yaml",
-  "description": "Closed allowlist for <context_path>/.orchestra/<service_name>/local.yaml.",
+  "description": "Closed allowlist for <context_path>/.orchestra/<service_name>/local.yaml. Strict brief-only: drop pipeline_id, source_lock (derive at hook time), tsr_gate_mode, verdict_mode, mode, depth, bootstrap, chain_rigor, test_depth, discovery, incomplete.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["pipeline_id", "service_name"],
+  "required": ["service_name"],
   "properties": {
     "$schema": { "type": "string" },
     "service_name": { "type": "string", "minLength": 1 },
-    "scope_level": { "enum": ["service", "container", "capability"] },
-    "tsr_gate_mode": { "enum": ["blocking", "deferred"] },
-    "verdict_mode": { "enum": ["full", "evaluator-only", "reviewer-only", "none"] },
-    "incomplete": { "type": "boolean" },
-    "test_depth": { "enum": ["stage1", "stage2"] },
-    "source_lock": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "read_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "write_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
-      }
-    },
-    "pipeline_id": { "type": "string", "minLength": 1 },
+    "scope_level": { "enum": ["system-wide", "per-service"] },
     "auto_mode": { "type": "boolean" },
     "run_plan_status": { "enum": ["drafted", "approved", "revision_requested"] },
-
     "status": { "enum": ["draft", "locked"] },
-    "mode": { "enum": ["greenfield", "brownfield"] },
-    "depth": { "enum": ["light", "medium", "full"] },
-    "bootstrap": { "enum": ["pending", "completed"] },
-    "chain_rigor": { "enum": ["Full", "Standard", "Light"] },
     "primary_language": { "type": "string", "minLength": 1 },
-    "secondary_language": { "type": "string", "minLength": 1 },
-    "language": { "type": "string", "minLength": 1 },
     "framework": { "type": "string", "minLength": 1 },
     "spawn_mode": { "enum": ["subagent", "teams"] },
     "autonomy": {
@@ -47,26 +27,6 @@
           ]
         },
         "resolved_by": { "enum": ["cli_flag", "local_yaml", "diagnostic", "default"] }
-      }
-    },
-    "discovery": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "mode": { "enum": ["greenfield", "brownfield"] },
-        "depth": { "enum": ["light", "medium", "full"] },
-        "language": { "type": "string", "minLength": 1 },
-        "primary_language": { "type": "string", "minLength": 1 },
-        "secondary_language": { "type": "string", "minLength": 1 },
-        "framework": { "type": "string", "minLength": 1 },
-        "has_source": { "type": "boolean" },
-        "has_commits": { "type": "boolean" },
-        "scope_hints": {
-          "anyOf": [
-            { "type": "array", "items": { "type": "string" } },
-            { "type": "object", "additionalProperties": true }
-          ]
-        }
       }
     }
   }

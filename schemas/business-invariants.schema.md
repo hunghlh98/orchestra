@@ -1,0 +1,93 @@
+---
+id: BUSINESS-INVARIANTS-SCHEMA
+title: orchestra Workspace-Grain Business Invariants schema
+created: 2026-05-14
+status: draft
+revision: 1
+scope: shape of `<context_path>/docs/business-invariants.md` (workspace singleton).
+---
+
+# orchestra business-invariants.md schema
+
+Workspace-grain singleton holding cross-service business rules and invariants. Authored only under `workspace_kind: multi-repo` AND `scope_level: system-wide`. Per-service BR-AC files cite this artifact for invariants that span multiple services.
+
+## Placement
+
+```
+<context_path>/docs/business-invariants.md
+```
+
+Workspace singleton. Authored by `@architect` during the system-wide pass; updated in place when subsequent features introduce cross-service invariants.
+
+**Not authored** under `workspace_kind: single-repo` (no cross-service surface) — the single service's BR-AC `S-INVARIANTS-001` is canonical.
+
+## Frontmatter
+
+```yaml
+---
+id: business-invariants
+type: BUSINESS-INVARIANTS
+created: <ISO-8601>
+revision: <integer ≥ 1>
+status: draft | locked
+reverse_authoring_mode: cite-as-is | copy-and-modify | re-author    # REQUIRED when code-to-spec authored
+readers:
+  - "@product"
+  - "@architect"
+  - "@lead"
+  - "@backend"
+  - "@frontend"
+  - "@test"
+  - "@evaluator"
+  - "@reviewer"
+invariant_count: <integer ≥ 0>
+sections:
+  S-INVARIANTS-001:
+    writer: "@architect"
+    status: pending | in_progress | locked
+---
+```
+
+## Body grammar
+
+Required anchors:
+
+| Anchor | H2 heading | Row shape | Purpose |
+|---|---|---|---|
+| `S-INVARIANTS-001` | `## Cross-service invariants` | `\| ID \| Invariant \| Rationale \| Services \|` | Workspace-grain business rules + invariants that span ≥2 services. `ID` format `INV-NNN`. `Services` is a comma-separated list of `service_name` values the invariant binds. `Rationale` cites the underlying business need in prose (no codebase-specific identifiers). |
+
+Anchor regex aligns with `schemas/pipeline-artifact.schema.md` `body-grammar`. Bidirectional invariant enforced.
+
+## Relationship to per-service BR-AC
+
+Per-service `<service_name>-BR-AC.md` `S-INVARIANTS-001` rows hold invariants scoped to ONE service. `docs/business-invariants.md` `S-INVARIANTS-001` rows hold invariants that bind ≥2 services. A row that appears in both is a structural failure — split by binding scope.
+
+## Authoring lifecycle
+
+Authored by `@architect`:
+
+- **code-to-spec (reverse)** — during `scope_level: system-wide` pass after BR-AC files per service are drafted. Cross-service invariants are surfaced by inspecting BR-AC duplications across services.
+- **spec-to-code (forward)** — when a feature touches ≥2 services AND a new cross-service rule emerges.
+
+Per-artifact inspect+classify rule applies on reverse pass; `reverse_authoring_mode` logged.
+
+## Writing style
+
+- Assertions, not descriptions.
+- One invariant per row; no multi-clause rows.
+- Describe services by `service_name` only (no codebase paths).
+
+**Link discipline.** Same sealed + portable rules as all other `docs/*` artifacts.
+
+## Validation
+
+`scripts/validate.js` exposes `validateBusinessInvariantsContent(relPath, raw)`:
+
+- `S-INVARIANTS-001` present; bidirectional anchor ↔ `sections:` invariant.
+- When `status: locked`: `invariant_count` equals row count.
+- `INV-NNN` ids monotonic and unique.
+- Every row has a non-empty `Services` cell with ≥2 service names.
+
+## Versioning
+
+Bump `revision:` on row-shape change.

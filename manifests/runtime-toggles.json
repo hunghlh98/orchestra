@@ -56,12 +56,6 @@
       "description": "Decomposition + SP estimation for @lead's task graph generation."
     },
     {
-      "module": "skill.project-discovery",
-      "envVar": "ORCHESTRA_SKILL_PROJECT_DISCOVERY",
-      "default": "on",
-      "description": "Pre-/orchestra discovery (language, framework, brownfield/greenfield mode)."
-    },
-    {
       "module": "skill.code-review",
       "envVar": "ORCHESTRA_SKILL_CODE_REVIEW",
       "default": "on",

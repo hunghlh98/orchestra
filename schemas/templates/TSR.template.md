@@ -9,12 +9,11 @@ eval_verdict: PENDING
 eval_score: 0
 rev_verdict: PENDING
 rev_round: 1
-ship: PENDING
 ---
 
 # {{SLUG}} — Test Summary Report
 
-> Single-writer-per-section discipline: `@test` owns `S-TEST-001` (single row table; Stage-1 authors rows, Stage-2 fills status+evidence cells in place); `@evaluator` owns `S-EVAL-001` (`| id | verdict | reason |` keyed on S-TEST-001 row ids — no column duplication); `@reviewer` owns `S-REVIEW-001` (code review + optional ADR-review subsection); `@architect` owns `S-DIVERGENCES-001` (brownfield only — omit anchor on greenfield). Final ship verdict is in frontmatter `ship:`, not a body section.
+> Single-writer-per-section discipline: `@test` owns `S-TEST-001` (single row table; Stage-1 authors rows, Stage-2 fills status+evidence cells in place); `@evaluator` owns `S-EVAL-001` (`| id | verdict | reason |` keyed on S-TEST-001 row ids — no column duplication); `@reviewer` owns `S-REVIEW-001` (code review + optional ADR-review subsection).
 
 ## Test plan + results <a id="S-TEST-001"></a>
 
@@ -31,5 +30,3 @@ ship: PENDING
 <!-- FILL (@reviewer): One-paragraph APPROVED|ALLOW_WITH_GAP|REQUEST_CHANGES|PENDING summary + per-severity findings (Critical|Major|Minor|Nit) referencing file:line. Set frontmatter rev_verdict + rev_round. -->
 
 <!-- FILL (@reviewer, ADR-touched only): ## ADR review subsection — verdict per ADR + findings. Omit subsection when no ADRs in this feature. -->
-
-<!-- BROWNFIELD-ONLY: @architect appends a "Divergences" H2 with anchor S-DIVERGENCES-001 here on brownfield runs; greenfield TSRs omit the anchor entirely. Row shape: | ID | UC slug | File:line | Finding | Guard test ID | Resolution |. Resolution closes via Path A (INV-NNN ratified) or Path B (defect: <slug>) per agents/architect.md "DIV resolution paths" — never via a retroactive ADR. -->
