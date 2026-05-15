@@ -16,18 +16,9 @@ scope: type-specific frontmatter shapes for every artifact authored by the orche
 > Review-state and per-section locks live in artifact frontmatter; drift
 > detection runs via `git diff`.
 
-## Placement model — `docs/` vs `.orchestra/`
-
-Two project-side roots. They serve different audiences and lifetimes — never mix them.
-
-| Root | Audience | Contents | Lifetime |
-|---|---|---|---|
-| `<project>/docs/` | Humans (PMs, leads, reviewers, ops) | Stakeholder deliverables | Durable; PR-reviewable; cited across artifacts |
-| `<project>/.orchestra/` | Agents + plugin internals | Pipeline-internal coordination + runtime state | Ephemeral or run-bound; never PR-reviewed for content |
-
-Litmus: would you link this from a PR description for a non-engineer reviewer? `docs/` if yes, `.orchestra/` if no.
-
 ## Two-tier placement <a id="two-tier-placement"></a>
+
+Two project-side roots: `<project>/docs/` (durable stakeholder deliverables; PR-reviewable; cross-cited) and `<project>/.orchestra/` (agent + plugin internals; ephemeral or run-bound). Litmus: would you link it from a PR description for a non-engineer reviewer? `docs/` if yes, `.orchestra/` if no.
 
 | Tier | Root | Contents |
 |---|---|---|
@@ -38,25 +29,13 @@ Every artifact path embeds the elected `service_name`. Single-repo workspaces st
 
 ## Link discipline — `docs/` is a sealed, portable narrative tree <a id="link-discipline"></a>
 
-The `<context_path>/docs/` tree is a self-contained narrative for human stakeholders AND a portable specification: docs authored under one project must be valid `spec-to-code` inputs in another project unchanged. A reader walking the tree MUST NOT have to open the codebase, an external URL, or the `.orchestra/` sibling to resolve references.
+The `<context_path>/docs/` tree is self-contained: a reader walking it MUST NOT have to open the codebase, an external URL, or the `.orchestra/` sibling to resolve a reference. Docs authored under project A must be valid `spec-to-code` inputs in project B unchanged. Enforced at write time by `hooks/scripts/pre-write-check.js` (Gate-D inverse) — token classes in `#gate-d` below.
 
-**Forbidden in `docs/*` artifact bodies** (enforced by `pre-write-check.js` Gate-D inverse):
+**Forbidden in `docs/*` artifact bodies:** codebase paths, external URLs, `.orchestra/` sibling paths, codebase-specific identifiers (commit SHAs, branch names, repo URLs), and — in PRD/FRS only — fenced code blocks.
 
-- **Codebase paths** — `src/foo/Bar.java`, `services/order/src/main/...`, `path/to/file:42`. Describe components by their architectural role, not their file location.
-- **External URLs** — RFCs, vendor documentation, GitHub, Stack Overflow. Capture the constraint inline in prose without URL.
-- **`.orchestra/` sibling paths** — `.orchestra/<service_name>/run-plan.md`. The plugin's internal coordination state is opaque to readers of `docs/`.
-- **Codebase-specific identifiers** — commit SHAs (`a1b2c3d`), branch names (`feature/order-v2`), repo URLs (`github.com/...`).
-- **In PRD / FRS only** — fenced code blocks (\`\`\`...\`\`\`). Inline backticks for short identifiers (`OrderState`) are allowed; multi-line snippets are not. PRD/FRS are pure business; technical artifacts (SAD/ADR/TDD/openapi/TSR) may carry inline pseudocode snippets.
+**Allowed:** cross-references between `docs/*` artifacts (relative paths within `docs/`), ADR citations by ID in plain prose (`per ADR-0007-use-postgres, ...`), anchor citations within `docs/*` (`SAD/S-CONTAINERS-001`), inline backticks for short identifiers.
 
-**Allowed in `docs/*` artifact bodies:**
-
-- **Cross-references between `docs/*` artifacts** — relative paths within `docs/`. `docs/SAD.md` may reference `docs/<service_name>/<service_name>-BR-AC.md`; BR-AC may reference `docs/<service_name>/<feature-id>/<feature-id>-PRD.md`.
-- **ADR citations by ID in plain prose** — "per ADR-0007-use-postgres, ...". The reader resolves the ID against `docs/adr/...` (global) or `docs/<service_name>/adr/...` (service).
-- **Anchor citations within `docs/*`** — `SAD/S-CONTAINERS-001`, `BR-AC/S-INVARIANTS-001`.
-
-**Inventory-style indexes belong outside `docs/`.** ADR index (`<context_path>/.orchestra/inventory/adr/index.md`) and any future index live under `.orchestra/inventory/`. Indexes mutate frequently and are derivative; `docs/` carries stable narrative.
-
-**Why portable + sealed:** `docs/` is the artifact tier humans review, stakeholders sign, AND `spec-to-code` consumes as input in a clean project. Codebase paths rot the moment files move. External URLs may go dead. Commit SHAs are project-instance identifiers that don't survive a copy.
+**Inventory-style indexes belong outside `docs/`** — ADR index at `<context_path>/.orchestra/inventory/adr/index.md`; `docs/` carries stable narrative only.
 
 ## Folder layout
 
@@ -91,6 +70,8 @@ The reverse pass authors `<context_path>/docs/README.md` on first run with front
 │   └── sequence-inter-<flow>.{puml,svg}
 └── <service_name>/                      ← per-service partition
     ├── <service_name>-BR-AC.md          ← per-service BR + AC singleton
+    ├── diagrams/                        ← service-level (per-service code-to-spec)
+    │   └── erd-logical.{puml,svg}       ← walked-service schemas only
     └── <feature-id>/                    ← per-feature
         ├── <feature-id>-PRD.md
         ├── <feature-id>-FRS.md
@@ -131,11 +112,6 @@ Workspace-global state at the `.orchestra/` root; per-service execution state pa
     │       └── <feature-id>-ESCALATE-ADR-<NNNN>.md ← ADR-trigger marker
     └── tasks/<run-id>/<agent>/<feature-id>.md      ← per-agent execution plan (PLAN type)
 ```
-
-Lifetime notes:
-- `intent.yaml` + `<feature-id>-TASKS.md` are run-scoped — kept across reruns for idempotency.
-- `<feature-id>-DEADLOCK-*.md` / `<feature-id>-ESCALATE-*.md` / `<run-id>-INCOMPLETE.md` are transient by design.
-- `events.jsonl` and `metrics/` accrete; observability fuel.
 
 Type → folder map:
 
@@ -245,27 +221,20 @@ Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segm
 
 ## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
 
-Artifacts under `docs/` are stakeholder deliverables. Deliver decisions and contracts, not narrative. On every write:
-
-- **State, don't justify.** Each FR / AC / NFR / persona / decision is one substantive sentence (or a fact bullet).
-- **Personas: real, business-domain, system-interacting.** Use names from the consumer's actual domain (`Client`, `Web`, `App`, `Customer`, `Driver`, `Merchant`, `Operator`). A persona is a role that uses the *running system*. Do not invent meta-narrative stand-ins.
-- **Out-of-scope = what the request scoped out.** List items the user explicitly excluded.
-- **Bullets over prose.** Default to bullets. Reserve paragraphs for connected reasoning that genuinely needs them.
-- **No orchestra plumbing in stakeholder bodies.** Do not name `@product` / `@lead` / `@architect` / `@test-author` / `@test-runner` / `@evaluator` / `@reviewer` in PRD / FRS / SAD / TDD / ADR / TSR bodies. The chain is invisible to the human reading the artifact. Cross-references between consumer artifacts ARE fine.
+Artifacts under `docs/` deliver decisions and contracts, not narrative. Two universal rules: **bullets over prose** (reserve paragraphs for reasoning that needs them) and **no orchestra plumbing in stakeholder bodies** (the chain is invisible — do not name `@product` / `@lead` / `@architect` / `@test-author` / `@test-runner` / `@evaluator` / `@reviewer` in PRD / FRS / SAD / TDD / ADR / TSR bodies; cross-references between consumer artifacts ARE fine). Per-agent writing-style rules (assertions vs descriptions, no preambles, no hedging, no restatements, persona naming) live in each authoring agent's `## Writing style` section — `agents/product.md`, `agents/architect.md`, `agents/lead.md`.
 
 ## Diagram bindings via `diagrams: [...]` relations array <a id="diagrams"></a>
 
-Diagrams are sub-artifacts of SAD and TDD, referenced via the `diagrams:` frontmatter array. Each `.puml` lives under the parent artifact's `diagrams/` directory, renders to `.svg` via the `plantuml` skill (`post-write-puml` hook enforces render-on-write), and embeds inline in the parent `.md` via `![title](diagrams/<name>.svg)`.
+Diagrams are sub-artifacts referenced via the parent's `diagrams:` frontmatter array. Each `.puml` lives under the parent artifact's `diagrams/` directory; `post-write-puml` renders the paired `.svg` on write and surfaces array/file/embed mismatches as non-blocking warnings.
 
 **Diagram vocabulary** (which diagram-ids may appear in which parent's array):
 
 | Parent | Diagram-id vocabulary |
 |---|---|
-| `SAD` | `c4-context`, `c4-container`, `erd-logical`, `sequence-inter-<flow>` |
+| `SAD` | `c4-context`, `c4-container`, `erd-logical`, `sequence-inter-<flow>` (authored under `scope_level: system-wide` only) |
+| `BR-AC` | `erd-logical` (authored under `scope_level: per-service` only — walked-service schemas only) |
 | `TDD` | `c4-component`, `sequence-intra-<usecase>`, `state-business`, `state-technical`, `erd-physical` |
 | `ADR` | `adr-status` (mandatory), `option-<A,B,C>` (optional sketches) |
-
-The parent's `diagrams: [...]` array enumerates the diagram-ids actually authored for this artifact. `post-write-puml.js` hook checks: every id in the array has a corresponding `<id>.puml` + `<id>.svg` under the parent's `diagrams/` directory, AND the parent body has an inline `![…](diagrams/<id>.svg)` embed. Mismatches surface as non-blocking warnings.
 
 ## Type-specific frontmatter
 
@@ -509,41 +478,21 @@ Body-grammar carve-out applies (no `sections:` block).
 
 ## src/ ↔ docs/ cite denylist (Gate-D bidirectional) <a id="gate-d"></a>
 
-`pre-write-check.js` Gate-D rejects writes in BOTH directions:
+Enforced by `hooks/scripts/pre-write-check.js`. Both directions reject the write on hit.
 
-**Gate-D (existing direction)** — writes to `<context_path>/services/<service_name>/src/**` (and language equivalents) that contain any of:
+**Gate-D (src/** ← docs/-anchor cite)** — writes to `<context_path>/services/<service_name>/src/**` (and language equivalents) rejecting chain-artifact §-anchor cites:
 
-```
-PRD §<N>                              FR-<N>
-FRS §<N>                              AC-<N>
-TDD §<N>                              C-<N>
-CONTRACT §<N>                         NFR-<N>
-TSR §<N>                              S-<UPPER>-<NNN>
-ADR-<NNNN> §<N>                       openapi.yaml#/paths/
-```
-
-Regex:
 ```
 /(?:PRD|FRS|TDD|CONTRACT|TSR)\s*§\s*\d+|ADR-\d{4}\s*§\s*\d+|\b(?:FR|AC|C|NFR)-\d+\b|\bS-[A-Z]+(?:-[A-Z]+)*-\d{3}\b|openapi\.yaml#\/paths\//
 ```
 
-**Gate-D inverse (new direction)** — writes to chain-artifact `.md` files under `<context_path>/docs/<service_name>/**` (matching filename pattern: `PRD`, `FRS`, `SAD`, `ADR-NNNN`, `TDD`, `TSR`, `BR-AC`, `business-invariants`) reject:
+Token classes: `PRD §N` / `FRS §N` / `TDD §N` / `CONTRACT §N` / `TSR §N` / `ADR-NNNN §N` / `FR-N` / `AC-N` / `C-N` / `NFR-N` / `S-<UPPER>-NNN` / `openapi.yaml#/paths/`.
 
-1. **Codebase path tokens** — `src/`, `services/<…>/src/`, language equivalents (`app/`, `cmd/`, `pkg/`, `internal/`, `lib/`).
-2. **Codebase-specific identifiers** — commit SHAs (`\b[0-9a-f]{7,40}\b` with context check), branch-name patterns (`feature/<…>`, `release/<…>`), repo URLs (`github.com/…`, `gitlab.com/…`).
-3. **PRD / FRS only** — fenced code blocks (lines beginning with three backticks). Inline backticks for short identifiers remain allowed.
-
-Reason: docs are stakeholder-readable AND project-portable. Specs from project A must round-trip into project B unchanged.
+**Gate-D inverse (docs/** ← codebase token)** — writes to chain-artifact `.md` files under `<context_path>/docs/<service_name>/**` (filenames: `PRD`, `FRS`, `SAD`, `ADR-NNNN`, `TDD`, `TSR`, `BR-AC`, `business-invariants`) reject codebase path tokens (`src/`, `services/<…>/src/`, `app/`, `cmd/`, `pkg/`, `internal/`, `lib/`), codebase-specific identifiers (commit SHAs `\b[0-9a-f]{7,40}\b`, branch patterns `feature/<…>`/`release/<…>`, repo URLs `github.com/…`/`gitlab.com/…`), and — PRD/FRS only — fenced code blocks.
 
 ## Validation
 
-- `validate.js` exposes pure functions: `validateStructuralDiff`, `validateOrphanTypes`, `validateFoldCorrectness`, `validateSoftCap`.
-- Drift detection: `git diff` in CI. If a `locked` artifact has uncommitted changes outside an authoring run, CI flags it.
-- `pre-write-check.js` four gates (in addition to the secrets matcher):
-  - **Gate-A** — `status: locked` rejects non-owner writes.
-  - **Gate-B** — `sections:` map enforces per-section writer + lock.
-  - **Gate-C** — `readers:` allowlist; non-blocking warning.
-  - **Gate-D** — bidirectional cite denylist; exit 2 on hit in either direction.
+Frontmatter shape validators live in `scripts/validate.js`; the four write-time gates (A: `status: locked` rejects non-owner writes; B: `sections:` enforces per-section writer + lock; C: `readers:` allowlist warning; D: bidirectional cite denylist per `#gate-d`) plus secrets matcher live in `hooks/scripts/pre-write-check.js`. Drift detection via `git diff` in CI on `locked` artifacts.
 
 ## Versioning
 

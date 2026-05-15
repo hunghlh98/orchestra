@@ -33,6 +33,7 @@ scope_level: system-wide | per-service
 primary_language: <string>
 framework: <string>
 auto_mode: true | false
+feature_framing: aggregate-cohesion | lifecycle-loop  # optional; defaults to aggregate-cohesion
 run_plan_status: drafted | approved | revision_requested
 revision_cycle: <integer ≥ 0>
 ---
@@ -42,6 +43,7 @@ Invariants:
 - `run_plan_status: approved` ⇒ `status: locked`.
 - `auto_mode: true` ⇒ `run_plan_status: approved`.
 - `revision_cycle ≤ 3`; exceeding the cap escalates to `ESCALATE-<id>.md`.
+- `feature_framing` (optional): controls how `@lead`'s plan-mode walk groups entry points into `S-FEATURES-001` rows. Default `aggregate-cohesion` keeps the existing one-feature-per-aggregate-root collapse rule. Setting `lifecycle-loop` replaces it with the **Journey gate** from `commands/orchestra.md` `## Shared rules` — one feature per outcome category of the aggregate's terminal-state partition. Aggregate atomicity at the lock/transition layer stays unified across sibling lifecycle features via service-scope `<service_name>-BR-AC.md S-INVARIANTS-001`, NOT duplicated per feature.
 
 ## Body grammar
 
