@@ -144,3 +144,37 @@ CHANGELOG is **derived from the commit log**, not hand-written. The release flow
 **Smoke** is post-release-commit, user-driven. Not a pre-commit gate. CI validators check orchestra-internal invariants but not Claude Code's plugin / marketplace schemas; if manifest-shape drift slips past human review, the smoke loop catches it at user-run time.
 
 Why commit-derived: hand-authoring duplicates work the commit log already encodes, and drifts as the diff evolves. Conventional Commits gives commit messages machine-readable shape; the CHANGELOG becomes a deterministic projection of the log between two tags. Skip the duplication.
+
+<!-- orchestra:start -->
+This project uses **orchestra** for SDLC orchestration. The chain owns spec / architecture / test docs in `docs/`; your edits live in `src/**`.
+
+## Source of truth
+
+- Behavior specs: `docs/<feature-id>/<feature-id>-PRD.md` (problem / scope), `<feature-id>-FRS.md` (FR / AC). `<feature-id>` = `<NNN>-<slug>` (e.g., `001-todo-api`).
+- Architecture: `docs/SAD.md` and `docs/adr/ADR-NNNN-*.md`.
+- API contracts: `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`).
+- Test plans + verdicts: `docs/<feature-id>/<feature-id>-TSR.md`.
+- Runtime config: `.orchestra/<service_name>/local.yaml`.
+
+## src/ discipline (hook-enforced)
+
+- Do not embed `PRD §N` / `FRS §N` / `TDD §N` / `openapi §N` / `TSR §N` cites in `src/**`.
+- Do not embed `FR-N` / `AC-N` / `S-<TAG>-NNN` / `ADR-NNNN §N` in `src/**`.
+- Traceability lives in commits, PRs, and TSR `S-EVAL-001` / `S-REVIEW-001` — not in business code.
+- The plugin's `pre-write-check.js` Gate-D rejects writes that violate this rule.
+
+## Workflow
+
+- Entry shapes:
+  - `/orchestra spec-to-code` — greenfield forward chain (PRD → FRS → SAD → ADR → TDD → openapi → code).
+  - `/orchestra code-to-spec` — brownfield reverse chain (docs from existing source). Optional second token: `system` | `service:<name>`.
+  - `/orchestra <intent>` — freeform router (e.g., `/orchestra add user authentication`). Reverse-then-forward on brownfield; forward-only on greenfield.
+  - `/orchestra` — usage block, no chain.
+- Decisions cache to `.orchestra/<service_name>/local.yaml` on first run; re-runs skip the questionnaire.
+- Pipeline coordination state lives at `.orchestra/<service_name>/pipeline/<feature-id>/`.
+
+## Don't trample
+
+- `docs/` and `.orchestra/` are chain-written; mutate via the chain, not by hand.
+- ADRs are append-only; supersede, do not delete.
+<!-- orchestra:end -->

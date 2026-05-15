@@ -177,6 +177,18 @@ End turn after writing — `@lead` (or dispatcher) picks up on parent Read.
 - `<context_path>/.orchestra/<service_name>/local.yaml`.
 - Terminal closing event (no SUMMARY artifact; Stop hook captures terminal state).
 
+### Journey gate
+
+A **journey** = one **terminal-state outcome category** of an aggregate root. Multiple state-machine loops belong to the **same journey** when they reach the same outcome category — even when their internal paths differ. Sub-segments and phases of a single outcome category are NOT sibling journeys.
+
+**Outcome-category partition (author's task).** Partition the aggregate's terminal states into ≤4 mutually-exclusive **outcome categories**. A category is a business-meaningful classification of where the state machine terminates — named from the aggregate's own vocabulary, domain-specific. The author identifies categories by asking: *"From the consumer/user's vantage, which terminal states represent the same outcome story?"* States sharing an outcome story share a category. Recurrent partition shapes (illustrative, not exhaustive): forward-attempt vs abandonment vs reversal (value-transfer domains); decided vs abandoned (approval workflows); succeeded-onboarding vs failed-or-abandoned-onboarding (provisioning); active-with-state-X vs terminated-with-state-Y (long-running-resource). System-actor / ops-actor outcome categories partition separately from user-actor categories.
+
+**Grouping decision rule.** For any two candidate flows: do they reach the SAME outcome category? If yes → same journey, fold the second into the first as an `alt` branch. If no → sibling journeys. State-machine connectivity (do they share intermediate states?) is NOT the grouping criterion — outcome category is.
+
+**Stub rejection.** A candidate with only one hop AND no state transition AND no failure variant is a sub-step, not a journey. Fold into the parent journey of its outcome category.
+
+**Worked example (illustrative — value-transfer aggregate).** For an aggregate whose terminal states are `{PAID, DELIVERED, PARTIAL_DELIVERY, DELIVERY_FAILED, PAYMENT_FAILED, CANCELLED, EXPIRED, REFUNDED}`, a value-transfer partition yields three user-actor categories — *forward-attempt* `{PAID, DELIVERED, PARTIAL_DELIVERY, DELIVERY_FAILED, PAYMENT_FAILED}`, *pre-completion abandonment* `{CANCELLED, EXPIRED}`, *post-completion reversal* `{REFUNDED}` — plus an operational category for system-actor surfaces. Yielding four journeys: `<aggregate>-purchase-lifecycle` (happy + payment-failure as `alt`), `<aggregate>-termination` (user-cancel + TTL-expiry as `alt`), `<aggregate>-refund`, and operational `<aggregate>-reconciliation`. Aggregates in non-value-transfer domains partition differently. The principle is the partition + the grouping decision rule; the category names above are NOT the contract.
+
 ## Runtime hooks
 
 7 hook scripts registered in `hooks/hooks.json`. Do not replicate side effects.
