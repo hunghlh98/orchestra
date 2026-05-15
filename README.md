@@ -4,6 +4,30 @@ Multi-agent SDLC pipeline behind `/orchestra`. One developer, generator/evaluato
 
 > The model IS the agent. Build harnesses, not prompt chains.
 
+## Why orchestra
+
+The forward chain (PRD → FRS → SAD → ADR → TDD → openapi → code → TSR) is published methodology — BABOK for PRD / FRS, TOGAF / IEEE 1471 for SAD, Nygard's ADR practice, the OpenAPI Initiative for the contract layer. Any LLM can explain each artifact type on demand and draft a generic template.
+
+What orchestra ships is the *harness* that runs on top: 7 hooks intercept `Write` / `Edit` / `Bash` / `Task` events at tool-call time; 2 MCP servers route auditable probes through `@evaluator`; schema-pinned frontmatter blocks malformed artifacts before they reach disk; `tools:` allowlists enforce generator/evaluator separation by capability, not convention. These are runtime behaviors — they execute during a Claude Code session, not on a documentation site you can paste prompts into.
+
+Pedagogy is researchable; enforcement is not. The plugin is orthogonal to "ask perplexity + generate manually" because anyone can describe the chain — only the harness can gate writes against it during a session.
+
+| Action | perplexity + Claude (manual) | orchestra harness (runtime) |
+| --- | --- | --- |
+| Author PRD-001 | LLM drafts free-form prose | `@product` writes; `pre-write-check` validates frontmatter against `pipeline-artifact.schema.md` at write time |
+| Edit a `status: locked` artifact | LLM edits silently | `pre-write-check` Gate-A blocks the write |
+| Probe a running service for evidence | LLM cannot reach the network | `@evaluator` routes through `orchestra-probe`'s `http_probe` (redacted) / `db_state` (SELECT-only) MCP tools |
+| Cite `FR-3` from business code | LLM may inline the cite | `pre-write-check` Gate-D rejects the write under `src/**` |
+| Trace an artifact to its author | Author identity guessed from prose | Frontmatter `subagent_session_id` joins to `events.jsonl` via the `metrics-collector` hook |
+
+## Architecture
+
+Three load-bearing decisions:
+
+1. **Generator/evaluator separation.** `@evaluator` is strict read-only; `@backend` / `@frontend` deny `Bash`. CI-enforced. Probe runs route through `@evaluator` via the `orchestra-probe` MCP — auditable, named, capped.
+2. **Schema-pinned artifacts.** Every artifact under `<project>/docs/` validates against `pipeline-artifact.schema.md`. Frontmatter (`phase`, `agent_role`, `artifact_id`, `subagent_session_id`) makes observability joins filename arithmetic, not timestamp guesswork.
+3. **Capability-first default models.** Opus 4.7 with 1M context for spec / review tiers. Each agent declares its model; users override per-project in `<project>/.orchestra/<service>/local.yaml`.
+
 ## Features
 
 - 4 entry shapes (`spec-to-code`, `code-to-spec`, `<intent>` router, empty→usage) — one slash command, mode-detected behavior
@@ -176,14 +200,6 @@ Emits the Usage block above. No chain, no agent spawn.
 | `install-modules.schema.json` | Manifest module registry (CI-validated). |
 | `runtime-toggles.schema.json` | Env-var opt-out registry (CI-validated). |
 | `known-models.schema.json` | Recognized model IDs (CI-validated). |
-
-## Architecture
-
-Three load-bearing decisions:
-
-1. **Generator/evaluator separation.** `@evaluator` is strict read-only; `@backend` / `@frontend` deny `Bash`. CI-enforced. Probe runs route through `@evaluator` via the `orchestra-probe` MCP — auditable, named, capped.
-2. **Schema-pinned artifacts.** Every artifact under `<project>/docs/` validates against `pipeline-artifact.schema.md`. Frontmatter (`phase`, `agent_role`, `artifact_id`, `subagent_session_id`) makes observability joins filename arithmetic, not timestamp guesswork.
-3. **Capability-first default models.** Opus 4.7 with 1M context for spec / review tiers. Each agent declares its model; users override per-project in `<project>/.orchestra/<service>/local.yaml`.
 
 ## Environment Variables (opt-out)
 

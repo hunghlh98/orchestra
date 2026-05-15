@@ -962,7 +962,7 @@ function readActivePhase(eventsPath) {
 // pipeline.phase.start/end pairs, then walks tokens.jsonl and assigns each
 // subagent.tokens row to the phase whose interval contains its ts. Tokens
 // landing outside any phase interval bucket under "unknown" — that's the
-// pilot's 68% (lead never emitted phase events; v4.1 fixes the emission
+// pilot's 68% (lead never emitted phase events; the emission
 // side in Phase 4 task 4.1).
 function emitCostByPhase(input) {
   const cwd = input.cwd || process.cwd();

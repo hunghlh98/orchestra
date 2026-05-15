@@ -27,7 +27,7 @@ The `--source=<path>` flag accepts an absolute path or a path relative to `cwd`.
 
 ## Preflight contract
 
-`hooks/scripts/orchestra-preflight.js` runs on `UserPromptSubmit` (matcher `^/orchestra(\s|$)`) and emits an `<orchestra-preflight>` YAML block into prompt context. Block shape:
+`hooks/scripts/orchestra-preflight.js` runs on `UserPromptSubmit` (matcher `^/orchestra(?::orchestra)?(\s|$)`) and emits an `<orchestra-preflight>` YAML block into prompt context. Block shape:
 
 ```yaml
 <orchestra-preflight>
@@ -195,7 +195,7 @@ A **journey** = one **terminal-state outcome category** of an aggregate root. Mu
 
 | Hook | Events (matchers) | Side effect |
 |---|---|---|
-| `orchestra-preflight` | UserPromptSubmit (matcher `^/orchestra(\s|$)`) | Detects mode, loads cached system.yaml + local.yaml, derives workspace_kind + scope_level, reads `docs/README.md` provenance marker, splices `CLAUDE.md`. Emits `<orchestra-preflight>` block to prompt context. |
+| `orchestra-preflight` | UserPromptSubmit (matcher `^/orchestra(?::orchestra)?(\s|$)`) | Detects mode, loads cached system.yaml + local.yaml, derives workspace_kind + scope_level, reads `docs/README.md` provenance marker, splices `CLAUDE.md`. Emits `<orchestra-preflight>` block to prompt context. |
 | `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-*\|TaskCreate\|TaskUpdate / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl`. Groups by `run_id`. |
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher + Gate-A (status-locked) + Gate-B (sections-all-locked) + Gate-C (readers warning) + Gate-D (chain-cites blocked in `src/**`) + Gate-D-inverse (`src/**` path tokens, commit SHAs, branch names, repo URLs, and PRD/FRS fenced code blocks blocked in `docs/**/*.md`). |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts. |

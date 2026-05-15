@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // scripts/mcp-servers/orchestra-fs.js
 // MCP server: filesystem exploration with auditable tool calls.
-// One tool: `tree`. See PRD §9.10 / DESIGN-001-infra §4.1.
+// One tool: `tree`.
 //
 // Stdlib-only Node. Wraps a stdlib fs.readdir walker that produces
 // tree-style output. The system `tree` CLI dependency was deferred —

@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 // scripts/mcp-servers/orchestra-probe.js
 // MCP server: runtime probes for @evaluator. Two tools: http_probe, db_state.
-// See PRD §9.10 / DESIGN-001-infra §4.2.
 //
-// SQL backend support (v1.0.0): sqlite3 only via the `sqlite3` CLI.
-// postgres / mysql DSN schemes are stubbed with a clear "deferred to v1.1+"
+// SQL backend support: sqlite3 only via the `sqlite3` CLI.
+// postgres / mysql DSN schemes are stubbed with a clear "deferred"
 // message — full CLI dispatch with parameter binding is non-trivial enough
 // to warrant its own design pass. The MCP API surface (DSN format, tool
-// schema) is locked now so v1.1 only adds the implementations.
+// schema) is locked now; future revisions only add the implementations.
 
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -59,7 +58,7 @@ export const TOOLS = [
   },
   {
     name: "db_state",
-    description: "Run a parameterized SELECT against sqlite3 (postgres/mysql deferred to v1.1+). Read-only; SELECT-only enforced server-side. Response body passes through secret-redaction.",
+    description: "Run a parameterized SELECT against sqlite3 (postgres/mysql deferred). Read-only; SELECT-only enforced server-side. Response body passes through secret-redaction.",
     inputSchema: {
       type: "object",
       required: ["dsn", "query"],
@@ -133,7 +132,7 @@ function finalize(res, chunks, truncated, resolveP) {
 export function dbStateImpl({ dsn, query, params = [], timeout_ms = 5000, row_cap = 100 } = {}) {
   if (!dsn || !query) throw new Error("db_state: dsn and query are required");
   if (!isSelectOnly(query)) {
-    throw new Error("db_state: SELECT-only enforced. WITH/CTE, INSERT, UPDATE, DELETE, DROP rejected (v1.0.0; CTE support deferred to v1.1+).");
+    throw new Error("db_state: SELECT-only enforced. WITH/CTE, INSERT, UPDATE, DELETE, DROP rejected; CTE support deferred.");
   }
   const cap = Math.min(Math.max(row_cap | 0, 1), 1000);
   const t = Math.min(Math.max(timeout_ms | 0, 100), 30000);
@@ -141,10 +140,10 @@ export function dbStateImpl({ dsn, query, params = [], timeout_ms = 5000, row_ca
   const driver = dsnDriver(dsn);
   if (driver === "sqlite3") return sqliteRun(dsn, query, params, t, cap);
   if (driver === "postgres") {
-    throw new Error("db_state: postgres DSN deferred to v1.1+ (sqlite3 only in v1.0.0).");
+    throw new Error("db_state: postgres DSN deferred (sqlite3 only).");
   }
   if (driver === "mysql") {
-    throw new Error("db_state: mysql DSN deferred to v1.1+ (sqlite3 only in v1.0.0).");
+    throw new Error("db_state: mysql DSN deferred (sqlite3 only).");
   }
   throw new Error(`db_state: unrecognized DSN scheme in '${maskDsn(dsn)}'`);
 }
