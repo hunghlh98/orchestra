@@ -7,6 +7,9 @@ See @README.md for what orchestra is. This file is **plugin-authoring discipline
 - **Two surfaces, never mix them.** Consumer surface (`agents/`, `commands/`, `skills/`, `schemas/`, `hooks/`) MUST NOT cite developer surface (`docs/`, `manifests/`, `scripts/`) by `§`-anchor or markdown link. Inline the rule, drop the cite.
 - **No version stamps in consumer surface.** Plugin version lives only in `plugin.json` + `VERSION` + `package.json`. No `v4.0`, `(v4.2)`, "X is GONE in v4.Y" inside `agents/` / `commands/` / `skills/` / `schemas/`. Fix shape: strip the stamp, keep the rule.
 - **Fold up, don't sprinkle.** When a rule lives canonically (e.g., `## Invariants` block at the top of `commands/orchestra.md`), trust it. Don't add inline "DO NOT do X" reminders at every call site.
+- **Tight imperative; no storytelling.** Rule statement = one imperative clause + minimal qualifier. Cut exposition tails ("never reach this branch", "an engineer outside the user's context can decode"). Justifications go in `CHANGELOG.md` / commit body.
+- **Split lines for scannability.** Multi-clause rules render as long visual lines. Break into separate paragraphs, labelled `**<Name>.** <action>` paragraphs, or bullets when enumerating ≥2 constraints.
+- **Upsert into existing files.** New content overlapping an existing memory or consumer-surface file by >~50% → edit the existing file, not a new one. Preserve the file's existing voice.
 - **Bump version only via script.** `node scripts/bump-version.js <major|minor|patch>` atomically updates `VERSION` + `package.json` + `.claude-plugin/plugin.json`. Never hand-edit these three.
 - **Default to PATCH bumps** unless explicitly told otherwise.
 - **CHANGELOG is derived from commit log.** Group commits by Conventional Commits type into Added / Fixed / Changed / Breaking. Extract; do not re-narrate.

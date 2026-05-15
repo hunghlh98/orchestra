@@ -86,9 +86,17 @@ inputs: <context_path>/.orchestra/<service_name>/local.yaml, run-plan.md, docs/b
 chain: PRD → FRS → SAD → ADR (when triggered) → TDD → openapi/asyncapi → backend code + unit tests → @test-author → @test-runner + @evaluator + @reviewer → TSR
 ```
 
-`@lead` routes hard-sequential layers and the parallel fan-out (`@backend` ‖ `@frontend` ‖ `@test-author`) gated on `openapi.yaml status: locked`. Converge on `@test-runner` + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
+`@lead` routes hard-sequential layers and the parallel fan-out (`@backend` ‖ `@frontend` ‖ `@test-author`) gated on `openapi.yaml status: locked`.
 
-Mint `<feature-id>` per major feature: `<NNN>-<noun-phrase-slug>`. `NNN = max(existing <NNN>-... under docs/<service_name>/) + 1`. Verb-prefixed slugs rejected; re-prompt for noun-phrase.
+Converge on `@test-runner` + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
+
+**Inter-feature parallel spawn.** `S-FEATURES-001` with ≥2 features, distinct aggregate roots / distinct services, no dependency edge → dispatcher spawns `@lead` per feature in ONE Agent-tool-call message.
+
+**Feature-id minting.**
+
+- Shape: `<NNN>-<noun-phrase-slug>`. `NNN = max(existing <NNN>-... under docs/<service_name>/) + 1`.
+- Slug = tech / CRUD / lifecycle noun. Examples: `order`, `order-checkout`, `order-refund`, `<aggregate>-purchase-lifecycle`, `<aggregate>-termination`.
+- Reject: Journey gate category labels (`forward-purchase`, `abandonment`, `reversal`), verb-prefixed slugs. Re-prompt.
 
 ## code-to-spec algorithm
 
@@ -176,6 +184,15 @@ End turn after writing — `@lead` (or dispatcher) picks up on parent Read.
 - `<context_path>/.orchestra/<service_name>/local.yaml` — via `mcp__orchestra-utils__upsert_local_yaml`.
 - `<context_path>/CLAUDE.md` orchestra section — via `mcp__orchestra-utils__bootstrap_consumer_claude_md`.
 - Terminal closing event (no SUMMARY artifact; Stop hook captures terminal state).
+
+### Tool-call batching for independent writes
+
+N independent file writes within one agent turn → batch as N parallel `Write()` calls in ONE message.
+
+- Eligibility: separate files, no shared mutable region, no ordering dependency.
+- Common cases: multiple `.puml` diagrams per artifact, per-feature singletons under one feature dir, per-service singletons across N services.
+- Single-writer surfaces stay sequential: SAD `S-CONTAINERS-001`, `business-invariants.md`, `inventory/adr/index.md`, `local.yaml`.
+- Precedent: `agents/architect.md` "IN THE SAME EDIT" rule for diagram binding.
 
 ### Journey gate
 

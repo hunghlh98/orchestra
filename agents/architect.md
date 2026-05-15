@@ -51,6 +51,17 @@ BR-AC = `<context_path>/docs/<service_name>/<service_name>-BR-AC.md`. One per el
 
 Per-feature concerns NEVER appear in BR-AC; a row applying to only one feature → push back to feature's PRD/FRS/TDD. Subsequent runs: read-only except when service shape moves; update in place.
 
+### Within-agent parallelism
+
+Trigger: spawn covers ≥2 per-service BR-AC authorings.
+
+Action: split into N sub-runs via nested `Agent({ subagent_type: "architect", prompt: "<per-service task subset>" })` in one message. Prompt-discipline only.
+
+- Fan-out criterion: ≥2 distinct service names, each with its own BR-AC singleton.
+- Sub-run scope: `<service_name>-BR-AC.md` + service-scope `erd-logical.puml` + service-scope ADRs. Flips own TASKS rows to `done`.
+- Shared-workspace surfaces stay serial: SAD `S-CONTAINERS-001`, workspace `business-invariants.md`, global ADRs.
+- Parent writes shared surfaces in ONE final pass after all sub-runs idle.
+
 ### ADR-open subroutine
 
 Open formal ADR when ANY trigger fires AND all three worthiness gates pass (see `## Rules → ### ADR-worthiness gates`):
