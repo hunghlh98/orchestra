@@ -19,7 +19,6 @@
 //       source_path: <value> | null
 //     missing_fields: [<field>, ...]
 //     docs_provenance: orchestra-generated | unknown
-//     claude_md_state: synced | bootstrapped | absent
 //   </orchestra-preflight>
 //
 // The dispatcher's first action is to read this block, skip bootstrap prompts
@@ -29,9 +28,6 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
 import { parse as parseYaml } from "../lib/yaml-mini.js";
 
 const NAME = "ORCHESTRA_HOOK_PREFLIGHT";
@@ -39,9 +35,6 @@ const NAME = "ORCHESTRA_HOOK_PREFLIGHT";
 if (process.env[NAME] === "off") {
   process.exit(0);
 }
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const BOOTSTRAP_CLAUDE_MD = join(__dirname, "..", "lib", "bootstrap-consumer-claude-md.js");
 
 main();
 
@@ -99,7 +92,6 @@ function buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt) {
   });
 
   const docsProvenance = detectDocsProvenance(cwd) ? "orchestra-generated" : "unknown";
-  const claudeMdState = bootstrapClaudeMd(cwd);
 
   return renderBlock({
     mode,
@@ -109,7 +101,6 @@ function buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt) {
     cached,
     missing,
     docsProvenance,
-    claudeMdState,
   });
 }
 
@@ -212,16 +203,6 @@ function detectMissingFields({ mode, workspaceKind, serviceName, scopeLevel, cac
   return missing;
 }
 
-function bootstrapClaudeMd(cwd) {
-  const target = join(cwd, "CLAUDE.md");
-  const existedBefore = existsSync(target);
-  if (!existsSync(BOOTSTRAP_CLAUDE_MD)) return "absent";
-  const r = spawnSync("node", [BOOTSTRAP_CLAUDE_MD, cwd], { encoding: "utf8", timeout: 5_000 });
-  if (r.status !== 0) return "absent";
-  if (!existedBefore) return "bootstrapped";
-  return "synced";
-}
-
 function renderBlock(s) {
   const lines = [
     "<orchestra-preflight>",
@@ -237,7 +218,6 @@ function renderBlock(s) {
     `    source_path: ${s.cached["source_path"] || "null"}`,
     `  missing_fields: [${s.missing.join(", ")}]`,
     `  docs_provenance: ${s.docsProvenance}`,
-    `  claude_md_state: ${s.claudeMdState}`,
     "</orchestra-preflight>",
     "",
   ];

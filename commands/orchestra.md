@@ -43,7 +43,6 @@ The `--source=<path>` flag accepts an absolute path or a path relative to `cwd`.
     source_path: <value> | null        # brownfield per-service only
   missing_fields: [<field>, ...]
   docs_provenance: orchestra-generated | unknown
-  claude_md_state: synced | bootstrapped | absent
 </orchestra-preflight>
 ```
 
@@ -61,7 +60,7 @@ Per-field question shape:
 - `primary_language`, `framework` (only when `mode: greenfield` AND null) — `AskUserQuestion`.
 - `source_path` (only when `mode: brownfield` AND `scope_level: per-service` AND null) — `AskUserQuestion` with the conventional `./services/<service_name>/` path as default plus an Other option for free-text entry. Reject empty values; require the directory exists.
 
-Persist to `<context_path>/.orchestra/<service_name>/local.yaml` against `schemas/local.schema.json` closed allowlist. Persist `workspace_kind` + `context_path` to `<context_path>/.orchestra/system.yaml` against `schemas/system.schema.json`. Unknown fields fail schema-load.
+Persist by calling `mcp__orchestra-utils__upsert_local_yaml` with named args (`context_path`, `service_name`, optional `scope_level`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `source_path`, `status`). Persist workspace identity via `mcp__orchestra-utils__write_system_yaml(workspace_kind, context_path, status)`. Both tools validate against the closed allowlists in `schemas/system.schema.json` / `schemas/local.schema.json` and reject unknown fields server-side. After both succeed, call `mcp__orchestra-utils__bootstrap_consumer_claude_md(context_path)` once — this splices the orchestra section into the consumer's `CLAUDE.md`.
 
 ## Run-plan + approval gate
 
@@ -72,7 +71,7 @@ Approval mechanism splits by `chain:` tag (not by `mode` — `mode: brownfield` 
 - **`chain: reverse-pass`** — `@lead` validates `S-FEATURES-001` inside `EnterPlanMode` + native `ExitPlanMode` approval (plan mode walks the existing source to verify the feature enumeration).
 - **`chain: forward-chain`** — `@lead` writes the run-plan directly; dispatcher then `AskUserQuestion(approve | revise)` (no source to walk for a feature being minted from intent).
 
-On approval: write `local.yaml.auto_mode: true` + `run_plan_status: approved`; flip `run-plan.md` frontmatter `run_plan_status: approved` + `status: locked`. On rejection: `run_plan_status: revision_requested`, collect notes, re-spawn `@lead`. Max 3 cycles; cycle 4 → `<context_path>/.orchestra/<service_name>/pipeline/run-plan-ESCALATE.md` with `resolution: pending`.
+On approval: patch via `mcp__orchestra-utils__upsert_local_yaml(context_path, service_name, auto_mode: true, run_plan_status: approved)`; flip `run-plan.md` frontmatter `run_plan_status: approved` + `status: locked`. On rejection: `run_plan_status: revision_requested`, collect notes, re-spawn `@lead`. Max 3 cycles; cycle 4 → `<context_path>/.orchestra/<service_name>/pipeline/run-plan-ESCALATE.md` with `resolution: pending`.
 
 After `auto_mode: true`: between-phase "proceed?" gates, per-feature confirmations, and autonomy-ladder `DRAFT_AND_GATE` intermediate checkpoints are skipped. Structural-failure halts and `ESCALATE` / `DEADLOCK` emission always preserved.
 
@@ -173,8 +172,9 @@ End turn after writing — `@lead` (or dispatcher) picks up on parent Read.
 
 **Parent-write carve-out** (narrowly enumerated):
 
-- `<context_path>/.orchestra/system.yaml`.
-- `<context_path>/.orchestra/<service_name>/local.yaml`.
+- `<context_path>/.orchestra/system.yaml` — via `mcp__orchestra-utils__write_system_yaml`.
+- `<context_path>/.orchestra/<service_name>/local.yaml` — via `mcp__orchestra-utils__upsert_local_yaml`.
+- `<context_path>/CLAUDE.md` orchestra section — via `mcp__orchestra-utils__bootstrap_consumer_claude_md`.
 - Terminal closing event (no SUMMARY artifact; Stop hook captures terminal state).
 
 ### Journey gate
@@ -195,7 +195,7 @@ A **journey** = one **terminal-state outcome category** of an aggregate root. Mu
 
 | Hook | Events (matchers) | Side effect |
 |---|---|---|
-| `orchestra-preflight` | UserPromptSubmit (matcher `^/orchestra(?::orchestra)?(\s|$)`) | Detects mode, loads cached system.yaml + local.yaml, derives workspace_kind + scope_level, reads `docs/README.md` provenance marker, splices `CLAUDE.md`. Emits `<orchestra-preflight>` block to prompt context. |
+| `orchestra-preflight` | UserPromptSubmit (matcher `^/orchestra(?::orchestra)?(\s|$)`) | Detects mode, loads cached system.yaml + local.yaml, derives workspace_kind + scope_level, reads `docs/README.md` provenance marker. Emits `<orchestra-preflight>` block to prompt context. |
 | `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-*\|TaskCreate\|TaskUpdate / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl`. Groups by `run_id`. |
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher + Gate-A (status-locked) + Gate-B (sections-all-locked) + Gate-C (readers warning) + Gate-D (chain-cites blocked in `src/**`) + Gate-D-inverse (`src/**` path tokens, commit SHAs, branch names, repo URLs, and PRD/FRS fenced code blocks blocked in `docs/**/*.md`). |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts. |

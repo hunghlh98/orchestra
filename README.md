@@ -8,7 +8,7 @@ Multi-agent SDLC pipeline behind `/orchestra`. One developer, generator/evaluato
 
 The forward chain (PRD → FRS → SAD → ADR → TDD → openapi → code → TSR) is published methodology — BABOK for PRD / FRS, TOGAF / IEEE 1471 for SAD, Nygard's ADR practice, the OpenAPI Initiative for the contract layer. Any LLM can explain each artifact type on demand and draft a generic template.
 
-What orchestra ships is the *harness* that runs on top: 7 hooks intercept `Write` / `Edit` / `Bash` / `Task` events at tool-call time; 2 MCP servers route auditable probes through `@evaluator`; schema-pinned frontmatter blocks malformed artifacts before they reach disk; `tools:` allowlists enforce generator/evaluator separation by capability, not convention. These are runtime behaviors — they execute during a Claude Code session, not on a documentation site you can paste prompts into.
+What orchestra ships is the *harness* that runs on top: 7 hooks intercept `Write` / `Edit` / `Bash` / `Task` events at tool-call time; 2 MCP servers — `orchestra-utils` (tree + closed-allowlist writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, and consumer `CLAUDE.md` orchestra section) and `orchestra-probe` (auditable runtime probes via `@evaluator`); schema-pinned frontmatter blocks malformed artifacts before they reach disk; `tools:` allowlists enforce generator/evaluator separation by capability, not convention. These are runtime behaviors — they execute during a Claude Code session, not on a documentation site you can paste prompts into.
 
 Pedagogy is researchable; enforcement is not. The plugin is orthogonal to "ask perplexity + generate manually" because anyone can describe the chain — only the harness can gate writes against it during a session.
 
@@ -181,7 +181,7 @@ Emits the Usage block above. No chain, no agent spawn.
 
 | Server | Tools | Purpose |
 | --- | --- | --- |
-| `orchestra-fs` | `tree` | Read-only directory listing with path-escape guards. |
+| `orchestra-utils` | `tree`, `write_system_yaml`, `upsert_local_yaml`, `bootstrap_consumer_claude_md` | Read-only directory listing via `tree`; closed-allowlist schema-validated writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, and the consumer `CLAUDE.md` orchestra section. |
 | `orchestra-probe` | `http_probe`, `db_state` | Auditable runtime probes for `@evaluator` (SELECT-only DB, redacted HTTP). |
 
 ## Schemas (12)
@@ -213,8 +213,8 @@ All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setti
 | `ORCHESTRA_HOOK_AGENT_PLAN_SYNC` | Disable PLAN-file single-writer. |
 | `ORCHESTRA_HOOK_POST_BASH_LINT` | Disable Bash lint observer. |
 | `ORCHESTRA_HOOK_POST_WRITE_PUML` | Disable `.puml` render-on-write. |
-| `ORCHESTRA_HOOK_ORCHESTRA_PREFLIGHT` | **Do not disable** — dispatcher halts without it. |
-| `ORCHESTRA_MCP_ORCHESTRA_FS` | Disable `tree` MCP. |
+| `ORCHESTRA_HOOK_PREFLIGHT` | **Do not disable** — dispatcher halts without it. |
+| `ORCHESTRA_MCP_ORCHESTRA_UTILS` | **Do not disable** — dispatcher persists system.yaml / local.yaml / CLAUDE.md bootstrap and uses tree through this MCP. |
 | `ORCHESTRA_MCP_ORCHESTRA_PROBE` | Disable runtime probes. |
 | `ORCHESTRA_SKILL_<NAME>` | Per-skill opt-out (10 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`). |
 

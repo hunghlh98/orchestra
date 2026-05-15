@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+// Standalone CLI / dev smoke helper. AI no longer invokes this — the dispatcher
+// calls mcp__orchestra-utils__bootstrap_consumer_claude_md instead, which inlines
+// the splice logic from this file. Retained for local debugging and the test suite.
+//
 // Bootstrap or update <consumer>/CLAUDE.md from the orchestra template.
-// Invoked by commands/orchestra.md after .orchestra/local.yaml persists.
 // Idempotent:
 //   target missing        → write `# CLAUDE.md` + tagged orchestra section
 //   target exists, no tag → append tagged orchestra section
