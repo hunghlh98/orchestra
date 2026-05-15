@@ -60,7 +60,7 @@ Per-field question shape:
 - `primary_language`, `framework` (only when `mode: greenfield` AND null) — `AskUserQuestion`.
 - `source_path` (only when `mode: brownfield` AND `scope_level: per-service` AND null) — `AskUserQuestion` with the conventional `./services/<service_name>/` path as default plus an Other option for free-text entry. Reject empty values; require the directory exists.
 
-Persist by calling `mcp__orchestra-utils__upsert_local_yaml` with named args (`context_path`, `service_name`, optional `scope_level`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `source_path`, `status`). Persist workspace identity via `mcp__orchestra-utils__write_system_yaml(workspace_kind, context_path, status)`. Both tools validate against the closed allowlists in `schemas/system.schema.json` / `schemas/local.schema.json` and reject unknown fields server-side. After both succeed, call `mcp__orchestra-utils__bootstrap_consumer_claude_md(context_path)` once — this splices the orchestra section into the consumer's `CLAUDE.md`.
+Persist by calling `mcp__orchestra-utils__upsert_local_yaml` with named args (`context_path`, `service_name`, optional `scope_level`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `source_path`, `status`). Persist workspace identity via `mcp__orchestra-utils__write_system_yaml(workspace_kind, context_path, status)`. Both tools validate against the closed allowlists in `schemas/system.schema.json` / `schemas/local.schema.json` and reject unknown fields server-side. After both succeed, call `mcp__orchestra-utils__claude_md(context_path)` once — this splices the orchestra section into the consumer's `CLAUDE.md`.
 
 ## Run-plan + approval gate
 
@@ -182,17 +182,8 @@ End turn after writing — `@lead` (or dispatcher) picks up on parent Read.
 
 - `<context_path>/.orchestra/system.yaml` — via `mcp__orchestra-utils__write_system_yaml`.
 - `<context_path>/.orchestra/<service_name>/local.yaml` — via `mcp__orchestra-utils__upsert_local_yaml`.
-- `<context_path>/CLAUDE.md` orchestra section — via `mcp__orchestra-utils__bootstrap_consumer_claude_md`.
+- `<context_path>/CLAUDE.md` orchestra section — via `mcp__orchestra-utils__claude_md`.
 - Terminal closing event (no SUMMARY artifact; Stop hook captures terminal state).
-
-### Tool-call batching for independent writes
-
-N independent file writes within one agent turn → batch as N parallel `Write()` calls in ONE message.
-
-- Eligibility: separate files, no shared mutable region, no ordering dependency.
-- Common cases: multiple `.puml` diagrams per artifact, per-feature singletons under one feature dir, per-service singletons across N services.
-- Single-writer surfaces stay sequential: SAD `S-CONTAINERS-001`, `business-invariants.md`, `inventory/adr/index.md`, `local.yaml`.
-- Precedent: `agents/architect.md` "IN THE SAME EDIT" rule for diagram binding.
 
 ### Journey gate
 

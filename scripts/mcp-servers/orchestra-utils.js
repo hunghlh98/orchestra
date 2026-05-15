@@ -5,7 +5,7 @@
 //   tree                          read-only directory listing
 //   write_system_yaml             closed-allowlist write to <ctx>/.orchestra/system.yaml
 //   upsert_local_yaml             closed-allowlist create+patch to <ctx>/.orchestra/<svc>/local.yaml
-//   bootstrap_consumer_claude_md  idempotent splice of orchestra section into <ctx>/CLAUDE.md
+//   claude_md                     idempotent splice of orchestra section into <ctx>/CLAUDE.md
 //
 // Intentional pre-write-check bypass: pre-write-check.js is registered only on
 // Write|Edit|MultiEdit matchers (hooks/hooks.json). MCP tools/call events fire
@@ -187,7 +187,7 @@ export const TOOLS = [
     },
   },
   {
-    name: "bootstrap_consumer_claude_md",
+    name: "claude_md",
     description: "Idempotently splice the <!-- orchestra:start --> ... <!-- orchestra:end --> section into <context_path>/CLAUDE.md. Body comes from hooks/references/consumer-claude-md.template.md. Refuses on symlinked target.",
     inputSchema: {
       type: "object",
@@ -363,7 +363,7 @@ export function upsertLocalYamlImpl(args = {}) {
   return { path: target, mode, fields: Object.keys(merged) };
 }
 
-// === bootstrap_consumer_claude_md impl ===
+// === claude_md impl ===
 
 function section(body) {
   return `${CLAUDE_MD_START}\n${body.trim()}\n${CLAUDE_MD_END}\n`;
@@ -386,7 +386,7 @@ function spliceClaudeMd(existing, body) {
   return `${before}${section(body)}${after}`;
 }
 
-export function bootstrapConsumerClaudeMdImpl(args = {}) {
+export function claudeMdImpl(args = {}) {
   const context_path = args.context_path || ".";
   const resolvedDir = assertSafeContextPath(context_path);
   const target = join(resolvedDir, "CLAUDE.md");
@@ -399,7 +399,7 @@ export function bootstrapConsumerClaudeMdImpl(args = {}) {
 
   const buf = safeRead(target);
   if (buf === null) {
-    throw new Error(`bootstrap_consumer_claude_md: refusing to operate on ${target} (symlink or non-file)`);
+    throw new Error(`claude_md: refusing to operate on ${target} (symlink or non-file)`);
   }
   const existing = buf.toString("utf8");
   const next = spliceClaudeMd(existing, body);
@@ -457,7 +457,7 @@ function handleMessage(line) {
       if (name === "tree") out = treeImpl(args);
       else if (name === "write_system_yaml") out = writeSystemYamlImpl(args);
       else if (name === "upsert_local_yaml") out = upsertLocalYamlImpl(args);
-      else if (name === "bootstrap_consumer_claude_md") out = bootstrapConsumerClaudeMdImpl(args);
+      else if (name === "claude_md") out = claudeMdImpl(args);
       else throw new Error(`Unknown tool: ${name}`);
       const text = typeof out === "string" ? out : JSON.stringify(out);
       reply(id, { result: { content: [{ type: "text", text }] } });

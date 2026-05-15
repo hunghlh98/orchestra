@@ -4,7 +4,7 @@
 //   tree path-escape + walker output
 //   write_system_yaml schema gates
 //   upsert_local_yaml create + patch + deep-merge + cross-field invariants
-//   bootstrap_consumer_claude_md create / append / splice / no-op / symlink reject
+//   claude_md create / append / splice / no-op / symlink reject
 //   MCP JSON-RPC smoke (initialize, tools/list, unknown tool)
 //   env-var opt-out (ORCHESTRA_MCP_ORCHESTRA_UTILS=off)
 
@@ -20,7 +20,7 @@ import {
   treeImpl,
   writeSystemYamlImpl,
   upsertLocalYamlImpl,
-  bootstrapConsumerClaudeMdImpl,
+  claudeMdImpl,
   TOOLS,
 } from "../mcp-servers/orchestra-utils.js";
 import { parse as parseYaml } from "../../hooks/lib/yaml-mini.js";
@@ -221,11 +221,11 @@ withTmp(tmp => {
   check(rejected, "refuses to overwrite malformed existing local.yaml");
 });
 
-// ---------- bootstrap_consumer_claude_md ----------
-console.log("bootstrap_consumer_claude_md:");
+// ---------- claude_md ----------
+console.log("claude_md:");
 withTmp(tmp => {
   // Fresh create
-  const a = bootstrapConsumerClaudeMdImpl({ context_path: "." });
+  const a = claudeMdImpl({ context_path: "." });
   check(a.action === "created", `fresh: action='created' (got ${a.action})`);
   const created = readFileSync(join(tmp, "CLAUDE.md"), "utf8");
   check(/^# CLAUDE\.md/.test(created), "fresh: starts with # CLAUDE.md");
@@ -233,12 +233,12 @@ withTmp(tmp => {
   check(/<!-- orchestra:end -->/.test(created), "fresh: contains end marker");
 
   // No-op on re-run
-  const b = bootstrapConsumerClaudeMdImpl({ context_path: "." });
+  const b = claudeMdImpl({ context_path: "." });
   check(b.action === "unchanged", `re-run: action='unchanged' (got ${b.action})`);
 
   // Splice into pre-existing CLAUDE.md without markers
   writeFileSync(join(tmp, "CLAUDE.md"), "# Existing\n\nuser content\n");
-  const c = bootstrapConsumerClaudeMdImpl({ context_path: "." });
+  const c = claudeMdImpl({ context_path: "." });
   check(c.action === "appended", `append: action='appended' (got ${c.action})`);
   const appended = readFileSync(join(tmp, "CLAUDE.md"), "utf8");
   check(/^# Existing/.test(appended), "append: preserves pre-existing header");
@@ -250,27 +250,27 @@ withTmp(tmp => {
     join(tmp, "CLAUDE.md"),
     "# Existing\n\nuser content\n\n<!-- orchestra:start -->\nstale body\n<!-- orchestra:end -->\n",
   );
-  const d = bootstrapConsumerClaudeMdImpl({ context_path: "." });
+  const d = claudeMdImpl({ context_path: "." });
   check(d.action === "updated", `splice: action='updated' (got ${d.action})`);
   const updated = readFileSync(join(tmp, "CLAUDE.md"), "utf8");
   check(!/stale body/.test(updated), "splice: stale body replaced");
   check(/user content/.test(updated), "splice: pre-existing content preserved");
 });
 
-// ---------- bootstrap_consumer_claude_md: symlink reject ----------
-console.log("bootstrap_consumer_claude_md symlink reject:");
+// ---------- claude_md: symlink reject ----------
+console.log("claude_md symlink reject:");
 withTmp(tmp => {
   symlinkSync("/tmp/decoy-claude-md", join(tmp, "CLAUDE.md"));
   let rejected = false;
-  try { bootstrapConsumerClaudeMdImpl({ context_path: "." }); }
+  try { claudeMdImpl({ context_path: "." }); }
   catch (e) { rejected = /symlink|refusing/.test(e.message); }
   check(rejected, "refuses to operate on symlinked CLAUDE.md");
 });
 
-// ---------- bootstrap_consumer_claude_md: default context_path ----------
-console.log("bootstrap_consumer_claude_md default context_path:");
+// ---------- claude_md: default context_path ----------
+console.log("claude_md default context_path:");
 withTmp(tmp => {
-  const out = bootstrapConsumerClaudeMdImpl({});
+  const out = claudeMdImpl({});
   check(out.action === "created", `defaulted: action='created' (got ${out.action})`);
   check(existsSync(join(tmp, "CLAUDE.md")), "defaulted: writes to cwd");
 });
@@ -296,7 +296,7 @@ console.log("MCP JSON-RPC smoke:");
   check(names.includes("tree"), "tools/list includes tree");
   check(names.includes("write_system_yaml"), "tools/list includes write_system_yaml");
   check(names.includes("upsert_local_yaml"), "tools/list includes upsert_local_yaml");
-  check(names.includes("bootstrap_consumer_claude_md"), "tools/list includes bootstrap_consumer_claude_md");
+  check(names.includes("claude_md"), "tools/list includes claude_md");
 
   // initialize
   const r2 = spawnSync("node", [server], {

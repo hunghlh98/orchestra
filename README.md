@@ -181,7 +181,7 @@ Emits the Usage block above. No chain, no agent spawn.
 
 | Server | Tools | Purpose |
 | --- | --- | --- |
-| `orchestra-utils` | `tree`, `write_system_yaml`, `upsert_local_yaml`, `bootstrap_consumer_claude_md` | Read-only directory listing via `tree`; closed-allowlist schema-validated writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, and the consumer `CLAUDE.md` orchestra section. |
+| `orchestra-utils` | `tree`, `write_system_yaml`, `upsert_local_yaml`, `claude_md` | Read-only directory listing via `tree`; closed-allowlist schema-validated writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, and the consumer `CLAUDE.md` orchestra section. |
 | `orchestra-probe` | `http_probe`, `db_state` | Auditable runtime probes for `@evaluator` (SELECT-only DB, redacted HTTP). |
 
 ## Schemas (12)

@@ -10,6 +10,7 @@ See @README.md for what orchestra is. This file is **plugin-authoring discipline
 - **Tight imperative; no storytelling.** Rule statement = one imperative clause + minimal qualifier. Cut exposition tails ("never reach this branch", "an engineer outside the user's context can decode"). Justifications go in `CHANGELOG.md` / commit body.
 - **Split lines for scannability.** Multi-clause rules render as long visual lines. Break into separate paragraphs, labelled `**<Name>.** <action>` paragraphs, or bullets when enumerating ≥2 constraints.
 - **Upsert into existing files.** New content overlapping an existing memory or consumer-surface file by >~50% → edit the existing file, not a new one. Preserve the file's existing voice.
+- **Consumer CLAUDE.md is shared rules.** General Claude / agent discipline for consumer projects lives in `hooks/references/consumer-claude-md.template.md` (spliced into consumer's CLAUDE.md via `mcp__orchestra-utils__claude_md`). Orchestra-pipeline-specific rules (`S-FEATURES-001` routing, openapi-locked gate, per-service BR-AC) stay in `commands/orchestra.md` / `agents/*`.
 - **Bump version only via script.** `node scripts/bump-version.js <major|minor|patch>` atomically updates `VERSION` + `package.json` + `.claude-plugin/plugin.json`. Never hand-edit these three.
 - **Default to PATCH bumps** unless explicitly told otherwise.
 - **CHANGELOG is derived from commit log.** Group commits by Conventional Commits type into Added / Fixed / Changed / Breaking. Extract; do not re-narrate.
