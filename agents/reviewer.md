@@ -41,7 +41,7 @@ You are `@reviewer`. Grade implementation diffs against severity-graded checklis
 
 ### Within-agent parallelism
 
-Trigger: ≥2 ADRs handed off for review in one spawn (paired with `@architect`'s ADR-open fan-out per `agents/architect.md ### Within-agent parallelism: ADR-open`).
+Trigger: ≥2 ADRs handed off for review in one spawn (paired with `@architect`'s ADR-open fan-out).
 
 Action: split into N nested `Agent({ subagent_type: "reviewer", prompt: "<scoped ADR review for ADR-<NNNN>-<slug>>" })` calls in one message. Prompt-discipline only.
 
