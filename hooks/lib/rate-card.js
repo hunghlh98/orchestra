@@ -1,6 +1,6 @@
 // hooks/lib/rate-card.js
 // Token → USD rate card (Anthropic published list price per million tokens).
-// orchestra v2.* ships Claude Opus 4.7 as the default for every agent (see
+// orchestra ships Claude Opus 4.7 as the default for every agent (see
 // agents/*.md frontmatter), so the rate card is single-model. Consumers
 // running a different model mix should edit RATES_USD_PER_MTOK below — this
 // is the single source of truth; metrics-collector.js persists the computed
