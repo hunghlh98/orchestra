@@ -4,6 +4,31 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] — 2026-05-15
+
+Minor release. Agents migrate to short-alias `model:` frontmatter (`opus` / `sonnet` / `haiku`) backed by a `model_id` field in the registry, and agent prompts reorganize into `## Workflow` + `## Rules` with inline worked `<example>` blocks. Dispatcher gains a Journey gate (outcome-category partition of aggregate terminal states); `post-write-puml` learns to detect PlantUML error-frame SVGs (C4-PlantUML escaped-quote-in-macro errors that exit 0); `pre-write-check` adds an `env-fallback-credential` SECRET pattern for Spring `${KEY:literal}` shapes. Schema layer ships per-service BR-AC `erd-logical` and a `run-plan.feature_framing` toggle (`aggregate-cohesion` ↔ `lifecycle-loop`). Skill layer adds the Java TDD `S-CONFIG-001` callsite-liveness checklist and extracts the six C4 quick-start templates to `references/` for progressive disclosure. README leads with a Why orchestra positioning section; consumer-surface scrub removes residual dev-trace cites and version stamps.
+
+### Breaking
+
+- **Agent `model:` frontmatter shape.** All 9 agents migrate from fully-qualified Anthropic model ids to short aliases (`opus` / `sonnet` / `haiku`). `schemas/known-models.schema.json` `id` enum tightens to `{opus, sonnet, haiku}`; a new required `model_id` field carries the fully-qualified id, and the previous `tier` field drops (subsumed into `id`). `scripts/validate.js` gates frontmatter `model:` against the new shape. Agent prompt bodies also reorganize into `## Workflow` + `## Rules` with subsections and inline worked `<example>` blocks codifying diff/ADR review steps and per-agent escalation paths. `scripts/tests/agents.test.js` fixtures updated.
+
+### Added
+
+- **Journey gate in `commands/orchestra.md` `## Shared rules`.** Defines a journey as one outcome-category partition of an aggregate root's terminal states. State-machine connectivity is NOT the grouping rule. Includes a stub-rejection guard and a worked value-transfer example (partition shape illustrative, not contractual).
+- **`erd-logical` at per-service scope.** `pipeline-artifact.schema.md` diagram vocabulary now assigns `erd-logical` to per-service BR-AC (walked-service schemas only); the existing system-wide assignment on SAD is retained. Per-service folder layout adds `<service_name>/diagrams/erd-logical.{puml,svg}`.
+- **`feature_framing` toggle on `run-plan` frontmatter.** Optional field, values `aggregate-cohesion` (default) | `lifecycle-loop`. `lifecycle-loop` swaps the one-feature-per-aggregate-root collapse rule for the Journey-gate outcome-category partition. Aggregate atomicity stays unified across sibling lifecycle features via service-scope BR-AC `S-INVARIANTS-001`.
+- **PlantUML error-frame SVG detection in `hooks/scripts/post-write-puml.js`.** PlantUML often exits 0 even when the produced SVG is an error frame (e.g., C4-PlantUML preprocessor errors from escaped-quote-in-macro-arg). The hook now scans the SVG for known error signatures and emits a structured `<post-write-puml-warning>` block so a reader scanning hook output can spot a broken diagram.
+- **`env-fallback-credential` SECRET pattern in `hooks/scripts/pre-write-check.js`.** Matches Spring `${KEY:literal}` shapes whose KEY names a credential (`PASSWORD` / `SECRET` / `TOKEN` / `API_KEY` / `CREDENTIAL` / `PRIVATE_KEY`). The SKIP regex narrows from `\$\{` to `\$\{[A-Z_]+\}` so bare `${KEY}` references still skip while credential-fallback shapes remain visible.
+- **Java TDD `S-CONFIG-001` row checklist** in `skills/java-development/SKILL.md`. Walks `application.yml` + `pom.xml` to populate the deployable stack-shape. Every persistence/RPC/resilience instance gets a Java callsite-liveness check (grep for `@Retry` / `@CircuitBreaker` / `Registry.get`); zero callsites tag the row (`latent — no callsite`) and open a TSR `DIV-NNN` row in forward-chain or surface in reverse-pass run report in brownfield.
+- **C4 quick-start templates extracted to `skills/c4-architecture/references/templates.md`** (new file). Six fenced templates (L1 Context / L2 Container / L3 Component / L4 Code / Dynamic / Deployment) lifted verbatim from `SKILL.md` with selection guidance at the head. Progressive disclosure: `SKILL.md` shrinks, templates load on demand.
+- **Consumer CLAUDE.md template markers.** `CLAUDE.md` now wraps the orchestra consumer-template block in `<!-- orchestra:start -->` / `<!-- orchestra:end -->` markers so a consumer install can update the block atomically.
+
+### Changed
+
+- **`pipeline-artifact.schema.md` prose compression.** Placement-model, link-discipline, and body-discipline sections fold to single-paragraph summaries (full rules inline; remove duplicated bullet enumerations that already lived elsewhere).
+- **`skills/c4-architecture/SKILL.md` zoom-continuity protocol** compressed from verbose 4-step form to tighter 4-step form, same semantics. New MUST-NOT rule: no escaped double quotes inside C4 macro arguments — the stdlib parses macro args as preprocessor expressions; escaped quotes fork the parser and produce an error-frame SVG (now flagged by `post-write-puml`).
+- **README + consumer-surface hygiene pass.** README leads with `## Why orchestra` (harness-vs-pedagogy comparison table) and promotes `## Architecture` above `## Features`. `commands/orchestra.md` aligns its documented preflight matcher with the hook fix shipped in 4.4.2 (`^/orchestra(?::orchestra)?(\s|$)`). `scripts/mcp-servers/orchestra-{fs,probe}.js` and `hooks/scripts/metrics-collector.js` drop phantom `PRD §9.10` / `DESIGN-001-infra §4.X` dev-trace cites and `v1.0.0` / `v1.1+` / `v4.1` version stamps per the consumer-surface boundary + no-version-stamps rules.
+
 ## [4.4.2] — 2026-05-15
 
 Patch release. Restores the preflight hook against the plugin-namespaced `/orchestra:orchestra` invocation form, which Claude Code accepts alongside the bare `/orchestra` shorthand.
