@@ -230,6 +230,27 @@ Anti-patterns:
 
 ---
 
+## TDD `S-CONFIG-001` rows (Java/Spring)
+
+Invoked when `@lead` is authoring `<feature-id>-TDD.md` for a Java/Spring service. `S-CONFIG-001` is the canonical home for the deployable's stack-shape — NOT in PRD goals. Walk `src/main/resources/application.yml` (or equivalent) + `pom.xml` (or equivalent) and record EVERY row below explicitly. Mark dependency scope (`production` / `test-only` / `latent — no callsite`) for every persistence + RPC framework so a reviewer can tell at a glance which driver/lib is on the production classpath.
+
+Required rows:
+
+- Build tool + runtime version + run commands.
+- Persistence (RDBMS): driver FQN, connection URL pattern (env-var-substituted form, no literal credentials), schema name.
+- Persistence (ORM): API + provider, dialect class.
+- Persistence (schema management): migration tool name OR explicit "none + `ddl-auto: update`" with risk note.
+- Persistence (connection pool): impl name, every non-default-tuned key.
+- Persistence (transaction manager): class + how the `TransactionPort` adapter wires.
+- Cache layer: client lib, every non-default connection key.
+- Messaging (Kafka/AMQP): client lib + every non-default consumer/producer key (`auto-offset-reset`, etc.).
+- Serialization (Jackson/etc.): every explicit override that affects wire format.
+- Resilience patterns: per instance — name, retry config, circuit-breaker config, **Java callsite check (REQUIRED)**: for each instance defined in `application.yml`, grep the Java source tree for `@Retry(name = "<x>")`, `@CircuitBreaker(name = "<x>")`, programmatic `Registry.get("<x>")`. Zero callsites → tag the row `(latent — no callsite)` AND open a `DIV-NNN` row in TSR (forward-chain) or surface in the reverse-pass run report flagging dead-config candidate. Same liveness check applies to any other instance-keyed config (cache-client instances, named circuit-breaker pools, etc.).
+- Application identity: `spring.application.name` / equivalent.
+- Test-scope dependencies: explicit row distinguishing test-only libs (H2, Testcontainers, etc.) from the production driver — a reviewer must be able to tell test-scope from production-scope without reading `pom.xml`.
+
+---
+
 ## When to escalate
 
 - ripgrep returns >100 hits for a target → narrow the search (specific package, specific signature). Don't dump 100 lines into the impact summary.
