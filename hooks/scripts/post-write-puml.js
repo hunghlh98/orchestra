@@ -51,6 +51,22 @@ async function main() {
       process.exit(0);
     }
 
+    // PlantUML often exits 0 even when the produced SVG is an error frame
+    // (e.g., C4-PlantUML preprocessor errors from escaped-quote-in-macro-arg).
+    // Inspect the SVG for known error signatures and emit a structured warning
+    // so a reader scanning hook output can spot a broken diagram.
+    const errorSignature = detectErrorFrame(svgPath);
+    if (errorSignature) {
+      process.stderr.write(
+        `<post-write-puml-warning>\n` +
+        `  source: ${filePath}\n` +
+        `  output: ${svgPath}\n` +
+        `  signature: ${errorSignature}\n` +
+        `  hint: PlantUML produced an error-frame SVG. Common cause: escaped \\"...\\" inside a C4 macro argument. Use single quotes ('/x') or unicode quotes («/x»). See skills/c4-architecture/SKILL.md.\n` +
+        `</post-write-puml-warning>\n`
+      );
+    }
+
     // Check the puml's stable id against `diagrams: [...]` frontmatter on
     // sibling SAD/TDD markdown(s). Convention: <feature-dir>/diagrams/<id>.puml
     // is declared in <feature-dir>/<TYPE>-NNN.md frontmatter as
@@ -87,6 +103,32 @@ async function main() {
     process.stderr.write(`post-write-puml: crash (non-blocking) — ${err.message}\n`);
     process.exit(0);
   }
+}
+
+// PlantUML emits an error-frame SVG (process exits 0, file written) when the
+// source fails preprocessor / parser checks. Scan the SVG for known signatures
+// and return the matched text, or null when the render appears clean.
+function detectErrorFrame(svgPath) {
+  if (!existsSync(svgPath)) return null;
+  let svg;
+  try {
+    svg = readFileSync(svgPath, "utf8");
+  } catch {
+    return null;
+  }
+  // Conservative pattern set — each entry is a known PlantUML / C4-PlantUML
+  // error-frame fragment. Add cases here as new failure shapes surface.
+  const patterns = [
+    /Syntax Error\??/i,
+    /unquoted function\/procedure cannot use expression/i,
+    /cannot use expression/i,
+    /\(\(See https?:\/\/.*plantuml/i,
+  ];
+  for (const re of patterns) {
+    const m = svg.match(re);
+    if (m) return m[0];
+  }
+  return null;
 }
 
 function renderPuml(filePath) {

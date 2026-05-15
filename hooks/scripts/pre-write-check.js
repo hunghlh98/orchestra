@@ -26,11 +26,20 @@ const SECRET_PATTERNS = [
   { name: "slack-token",     re: /\bxox[baprs]-[A-Za-z0-9-]+/ },
   { name: "google-api-key",  re: /\bAIza[A-Za-z0-9_-]{35}\b/ },
   { name: "bearer-auth",     re: /\b(?:Bearer|Basic)\s+[A-Za-z0-9+/=._-]{12,}/ },
+  // Spring Boot `${KEY:default}` fallback whose KEY names a credential. Catches
+  // shapes like `${DB_PASSWORD:literal}` / `${API_TOKEN:literal}` where the
+  // literal default leaks credential material into source. Safe forms like
+  // `${SERVER_PORT:8080}` do NOT match (no credential keyword in KEY name).
+  { name: "env-fallback-credential",
+    re: /\$\{[A-Z_]*(?:PASSWORD|SECRET|TOKEN|API[-_]?KEY|CREDENTIAL|PRIVATE[-_]?KEY)[A-Z_]*:[^}]+\}/i },
 ];
 
 const SKIP_PATTERNS = [
   /process\.env\./,
-  /\$\{/,
+  // Bare env-var reference `${KEY}` (no colon-suffix → no fallback default).
+  // Narrowed from `/\$\{/` so credential-fallback shapes (`${KEY:literal}`)
+  // remain visible to the env-fallback-credential SECRET pattern above.
+  /\$\{[A-Z_]+\}/,
   /placeholder/i,
   /<your-/i,
   /example/i,
