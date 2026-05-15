@@ -51,9 +51,9 @@
       "stability": "stable"
     },
     {
-      "name": "mcp.orchestra-fs",
+      "name": "mcp.orchestra-utils",
       "kind": "mcp",
-      "path": "scripts/mcp-servers/orchestra-fs.js",
+      "path": "scripts/mcp-servers/orchestra-utils.js",
       "defaultEnabled": true,
       "stability": "stable"
     },

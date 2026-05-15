@@ -44,10 +44,10 @@
       "description": "Binds Claude Code task IDs to per-agent PLAN files at <cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md — recomputes T-NNN counts, mirrors the ## Tasks checklist, and flips plan status. Disable for runs that don't author plan files."
     },
     {
-      "module": "mcp.orchestra-fs",
-      "envVar": "ORCHESTRA_MCP_ORCHESTRA_FS",
+      "module": "mcp.orchestra-utils",
+      "envVar": "ORCHESTRA_MCP_ORCHESTRA_UTILS",
       "default": "on",
-      "description": "Filesystem MCP exposing the `tree` tool. Disable in air-gapped or filesystem-restricted environments."
+      "description": "Utilities MCP exposing tree (directory listing) + write_system_yaml / upsert_local_yaml / bootstrap_consumer_claude_md (schema-validated config writes). Dispatcher persists system.yaml / local.yaml / CLAUDE.md bootstrap exclusively through these tools — disabling halts /orchestra bootstrap."
     },
     {
       "module": "mcp.orchestra-probe",

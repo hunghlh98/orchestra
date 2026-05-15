@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // scripts/tests/probe.test.js
 // MCP probe contract tests: http_probe round-trip, db_state SELECT-only +
-// secret redaction + timeout + row_cap. orchestra-fs treeImpl path-escape +
-// stdlib walker.
+// secret redaction + timeout + row_cap. orchestra-utils coverage lives in
+// scripts/tests/orchestra-utils.test.js.
 
 import { createServer } from "node:http";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
@@ -12,7 +12,6 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 import { httpProbeImpl, dbStateImpl, redact } from "../mcp-servers/orchestra-probe.js";
-import { treeImpl } from "../mcp-servers/orchestra-fs.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 let passes = 0, failures = 0;
@@ -136,67 +135,38 @@ console.log("db_state sqlite3 + SELECT-only:");
       let pgDeferred = false;
       try { dbStateImpl({ dsn: "postgres://x:y@h/db", query: "SELECT 1" }); }
       catch (e) {
-        pgDeferred = /deferred to v1.1/.test(e.message);
+        pgDeferred = /postgres DSN deferred/.test(e.message);
       }
-      check(pgDeferred, `postgres DSN: deferred-to-v1.1 message`);
+      check(pgDeferred, `postgres DSN: deferred-stub message`);
 
       // MySQL DSN: deferred-stub message
       let myDeferred = false;
       try { dbStateImpl({ dsn: "mysql://x:y@h/db", query: "SELECT 1" }); }
       catch (e) {
-        myDeferred = /deferred to v1.1/.test(e.message);
+        myDeferred = /mysql DSN deferred/.test(e.message);
       }
-      check(myDeferred, `mysql DSN: deferred-to-v1.1 message`);
+      check(myDeferred, `mysql DSN: deferred-stub message`);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
   }
 }
 
-// ---------- orchestra-fs treeImpl ----------
-console.log("orchestra-fs treeImpl:");
-{
-  // Path escape rejection
-  let escaped = false;
-  try { treeImpl({ path: "../etc" }); }
-  catch (e) { escaped = /escapes cwd/.test(e.message); }
-  check(escaped, `'..' escape rejected`);
-
-  // Walks repo root
-  const out = treeImpl({ path: "scripts", depth: 1 });
-  check(typeof out === "string" && out.length > 0, `tree('scripts', depth=1) returns text`);
-  check(out.includes("validate.js"), `tree includes validate.js`);
-}
-
-// ---------- MCP smoke: tools/list over JSON-RPC stdio ----------
+// ---------- MCP smoke: probe tools/list over JSON-RPC stdio ----------
 console.log("MCP protocol smoke:");
 {
   const probeServer = resolve(root, "scripts/mcp-servers/orchestra-probe.js");
-  const fsServer = resolve(root, "scripts/mcp-servers/orchestra-fs.js");
-  for (const [name, server] of [["probe", probeServer], ["fs", fsServer]]) {
-    const r = spawnSync("node", [server], {
-      input: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) + "\n",
-      encoding: "utf8",
-      timeout: 3000,
-    });
-    check(r.status === 0 || r.signal === "SIGTERM" || r.stdout.length > 0, `${name}: server responds`);
-    const lines = (r.stdout || "").split("\n").filter(Boolean);
-    let parsed;
-    try { parsed = JSON.parse(lines[0] || "{}"); }
-    catch { parsed = {}; }
-    check(Array.isArray(parsed?.result?.tools), `${name}: tools/list returns array`);
-  }
-}
-
-// ---------- env-var opt-out ----------
-console.log("MCP env-var opt-out:");
-{
-  const r = spawnSync("node", [resolve(root, "scripts/mcp-servers/orchestra-fs.js")], {
+  const r = spawnSync("node", [probeServer], {
+    input: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) + "\n",
     encoding: "utf8",
-    env: { ...process.env, ORCHESTRA_MCP_ORCHESTRA_FS: "off" },
-    timeout: 1000,
+    timeout: 3000,
   });
-  check(r.status === 0, `orchestra-fs opt-out: exits 0 (got ${r.status})`);
+  check(r.status === 0 || r.signal === "SIGTERM" || r.stdout.length > 0, `probe: server responds`);
+  const lines = (r.stdout || "").split("\n").filter(Boolean);
+  let parsed;
+  try { parsed = JSON.parse(lines[0] || "{}"); }
+  catch { parsed = {}; }
+  check(Array.isArray(parsed?.result?.tools), `probe: tools/list returns array`);
 }
 
 if (failures > 0) {

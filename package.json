@@ -21,10 +21,11 @@
     "test:removability": "node scripts/tests/removability.test.js",
     "test:metrics": "node scripts/tests/metrics.test.js",
     "test:bootstrap": "node scripts/tests/bootstrap.test.js",
+    "test:orchestra-utils": "node scripts/tests/orchestra-utils.test.js",
     "test:probe": "node scripts/tests/probe.test.js",
     "test:report": "node scripts/tests/report.test.js",
     "test:cite-purity": "node scripts/tests/cite-purity.test.js",
     "test:agent-plan-sync": "node scripts/tests/agent-plan-sync.test.js",
-    "test": "npm run validate && npm run test:hooks && npm run test:scaffold && npm run test:validate-extensions && npm run test:agents && npm run test:bash-strip && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:probe && npm run test:report && npm run test:cite-purity && npm run test:agent-plan-sync"
+    "test": "npm run validate && npm run test:hooks && npm run test:scaffold && npm run test:validate-extensions && npm run test:agents && npm run test:bash-strip && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:orchestra-utils && npm run test:probe && npm run test:report && npm run test:cite-purity && npm run test:agent-plan-sync"
   }
 }

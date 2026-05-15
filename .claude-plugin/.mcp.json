@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "orchestra-fs": {
+    "orchestra-utils": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-servers/orchestra-fs.js"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-servers/orchestra-utils.js"]
     },
     "orchestra-probe": {
       "command": "node",
