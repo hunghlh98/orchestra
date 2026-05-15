@@ -2,19 +2,19 @@
   "$schema": "../schemas/known-models.schema.json",
   "models": [
     {
-      "id": "claude-opus-4-7",
-      "tier": "opus",
+      "id": "opus",
+      "model_id": "claude-opus-4-7",
       "default": true,
       "supportsContextMode": ["default", "1m"]
     },
     {
-      "id": "claude-sonnet-4-6",
-      "tier": "sonnet",
+      "id": "sonnet",
+      "model_id": "claude-sonnet-4-6",
       "supportsContextMode": ["default"]
     },
     {
-      "id": "claude-haiku-4-5-20251001",
-      "tier": "haiku",
+      "id": "haiku",
+      "model_id": "claude-haiku-4-5-20251001",
       "supportsContextMode": ["default"]
     }
   ]

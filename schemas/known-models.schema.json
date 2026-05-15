@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "orchestra:known-models",
   "title": "orchestra known-models manifest",
-  "description": "Closed list of Anthropic model ids that agent frontmatter may reference. Real ids only — no project-local aliases.",
+  "description": "Closed list of short canonical model names that agent frontmatter may reference. Short names (opus/sonnet/haiku) are canonical; the fully-qualified Anthropic id lives in model_id for API routing.",
   "type": "object",
   "required": ["models"],
   "additionalProperties": false,
@@ -17,14 +17,17 @@
   "$defs": {
     "model": {
       "type": "object",
-      "required": ["id", "tier", "supportsContextMode"],
+      "required": ["id", "model_id", "supportsContextMode"],
       "additionalProperties": false,
       "properties": {
         "id": {
-          "type": "string",
-          "description": "Anthropic model id exactly as accepted by the API (no aliases)."
+          "enum": ["opus", "sonnet", "haiku"],
+          "description": "Short canonical name used in agent frontmatter."
         },
-        "tier": { "enum": ["opus", "sonnet", "haiku"] },
+        "model_id": {
+          "type": "string",
+          "description": "Fully-qualified Anthropic model id accepted by the API."
+        },
         "default": { "type": "boolean" },
         "supportsContextMode": {
           "type": "array",

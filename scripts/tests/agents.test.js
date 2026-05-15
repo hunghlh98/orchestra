@@ -239,7 +239,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
     fm: {
       name: "product", description: "ok",
       tools: ["Read", "Grep", "Glob", "Write", "Bash"],
-      model: "claude-opus-4-7", context_mode: "1m", color: "purple",
+      model: "opus", context_mode: "1m", color: "purple",
     },
     body: "<example>x</example>",
   };
@@ -255,7 +255,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
     fm: {
       name: "reviewer", description: "ok",
       disallowedTools: ["Bash", "Edit", "MultiEdit"],
-      model: "claude-sonnet-4-6", context_mode: "default", color: "red",
+      model: "sonnet", context_mode: "default", color: "red",
     },
     body: "<example>x</example>",
   };
@@ -271,7 +271,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
     fm: {
       name: "test-author", description: "ok",
       tools: ["Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Skill", "Bash"],
-      model: "claude-sonnet-4-6", context_mode: "default", color: "yellow",
+      model: "sonnet", context_mode: "default", color: "yellow",
     },
     body: "<example>x</example>",
   };
@@ -299,7 +299,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
   const bad = {
     fm: {
       name: "lead", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
-      model: "claude-sonnet-4-6", // sonnet only supports "default"
+      model: "sonnet", // sonnet only supports "default"
       context_mode: "1m",
       color: "blue",
     },
@@ -315,7 +315,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
   const bad = {
     fm: {
       name: "product", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
-      model: "claude-opus-4-7", context_mode: "1m", color: "purple",
+      model: "opus", context_mode: "1m", color: "purple",
     },
     body: "no example block here, just prose.",
   };
@@ -331,7 +331,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
     fm: {
       name: "product", description: longDesc,
       tools: ["Read", "Grep", "Glob", "Write"],
-      model: "claude-opus-4-7", context_mode: "1m", color: "purple",
+      model: "opus", context_mode: "1m", color: "purple",
     },
     body: "<example>x</example>",
   };
@@ -345,7 +345,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
   const bad = {
     fm: {
       name: "wizard", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
-      model: "claude-opus-4-7", context_mode: "1m", color: "purple",
+      model: "opus", context_mode: "1m", color: "purple",
     },
     body: "<example>x</example>",
   };
@@ -360,7 +360,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
     fm: {
       name: "product", description: "fine and short",
       tools: ["Read", "Grep", "Glob", "Write"],
-      model: "claude-opus-4-7", context_mode: "1m", color: "purple",
+      model: "opus", context_mode: "1m", color: "purple",
     },
     body: "<example>Context: x. User invokes: y. Action: z.</example>",
   };

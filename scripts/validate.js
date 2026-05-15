@@ -42,8 +42,8 @@ if (knownModels) {
       errors.push(`known-models.json: expected exactly 1 default model, found ${defaults.length}`);
     }
     for (const m of knownModels.models) {
-      if (!m.id || typeof m.id !== "string") errors.push(`known-models.json: model missing 'id'`);
-      if (!["opus","sonnet","haiku"].includes(m.tier)) errors.push(`known-models.json: model '${m.id}' has invalid tier '${m.tier}'`);
+      if (!["opus","sonnet","haiku"].includes(m.id)) errors.push(`known-models.json: model has invalid id '${m.id}' (must be opus|sonnet|haiku)`);
+      if (!m.model_id || typeof m.model_id !== "string") errors.push(`known-models.json: model '${m.id}' missing 'model_id'`);
       if (!Array.isArray(m.supportsContextMode) || m.supportsContextMode.length === 0) {
         errors.push(`known-models.json: model '${m.id}' missing 'supportsContextMode'`);
       }
