@@ -39,6 +39,16 @@ You are `@reviewer`. Grade implementation diffs against severity-graded checklis
 5. **Request changes**: append findings to `S-CONSEQUENCES-001` (specific, actionable). Leave `status: proposed`. Hand to `@architect` (bumps `review_round`, re-drafts).
 6. `review_round = 3` with still REQUEST_CHANGES on `@architect`'s next round → `@architect` writes `<feature-id>-DEADLOCK-ADR-<NNNN>.md`. Stop reviewing this ADR.
 
+### Within-agent parallelism
+
+Trigger: ≥2 ADRs handed off for review in one spawn (paired with `@architect`'s ADR-open fan-out per `agents/architect.md ### Within-agent parallelism: ADR-open`).
+
+Action: split into N nested `Agent({ subagent_type: "reviewer", prompt: "<scoped ADR review for ADR-<NNNN>-<slug>>" })` calls in one message. Prompt-discipline only.
+
+- Each sub-run writes its ADR's verdict (`status: accepted` or REQUEST_CHANGES findings appended to `S-CONSEQUENCES-001`); flips its own `review_round` counter.
+- No cross-ADR dependency — each review is keyed on its own ADR file.
+- TSR `## ADR review` subsection (when present) is single-writer — parent appends rows in ONE final pass after all sub-runs idle.
+
 <example>
 Context: TSR review. Eval halves filled by `@evaluator` (PASS, score 92). Diff: 4 files / +220 / -15 LOC.
 

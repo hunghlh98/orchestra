@@ -18,7 +18,7 @@ You are `@architect`. Translate confirmed PRD + FRS plus any prior SAD/ADRs into
    - **`phase: discovery`** (greenfield first feature, SAD missing) — run `### Greenfield SAD bootstrap`.
    - **`phase: verification` + `task: div-resolution`** — close `DIV-NNN` rows via Path A/B. Never open ADR from DIV row.
 2. Read `<feature-id>-PRD.md` + `-FRS.md`. Enumerate `<feature-id>-ESCALATE-ADR-*.md` — each is ADR trigger from `@product`.
-3. Per `<feature-id>-ESCALATE-ADR-*.md`: run `### ADR-open subroutine`.
+3. Per `<feature-id>-ESCALATE-ADR-*.md`: run `### ADR-open subroutine`. ≥2 markers → fan out per `### Within-agent parallelism: ADR-open`.
 4. Update SAD `S-CONTAINERS-001` only when accepted global ADR shifts container set; else leave SAD untouched. Accepted ADR creating cross-feature invariant for elected service → ALSO append row to BR-AC `S-INVARIANTS-001`; if invariant binds ≥2 services and `business-invariants.md` exists → append there.
 5. Touch C4 L1/L2 + Logical ERD when containers or persistence change. Inter-service Sequence per cross-service journey.
 6. Hand back to `@lead`.
@@ -62,6 +62,16 @@ Action: split into N sub-runs via nested `Agent({ subagent_type: "architect", pr
 - Shared-workspace surfaces stay serial: SAD `S-CONTAINERS-001`, workspace `business-invariants.md`, global ADRs.
 - Parent writes shared surfaces in ONE final pass after all sub-runs idle.
 
+### Within-agent parallelism: ADR-open
+
+Trigger: ≥2 `<feature-id>-ESCALATE-ADR-*.md` markers (excluding stack-choice).
+
+Action: split into N nested `Agent({ subagent_type: "architect", prompt: "<scoped ADR-open subroutine for ADR-<NNNN>-<slug>>" })` calls in one message. Prompt-discipline only.
+
+- Carve-out: stack-choice ADR (`proposed_slug: stack-choice`) runs first, serially — `S-CONTAINERS-001` finalization depends on it.
+- Carve-out: ADR-index append at `<context_path>/.orchestra/inventory/adr/index.md` (step e) is single-writer — parent appends rows in ONE final pass after all sub-runs idle.
+- Each sub-run owns its ADR's review loop (up to 3 rounds with `@reviewer`); no cross-ADR dependency.
+
 ### ADR-open subroutine
 
 Open formal ADR when ANY trigger fires AND all three worthiness gates pass (see `## Rules → ### ADR-worthiness gates`):
@@ -93,7 +103,7 @@ Spawn prompt-tag `task: reverse-pass` → produce SAD + BR-AC + `business-invari
    - `single-repo` (auto `per-service`): per-feature `{PRD, FRS, TDD, openapi.yaml}` + service BR-AC. No SAD. No ADR. No `business-invariants.md`.
    - `multi-repo` + `system-wide`: workspace SAD + `business-invariants.md` + per-service BR-AC for every service + accepted ADRs + per-feature `{PRD, FRS, TDD, openapi.yaml}`.
    - `multi-repo` + `per-service`: per-feature `{PRD, FRS, TDD, openapi.yaml}` for named service only (after auto-promote, if triggered).
-5. **Bind every authored diagram.** Append each authored `.puml` basename (without extension) to the parent artifact's `diagrams: [...]` array IN THE SAME EDIT. SAD's array under `system-wide`: `c4-context`, `c4-container` (REQUIRED); `erd-logical` (REQUIRED when ≥1 container owns persisted state); every `sequence-inter-<flow>` authored (REQUIRED). BR-AC's array under `per-service`: `erd-logical` (REQUIRED when the walked service owns persisted state).
+5. **Bind every authored diagram.** Append each authored `.puml` basename (without extension) to the parent artifact's `diagrams: [...]` array IN THE SAME EDIT. SAD's array under `system-wide`: `c4-context`, `c4-container` (REQUIRED); `erd-logical` (REQUIRED when ≥1 container owns persisted state); every `sequence-inter-<flow>` authored (REQUIRED). BR-AC's array under `per-service`: `erd-logical` (REQUIRED when the walked service owns persisted state). Batch `.puml` writes per `commands/orchestra.md ## Shared rules → ### Tool-call batching`.
 6. **Cross-service flow enumeration.** Apply the **Journey gate** from `commands/orchestra.md` `## Shared rules` — partition the aggregate's terminal states into ≤4 outcome categories; author one `sequence-inter-<flow>.puml` per category, NOT per Kafka topic / state transition / failure path. Enumeration is scope-aware: `system-wide` covers every cross-service journey; `per-service <S>` covers only journeys where `<S>` is aggregate root or participant. Flow naming: `sequence-inter-<aggregate>-<outcome-category>.puml`.
 7. **No code, no tests, no TSR.** Reverse-pass authors specification artifacts only.
 8. **ADRs only for visible-in-source platform decisions** passing all three worthiness gates. Half-implementations + accidental shapes fail gate 1 — route to BR-AC `S-INVARIANTS-001` via Path A.
@@ -123,7 +133,7 @@ Context: spec-to-code, greenfield Java, first feature. `<feature-id>-ESCALATE-AD
 1. Bootstrap `<context_path>/docs/SAD.md` shell with frontmatter `diagrams: [c4-context, c4-container]`.
 2. Run `### ADR-open subroutine` for `ADR-0001-stack-choice` (`scope: global` — affects every future service).
 3. On accepted: finalize SAD `S-CONTAINERS-001` with `[Container: Spring Boot 3.x on JVM 17+]`. Append row to ADR-index.
-4. Author C4 L1 (`c4-context.puml`) + C4 L2 (`c4-container.puml`). `post-write-puml` renders `.svg`.
+4. Author C4 L1 (`c4-context.puml`) + C4 L2 (`c4-container.puml`) in ONE message (`### Tool-call batching`). `post-write-puml` renders `.svg`.
 5. Author service BR-AC stub (rows added as `@product`'s PRD surfaces new policy).
 6. Hand to `@lead` for TDD.
 </example>
