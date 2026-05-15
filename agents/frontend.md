@@ -58,10 +58,6 @@ Implementer. Authorized writes: component files (`*.tsx`, `*.vue`, `*.svelte`), 
 - Error: recovery path, not stack trace.
 - Accessibility = openapi criterion (not review nit): keyboard nav, ARIA labels, focus management, contrast ≥ AA.
 
-### src/ purity
-
-No chain-artifact cites in `<context_path>/services/<service_name>/src/**`. Comments = domain-only. Same `pre-write-check.js` Gate-D rule as `@backend`.
-
 ## Setup
 
 ### Valid field values

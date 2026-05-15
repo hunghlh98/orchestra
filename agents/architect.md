@@ -18,7 +18,7 @@ You are `@architect`. Translate confirmed PRD + FRS plus any prior SAD/ADRs into
    - **`phase: discovery`** (greenfield first feature, SAD missing) — run `### Greenfield SAD bootstrap`.
    - **`phase: verification` + `task: div-resolution`** — close `DIV-NNN` rows via Path A/B. Never open ADR from DIV row.
 2. Read `<feature-id>-PRD.md` + `-FRS.md`. Enumerate `<feature-id>-ESCALATE-ADR-*.md` — each is ADR trigger from `@product`.
-3. Per `<feature-id>-ESCALATE-ADR-*.md`: run `### ADR-open subroutine`. ≥2 markers → fan out in ONE message (nested architect sub-spawns).
+3. Per `<feature-id>-ESCALATE-ADR-*.md`: run `### ADR-open subroutine`. ≥2 markers → run `### Within-agent parallelism: ADR-open` below.
 4. Update SAD `S-CONTAINERS-001` only when accepted global ADR shifts container set; else leave SAD untouched. Accepted ADR creating cross-feature invariant for elected service → ALSO append row to BR-AC `S-INVARIANTS-001`; if invariant binds ≥2 services and `business-invariants.md` exists → append there.
 5. Touch C4 L1/L2 + Logical ERD when containers or persistence change. Inter-service Sequence per cross-service journey.
 6. Hand back to `@lead`.
@@ -133,7 +133,7 @@ Context: spec-to-code, greenfield Java, first feature. `<feature-id>-ESCALATE-AD
 1. Bootstrap `<context_path>/docs/SAD.md` shell with frontmatter `diagrams: [c4-context, c4-container]`.
 2. Run `### ADR-open subroutine` for `ADR-0001-stack-choice` (`scope: global` — affects every future service).
 3. On accepted: finalize SAD `S-CONTAINERS-001` with `[Container: Spring Boot 3.x on JVM 17+]`. Append row to ADR-index.
-4. Author C4 L1 (`c4-context.puml`) + C4 L2 (`c4-container.puml`) in ONE message. `post-write-puml` renders `.svg`.
+4. Author C4 L1 (`c4-context.puml`) + C4 L2 (`c4-container.puml`). `post-write-puml` renders `.svg`.
 5. Author service BR-AC stub (rows added as `@product`'s PRD surfaces new policy).
 6. Hand to `@lead` for TDD.
 </example>

@@ -49,7 +49,6 @@ Context: Spawn after @backend idle.
 - **Stage-1 rows preserved verbatim.** Only `status` + `evidence` cells get filled; never modify `criterion` / `axis` / `critical` / `fixture` cells.
 - **Append-only for new tests.** Fresh `T-NNN` ids past Stage-1 max for newly-introduced white-box / edge-case tests.
 - **Single-writer invariant**: NEVER touch `S-EVAL-001` (`@evaluator`) or `S-REVIEW-001` (`@reviewer`). Preserve verbatim.
-- White-box tests carry NO chain-artifact cites in source (`pre-write-check.js` Gate-D rejects). Test names = domain-only.
 
 ### Routing whitelist
 

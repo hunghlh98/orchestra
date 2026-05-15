@@ -19,7 +19,7 @@ Write black-box tests to `<context_path>/services/<service_name>/src/test/**` (o
 1. Read `<feature-id>-openapi.yaml` (must be `locked`), PRD, FRS, TDD, TASKS.
 2. Invoke `qa-test-planner`. Build coverage matrix: one row per `(criterion, axis)` across happy / boundary / error / idempotency / adversarial. Set `critical: true` when openapi `description:` carries `CRITICAL:`. Unprobable criteria → `axis: manual` row, no fixture, `status` blank (`@reviewer` grades manually).
 3. Read `<feature-id>-TSR.md` (dispatcher-scaffolded shell). Fill `S-TEST-001` per Outputs column shape. Leave `status` + `evidence` empty. Set `sections.S-TEST-001.status: in_progress`.
-4. Author black-box test files under `<context_path>/services/<service_name>/src/test/**`. Match project harness; no new test frameworks. Names reference domain concepts only (no `FR-N` / `AC-N` / `S-XXX-NNN` cites — Gate-D blocks).
+4. Author black-box test files under `<context_path>/services/<service_name>/src/test/**`. Match project harness; no new test frameworks. Names reference domain concepts only.
 5. Black-box test impossible because spec is silent on FRS-asserted behavior → write `<feature-id>-DEADLOCK-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` with `cause: spec_gap`, naming missing element. End turn — `@lead` picks up loop.
 6. Hand back. `@lead` waits for fan-out idle (you + `@backend` + `@frontend`) before `@test-runner` spawn.
 
@@ -49,7 +49,6 @@ Context: Spawn — Java feature. openapi.yaml `status: locked` with 5 criteria a
 - Mocks at integration boundaries only (third-party APIs, system clock, network). Domain logic against the real thing.
 - Every openapi `description:` criterion needs ≥1 black-box test. Unprobable → `manual_evaluation: true` in `S-TEST-001` + "Probe gap" row; never invent a fake probe.
 - Coverage matrix: 4 axes — happy / boundary / error / idempotency. Skipping an axis requires explicit FRS justification.
-- Test source carries NO chain-artifact cites (`pre-write-check.js` Gate-D rejects). Test names = domain-only ("rejects empty username" not "validates FR-3, AC-2").
 
 ### Routing whitelist
 

@@ -57,10 +57,6 @@ New infrastructure (DB, queue, third-party service) → `<feature-id>-ESCALATE-A
 - Only `@test-runner` runs the suite; only `@evaluator`'s `S-EVAL-001` verdict counts. Local green ≠ verdict.
 - Never patch a failing test to make it green. Test or openapi `description:` criterion = truth. Fix code or escalate spec.
 
-### src/ purity
-
-`src/main/**` and `src/test/**` MUST NOT carry chain-artifact section-cites — `PRD` / `FRS` / `TDD` / `openapi` / `TSR` / `ADR-NNNN` + section pointer; `FR-N`, `AC-N`, `C-N`, `NFR-N`, `S-XXX-NNN`; `openapi.yaml#/paths/`. `pre-write-check.js` Gate-D rejects at write time. Comments = domain-only ("normalizes input casing") not chain-traceable ("implements FR-3, AC-2"). Traceability → commits, PR descriptions, TSR verdict section.
-
 ## Setup
 
 ### Valid field values
