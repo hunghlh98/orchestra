@@ -112,7 +112,17 @@ Scope resolves from `workspace_kind` + `scope_level` + the optional second token
 | `multi-repo` + `system-wide` (or `code-to-spec system`) | workspace `SAD.md` + `docs/adr/ADR-*.md` (visible-in-source decisions) + `docs/business-invariants.md` + per-service `<service_name>-BR-AC.md` + per-feature `{PRD, FRS, TDD, openapi.yaml}`. |
 | `multi-repo` + `per-service` (or `code-to-spec service:<name>`) | if workspace `SAD.md` absent → first run the `system-wide` row above (auto-promote), then narrow. If present → per-feature `{PRD, FRS, TDD, openapi.yaml}` for the named service only. |
 
-**Source read-root.** When `scope_level: per-service`, every chain agent reads source files from `local.yaml.source_path` (the value persisted from `--source=<path>`). Agents never walk above this root for source inspection. `system-wide` scope ignores `source_path` and reads from `<context_path>` (the workspace root).
+**Auto-promote spawn brief.** When the auto-promote row fires (multi-repo + per-service + workspace `SAD.md` absent), the dispatcher composes the `@architect` spawn prompt explicitly framed at workspace scope, NOT at the source-read-rooted service. Spawn prompt MUST carry:
+
+- `task: workspace-sad-author` (not `service-sad-touch` — the task name disambiguates scope at the spawn boundary; see `agents/architect.md` workflow step 1 branching).
+- `scope_frame: workspace` — body of the brief names the workspace as "system under design" and enumerates Containers from the workspace topology, treating the source-read-rooted service as one container among siblings.
+- Container enumeration source: read `<context_path>/CLAUDE.md` "Service Topology" table (or equivalent service registry); every entry maps to a `Container(...)` row in `S-CONTAINERS-001` and to a `Container()` entry inside `System_Boundary(workspace, ...)` of `c4-container.puml`. The source-read-rooted service carries the richest evidence; other services cite the topology table without source inspection (reverse-pass discipline does NOT require reading every service's source for topology enumeration).
+- Forbidden: any service named in the workspace topology rendered as `System_Ext(...)` in `c4-context.puml` or `c4-container.puml`. Only systems outside the workspace boundary (upstream merchants, third-party payment networks, adapted ESPs) are `System_Ext`.
+- After the workspace pass locks (SAD + workspace `business-invariants.md` + per-service BR-AC for every detected service + accepted ADRs), the dispatcher re-spawns `@architect` with `task: per-service-narrowing` to author per-feature `{PRD, FRS, TDD, openapi.yaml}` for the originally requested service only.
+
+The auto-promote step also patches the run-plan: dispatcher sets `auto_promote_workspace_sad: true` in `run-plan.md` frontmatter and adds `S-SCOPE-UPGRADE-001` anchor body declaring the scope upgrade — so the human reviewer sees the upgrade before approving (see `schemas/run-plan.schema.md`).
+
+**Source read-root.** When `scope_level: per-service`, every chain agent reads source files from `local.yaml.source_path` (the value persisted from `--source=<path>`). Agents never walk above this root for source inspection. `system-wide` scope ignores `source_path` and reads from `<context_path>` (the workspace root). Auto-promote inherits `system-wide` read behavior for the workspace pass and reverts to `per-service` for the narrowing pass.
 
 **Provenance marker.** First action on first run when preflight reports `docs_provenance: unknown`: spawn `@architect` with `task: provenance-marker` to author `docs/README.md` carrying frontmatter `generated_by: orchestra`. Subsequent runs read this marker before classifying existing artifacts.
 

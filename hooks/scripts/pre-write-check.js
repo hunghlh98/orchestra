@@ -4,6 +4,7 @@
 //   secrets         — exit 2 on detection
 //   Gate-D          — src/ cite denylist; exit 2 on hit when target is business src/
 //   Gate-D-inverse  — docs/ codebase-identifier denylist; exit 2 on hit when target is chain artifact under docs/
+//   Gate-E          — workspace-scope SAD/c4-container container-count floor; exit 2 when workspace artifact ships <2 containers
 //   Gate-A          — frontmatter `status: locked` rejects writes
 //   Gate-B          — frontmatter `sections:` map; reject if all sections locked
 //   Gate-C          — frontmatter `readers:` allowlist; non-blocking warning to stderr
@@ -80,6 +81,88 @@ function isChainArtifactUnderDocs(filePath) {
   return false;
 }
 
+// Gate-E — workspace-scope SAD + c4-container.puml container-count floor.
+// Activates when the target is SAD.md or workspace-scope c4-container.puml AND
+// .orchestra/system.yaml declares workspace_kind: multi-repo. Rejects bodies
+// that enumerate <2 service containers — those are service-scope L1/L2 wearing
+// a workspace-scope label.
+const WORKSPACE_CONTAINER_FLOOR = 2;
+
+function readWorkspaceKind() {
+  // Walk up from cwd looking for .orchestra/system.yaml (one level only — the
+  // dispatcher runs at workspace root; we don't chase distant parents).
+  const cwd = process.cwd();
+  const candidate = `${cwd}/.orchestra/system.yaml`;
+  if (!existsSync(candidate)) return null;
+  try {
+    const text = readFileSync(candidate, "utf8");
+    const parsed = parseYamlSafely(text);
+    return parsed?.workspace_kind || null;
+  } catch { return null; }
+}
+
+function countSadContainerRows(content) {
+  // Find S-CONTAINERS-001 section header; count markdown table data rows
+  // (lines starting and ending with |) until the next H2.
+  const lines = content.split(/\r?\n/);
+  let inSection = false;
+  let sawSeparator = false;
+  let count = 0;
+  for (const line of lines) {
+    if (/<a\s+id="S-CONTAINERS-001"/.test(line) || /^##\s+S-CONTAINERS-001\b/.test(line)) {
+      inSection = true; sawSeparator = false; count = 0; continue;
+    }
+    if (inSection && /^##\s+/.test(line)) break;
+    if (!inSection) continue;
+    if (!/^\s*\|.*\|\s*$/.test(line)) continue;
+    if (/^\s*\|[\s|:\-]+\|\s*$/.test(line)) { sawSeparator = true; continue; }
+    if (sawSeparator) count++;
+  }
+  return sawSeparator ? count : null;
+}
+
+function countPumlContainersInBoundary(content) {
+  // Match the first System_Boundary(...) { ... } block and count Container() /
+  // ContainerDb() / ContainerQueue() / Container_Ext() calls inside.
+  // PlantUML uses Container_Boundary too, but workspace L2 uses System_Boundary.
+  const m = content.match(/System_Boundary\s*\([^)]*\)\s*\{([\s\S]*?)\n\s*\}/);
+  if (!m) return null;
+  const body = m[1];
+  const matches = body.match(/\bContainer(?:Db|Queue|_Ext)?\s*\(/g);
+  return matches ? matches.length : 0;
+}
+
+function runGateE(filePath, content) {
+  if (!filePath) return;
+  const base = filePath.split("/").pop();
+  const isWorkspaceSad = base === "SAD.md" && /(^|\/)docs\/SAD\.md$/.test(filePath);
+  const isWorkspaceContainerPuml =
+    base === "c4-container.puml" && /(^|\/)docs\/diagrams\/c4-container\.puml$/.test(filePath);
+  if (!isWorkspaceSad && !isWorkspaceContainerPuml) return;
+
+  const workspaceKind = readWorkspaceKind();
+  if (workspaceKind !== "multi-repo") return;
+
+  if (isWorkspaceSad) {
+    const rows = countSadContainerRows(content);
+    if (rows !== null && rows < WORKSPACE_CONTAINER_FLOOR) {
+      process.stderr.write(
+        `pre-write-check: gate-E — workspace SAD (workspace_kind: multi-repo) S-CONTAINERS-001 lists ${rows} container row(s); workspace SAD must enumerate ≥${WORKSPACE_CONTAINER_FLOOR} services as Containers. One service rendered as System() with siblings as System_Ext is a service-scope L1/L2 wearing a workspace label — see agents/architect.md "C4 scope continuity".\n`
+      );
+      process.exit(2);
+    }
+  }
+  if (isWorkspaceContainerPuml) {
+    const containers = countPumlContainersInBoundary(content);
+    if (containers !== null && containers < WORKSPACE_CONTAINER_FLOOR) {
+      process.stderr.write(
+        `pre-write-check: gate-E — workspace c4-container.puml inside System_Boundary declares ${containers} Container() entr(ies); workspace L2 must enumerate ≥${WORKSPACE_CONTAINER_FLOOR} services as Container — see agents/architect.md "C4 scope continuity".\n`
+      );
+      process.exit(2);
+    }
+  }
+}
+
 main();
 
 async function main() {
@@ -95,6 +178,7 @@ async function main() {
     runSecretsGate(content);
     runGateD(filePath, content);
     runGateDInverse(filePath, content);
+    runGateE(filePath, content);
 
     if (filePath && existsSync(filePath)) {
       const fm = readFrontmatter(filePath);

@@ -34,6 +34,7 @@ primary_language: <string>
 framework: <string>
 auto_mode: true | false
 feature_framing: aggregate-cohesion | lifecycle-loop  # optional; defaults to aggregate-cohesion
+auto_promote_workspace_sad: true | false  # optional; defaults to false
 run_plan_status: drafted | approved | revision_requested
 revision_cycle: <integer ≥ 0>
 ---
@@ -44,6 +45,7 @@ Invariants:
 - `auto_mode: true` ⇒ `run_plan_status: approved`.
 - `revision_cycle ≤ 3`; exceeding the cap escalates to `ESCALATE-<id>.md`.
 - `feature_framing` (optional): controls how `@lead`'s plan-mode walk groups entry points into `S-FEATURES-001` rows. Default `aggregate-cohesion` keeps the existing one-feature-per-aggregate-root collapse rule. Setting `lifecycle-loop` replaces it with the **Journey gate** from `commands/orchestra.md` `## Shared rules` — one feature per outcome category of the aggregate's terminal-state partition. Aggregate atomicity at the lock/transition layer stays unified across sibling lifecycle features via service-scope `<service_name>-BR-AC.md S-INVARIANTS-001`, NOT duplicated per feature.
+- `auto_promote_workspace_sad` (optional): set `true` by the dispatcher when the `code-to-spec` auto-promote rule fires (`multi-repo` + `per-service` + workspace `SAD.md` absent — see `commands/orchestra.md` "Auto-promote spawn brief"). `true` ⇒ `S-SCOPE-UPGRADE-001` anchor REQUIRED in body, declaring that SAD / C4 L1+L2 / `business-invariants.md` author at workspace scope (one System() box = the platform; every Service-Topology entry = a Container) even though `source_path` points at one service. The human reviewer reads this anchor before approving — it's the explicit handshake on scope upgrade.
 
 ## Body grammar
 
@@ -60,6 +62,16 @@ Required anchors:
 Optional anchors:
 
 - `S-CHAIN-PLAN-001` — `## Chain plan (narrative)` — prose execution sequence the user reads alongside `S-PHASES-001`. `@lead` authors when scope spans ≥3 features OR when the user signalled they want a narrative walkthrough in their intent.
+- `S-SCOPE-UPGRADE-001` — `## Scope upgrade` — REQUIRED when frontmatter `auto_promote_workspace_sad: true`; omitted otherwise. Body shape:
+  ```
+  | Field | Value |
+  | requested scope | per-service: <service_name> |
+  | upgraded scope  | workspace (multi-repo, system-wide) |
+  | trigger         | workspace SAD absent at <context_path>/docs/SAD.md |
+  | workspace pass artifacts | SAD.md, c4-context.puml, c4-container.puml, erd-logical.puml (when persistence exists), sequence-inter-<flow>.puml per cross-service journey, business-invariants.md, per-service BR-AC for every Service-Topology service, accepted ADRs |
+  | narrowing pass artifacts | per-feature {PRD, FRS, TDD, openapi.yaml} for <service_name> only |
+  ```
+  This anchor is the explicit handshake: workspace pass authors at platform scope (one System() box = the platform; siblings as Containers, not System_Ext), narrowing pass authors per-feature artifacts for the requested service only. `@lead` populates this anchor in the first run-plan draft when the dispatcher signals auto-promote.
 
 ## Validation
 

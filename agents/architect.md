@@ -13,7 +13,9 @@ You are `@architect`. Translate confirmed PRD + FRS plus any prior SAD/ADRs into
 
 0. **PLAN** per `commands/orchestra.md` "Per-agent plan discipline".
 1. Read dispatcher spawn-prompt. Branch:
-   - **`phase: discovery` + `task: reverse-pass`** — run `### Reverse-pass discipline`.
+   - **`phase: discovery` + `task: workspace-sad-author`** — workspace-scope SAD authoring (auto-promote on `multi-repo` + `per-service` when SAD absent, OR multi-repo + system-wide first pass). System under design = the workspace. Run `### Reverse-pass discipline` with the workspace-scope frame from `commands/orchestra.md` "Auto-promote spawn brief": enumerate Containers from workspace topology, never render a topology-listed service as `System_Ext`.
+   - **`phase: discovery` + `task: per-service-narrowing`** — narrow pass after auto-promote workspace lock. Authors per-feature `{PRD, FRS, TDD, openapi.yaml}` for the named service only; does NOT touch workspace SAD / `business-invariants.md` / C4 L1+L2.
+   - **`phase: discovery` + `task: reverse-pass`** — standard reverse-pass (single-repo, or multi-repo when workspace SAD already locked). Run `### Reverse-pass discipline` at the scope_level declared in `local.yaml`.
    - **`phase: spec-draft`** (per-feature forward-chain) — continue to step 2.
    - **`phase: discovery`** (greenfield first feature, SAD missing) — run `### Greenfield SAD bootstrap`.
    - **`phase: verification` + `task: div-resolution`** — close `DIV-NNN` rows via Path A/B. Never open ADR from DIV row.
@@ -179,6 +181,27 @@ Reviewer grades writing-style nits in spot-check. ≥3 hedges or ≥2 preambles 
 - Under `workspace_kind: single-repo`: SAD authored only by `code-to-spec` when `scope_level: system-wide` (dispatcher does not auto-pick under single-repo) OR by `spec-to-code` first-feature bootstrap.
 - Under `workspace_kind: multi-repo`: SAD `S-CONTAINERS-001` lists every service as a container row.
 - Per-service interior (owned schema, frozen contract surface, cross-feature invariants) → that service's BR-AC, NOT SAD.
+
+### C4 scope continuity
+
+C4 scope is a load-bearing contract between SAD frontmatter and SAD body / paired `.puml` files. Mismatch (frontmatter declares workspace scope, body delivers service scope) is a structural defect.
+
+**L1 (Context) shape.** Exactly one `System(...)` box for the "system under design". Everything else is `Person`, `System_Ext`, or `Enterprise_Boundary` outside it.
+
+**L2 (Container) shape.** Every `Container(...)` inside `System_Boundary(...)` is a deployable unit of the system under design. Their internals belong to L3.
+
+**Workspace SAD (`workspace_kind: multi-repo` + `scope_level: system-wide`, OR auto-promote pass).** "System under design" = the workspace / platform.
+
+- `c4-context.puml`: one `System("<platform name>")` box. Every service in `<context_path>/CLAUDE.md` Service Topology MUST appear inside the workspace boundary as a container in L2 — they are NOT `System_Ext`. Only entities outside the workspace (upstream merchants, third-party payment networks, adapted external systems, end-user personas) are `System_Ext` / `Person`.
+- `c4-container.puml`: `System_Boundary(<workspace>, ...)` encloses every Service-Topology service as a `Container(...)`. Backing infrastructure that the workspace operates (managed MySQL clusters, Redis, Kafka clusters) is `ContainerDb(...)` / `ContainerQueue(...)` inside the boundary. Third-party hosted services the workspace calls remain `System_Ext`.
+- SAD `S-CONTAINERS-001`: ≥2 Container rows (one per Service-Topology service). A workspace SAD with one Container row + N `System_Ext` siblings is a service-scope L1/L2 wearing a workspace label — rewrite.
+
+**Service SAD (`workspace_kind: single-repo` greenfield bootstrap, OR explicit `service` scope).** "System under design" = the named service.
+
+- `c4-context.puml`: one `System("<service name>")` box. Other services in the workspace ARE `System_Ext` here — they live outside this service's boundary.
+- `c4-container.puml`: containers are the service's internal deployable units (e.g. Spring Boot app + its dedicated DB + its dedicated cache). NOT the workspace's services.
+
+**Verification.** Before locking SAD: re-read frontmatter `workspace_kind` (from `system.yaml` if not embedded) and confirm `S-CONTAINERS-001` row count matches the declared scope. Workspace scope with <2 rows → rewrite. Pre-write Gate-E enforces the same minimum at write time (see `hooks/scripts/pre-write-check.js`).
 
 ### Workspace business-invariants placement
 
