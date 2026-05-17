@@ -19,6 +19,24 @@ WS --> User : Send Response
 @enduml
 ```
 
+## Header Prelude
+
+A repeatable starter prelude that pays off on diagrams larger than a handful of arrows:
+
+```puml
+@startuml
+!theme plain
+skinparam sequenceArrowThickness 1.5
+skinparam maxMessageSize 300
+skinparam responseMessageBelowArrow true
+
+title <Diagram title>\n<Subtitle / scope note>
+```
+
+- `responseMessageBelowArrow true` — response label renders below the arrow, so paired request/response reads vertically.
+- `maxMessageSize 300` — long parameter lists wrap inside the label box instead of stretching the lifeline.
+- `sequenceArrowThickness 1.5` — arrows stay readable at SVG zoom-out.
+
 ## Participant Types
 
 PlantUML supports specialized participant types beyond standard boxes:
@@ -106,6 +124,22 @@ Bob -> Alice : Request
 Alice -> DB : Query
 @enduml
 ```
+
+### Color-coding by Architecture Layer
+
+Group participants left-to-right by architecture layer and color-code by layer for fast visual scan. Color choices are repo-local convention, not part of PlantUML grammar.
+
+```puml
+@startuml
+participant "Channel BFF" as BFF #LightBlue
+participant "Order Service" as ORD #LightYellow
+participant "Payment Engine" as PE #Orange
+queue "Event Bus" as EB #LightCoral
+database "Wallet DB" as WAL #Plum
+@enduml
+```
+
+Common layering: channel → domain → platform → external. Keep aliases short (3–4 chars) so message labels stay legible.
 
 ## Activation and Lifelines
 
@@ -218,6 +252,36 @@ deactivate Service
 @enduml
 ```
 
+## Request / Response Payload Shape
+
+**Lead rule: every synchronous request arrow must have a paired response arrow.** A one-way call with no response is a fire-and-forget — render it with `->>` to signal that explicitly. Pairing makes blocking semantics readable without scanning surrounding context.
+
+```puml
+@startuml
+' Synchronous request paired with response
+Caller -> Callee  : POST /orders { userId, clientId, items[] }
+Callee --> Caller : 201 { orderId, status }
+
+' Fire-and-forget (no response expected)
+Publisher ->> Bus : OrderCreated { orderId, userId }
+
+' Long parameter lists — wrap with \n inside the label string
+Caller -> Callee : CreatePaymentIntent(\n  userId, clientId, appId,\n  paymentGatewayID, paymentPartnerID,\n  pmcID, providerID, serverId, roleId)
+
+' Failure-class response
+Callee --> Caller : 402 { errorCode, reason }
+@enduml
+```
+
+### Field-name skeleton vs example values
+
+Both shapes are valid PlantUML. Pick by purpose:
+
+- **Field names only** — `{ userId, clientId, items[] }`. Contract shape, survives schema evolution. Default for inter-service / public-API diagrams where the body shape lifts from `openapi.yaml` / `asyncapi.yaml`.
+- **Example values** — `{ userId: 12345, status: "PAID" }`. Use when a concrete value carries meaning the field name does not: seed inputs for a worked example, enum literals (`status: "PAID"`), HTTP status codes (`201`, `402`), idempotency-key shape (`Idempotency-Key: <orderId>`).
+
+Avoid arbitrary placeholder values (`userId: 12345` chosen for no reason) — they drift on every edit and add no contract information.
+
 ## Grouping and Control Structures
 
 ### Alt/Else (Alternative Paths)
@@ -298,6 +362,37 @@ group Authorization
 end
 @enduml
 ```
+
+### Break (Early Exit)
+
+`break` exits the enclosing fragment on a guard condition — useful for guard-and-bail validation paths.
+
+```puml
+@startuml
+alt request valid
+    Caller -> Callee : Process
+else invalid input
+    break
+        Caller -> Caller : LogReject
+    end
+end
+@enduml
+```
+
+### Critical (Protected Region)
+
+`critical` marks a region that must not be interrupted (atomic settlement, transactional bracket). Optional fallback branches use `else` like `alt`.
+
+```puml
+@startuml
+critical Atomic settlement
+    PaymentEngine -> Wallet : Debit
+    PaymentEngine -> Ledger : Credit
+end
+@enduml
+```
+
+See `references/troubleshooting/sequence_diagrams_guide.md` for common parse errors with both fragments.
 
 ## Notes and Annotations
 
@@ -442,6 +537,26 @@ Bob --> Alice : Response
 @enduml
 ```
 
+### Step Labels and Compensation Markers
+
+Free-text bracketed labels inside message text (`[1]`, `[2]`, …) are a convention, not a PlantUML keyword. They let prose cross-reference a specific arrow without re-counting. `autonumber` (see *Numbered Messages*) is the automatic alternative when sequence order matters more than narrative anchoring.
+
+```puml
+@startuml
+' Sequential step labels (manual)
+Caller -> Callee : [1] ValidateInput
+Callee -> Store  : [2] LoadProfile
+
+' Compensation / saga reversal markers — reverse order from the forward path
+PaymentEngine -> Wallet : [Comp-3] RefundCredit
+PaymentEngine -> Order  : [Comp-2] MarkCancelled
+@enduml
+```
+
+`[Comp-N]` is the same mechanism with a convention overlay for compensation / saga-reversal paths — the number mirrors the forward step it undoes, so a forward `[3] Debit` pairs with a reverse `[Comp-3] Credit`.
+
+For pointing at a sub-flow that lives in a separate `.puml`, use `ref over` (see *Reference to Other Diagrams* above) — keeps the current diagram from inlining 30 steps of a tangential branch.
+
 ## Real-World Example: Authentication Flow
 
 ```puml
@@ -515,8 +630,12 @@ end
 4. **Add notes for clarity** - Explain complex business logic
 5. **Use dividers** - Separate major phases with `==`
 6. **Activate/deactivate consistently** - Show processing time accurately
-7. **Choose appropriate arrow types** - Solid for synchronous, dashed for returns
+7. **Pair sync requests with responses** - Match the arrow glyph to the call semantic. Orphan sync requests read as truncated diagrams.
+    - `->` (solid) — synchronous; always followed by `<--` / `-->` even when the response body is empty
+    - `->>` (open) — fire-and-forget (event publish / one-way notification); no response arrow
+    - `->x` — crash or network-level failure (no response possible)
 8. **Autonumber for complex flows** - Easier to reference in discussions
+9. **Failure-path discipline** - In `alt`, success branch first, then `else` per error category. Label `else` branches by acceptance-criterion ID where the diagram traces to an FRS row (`else AC-014: payment declined`).
 
 ## Common Use Cases
 
