@@ -6,28 +6,46 @@ argument-hint: <subcommand|natural language>
 
 # /orchestra dispatcher
 
-Four entry shapes keyed on chain direction. Greenfield → forward chain (`spec-to-code`). Brownfield → reverse chain (`code-to-spec`). Freeform intent → router (reverse first to read existing code/docs, pause, then forward). Empty args → usage.
+Four entry shapes resolve to 9 strategies (S1–S9). Routing is `docs/` state × `src/**` state. Greenfield → forward; brownfield → reverse-then-forward; empty → usage.
 
 ## Invariants
 
-7 runtime hooks (see "Runtime hooks" table) own their events and side effects. Do not write to `<cwd>/.orchestra/metrics/events.jsonl` directly, hash artifact frontmatter manually, or replicate any hook's work. Provenance and review state live in artifact frontmatter (`status`, `verdict`, `readers`, `sections`); drift detection is `git diff` in CI.
+7 runtime hooks (see "Runtime hooks" table) own their events and side effects. Do not write to `<cwd>/.orchestra/metrics/events.jsonl`, hash artifact frontmatter, or replicate any hook's work. Provenance and review state live in artifact frontmatter (`status`, `verdict`, `readers`, `sections`); drift detection is `git diff` in CI.
 
 `agent-plan-sync` owns mutation of `tasks:`, `tasks_pending`, `tasks_in_progress`, `tasks_done`, `updated:`, top-level `status:`, and the `## Tasks` checklist body of every per-agent PLAN file under `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md`. Agents author `## Approach` only.
+
+## Strategy dispatch (S1–S9)
+
+| Strategy | Entry | Preconditions | Action |
+|---|---|---|---|
+| **S1** | `/orchestra` | — | Emit Usage block. No chain. |
+| **S2** | `/orchestra spec-to-code` | `docs/` empty, `src/**` empty | Full forward chain: `@product` → `@architect` → `@lead` → fan-out → TSR. |
+| **S3** | `/orchestra spec-to-code` | Locked `docs/<feature-id>/` + partial impl OR partial-locked layers | Trust locked frontmatter as-is (no re-validation). Resume at first unlocked layer OR first missing implementer artifact. |
+| **S4** | `/orchestra spec-to-code` | Locked N features + `src/**` empty | Enumerate every locked `<feature-id>/`. Spawn N fan-outs in one message (parallel-all). One TSR per feature. |
+| **S5** | `/orchestra code-to-spec` | `src/**` exists, no second token | Scope from `system.yaml.workspace_kind`. Single-repo → per-service; multi-repo → system-wide. |
+| **S6** | `/orchestra code-to-spec system` | Multi-repo | Force `scope_level: system-wide`. Authors `SAD.md` + ADRs + `business-invariants.md` + per-service BR-AC. |
+| **S7** | `/orchestra code-to-spec service:<name> --source=<path>` | `--source=<path>` REQUIRED | Force `scope_level: per-service`. Skip architecture layer. Persist `source_path` to `local.yaml`. |
+| **S8** | `/orchestra <intent>` | `src/**` empty (greenfield) | 3× `AskUserQuestion` (restate-intent / scope / constraints). Route to S2/S3/S4 per `docs/` state. |
+| **S9** | `/orchestra <intent>` | `src/**` present (brownfield) | 1× `AskUserQuestion` (workspace-kind-adaptive permission gate). `no` → abort. `yes` → S5/S6/S7. After reverse locks: 3× `AskUserQuestion`. Route to S2/S3/S4. |
+
+Locked decisions: S9 gate = `no` → **abort with error** (forward over non-empty `src/**` without baseline is unsafe). S3 → trust locked frontmatter (no re-validation against current `system.yaml`). S4 → parallel-all (no `clientapi.yaml` topo-sort at fan-out).
+
+Out-of-scope: locked N features + partial `src/**` impl is undefined; defer to future brief.
 
 ## Parse arguments
 
 First whitespace-token of `$ARGUMENTS`:
 
-- empty → emit "Usage" block below + end turn.
-- `spec-to-code` → **spec-to-code algorithm**.
-- `code-to-spec` → **code-to-spec algorithm**. Optional second token: `system` (force `scope_level: system-wide`) or `service:<name>` (force `scope_level: per-service` for named service). When the resolved `scope_level` is `per-service`, `--source=<path>` is REQUIRED (the read-root for source inspection).
-- anything else → **`<intent>` router**.
+- empty → S1 (emit Usage, end turn).
+- `spec-to-code` → S2/S3/S4 per `docs/` + `src/**` state.
+- `code-to-spec` → S5/S6/S7. Optional second token: `system` (S6) or `service:<name>` (S7; `--source=<path>` REQUIRED).
+- anything else → S8 or S9 per `src/**` state.
 
-The `--source=<path>` flag accepts an absolute path or a path relative to `cwd`. A leading `@` (Claude Code path-mention shorthand) is stripped by the preflight hook.
+The `--source=<path>` flag accepts absolute or `cwd`-relative paths; leading `@` (Claude Code path-mention shorthand) is stripped by preflight.
 
 ## Preflight contract
 
-`hooks/scripts/orchestra-preflight.js` runs on `UserPromptSubmit` (matcher `^/orchestra(?::orchestra)?(\s|$)`) and emits an `<orchestra-preflight>` YAML block into prompt context. Block shape:
+`hooks/scripts/orchestra-preflight.js` runs on `UserPromptSubmit` (matcher `^/orchestra(?::orchestra)?(\s|$)`) and emits an `<orchestra-preflight>` YAML block:
 
 ```yaml
 <orchestra-preflight>
@@ -46,38 +64,40 @@ The `--source=<path>` flag accepts an absolute path or a path relative to `cwd`.
 </orchestra-preflight>
 ```
 
-**First action every dispatcher run.** Read the block. Absent → halt with `[orchestra] preflight hook did not emit — check hooks/hooks.json registration` (do not retry, do not fall back). Surface `AskUserQuestion` only for `missing_fields`. Never re-prompt resolved fields.
+**First action every dispatcher run.** Read the block. Absent → halt with `[orchestra] preflight hook did not emit — check hooks/hooks.json registration`. Surface `AskUserQuestion` only for `missing_fields`. Never re-prompt resolved fields.
 
 ## Bootstrap (only for `missing_fields`)
 
-Per-field question shape:
+Per-field shapes:
 
-- `autonomy.level` — 5-option `AskUserQuestion` enumerating `EXECUTION_ONLY | JOINT_PROCESSING | OPTION_SYNTHESIS | DRAFT_AND_GATE | FULL_AUTONOMY`. Default suggestion `DRAFT_AND_GATE`. CLI override `--autonomy=<tag>`.
-- `spawn_mode` — `subagent` (default) | `teams`. CLI override `--spawn-mode=<value>`.
-- `workspace_kind` (only when preflight returned `null`) — `single-repo` | `multi-repo`. Persist to `<context_path>/.orchestra/system.yaml`.
-- `service_name` (only when null AND `workspace_kind: multi-repo`) — walk repo-root one level deep for build manifests; surface candidates via `AskUserQuestion`. Reject names containing `/`, `\`, whitespace, `..`, or `system | metrics | inventory`.
-- `scope_level` (only when null AND `workspace_kind: multi-repo`) — `system-wide` | `per-service`. Single-repo auto-set to `per-service` by preflight.
-- `primary_language`, `framework` (only when `mode: greenfield` AND null) — `AskUserQuestion`.
-- `source_path` (only when `mode: brownfield` AND `scope_level: per-service` AND null) — `AskUserQuestion` with the conventional `./services/<service_name>/` path as default plus an Other option for free-text entry. Reject empty values; require the directory exists.
+- `autonomy.level` — 5-option `AskUserQuestion` (`EXECUTION_ONLY | JOINT_PROCESSING | OPTION_SYNTHESIS | DRAFT_AND_GATE | FULL_AUTONOMY`). Default `DRAFT_AND_GATE`. CLI: `--autonomy=<tag>`.
+- `spawn_mode` — `subagent` (default) | `teams`. CLI: `--spawn-mode=<value>`.
+- `workspace_kind` (only when null) — `single-repo` | `multi-repo`. Persist to `<context_path>/.orchestra/system.yaml`.
+- `service_name` (only when null AND `multi-repo`) — walk repo-root one level deep for build manifests; surface candidates. Reject names containing `/`, `\`, whitespace, `..`, or `system | metrics | inventory`.
+- `scope_level` (only when null AND `multi-repo`) — `system-wide` | `per-service`. Single-repo auto-set to `per-service`.
+- `primary_language`, `framework` (only when `mode: greenfield` AND null).
+- `source_path` (only when `mode: brownfield` AND `scope_level: per-service` AND null) — conventional `./services/<service_name>/` default + Other option. Reject empty; require directory exists.
 
-Persist by calling `mcp__orchestra-utils__upsert_local_yaml` with named args (`context_path`, `service_name`, optional `scope_level`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `source_path`, `status`). Persist workspace identity via `mcp__orchestra-utils__write_system_yaml(workspace_kind, context_path, status)`. Both tools validate against the closed allowlists in `schemas/system.schema.json` / `schemas/local.schema.json` and reject unknown fields server-side. After both succeed, call `mcp__orchestra-utils__claude_md(context_path)` once — this splices the orchestra section into the consumer's `CLAUDE.md`.
+Persist via `mcp__orchestra-utils__upsert_local_yaml` (`context_path`, `service_name`, optional `scope_level`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `source_path`, `status`). Workspace identity via `mcp__orchestra-utils__write_system_yaml(workspace_kind, context_path, status)`. Both validate against `schemas/{system,local}.schema.json` and reject unknown fields. After both succeed, call `mcp__orchestra-utils__claude_md(context_path)` once — splices orchestra section into consumer's `CLAUDE.md`.
 
 ## Run-plan + approval gate
 
-After bootstrap locks: spawn `@lead` with `task: run-plan-author` AND `chain: reverse-pass | forward-chain` (dispatcher sets `chain:` based on which algorithm follows — `code-to-spec` → `reverse-pass`, `spec-to-code` → `forward-chain`, `<intent>` router brownfield → `reverse-pass` on first spawn then `forward-chain` on the post-pause re-spawn). Output: `<context_path>/.orchestra/<service_name>/run-plan.md` per `schemas/run-plan.schema.md`. Emit `run_plan_status: drafted`.
+After bootstrap locks: spawn `@lead` with `task: run-plan-author` AND `chain: reverse-pass | forward-chain` (dispatcher sets `chain:` per algorithm — `code-to-spec` → `reverse-pass`, `spec-to-code` → `forward-chain`, `<intent>` brownfield → `reverse-pass` then `forward-chain` post-pause). Output: `<context_path>/.orchestra/<service_name>/run-plan.md` per `schemas/run-plan.schema.md`. Emit `run_plan_status: drafted`.
 
-Approval mechanism splits by `chain:` tag (not by `mode` — `mode: brownfield` may still author a forward chain, e.g. adding a new feature to an existing repo):
+Approval splits by `chain:` (not by `mode`):
 
-- **`chain: reverse-pass`** — `@lead` validates `S-FEATURES-001` inside `EnterPlanMode` + native `ExitPlanMode` approval (plan mode walks the existing source to verify the feature enumeration).
-- **`chain: forward-chain`** — `@lead` writes the run-plan directly; dispatcher then `AskUserQuestion(approve | revise)` (no source to walk for a feature being minted from intent).
+- **`chain: reverse-pass`** — `@lead` validates `S-FEATURES-001` inside `EnterPlanMode` + native `ExitPlanMode` approval (plan mode walks source to verify enumeration).
+- **`chain: forward-chain`** — `@lead` writes directly; dispatcher `AskUserQuestion(approve | revise)`.
 
-On approval: patch via `mcp__orchestra-utils__upsert_local_yaml(context_path, service_name, auto_mode: true, run_plan_status: approved)`; flip `run-plan.md` frontmatter `run_plan_status: approved` + `status: locked`. On rejection: `run_plan_status: revision_requested`, collect notes, re-spawn `@lead`. Max 3 cycles; cycle 4 → `<context_path>/.orchestra/<service_name>/pipeline/run-plan-ESCALATE.md` with `resolution: pending`.
+On approval: `mcp__orchestra-utils__upsert_local_yaml(context_path, service_name, auto_mode: true, run_plan_status: approved)`; flip run-plan frontmatter `run_plan_status: approved` + `status: locked`. On rejection: `run_plan_status: revision_requested`, collect notes, re-spawn `@lead`. Max 3 cycles; cycle 4 → `pipeline/run-plan-ESCALATE.md`.
 
-After `auto_mode: true`: between-phase "proceed?" gates, per-feature confirmations, and autonomy-ladder `DRAFT_AND_GATE` intermediate checkpoints are skipped. Structural-failure halts and `ESCALATE` / `DEADLOCK` emission always preserved.
+After `auto_mode: true`: between-phase "proceed?" gates, per-feature confirmations, and `DRAFT_AND_GATE` checkpoints skip. Structural-failure halts + `ESCALATE` / `DEADLOCK` emission always preserved.
 
-## spec-to-code algorithm
+## Algorithm payloads
 
-One fixed chain. Spawn `@lead` with locked decisions:
+### spec-to-code (S2/S3/S4)
+
+Spawn `@lead` with locked decisions:
 
 ```
 phase: spec-draft
@@ -86,78 +106,62 @@ inputs: <context_path>/.orchestra/<service_name>/local.yaml, run-plan.md, docs/b
 chain: PRD → FRS → SAD → ADR (when triggered) → TDD → openapi/asyncapi → backend code + unit tests → @test-author → @test-runner + @evaluator + @reviewer → TSR
 ```
 
-`@lead` routes hard-sequential layers and the parallel fan-out (`@backend` ‖ `@frontend` ‖ `@test-author`) gated on `openapi.yaml status: locked`.
+`@lead` routes hard-sequential layers + parallel fan-out (`@backend` ‖ `@frontend` ‖ `@test-author`) gated on `openapi.yaml status: locked`. Converge on `@test-runner` + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
 
-Converge on `@test-runner` + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
+**Inter-feature parallel spawn (S4).** `S-FEATURES-001` with ≥2 features, distinct aggregate roots / distinct services, no dependency edge → dispatcher spawns `@lead` per feature in ONE message.
 
-**Inter-feature parallel spawn.** `S-FEATURES-001` with ≥2 features, distinct aggregate roots / distinct services, no dependency edge → dispatcher spawns `@lead` per feature in ONE Agent-tool-call message.
+**Feature-id minting.** Shape `<NNN>-<noun-phrase-slug>` (NNN = max existing + 1). Slug = tech / CRUD / lifecycle noun (`order`, `order-checkout`, `order-refund`, `<aggregate>-purchase-lifecycle`, `<aggregate>-termination`). Reject Journey-gate category labels (`forward-purchase`, `abandonment`, `reversal`), verb-prefixed slugs.
 
-**Feature-id minting.**
+### code-to-spec (S5/S6/S7)
 
-- Shape: `<NNN>-<noun-phrase-slug>`. `NNN = max(existing <NNN>-... under docs/<service_name>/) + 1`.
-- Slug = tech / CRUD / lifecycle noun. Examples: `order`, `order-checkout`, `order-refund`, `<aggregate>-purchase-lifecycle`, `<aggregate>-termination`.
-- Reject: Journey gate category labels (`forward-purchase`, `abandonment`, `reversal`), verb-prefixed slugs. Re-prompt.
+Reverse-pass. Never authors source, tests, or TSR.
 
-## code-to-spec algorithm
+**Authorized agent set.** `{@product, @architect, @lead}` only. Forbidden during `task: reverse-pass`: `{@backend, @frontend, @test-author, @test-runner, @evaluator, @reviewer}`. Dispatcher MUST NOT spawn forbidden agents; `@lead` MUST NOT fan out to them. Reverse-pass emitting `src/main/**`, `src/test/**`, or TSR = structural defect.
 
-Reverse-pass. Never authors source code, tests, or TSR.
+Authored set by scope:
 
-**Authorized agent set.** Reverse-pass spawns are restricted to `{@product, @architect, @lead}` — the three documentation-tier agents. Forbidden during `task: reverse-pass`: `{@backend, @frontend, @test-author, @test-runner, @evaluator, @reviewer}`. The dispatcher MUST NOT spawn any forbidden agent; `@lead` MUST NOT fan out to forbidden agents (also stated in `agents/lead.md` "No fan-out spawn during reverse-pass"). TSR files, test code under `src/test/**`, and source files under `src/main/**` are forward-chain output only. Reverse-pass that emits any of these is a structural defect.
-
-Scope resolves from `workspace_kind` + `scope_level` + the optional second token:
-
-| Inputs | Authored artifact set |
+| Scope | Artifacts |
 |---|---|
-| `single-repo` (auto `per-service`) | per-feature `{PRD, FRS, TDD, openapi.yaml}` + service `<service_name>-BR-AC.md`. No SAD. No ADR. No `business-invariants.md`. |
-| `multi-repo` + `system-wide` (or `code-to-spec system`) | workspace `SAD.md` + `docs/adr/ADR-*.md` (visible-in-source decisions) + `docs/business-invariants.md` + per-service `<service_name>-BR-AC.md` + per-feature `{PRD, FRS, TDD, openapi.yaml}`. |
-| `multi-repo` + `per-service` (or `code-to-spec service:<name>`) | if workspace `SAD.md` absent → first run the `system-wide` row above (auto-promote), then narrow. If present → per-feature `{PRD, FRS, TDD, openapi.yaml}` for the named service only. |
+| `single-repo` (auto `per-service`) | per-feature `{PRD, FRS, TDD, openapi.yaml}` + `<service_name>-BR-AC.md`. No SAD/ADR/`business-invariants.md`. |
+| `multi-repo` + `system-wide` | workspace `SAD.md` + `docs/adr/ADR-*.md` (visible-in-source) + `docs/business-invariants.md` + per-service BR-AC + per-feature artifacts. |
+| `multi-repo` + `per-service` | if workspace `SAD.md` absent → auto-promote: run `system-wide` row first, then narrow. If present → per-feature artifacts for named service only. |
 
-**Auto-promote spawn brief.** When the auto-promote row fires (multi-repo + per-service + workspace `SAD.md` absent), the dispatcher composes the `@architect` spawn prompt explicitly framed at workspace scope, NOT at the source-read-rooted service. Spawn prompt MUST carry:
+**Auto-promote spawn brief.** When auto-promote fires, dispatcher composes `@architect` spawn at workspace scope:
 
-- `task: workspace-sad-author` (not `service-sad-touch` — the task name disambiguates scope at the spawn boundary; see `agents/architect.md` workflow step 1 branching).
-- `scope_frame: workspace` — body of the brief names the workspace as "system under design" and enumerates Containers from the workspace topology, treating the source-read-rooted service as one container among siblings.
-- Container enumeration source: read `<context_path>/CLAUDE.md` "Service Topology" table (or equivalent service registry); every entry maps to a `Container(...)` row in `S-CONTAINERS-001` and to a `Container()` entry inside `System_Boundary(workspace, ...)` of `c4-container.puml`. The source-read-rooted service carries the richest evidence; other services cite the topology table without source inspection (reverse-pass discipline does NOT require reading every service's source for topology enumeration).
-- Forbidden: any service named in the workspace topology rendered as `System_Ext(...)` in `c4-context.puml` or `c4-container.puml`. Only systems outside the workspace boundary (upstream merchants, third-party payment networks, adapted ESPs) are `System_Ext`.
-- After the workspace pass locks (SAD + workspace `business-invariants.md` + per-service BR-AC for every detected service + accepted ADRs), the dispatcher re-spawns `@architect` with `task: per-service-narrowing` to author per-feature `{PRD, FRS, TDD, openapi.yaml}` for the originally requested service only.
+- `task: workspace-sad-author` (not `service-sad-touch` — disambiguates scope at spawn boundary).
+- `scope_frame: workspace` — brief names workspace as "system under design"; source-read-rooted service is one container among siblings.
+- Container source: `<context_path>/CLAUDE.md` "Service Topology" table. Every entry → `Container(...)` row in `S-CONTAINERS-001` + `Container()` entry inside `System_Boundary(workspace, ...)` of `c4-container.puml`.
+- Forbidden: any workspace-topology service rendered as `System_Ext(...)`. Only external systems (upstream merchants, third-party networks) are `System_Ext`.
+- Post-lock: dispatcher re-spawns `@architect` with `task: per-service-narrowing` for originally requested service.
 
-The auto-promote step also patches the run-plan: dispatcher sets `auto_promote_workspace_sad: true` in `run-plan.md` frontmatter and adds `S-SCOPE-UPGRADE-001` anchor body declaring the scope upgrade — so the human reviewer sees the upgrade before approving (see `schemas/run-plan.schema.md`).
+Auto-promote also patches run-plan: `auto_promote_workspace_sad: true` in frontmatter + `S-SCOPE-UPGRADE-001` anchor declares upgrade (human reviewer sees it before approving).
 
-**Source read-root.** When `scope_level: per-service`, every chain agent reads source files from `local.yaml.source_path` (the value persisted from `--source=<path>`). Agents never walk above this root for source inspection. `system-wide` scope ignores `source_path` and reads from `<context_path>` (the workspace root). Auto-promote inherits `system-wide` read behavior for the workspace pass and reverts to `per-service` for the narrowing pass.
+**Source read-root.** `per-service` → every chain agent reads from `local.yaml.source_path`. `system-wide` → reads from `<context_path>` (workspace root). Auto-promote inherits `system-wide` for workspace pass, reverts to `per-service` for narrowing pass.
 
-**Provenance marker.** First action on first run when preflight reports `docs_provenance: unknown`: spawn `@architect` with `task: provenance-marker` to author `docs/README.md` carrying frontmatter `generated_by: orchestra`. Subsequent runs read this marker before classifying existing artifacts.
+**Provenance marker.** First run when preflight reports `docs_provenance: unknown` → spawn `@architect` with `task: provenance-marker` to author `docs/README.md` with frontmatter `generated_by: orchestra`.
 
-**Per-artifact classify-then-author.** For each chain artifact in the authored set:
+**Per-artifact classify-then-author.** For each chain artifact: Absent → `re-author`. Present + `generated_by: orchestra` AND `status: locked` → `cite-as-is`. Present + `generated_by: orchestra` AND `status: draft` → `copy-and-modify`. Present without provenance marker → `re-author`. Frontmatter `reverse_authoring_mode: <mode>` REQUIRED.
 
-1. **Inspect.** `Read` the candidate path. Absent → mode `re-author`. Present + frontmatter `generated_by: orchestra` AND `status: locked` → mode `cite-as-is`. Present + frontmatter `generated_by: orchestra` AND `status: draft` → mode `copy-and-modify`. Present without the provenance marker → mode `re-author`.
-2. **Author.** Emit per the chosen mode. Frontmatter `reverse_authoring_mode: <mode>` REQUIRED on every code-to-spec-authored artifact (validated by `schemas/pipeline-artifact.schema.md`).
-3. **Lock.** `status: draft → locked` once the body is complete.
+**Portability contract.** Every artifact under `docs/**/*.md` carries domain rules ONLY — no `src/**` path tokens, commit SHAs, branch names, repo URLs. PRD/FRS additionally carry no fenced code blocks. `pre-write-check.js` Gate-D-inverse enforces. Inline backtick spans (single-line snippets) always allowed.
 
-**Portability contract.** Code-to-spec output is project-portable: every artifact under `docs/**/*.md` carries domain rules ONLY — no `src/**` path tokens, no commit SHAs, no branch names, no repo URLs. PRD/FRS additionally carry no fenced code blocks. `pre-write-check.js` Gate-D inverse enforces at write time. Inline backtick spans (single-line snippets) always allowed.
+### `<intent>` router (S8/S9)
 
-## `<intent>` router
+Branches per preflight `mode:`:
 
-Freeform intent (anything that isn't `spec-to-code` / `code-to-spec`). Run a minimum of three `AskUserQuestion` rounds BEFORE any agent spawn, even at HIGH confidence:
+- `greenfield` → S8: 3× `AskUserQuestion` upfront (Q1 restate intent / Q2 scope / Q3 constraints). Route to S2/S3/S4 per `docs/` state.
+- `brownfield` → S9: 1× `AskUserQuestion` workspace-kind-adaptive permission gate. `no` → abort with error. `yes` → S5/S6/S7. After reverse locks: 3× `AskUserQuestion` post-reverse (now informed). Route to S2/S3/S4.
 
-1. **Q1 — restate intent.** "My reading of the request is: <one sentence>. Is that right?" Accept | clarify.
-2. **Q2 — scope.** New feature | modify existing | refactor | docs-only.
-3. **Q3 — constraints.** Specific tech / patterns / non-goals (free text via AskUserQuestion's Other option).
-
-Additional questions allowed when uncertainty remains. After the floor passes:
-
-- `mode: brownfield` (per preflight) → run **code-to-spec algorithm** narrowed to the intent's touched service(s); pause; then run **spec-to-code algorithm** against the now-locked baseline.
-- `mode: greenfield` → run **spec-to-code algorithm** directly.
-
-The router's three questions cap further confidence-tier dialogue: downstream agents observe `intent_floor: cleared` in the lead spawn prompt and skip their own intent-restate question.
+Router's questions cap further confidence-tier dialogue: downstream agents observe `intent_floor: cleared` in lead spawn prompt and skip their own intent-restate.
 
 ## Shared rules
 
 ### Phase-tag emission
 
-Every `Agent({...})` call (dispatcher or agent) MUST prepend `phase: <name>` on its own line. `metrics-collector.js` parses it; without the line, cost-by-phase pivots collapse to `unknown`. Canonical values: `discovery`, `spec-draft`, `verification`, `gap-resolution`, `gate`.
+Every `Agent({...})` call MUST prepend `phase: <name>` on its own line. `metrics-collector.js` parses it; without the line, cost-by-phase pivots collapse to `unknown`. Canonical values: `discovery`, `spec-draft`, `verification`, `gap-resolution`, `gate`.
 
 ### Status output
 
-Two model-emitted channels (NOT hook output): single-line status at filesystem-coupled transitions; multi-line banner on exception artifacts. No ANSI, no emoji.
+Model-emitted (NOT hook output): single-line at filesystem-coupled transitions; multi-line banner on exception artifacts. No ANSI, no emoji.
 
 | Event | Format |
 |---|---|
@@ -166,7 +170,7 @@ Two model-emitted channels (NOT hook output): single-line status at filesystem-c
 | Before `AskUserQuestion` pause | `[orchestra] pause: <one-line question>` |
 | Terminal state | `[orchestra] shutdown <terminal_state> feature=<feature-id> duration=<Ns>` |
 
-Banner fires after parent `Read` returns an artifact whose basename matches `<feature-id>-DEADLOCK-*.md`, `<feature-id>-ESCALATE-*.md`, or `<feature-id>-ESCALATE-ADR-*.md`:
+Banner fires after parent `Read` returns artifact whose basename matches `<feature-id>-DEADLOCK-*.md`, `<feature-id>-ESCALATE-*.md`, or `<feature-id>-ESCALATE-ADR-*.md`:
 
 ```
 ============================================================
@@ -186,40 +190,35 @@ End turn after writing — `@lead` (or dispatcher) picks up on parent Read.
 
 ### Coordination protocol
 
-9 orchestra agents (`@product`, `@architect`, `@lead`, `@backend`, `@frontend`, `@test-author`, `@test-runner`, `@evaluator`, `@reviewer`) are filesystem-coupled. Handoff pattern: parent writes its `Agent(...)` prompt directing the spawned agent to write to a designated path; spawned agent writes; turn ends; idle fires; parent `Read(<path>)` consumes.
+9 orchestra agents are filesystem-coupled. Handoff: parent writes `Agent(...)` prompt directing spawned agent to write to designated path; spawned writes; turn ends; idle fires; parent `Read(<path>)` consumes.
 
-**Parent-write carve-out** (narrowly enumerated):
-
-- `<context_path>/.orchestra/system.yaml` — via `mcp__orchestra-utils__write_system_yaml`.
-- `<context_path>/.orchestra/<service_name>/local.yaml` — via `mcp__orchestra-utils__upsert_local_yaml`.
-- `<context_path>/CLAUDE.md` orchestra section — via `mcp__orchestra-utils__claude_md`.
-- Terminal closing event (no SUMMARY artifact; Stop hook captures terminal state).
+Parent-write carve-out (narrow): `<context_path>/.orchestra/system.yaml` via `mcp__orchestra-utils__write_system_yaml`; `<context_path>/.orchestra/<service_name>/local.yaml` via `mcp__orchestra-utils__upsert_local_yaml`; `<context_path>/CLAUDE.md` orchestra section via `mcp__orchestra-utils__claude_md`; terminal closing event (no SUMMARY artifact; Stop hook captures terminal state).
 
 ### Journey gate
 
-A **journey** = one **terminal-state outcome category** of an aggregate root. Multiple state-machine loops belong to the **same journey** when they reach the same outcome category — even when their internal paths differ. Sub-segments and phases of a single outcome category are NOT sibling journeys.
+A **journey** = one **terminal-state outcome category** of an aggregate root. Multiple state-machine loops belong to the same journey when they reach the same outcome category — even when internal paths differ.
 
-**Outcome-category partition (author's task).** Partition the aggregate's terminal states into ≤4 mutually-exclusive **outcome categories**. A category is a business-meaningful classification of where the state machine terminates — named from the aggregate's own vocabulary, domain-specific. The author identifies categories by asking: *"From the consumer/user's vantage, which terminal states represent the same outcome story?"* States sharing an outcome story share a category. Recurrent partition shapes (illustrative, not exhaustive): forward-attempt vs abandonment vs reversal (value-transfer domains); decided vs abandoned (approval workflows); succeeded-onboarding vs failed-or-abandoned-onboarding (provisioning); active-with-state-X vs terminated-with-state-Y (long-running-resource). System-actor / ops-actor outcome categories partition separately from user-actor categories.
+**Outcome-category partition.** Partition aggregate's terminal states into ≤4 mutually-exclusive **outcome categories**. Author asks: *"From consumer's vantage, which terminal states represent the same outcome story?"* Recurrent shapes (illustrative): forward-attempt vs abandonment vs reversal (value-transfer); decided vs abandoned (approval); succeeded-onboarding vs failed-or-abandoned (provisioning); active-with-state-X vs terminated-with-state-Y (long-running-resource). System-actor / ops-actor categories partition separately from user-actor.
 
-**Grouping decision rule.** For any two candidate flows: do they reach the SAME outcome category? If yes → same journey, fold the second into the first as an `alt` branch. If no → sibling journeys. State-machine connectivity (do they share intermediate states?) is NOT the grouping criterion — outcome category is.
+**Grouping rule.** Two candidate flows reaching SAME outcome category → same journey (fold as `alt` branch). Different → sibling journeys. State-machine connectivity is NOT the criterion — outcome category is.
 
-**Stub rejection.** A candidate with only one hop AND no state transition AND no failure variant is a sub-step, not a journey. Fold into the parent journey of its outcome category.
+**Stub rejection.** One hop + no transition + no failure variant = sub-step, not journey. Fold into parent journey of its outcome category.
 
-**Worked example (illustrative — value-transfer aggregate).** For an aggregate whose terminal states are `{PAID, DELIVERED, PARTIAL_DELIVERY, DELIVERY_FAILED, PAYMENT_FAILED, CANCELLED, EXPIRED, REFUNDED}`, a value-transfer partition yields three user-actor categories — *forward-attempt* `{PAID, DELIVERED, PARTIAL_DELIVERY, DELIVERY_FAILED, PAYMENT_FAILED}`, *pre-completion abandonment* `{CANCELLED, EXPIRED}`, *post-completion reversal* `{REFUNDED}` — plus an operational category for system-actor surfaces. Yielding four journeys: `<aggregate>-purchase-lifecycle` (happy + payment-failure as `alt`), `<aggregate>-termination` (user-cancel + TTL-expiry as `alt`), `<aggregate>-refund`, and operational `<aggregate>-reconciliation`. Aggregates in non-value-transfer domains partition differently. The principle is the partition + the grouping decision rule; the category names above are NOT the contract.
+Worked example (value-transfer aggregate, `{PAID, DELIVERED, PARTIAL_DELIVERY, DELIVERY_FAILED, PAYMENT_FAILED, CANCELLED, EXPIRED, REFUNDED}`): yields three user-actor categories (forward-attempt / pre-completion abandonment / post-completion reversal) + operational. Four journeys: `<aggregate>-purchase-lifecycle` (happy + payment-failure as `alt`), `<aggregate>-termination` (user-cancel + TTL-expiry as `alt`), `<aggregate>-refund`, operational `<aggregate>-reconciliation`. Non-value-transfer domains partition differently — names above are NOT the contract.
 
 ## Runtime hooks
 
-7 hook scripts registered in `hooks/hooks.json`. Do not replicate side effects.
+7 scripts in `hooks/hooks.json`. Do not replicate side effects.
 
 | Hook | Events (matchers) | Side effect |
 |---|---|---|
-| `orchestra-preflight` | UserPromptSubmit (matcher `^/orchestra(?::orchestra)?(\s|$)`) | Detects mode, loads cached system.yaml + local.yaml, derives workspace_kind + scope_level, reads `docs/README.md` provenance marker. Emits `<orchestra-preflight>` block to prompt context. |
+| `orchestra-preflight` | UserPromptSubmit (`^/orchestra(?::orchestra)?(\s|$)`) | Detects mode, loads cached system.yaml + local.yaml, derives workspace_kind + scope_level, reads `docs/README.md` provenance marker. Emits `<orchestra-preflight>` block. |
 | `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-*\|TaskCreate\|TaskUpdate / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl`. Groups by `run_id`. |
-| `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher + Gate-A (status-locked) + Gate-B (sections-all-locked) + Gate-C (readers warning) + Gate-D (chain-cites blocked in `src/**`) + Gate-D-inverse (`src/**` path tokens, commit SHAs, branch names, repo URLs, and PRD/FRS fenced code blocks blocked in `docs/**/*.md`). |
+| `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher + Gate-A (status-locked) + Gate-B (sections-all-locked) + Gate-C (readers warning) + Gate-D (chain-cites blocked in `src/**`) + Gate-D-inverse (`src/**` tokens, SHAs, branches, repo URLs, PRD/FRS fenced code blocks blocked in `docs/**/*.md`). |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts. |
-| `agent-plan-sync` | PreToolUse:TaskCreate\|TaskUpdate / PostToolUse:TaskCreate / SubagentStop | Owns mutation of per-agent PLAN files. Agent body authors `## Approach` only. |
+| `agent-plan-sync` | PreToolUse:TaskCreate\|TaskUpdate / PostToolUse:TaskCreate / SubagentStop | Owns per-agent PLAN file mutation. Agent body authors `## Approach` only. |
 | `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash to stderr (observer; never blocks). |
-| `post-write-puml` | PostToolUse:Write\|Edit\|MultiEdit | Renders `.puml` → `.svg` via plantuml CLI. Warns when sibling SAD/TDD frontmatter `diagrams: [...]` array omits the rendered diagram name (non-blocking). |
+| `post-write-puml` | PostToolUse:Write\|Edit\|MultiEdit | Renders `.puml` → `.svg` via plantuml CLI. Warns when sibling SAD/TDD frontmatter `diagrams: [...]` omits the rendered name (non-blocking). |
 
 ## Usage
 
@@ -235,4 +234,4 @@ A **journey** = one **terminal-state outcome category** of an aggregate root. Mu
 Flags:
 - `--autonomy={EXECUTION_ONLY,JOINT_PROCESSING,OPTION_SYNTHESIS,DRAFT_AND_GATE,FULL_AUTONOMY}` — highest-precedence autonomy resolution.
 - `--spawn-mode={subagent,teams}` — override `spawn_mode`.
-- `--source=<path>` — read-root for source inspection. REQUIRED when `scope_level: per-service`. Accepts absolute or `cwd`-relative paths; leading `@` (Claude Code path-mention shorthand) is stripped. Persists to `local.yaml.source_path`.
+- `--source=<path>` — read-root for source inspection. REQUIRED when `scope_level: per-service`. Accepts absolute or `cwd`-relative; leading `@` (path-mention shorthand) is stripped. Persists to `local.yaml.source_path`.

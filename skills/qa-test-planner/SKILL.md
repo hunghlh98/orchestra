@@ -48,14 +48,16 @@ probes:
 
 ### Step 2 — Coverage strategy
 
-Cover 4 axes for every feature:
+Cover 6 canonical axes for every feature (matches `agents/test-author.md` canonical list):
 
 | Axis | What to probe |
 |---|---|
-| **Happy path** | Canonical success case. Status 2xx, body shape, side effects present. |
-| **Boundary** | Off-by-one on numeric inputs; empty arrays; max-length strings; first/last item; zero amounts. |
-| **Error path** | Invalid auth, missing required field, wrong type, payload too large. Each error path has a probe. |
-| **Idempotency / consistency** | Replay same request; check side effects not duplicated; verify retry-safe contracts. |
+| **happy** | Canonical success case. Status 2xx, body shape, side effects present. |
+| **boundary** | Off-by-one on numeric inputs; empty arrays; max-length strings; first/last item; zero amounts. |
+| **error** | Invalid auth, missing required field, wrong type, payload too large. Each error path has a probe. |
+| **idempotency** | Replay same request; check side effects not duplicated; verify retry-safe contracts. |
+| **adversarial** | Targeted attack inputs (replay, malformed, SQL injection, race condition) — see Step 3. |
+| **manual** | Reserved for criteria flagged `manual_evaluation: true` in openapi `description:` — `@evaluator` grades by inspection (latency p95, third-party SLA, OS-level state). |
 
 Skip an axis only if CONTRACT explicitly says so (e.g., a read-only GET has no idempotency axis to probe).
 

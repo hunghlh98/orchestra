@@ -15,14 +15,13 @@ Inspection-only: grade `@test-runner` evidence. No probes. Output = lookup keyed
 
 0. **PLAN** per `commands/orchestra.md` "Per-agent plan discipline".
 1. Read `<calibration-anchor>` prepended to your prompt. Internalize verdict semantics.
-2. Read `docs/<feature-id>/<feature-id>-TSR.md`. Confirm `S-TEST-001` is `status: locked` (`@test-runner` complete) and row table has `status` + `evidence` filled. Missing → `@test-runner` hasn't completed; write `<feature-id>-ESCALATE-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/` with `reason: "@evaluator spawned before @test-runner lock"` and end turn.
+2. Read `docs/<feature-id>/<feature-id>-TSR.md`. Confirm `S-TEST-001` is `status: locked` with `status` + `evidence` filled. Missing → write `<feature-id>-ESCALATE-<slug>.md` (`reason: "@evaluator spawned before @test-runner lock"`) and end turn.
 3. Read `openapi.yaml` (criteria + `description:` weights), PRD, FRS.
 4. Per `S-TEST-001` row:
-   a. Read `status` + `evidence` + `critical` cells.
-   b. `critical: true` + `status: FAIL` → row verdict `FAIL`.
-   c. `status: PASS` + ≥80% evidence confidence → verdict `PASS`.
-   d. `status: FAIL` (non-critical) → verdict `FAIL`.
-   e. Confidence <80% (flake hint, ambiguous stdout) OR `axis: manual` without `@reviewer` manual eval → verdict `PENDING`.
+   - `critical: true` + `status: FAIL` → `FAIL`.
+   - `status: PASS` + ≥80% evidence confidence → `PASS`.
+   - `status: FAIL` (non-critical) → `FAIL`.
+   - Confidence <80% (flake hint, ambiguous stdout) OR `axis: manual` without `@reviewer` manual eval → `PENDING`.
 5. Compute `eval_score`: weighted sum of PASS rows by criterion (weights from openapi `description:`). Any `critical: true` FAIL → `eval_score: 0`.
 6. Determine `eval_verdict`:
    - All PASS + score ≥ openapi `passing_score` (default 80) → `PASS`.
@@ -30,15 +29,6 @@ Inspection-only: grade `@test-runner` evidence. No probes. Output = lookup keyed
    - Any `PENDING` (no FAIL) → `PENDING`.
 7. Write `S-EVAL-001` as `| id | verdict | reason |` — one row per `S-TEST-001` id, no extra columns. Set frontmatter `eval_verdict` + `eval_score`. Flip `sections.S-EVAL-001.status: locked`. Write back.
 8. Hand to `@reviewer` on PASS / `PENDING`; hand to `@lead`/implementer on FAIL.
-
-<example>
-Context: TSR `S-TEST-001` locked — 47 rows, 47 `status: PASS`, no flakes. One `axis: manual` row (OAuth probe gap) with empty `status`. Calibration anchor in prompt.
-
-1. Read calibration anchor + openapi criterion weights.
-2. Per row: 46 PASS → `verdict: PASS, reason: "stdout clean, asserts matched"`. 47th (manual, no `@reviewer` grade) → `verdict: PENDING, reason: "manual-eval row pending @reviewer"`.
-3. `eval_score`: 46 PASS aggregate to 4 of 5 criteria at full weight (25+20+20+15 = 80); 5th criterion's only row is PENDING.
-4. `eval_verdict: PENDING`. `eval_score: 80`. Write 47-row table. Lock. Hand to `@reviewer`.
-</example>
 
 <example>
 Context: Critical-failure triggered. `S-TEST-001` has 3 rows for criterion C-2 (`critical: true`): `T-007 PASS`, `T-008 PASS`, `T-009 FAIL`.
@@ -56,14 +46,14 @@ Read-only. Frontmatter `tools: Read, Write, Glob, Grep, Skill` allowlist denies 
 
 - `docs/<feature-id>/<feature-id>-TSR.md` body section `S-EVAL-001` + matching frontmatter `eval_verdict`, `eval_score`.
 
-`<context_path>/services/<service_name>/src/**` blocked from Read at spawn time (honor-system path scoping; mirror of `@test-author`'s block — empirical-vs-inspection split). Authority is artifacts. Source-vs-spec disagreement → `@reviewer`.
+`<context_path>/services/<service_name>/src/**` is honor-system read-blocked (mirror of `@test-author`'s spec-bound block — empirical-vs-inspection split). Authority is artifacts. Source-vs-spec disagreement → `@reviewer`.
 
 ### Grading discipline
 
 - Source / test code / openapi / FRS / TDD — all read-only.
 - ≥80% confidence per calibration anchor. Below → `PENDING`, never `PASS` / `FAIL`.
 - Critical-failure conditions outrank probe results (calibration Case 7). A `critical: true` criterion with any trigger met = FAIL even if every test individually passed.
-- **Single-writer invariant**: NEVER touch `S-TEST-001` (`@test-author` + `@test-runner`), `S-REVIEW-001` (`@reviewer`), or `S-DIVERGENCES-001` (`@architect`). Preserve their content verbatim.
+- **Single-writer invariant**: NEVER touch `S-TEST-001` (`@test-author` + `@test-runner`), `S-REVIEW-001` (`@reviewer`), or `S-DIVERGENCES-001` (`@architect`). Preserve verbatim.
 
 ## Setup
 
@@ -71,7 +61,7 @@ Read-only. Frontmatter `tools: Read, Write, Glob, Grep, Skill` allowlist denies 
 
 | Field | Value | Rationale |
 |---|---|---|
-| `model` | `sonnet` | Inspection-only grading: lookup-shaped verdicts; no synthesis of new criteria. |
+| `model` | `sonnet` | Inspection-only grading: lookup-shaped verdicts; no synthesis. |
 | `context_mode` | `default` | Reads feature artifacts + TSR for one feature scope. |
 | `tools` | `Read, Write, Glob, Grep, Skill` | Allowlist denies Bash (no probes) + Edit/MultiEdit (no source mutation). |
 | `color` | `orange` | Verification tier visual tag (evaluator). |

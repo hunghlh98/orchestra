@@ -67,4 +67,29 @@ for (const r of reads) {
   writeFileSync(r.path, next);
   console.log(`  ${r.path.slice(ROOT.length + 1)} → ${newVersion}`);
 }
-console.log(`bump-version: OK (${TARGETS.length} files updated to ${newVersion})`);
+
+// Phase 3: re-read every written file and verify the new version is present.
+// Catches partial writes (disk full), races (another process editing),
+// or surgical-regex misses (unexpected JSON shape).
+const mismatches = [];
+for (const t of TARGETS) {
+  const fresh = readFileSync(t.path, "utf8");
+  if (t.kind === "plain") {
+    if (fresh.trim() !== newVersion) {
+      mismatches.push(`${t.path}: VERSION file content "${fresh.trim()}" != "${newVersion}"`);
+    }
+  } else {
+    let parsed;
+    try { parsed = JSON.parse(fresh); }
+    catch (e) { mismatches.push(`${t.path}: post-write JSON parse failed: ${e.message}`); continue; }
+    if (parsed.version !== newVersion) {
+      mismatches.push(`${t.path}: post-write version field "${parsed.version}" != "${newVersion}"`);
+    }
+  }
+}
+if (mismatches.length) {
+  process.stderr.write(`bump-version: post-write verification FAILED\n`);
+  for (const m of mismatches) process.stderr.write(`  - ${m}\n`);
+  process.exit(1);
+}
+console.log(`bump-version: OK (${TARGETS.length} files updated to ${newVersion}; verified)`);

@@ -10,9 +10,9 @@ Grades a code change with explicit severity tagging. `@reviewer` invokes after `
 
 ## When to use
 
-- `@reviewer` has been spawned with `docs/<feature-id>/<feature-id>-TSR.md` eval halves in PASS state (`eval_verdict: PASS`).
-- The diff is staged or committed and ready for grading.
-- A `@evaluator` PASS came back too fast and you want a sanity pass.
+- `@reviewer` spawned with `docs/<feature-id>/<feature-id>-TSR.md` eval halves in PASS state (`eval_verdict: PASS`).
+- Diff is staged or committed and ready for grading.
+- `@evaluator` PASS came back too fast and you want a sanity pass.
 
 Skip for design review (`@product` / `@lead`'s domain) or spec verification (`@evaluator`'s domain). This skill grades *implementation*.
 
@@ -29,7 +29,7 @@ Every finding tags exactly one severity. The rubric is closed:
 | **Minor** | Idiom violation, weak naming, dead code, style drift, incomplete comments | ≥3 → `REQUEST_CHANGES`, else inline comment |
 | **Nit** | Subjective preference, micro-optimization, formatting | Inline comment, never blocking |
 
-Confidence threshold: ≥80%. Below → `rev_verdict: PENDING` (don't approve uncertainty; don't reject without grounds).
+Confidence threshold: ≥80%. Below → `rev_verdict: PENDING`. Extended examples per severity: `references/severity-rubric.md`.
 
 ### Step 1 — Walk the diff structurally
 
@@ -39,7 +39,7 @@ Read file-by-file. Note new / modified / deleted, per-file LOC delta (Δ > 200 i
 
 Three rules apply to every diff regardless of language:
 
-1. **Match existing style.** If you'd write it differently, that's not the bar — the bar is "fits the codebase". Lint/format conventions are the project's, not yours.
+1. **Match existing style.** The bar is "fits the codebase", not "fits your preferences". Lint/format conventions are the project's.
 2. **Surgical changes.** Every changed line should trace directly to the task. Adjacent comments, unrelated formatting, "improvements" on neighboring code — flag as Major (out-of-scope).
 3. **Minimum surface.** Speculative abstractions, single-use helpers wrapped in factory patterns, configurability nobody asked for — flag as Major. The bar is "minimum that solves the problem".
 
@@ -51,9 +51,9 @@ Three rules apply to every diff regardless of language:
 - Are there tests (or a test plan) covering the change?
 - Are there secrets, credentials, or PII in the diff? (`pre-write-check` should have caught; double-check.)
 - Is dead code introduced or left behind?
-- **Diagram render parity**: any `.puml` file in the diff has a paired `.svg` next to it AND the owning markdown body cites `![..](diagrams/<name>.svg)`. The `post-write-puml` hook normally enforces this on write; this gate is the failsafe when the hook is disabled. Missing paired `.svg` → **Major** auto-`REQUEST_CHANGES` (cannot review what isn't rendered).
+- **Diagram render parity**: any `.puml` file in the diff has a paired `.svg` next to it AND the owning markdown body cites `![..](diagrams/<name>.svg)`. Missing paired `.svg` → **Major** auto-`REQUEST_CHANGES`.
 
-**Per-language gates** (when a per-language `*-development` skill is loaded for `local.yaml.primary_language`): apply that skill's convention checklist to changed files. Otherwise fall back to the consumer repo's existing conventions (formatter config, lint rules, test harness).
+**Per-language gates** (when a per-language `*-development` skill is loaded for `local.yaml.primary_language`): apply that skill's convention checklist. Otherwise fall back to consumer repo's existing conventions OR `references/language-checklists.md`.
 
 ### Step 4 — Apply security checklist
 
@@ -65,7 +65,7 @@ Independent of language. Always check:
 - Secret handling: no credentials in code, logs, error messages, or test fixtures.
 - Adversarial inputs documented in the test plan? Replay, malformed JSON, oversized body, race conditions.
 
-A miss here is **Critical** — auto-`REQUEST_CHANGES`.
+A miss is **Critical** — auto-`REQUEST_CHANGES`.
 
 ### Step 5 — Apply performance checklist
 
@@ -86,9 +86,9 @@ A miss is **Major** unless data-loss-adjacent (then **Critical**).
 |---|---|
 | Diff size reviewable | < 400 LOC changed |
 | Test coverage visible | tests exist for changed paths |
-| Domain familiarity | a per-language `*-development` skill loaded for the primary language |
-| Spec clarity | upstream PRD / openapi `description:` criteria are concrete (not "TBD" / placeholder) |
-| Evaluator agreement | `@evaluator`'s TSR verdict aligns with what code suggests |
+| Domain familiarity | a per-language `*-development` skill loaded |
+| Spec clarity | upstream PRD / openapi `description:` criteria concrete |
+| Evaluator agreement | `@evaluator`'s TSR verdict aligns with code suggestion |
 
 Below 80% → `rev_verdict: PENDING`. Below 60% → `PENDING` plus request `@lead` re-spec round.
 
@@ -96,10 +96,10 @@ Below 80% → `rev_verdict: PENDING`. Below 60% → `PENDING` plus request `@lea
 
 Read `docs/<feature-id>/<feature-id>-TSR.md` (`S-EVAL-001` filled by `@evaluator`). Fill `S-REVIEW-001`:
 
-- One-paragraph verdict (APPROVED / REQUEST_CHANGES / PENDING) + per-severity findings table (Critical / Major / Minor / Nit) referencing `<file>:<line>` for each finding.
-- If the feature touched ADRs, append a `## ADR review` subsection inside `S-REVIEW-001`; omit when no ADRs were touched.
+- One-paragraph verdict (APPROVED / REQUEST_CHANGES / PENDING) + per-severity findings table referencing `<file>:<line>` for each finding.
+- Feature touched ADRs → append `## ADR review` subsection inside `S-REVIEW-001`; omit when no ADRs touched.
 
-Set frontmatter `rev_verdict` (APPROVED|REQUEST_CHANGES|PENDING) + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — single-writer invariant. After all TSR sections lock, the user commits by hand.
+Set frontmatter `rev_verdict` + `rev_round` (current iteration). Set `sections.S-REVIEW-001.status: locked`. Preserve `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001` verbatim — single-writer invariant. After all TSR sections lock, user commits by hand.
 
 ```markdown
 ## Reviewer verdict <a id="S-REVIEW-001"></a>
@@ -124,29 +124,15 @@ Set frontmatter `rev_verdict` (APPROVED|REQUEST_CHANGES|PENDING) + `rev_round` (
 
 ## Circuit breaker
 
-3 consecutive `REQUEST_CHANGES` rounds → write `<feature-id>-DEADLOCK-<slug>.md`, escalate to user. The implementer is not converging; further iterations are negative-EV.
+3 consecutive `REQUEST_CHANGES` rounds → write `<feature-id>-DEADLOCK-<slug>.md`, escalate to user. Implementer is not converging; further iterations are negative-EV.
 
 ## When to escalate
 
 - Confidence <60% → `pending` + request `@lead` re-spec.
 - Diff >1000 LOC AND lacks tests → `REQUEST_CHANGES` with "split this PR" guidance.
-- 3 consecutive REQUEST_CHANGES → DEADLOCK (see Circuit breaker).
+- 3 consecutive REQUEST_CHANGES → DEADLOCK.
 
 ## References
 
-- `references/severity-rubric.md` — extended examples per severity level.
-- `references/language-checklists.md` — language-specific extras (general; per-language `*-development` skills carry the canonical convention sets).
-
-## Worked example
-
-Diff: backend adds `POST /v1/transfer`, ~180 LOC across 3 files. Tests exist. Language: Java. `docs/001-foo/001-foo-openapi.yaml` is `status: locked` with concrete criteria.
-
-1. **Structural** — 3 files, no LOC outliers, no deleted files, caller graph unchanged.
-2. **Karpathy** — diff matches existing service layout; no out-of-scope edits; no speculative abstractions. Pass.
-3. **Universal gates** — tests present. No secrets. No dead code.
-4. **Per-language gate** — `java-development` skill loaded; `mvn checkstyle` clean. One **Minor**: `try/catch` swallows error in `LedgerService.java:42` (no logging).
-5. **Security** — input validation on `amount` and `to_account`; auth check present; idempotency key honored. Pass.
-6. **Performance** — single DB call per request. No loops. Pass.
-7. **Confidence** — diff small (+20), tests exist (+20), java-development loaded (+20), openapi concrete (+20), evaluator agreed (+20) = **100%**.
-
-Verdict: **APPROVED** with one Minor finding. Fill `S-REVIEW-001` in `docs/001-foo/001-foo-TSR.md`. Set `rev_verdict: APPROVED`, `rev_round: 1`. User commits the chain by hand.
+- `references/severity-rubric.md` — extended examples per severity level + edge cases.
+- `references/language-checklists.md` — generic per-language checks (Java/TS/Python/Go/Rust/SQL); canonical convention sets live in the per-language `*-development` skills.

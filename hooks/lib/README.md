@@ -1,0 +1,46 @@
+# hooks/lib — shared hook utilities
+
+Internal modules consumed by `hooks/scripts/*.js`. Ship to consumers as part of the plugin install.
+
+## Module index
+
+| Module | Purpose | Consumers |
+|---|---|---|
+| `yaml-mini.js` | Minimal YAML parser/serializer (frontmatter shape, no doc tags / anchors / complex types). | `agent-plan-sync.js`, `pre-write-check.js`, MCP servers |
+| `safe-fs.js` | Atomic file write helpers (write-to-temp, rename, fsync). Prevents partial writes on crash. | `agent-plan-sync.js`, `metrics-collector.js`, `metrics-aggregators.js`, `redaction.js` |
+| `rate-card.js` | Token / API cost lookup table for `known-models.schema.json` models. Cents-per-Mtoken. | `metrics-aggregators.js` |
+| `bootstrap-consumer-claude-md.js` | Splices the orchestra section into consumer's `<context_path>/CLAUDE.md`. | `mcp__orchestra-utils__claude_md` |
+| `event-shapers.js` | Pure hook-stdin → event-row classifier. `classify()`, `inferArtifactType()`, `deriveArtifactId()`, `deriveAgentRole()`. No filesystem IO. | `metrics-collector.js` |
+| `field-extract.js` | YAML field extraction without a full parser (`matchField`, `extractBootstrapFields`, `extractIntentFields`, `extractSummaryFields`). | `event-shapers.js`, `metrics-collector.js` |
+| `jsonl-emit.js` | Read-side helpers for session jsonls + events.jsonl (`readJsonl`, `sumTokensInJsonl`, `identifyAgent`, `extractInsightsFromJsonl`, `findJustStoppedSubagent`, `readActivePhase`, `findPhaseForTs`, `getProjectSessionsDir`). Read-only. | `metrics-collector.js`, `metrics-aggregators.js` |
+| `redaction.js` | Manifest + redaction policy (`ensureManifest`, `applyRedaction`, `readPluginVersion`). | `metrics-collector.js`, `metrics-aggregators.js` |
+| `metrics-aggregators.js` | Derived metrics writers (`emitSubagentTokens`, `emitInsightsForSession`, `emitRunSummary`, `emitCostByPhase`). | `metrics-collector.js` |
+| `plan-frontmatter.js` | Per-agent PLAN file shape: `planPathFor`, `readPlan`/`writePlan`/`readOrInitPlan`/`initPlan`/`renderPlan`, `rebuildTasksChecklist`, `recomputeCounts`, `nextTaskOrdinal`, `mapClaudeStatus`, `oneLine`, `extractCreatedTaskId`. | `agent-plan-sync.js` |
+| `plan-sync.js` | Subagent identity + feature-id resolution: `resolveContext`, `findJustStoppedSubagentMeta`, `deriveFeatureId`. | `agent-plan-sync.js` |
+| `cite-patterns.js` | Canonical regex tables for pre-write-check (`SECRET_PATTERNS`, `SKIP_PATTERNS`, `CITE_DENYLIST_RE`, Gate-D / Gate-D-inverse path + identifier patterns, `isChainArtifactUnderDocs`). | `gate-d.js` |
+| `gate-d.js` | Pure gate matchers returning `{gate, message}` on hit (`checkSecrets`, `checkGateD`, `checkGateDInverse`, `checkGateE`). | `pre-write-check.js` |
+| `preflight-detect.js` | `/orchestra` preflight detection + block builder (`buildPreflightBlock`, `parseSourceFlag`). | `orchestra-preflight.js` |
+
+## Stability contract
+
+These modules are **consumer surface**. Breaking changes require:
+
+1. SemVer MAJOR bump (per `CLAUDE.md` release workflow).
+2. CHANGELOG `### Breaking` entry citing the affected module + migration path.
+3. Audit every consumer of the module (`grep -rn "require.*hooks/lib/<name>" hooks/scripts/ scripts/mcp-servers/`) before merge.
+
+Function signatures and exported names are part of the public contract. Internal helpers (not exported) may change freely.
+
+## Authoring rules
+
+- **Pure functions where possible.** Side effects (filesystem, network, env reads) only when the function's name announces it.
+- **No `process.exit()` from lib code.** Throw or return; let the calling hook decide exit codes.
+- **No `console.log` in lib code.** Hooks own stdout/stderr emission so the hook contract (decision control via stderr) stays predictable.
+- **CommonJS modules.** Match the surrounding hook style; ESM not enabled here.
+
+## Adding a new module
+
+1. Author at `hooks/lib/<name>.js`. Single export-block at the bottom: `module.exports = { fn1, fn2 }`.
+2. Add a row to the Module index above with purpose + consumer list.
+3. Add a test in `scripts/tests/hooks.test.js` for any non-trivial logic.
+4. Run `npm test` before commit.

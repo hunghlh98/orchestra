@@ -40,6 +40,27 @@ A C4 child diagram is a literal zoom into one element of the parent. Reader scro
 
 Worked WRONG/RIGHT counter-examples for the three failure modes (missing boundary, dropped actor, wrong outer-wrap) live in `references/c4-rules.md` `## Zoom-continuity counter-examples`. Read both before drafting your first non-context level.
 
+### Step 1c — SAD scope distinction (workspace vs service)
+
+C4 scope is a load-bearing contract between SAD frontmatter and SAD body. Mismatch (frontmatter declares workspace scope, body delivers service scope) is a structural defect.
+
+**L1 (Context) shape.** Exactly one `System(...)` box for the "system under design". Everything else is `Person`, `System_Ext`, or `Enterprise_Boundary` outside it.
+
+**L2 (Container) shape.** Every `Container(...)` inside `System_Boundary(...)` is a deployable unit of the system under design. Their internals belong to L3.
+
+**Workspace SAD** ("system under design" = the workspace / platform):
+
+- `c4-context.puml`: one `System("<platform name>")` box. Every service in `<context_path>/CLAUDE.md` Service Topology MUST appear as a container in L2 — NOT `System_Ext`. Only entities outside the workspace (upstream merchants, third-party payment networks, end-user personas) are `System_Ext` / `Person`.
+- `c4-container.puml`: `System_Boundary(<workspace>, ...)` encloses every Service-Topology service as `Container(...)`. Backing infrastructure the workspace operates (managed MySQL, Redis, Kafka clusters) is `ContainerDb(...)` / `ContainerQueue(...)` inside the boundary. Third-party hosted services remain `System_Ext`.
+- SAD `S-CONTAINERS-001`: ≥2 Container rows. One Container + N `System_Ext` siblings = service-scope wearing a workspace label — rewrite.
+
+**Service SAD** ("system under design" = the named service):
+
+- `c4-context.puml`: one `System("<service name>")` box. Other services in the workspace ARE `System_Ext` here.
+- `c4-container.puml`: containers are the service's internal deployable units (e.g. Spring Boot app + dedicated DB + dedicated cache). NOT the workspace's services.
+
+**Verification.** Before locking SAD: re-read frontmatter `workspace_kind` (from `system.yaml`) and confirm `S-CONTAINERS-001` row count matches scope. Workspace scope with <2 rows → rewrite. `pre-write-check.js` Gate-E enforces the same minimum at write time.
+
 ### Step 2 — Apply MUST / MUST-NOT (binding)
 
 Every C4 `.puml` MUST:
@@ -83,6 +104,7 @@ Walk this checklist; any "no" → fix the source, do not render:
 
 - [ ] **Re-read parent `.puml` before writing this child** (Step 1b). External actors + crossing-seam neighbors reused verbatim.
 - [ ] **L2 macro discipline** — exactly ONE outermost `System_Boundary` (carrying the L1 system name); internal tiers use generic `Boundary(...)`. `Container_Boundary` appears only at L3.
+- [ ] **SAD scope match** (Step 1c) — frontmatter `workspace_kind` vs `S-CONTAINERS-001` row count. Workspace scope with <2 Container rows → rewrite.
 - [ ] **Parent diagram highlights zoom-target** — the box the child opens up carries `UpdateElementStyle(..., $bgColor="#1168bd", ...)` on the parent.
 - [ ] **Title** present (e.g., `title C4 Level 2 — Containers — hello-world`).
 - [ ] **Stdlib `!include`** used; no raw `rectangle` / `actor` / `component` / `package` / `node` / `database` in body.
@@ -100,7 +122,7 @@ Walk this checklist; any "no" → fix the source, do not render:
 
 ## References
 
-- `references/templates.md` — 6 quick-start fenced templates (L1 Context, L2 Container, L3 Component, L4 Code, Dynamic, Deployment) plus the highlight protocol for per-feature copies.
+- `references/templates.md` — 6 quick-start fenced templates plus the highlight protocol for per-feature copies.
 - `references/c4-rules.md` — extended "what to avoid", framework-internals deep table, microservices ownership patterns, full element-syntax reference, styling and layout macros, zoom-continuity counter-examples.
 
 Output paths (system-level / service-level / per-feature) are owned by the calling agent — see `agents/architect.md` "Allowed surface" (system-level singletons) and `agents/lead.md` "Allowed-set / Outputs" (service-level singletons + per-feature copies).

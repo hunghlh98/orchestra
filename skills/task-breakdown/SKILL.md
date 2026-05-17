@@ -115,8 +115,13 @@ Initial Status is `pending` for every row. Owning agents flip Status as work pro
 - Critical path > 1.5× sprint capacity → don't decompose further; surface to user with "trim or extend?" question.
 - Task can't be assigned to a current agent role → flag as "needs-future-specialist" and defer.
 
+### Step 7 — Diagnose autonomy
+
+When `@lead` is undecided whether to push back to the user for re-spec or proceed with the task graph, run the autonomy diagnostic at `references/autonomy-diagnostic.md`. Four signals (estimate uncertainty, criteria clarity, owner availability, sprint slack) score each task graph as proceed / spec-revision / surface-to-user.
+
 ## References
 
+- `references/autonomy-diagnostic.md` — 4-signal diagnostic for proceed vs. push-back decisions.
 - `references/sp-matrix.md` — extended SP rubric with anchored examples per language and per task shape.
 - `references/decomposition-patterns.md` — common task-cluster patterns (CRUD endpoint, migration, refactor) ready to clone.
 

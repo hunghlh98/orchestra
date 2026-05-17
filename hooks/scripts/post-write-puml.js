@@ -62,7 +62,7 @@ async function main() {
         `  source: ${filePath}\n` +
         `  output: ${svgPath}\n` +
         `  signature: ${errorSignature}\n` +
-        `  hint: PlantUML produced an error-frame SVG. Common cause: escaped \\"...\\" inside a C4 macro argument. Use single quotes ('/x') or unicode quotes («/x»). See skills/c4-architecture/SKILL.md.\n` +
+        `  hint: PlantUML produced an error-frame SVG. Common cause: escaped \\"...\\" inside a C4 macro argument. The C4-PlantUML stdlib parses macro args as preprocessor expressions; escaped quotes inside an already-quoted string fork the parser. Use single quotes ('/x') or unicode quotes («/x»), or drop the inner quotes.\n` +
         `</post-write-puml-warning>\n`
       );
     }
