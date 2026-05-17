@@ -58,18 +58,18 @@ Every `Agent({...})` spawn prompt MUST open with `phase: <value>` as first line.
 
 Dispatcher spawn with prompt-tag `task: run-plan-author`. One-time per run.
 
-1. Read `local.yaml` + `system.yaml` + dispatcher's `chain:` tag (`reverse-pass` or `forward-chain`). Approval gate keys on `chain:`, not `mode`.
-2. Author run-plan body. Approval forks on `chain:`:
-   - **`chain: reverse-pass`** — `EnterPlanMode`. Walk service's observable surface; group entry points into feature slugs. Reject verb-prefixed forms (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`).
-     - **Aggregate-cohesion gate.** Group by **domain aggregate root**, not per CRUD. All CRUD + lifecycle on one aggregate collapse into ONE feature; `FRS S-USECASES-001` enumerates them. Feature slug = **bare aggregate noun** (`order`, `inventory`, `customer`, `payment`). Hard reject + re-group: ≥2 siblings sharing aggregate prefix → collapse, emit plan-mode note. Inverse: separate aggregates sharing URL prefix → do NOT collapse.
+1. Read `local.yaml` + `system.yaml` + dispatcher's `chain:` tag (`reverse-pass` or `forward-chain`). Dispatcher owns the approval gate — never call `EnterPlanMode` / `ExitPlanMode` from this seat (subagent permission frame is frozen at spawn; the toggle is a no-op here).
+2. Author run-plan body. Source-walk forks on `chain:`; gating is dispatcher's job in both cases:
+   - **`chain: reverse-pass`** — Read/Glob/Grep over `source_path` to enumerate observable entry points (HTTP routes, message consumers, scheduled jobs, CLI commands). Reject verb-prefixed feature-slug candidates (`regen-*`, `refactor-*`, `redoc-*`, `fix-*`).
+     - **Aggregate-cohesion gate.** Group by **domain aggregate root**, not per CRUD. All CRUD + lifecycle on one aggregate collapse into ONE feature; `FRS S-USECASES-001` enumerates them. Feature slug = **bare aggregate noun** (`order`, `inventory`, `customer`, `payment`). Hard reject + re-group: ≥2 siblings sharing aggregate prefix → collapse, note the collapse in `S-FEATURES-001`. Inverse: separate aggregates sharing URL prefix → do NOT collapse.
      - **Override `feature_framing: lifecycle-loop`** → replace aggregate-cohesion with Journey gate. One feature per outcome category. Lock/transition rules binding all siblings → service-scope `BR-AC S-INVARIANTS-001`.
      - Promote candidate to `S-FEATURES-001` iff it can start alone AND has enough surface for its own PRD-FRS-TDD-openapi-TSR chain.
-     - Author run-plan body into plan-mode file. `ExitPlanMode`. Accept → `Write(<context_path>/.orchestra/<service_name>/run-plan.md, <same body>)`, end turn. Reject → end turn without writing.
-   - **`chain: forward-chain`** — Skip plan mode. `Write(...)` directly. Dispatcher gates approval via `AskUserQuestion(approve|revise)` after end-of-turn.
-3. **Required anchors** in order: `S-CONTEXT-001` (bootstrap field lift), `S-PHASES-001` (`discovery` → `spec-draft` → `verification` → `gate`; brownfield DIV resolution runs inside `verification`), `S-FEATURES-001`, `S-GATES-001` (Preserved MUST list: reviewer `REQUEST_CHANGES`/`PENDING`, allowed-set violations, diagram-allowlist violations, schema-validation failures, `ESCALATE`/`DEADLOCK` emission), `S-APPROVAL-001` (`plan_status: drafted`; on re-spawn, lift prior `revision_notes` verbatim).
-4. **Frontmatter**: `id: run-plan`, `type: RUN-PLAN`, `status: draft`, `run_plan_status: drafted`, `revision_cycle: 0` (or incremented).
+   - **`chain: forward-chain`** — skip source walk. Lift candidate features from spawn-prompt intent + any locked PRD/FRS already present under `<context_path>/docs/`.
+3. `Write(<context_path>/.orchestra/<service_name>/run-plan.md, <body>)` with frontmatter `status: draft, run_plan_status: drafted`. End turn. Dispatcher Reads the file and gates.
+4. **Required anchors** in order: `S-CONTEXT-001` (bootstrap field lift), `S-PHASES-001` (`discovery` → `spec-draft` → `verification` → `gate`; brownfield DIV resolution runs inside `verification`), `S-FEATURES-001`, `S-GATES-001` (Preserved MUST list: reviewer `REQUEST_CHANGES`/`PENDING`, allowed-set violations, diagram-allowlist violations, schema-validation failures, `ESCALATE`/`DEADLOCK` emission), `S-APPROVAL-001` (`plan_status: drafted`; on re-spawn, lift prior `revision_notes` verbatim).
+5. **Frontmatter**: `id: run-plan`, `type: RUN-PLAN`, `status: draft`, `run_plan_status: drafted`, `revision_cycle: 0` (or incremented).
 
-Do NOT write `local.yaml` yourself — dispatcher owns approval. On revision re-spawn, lift `revision_notes` verbatim into new `## Revision notes` subsection of `S-APPROVAL-001`.
+Do NOT write `local.yaml` yourself — dispatcher owns approval and frontmatter status flips. On revision re-spawn, lift `revision_notes` verbatim into new `## Revision notes` subsection of `S-APPROVAL-001`.
 
 ### Reverse-pass discipline
 

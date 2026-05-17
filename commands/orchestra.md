@@ -82,14 +82,16 @@ Persist via `mcp__orchestra-utils__upsert_local_yaml` (`context_path`, `service_
 
 ## Run-plan + approval gate
 
-After bootstrap locks: spawn `@lead` with `task: run-plan-author` AND `chain: reverse-pass | forward-chain` (dispatcher sets `chain:` per algorithm — `code-to-spec` → `reverse-pass`, `spec-to-code` → `forward-chain`, `<intent>` brownfield → `reverse-pass` then `forward-chain` post-pause). Output: `<context_path>/.orchestra/<service_name>/run-plan.md` per `schemas/run-plan.schema.md`. Emit `run_plan_status: drafted`.
+After bootstrap locks: spawn `@lead` with `task: run-plan-author` AND `chain: reverse-pass | forward-chain` (dispatcher sets `chain:` per algorithm — `code-to-spec` → `reverse-pass`, `spec-to-code` → `forward-chain`, `<intent>` brownfield → `reverse-pass` then `forward-chain` post-pause). `@lead` Writes `<context_path>/.orchestra/<service_name>/run-plan.md` per `schemas/run-plan.schema.md` with frontmatter `status: draft, run_plan_status: drafted` and ends turn. Dispatcher owns the approval gate — `@lead` MUST NOT call `EnterPlanMode` / `ExitPlanMode` (subagent permission frame is frozen at spawn).
 
-Approval splits by `chain:` (not by `mode`):
+On `@lead` return:
 
-- **`chain: reverse-pass`** — `@lead` validates `S-FEATURES-001` inside `EnterPlanMode` + native `ExitPlanMode` approval (plan mode walks source to verify enumeration).
-- **`chain: forward-chain`** — `@lead` writes directly; dispatcher `AskUserQuestion(approve | revise)`.
-
-On approval: `mcp__orchestra-utils__upsert_local_yaml(context_path, service_name, auto_mode: true, run_plan_status: approved)`; flip run-plan frontmatter `run_plan_status: approved` + `status: locked`. On rejection: `run_plan_status: revision_requested`, collect notes, re-spawn `@lead`. Max 3 cycles; cycle 4 → `pipeline/run-plan-ESCALATE.md`.
+1. `Read(<context_path>/.orchestra/<service_name>/run-plan.md)`.
+2. Approval splits by `chain:` (not by `mode`):
+   - **`chain: reverse-pass`** — `EnterPlanMode` with the run-plan body as the plan content (`S-FEATURES-001` is the load-bearing section reviewer scans); `ExitPlanMode` collects accept/reject.
+   - **`chain: forward-chain`** — `AskUserQuestion(approve | revise)`.
+3. Accept → `mcp__orchestra-utils__upsert_local_yaml(context_path, service_name, auto_mode: true, run_plan_status: approved)`; flip run-plan frontmatter `run_plan_status: approved` + `status: locked` via `Write` (dispatcher has unrestricted write surface; Gate-A inapplicable to `.orchestra/**`).
+4. Reject/revise → flip frontmatter `run_plan_status: revision_requested`; capture reviewer notes; re-spawn `@lead` with notes lifted into `## Revision notes` under `S-APPROVAL-001` and `revision_cycle` incremented. Max 3 cycles; cycle 4 → `pipeline/run-plan-ESCALATE.md`.
 
 After `auto_mode: true`: between-phase "proceed?" gates, per-feature confirmations, and `DRAFT_AND_GATE` checkpoints skip. Structural-failure halts + `ESCALATE` / `DEADLOCK` emission always preserved.
 
