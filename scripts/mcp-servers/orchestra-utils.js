@@ -38,7 +38,8 @@ const RESERVED_SERVICE_NAMES = new Set(["system", "metrics", "inventory"]);
 
 const LOCAL_FIELDS = [
   "service_name", "source_path", "scope_level", "auto_mode", "run_plan_status",
-  "status", "primary_language", "framework", "spawn_mode", "autonomy",
+  "status", "primary_language", "framework", "primary_database", "migration_tool",
+  "spawn_mode", "autonomy",
 ];
 
 const ALLOWED_WRITE_SYSTEM_ARGS = new Set(["context_path", "workspace_kind", "status"]);
@@ -174,6 +175,8 @@ export const TOOLS = [
         status: { enum: ["draft", "locked"] },
         primary_language: { type: "string", minLength: 1 },
         framework: { type: "string", minLength: 1 },
+        primary_database: { type: "string", minLength: 1 },
+        migration_tool: { enum: ["flyway", "liquibase", "none"] },
         spawn_mode: { enum: ["subagent", "teams"] },
         autonomy: {
           type: "object",

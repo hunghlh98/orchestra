@@ -124,6 +124,29 @@ NO L3/L4 — `@lead`'s. Consumer-supplied brownfield intake templates are READ-O
 
 **ERD scope-routing.** `per-service` → service-scope ERD only, bind to BR-AC `diagrams:`. `system-wide` → workspace ERD covering every walked service, bind to SAD `diagrams:`; skip service-scope ERDs.
 
+### Logical ERD authoring
+
+Workspace-scope (`docs/diagrams/erd-logical.puml`): one PlantUML package per service-owned schema. Inside each package, one `entity` per aggregate root — NOT one per table. Entity body: `pk(<id> : TYPE)` first row, then key business attributes (~5 max — logical, not physical). Cross-aggregate references drawn as PlantUML arrows stereotyped `<<by-value>>` with explicit cardinality (`||--o{`, `}o--||`, etc.); no FK lines cross service boundaries.
+
+Service-scope (`docs/<service_name>/diagrams/erd-logical.puml`): single service's aggregates + every upstream aggregate it references by value. Upstream entities stereotyped `<<external>>`. Same row syntax as workspace.
+
+Forbidden at either scope: physical column lists, indexes, audit-log tables, snapshot tables, prose-string columns. Those belong in `<feature-id>-erd-physical.puml` under `@lead`.
+
+### Inter-service Sequence authoring
+
+`docs/diagrams/sequence-inter-<flow>.puml` — one file per Journey-gate outcome category (`forward-purchase`, `abandonment`, `reversal`, `partial-or-failed-delivery`, etc.). Every cross-service call MUST show request AND response on adjacent arrows:
+
+```
+caller -> callee : <verb> <path> { <request payload skeleton> }
+callee --> caller : <status-code> { <response payload skeleton> }
+```
+
+Payload skeletons carry field names only, no values — they describe contract shape, not test data. Field names lift verbatim from the corresponding `<feature-id>-openapi.yaml` schemas.
+
+Failure paths: every cross-service call whose FRS row carries ≥1 error AC OR whose openapi operation declares ≥1 non-2xx response MUST sit inside an `alt` block with success branch first, then one `else` branch per distinct failure category. Reference the FRS `S-AC-001` row by id in the alt branch label (`else AC-014: payment declined`).
+
+One-way notifications: annotate as `caller ->> callee : <event> {payload}` per PlantUML async syntax — no response arrow required. Forbidden: synchronous arrows without response; payload values; reused payload aliases that hide the field set.
+
 ### Sealed-narrative + portability
 
 SAD, ADR, BR-AC, `business-invariants.md` bodies MUST NOT carry `src/**` path tokens, codebase identifiers (class/method/package), or commit SHAs. SAD/ADR/BR-AC MAY carry fenced pseudocode (asymmetric carve-out vs PRD/FRS). Enforced by `pre-write-check.js` Gate-D-inverse.

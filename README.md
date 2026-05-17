@@ -35,6 +35,7 @@ Three load-bearing decisions:
 - Generator/evaluator separation: `@evaluator` strict read-only; `@backend` / `@frontend` deny `Bash` (CI-enforced)
 - Schema-pinned artifacts — every frontmatter under `<project>/docs/` validates against `schemas/pipeline-artifact.schema.md`
 - Capability-first default models (Opus 4.7 1M for spec / review tiers, overridable per-project in `local.yaml`)
+- Versioned-migration discipline — `migration_tool` (`flyway` default on JVM, `liquibase`, `none`) + `primary_database` bootstrap fields drive forward-chain migration authoring and reverse-chain schema derivation (`ddl-auto` surfaces as DEFECT)
 - 7 runtime hooks + 2 MCP servers, env-var opt-out per component
 
 ## Installation

@@ -59,6 +59,8 @@ The `--source=<path>` flag accepts absolute or `cwd`-relative paths; leading `@`
     primary_language: <value> | null   # greenfield only
     framework: <value> | null          # greenfield only
     source_path: <value> | null        # brownfield per-service only
+    primary_database: <value> | null   # greenfield only; omitted when migration_tool: none
+    migration_tool: <value> | null     # greenfield only
   missing_fields: [<field>, ...]
   docs_provenance: orchestra-generated | unknown
 </orchestra-preflight>
@@ -67,6 +69,8 @@ The `--source=<path>` flag accepts absolute or `cwd`-relative paths; leading `@`
 **First action every dispatcher run.** Read the block. Absent → halt with `[orchestra] preflight hook did not emit — check hooks/hooks.json registration`. Surface `AskUserQuestion` only for `missing_fields`. Never re-prompt resolved fields.
 
 ## Bootstrap (only for `missing_fields`)
+
+Walk `missing_fields` in declaration order. Before each prompt, re-evaluate that field's per-field-shape predicate against in-session answers — skip the prompt when the predicate is now false (e.g. user answered `migration_tool: none`, so `primary_database` predicate fails and the prompt is skipped even though it appeared in the original list). Predicates lift from per-field shapes below.
 
 Per-field shapes:
 
@@ -77,8 +81,10 @@ Per-field shapes:
 - `scope_level` (only when null AND `multi-repo`) — `system-wide` | `per-service`. Single-repo auto-set to `per-service`.
 - `primary_language`, `framework` (only when `mode: greenfield` AND null).
 - `source_path` (only when `mode: brownfield` AND `scope_level: per-service` AND null) — conventional `./services/<service_name>/` default + Other option. Reject empty; require directory exists.
+- `migration_tool` (only when `mode: greenfield` AND null) — `flyway` | `liquibase` | `none`. Default `flyway` when `primary_language` ∈ `{java, kotlin}`; `none` otherwise. CLI: `--migration-tool=<value>`. `ddl-auto` is not a valid value.
+- `primary_database` (only when `mode: greenfield` AND `migration_tool != none` AND null) — free-text dialect tag (`postgresql` | `mysql` | `mariadb` | `sqlite` | `mssql` | Other). Drives SQL dialect for migration authoring.
 
-Persist via `mcp__orchestra-utils__upsert_local_yaml` (`context_path`, `service_name`, optional `scope_level`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `source_path`, `status`). Workspace identity via `mcp__orchestra-utils__write_system_yaml(workspace_kind, context_path, status)`. Both validate against `schemas/{system,local}.schema.json` and reject unknown fields. After both succeed, call `mcp__orchestra-utils__claude_md(context_path)` once — splices orchestra section into consumer's `CLAUDE.md`.
+Persist via `mcp__orchestra-utils__upsert_local_yaml` (`context_path`, `service_name`, optional `scope_level`, `autonomy`, `spawn_mode`, `primary_language`, `framework`, `source_path`, `primary_database`, `migration_tool`, `status`). Workspace identity via `mcp__orchestra-utils__write_system_yaml(workspace_kind, context_path, status)`. Both validate against `schemas/{system,local}.schema.json` and reject unknown fields. After both succeed, call `mcp__orchestra-utils__claude_md(context_path)` once — splices orchestra section into consumer's `CLAUDE.md`.
 
 ## Run-plan + approval gate
 

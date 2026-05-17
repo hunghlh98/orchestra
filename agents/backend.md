@@ -30,6 +30,24 @@ When `<feature-id>-TASKS.md` has parallel-eligible `owner: @backend` nodes (≥3
 - Single slice OR shared mutable region OR ordering dependency → serial.
 - Each sub-run flips its own TASKS rows to `done`; parent `@backend` idles when all sub-runs finish.
 
+### Database migrations
+
+Persistence touched in TDD `S-DATA-001` → author migration BEFORE entity class. Tool comes from `local.yaml.migration_tool` (`flyway` default for JVM stacks; `liquibase` allowed; `none` only for non-persistence services). `ddl-auto` is not a valid value; if persistence is touched and `migration_tool` is `none`, escalate via `<feature-id>-ESCALATE-ARCH.md` rather than silently fall back.
+
+Flyway shape:
+
+- Path: `<context_path>/services/<service_name>/src/main/resources/db/migration/V<NNN>__<slug>.sql`.
+- `<NNN>` = next sequential integer in the directory (zero-padded to 3 digits where existing files use padding); `<slug>` = snake_case feature-aligned (`002__create_order_aggregate.sql`).
+- Forward-only — never edit a committed `V<NNN>` file; new state → new `V<NNN+1>`.
+- Dialect matches `local.yaml.primary_database`.
+- Entity column types align with migration column types — mismatch = `@reviewer` finding.
+
+Flyway baseline (existing service introducing Flyway via reverse-pass DEFECT closure): `V1__baseline.sql` snapshots current schema (schema-only dump output: `pg_dump --schema-only` / `mysqldump --no-data` / equivalent), subsequent migrations apply feature deltas. New greenfield service: `V1__<feature-slug>.sql` creates all tables for the first feature.
+
+Liquibase shape: equivalent semantics under `src/main/resources/db/changelog/`; one changelog per feature; same forward-only rule. Defer to project convention for master changelog wiring.
+
+`disallowedTools: Bash` still applies — `@test-runner` validates migrations execute cleanly via Testcontainers as part of the convergence loop.
+
 <example>
 Context: `@evaluator` verdict — `eval_verdict: FAIL` on critical-criterion failure (input-validation bypass).
 
@@ -47,6 +65,7 @@ Implementer. Authorized writes:
 
 - `<context_path>/services/<service_name>/src/main/**` per language convention.
 - `<context_path>/services/<service_name>/src/test/**` (unit tests).
+- `<context_path>/services/<service_name>/src/main/resources/db/migration/V<NNN>__<slug>.sql` (Flyway) or `<context_path>/services/<service_name>/src/main/resources/db/changelog/<feature-id>.xml` (Liquibase) per `### Database migrations`.
 
 Forbidden: frontend writes; upstream-artifact edits (`<feature-id>-openapi.yaml`, `-PRD.md`, `-FRS.md`, `-TDD.md`, `SAD.md`, `adr/*`); release-artifact edits (`RUNBOOK-*.md`, `RELEASE-*.md`).
 

@@ -11,6 +11,7 @@
 //     scope_level: system-wide | per-service | null
 //     cached_fields:
 //       autonomy.level / spawn_mode / primary_language / framework / source_path
+//       primary_database / migration_tool
 //     missing_fields: [<field>, ...]
 //     docs_provenance: orchestra-generated | unknown
 //   </orchestra-preflight>
@@ -38,6 +39,8 @@ export function buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt)
     "primary_language": localYaml?.primary_language || null,
     "framework": localYaml?.framework || null,
     "source_path": sourceFromPrompt || localYaml?.source_path || null,
+    "primary_database": localYaml?.primary_database || null,
+    "migration_tool": localYaml?.migration_tool || null,
   };
 
   const missing = detectMissingFields({
@@ -131,6 +134,10 @@ function detectMissingFields({ mode, workspaceKind, serviceName, scopeLevel, cac
   if (mode === "greenfield") {
     if (!cached["primary_language"]) missing.push("primary_language");
     if (!cached["framework"]) missing.push("framework");
+    if (!cached["migration_tool"]) missing.push("migration_tool");
+    if (!cached["primary_database"] && cached["migration_tool"] !== "none") {
+      missing.push("primary_database");
+    }
   }
   const perServiceScope = scopeLevel === "per-service" || perServiceFromPrompt;
   if (mode === "brownfield" && perServiceScope && !cached["source_path"]) {
@@ -152,6 +159,8 @@ function renderBlock(s) {
     `    primary_language: ${s.cached["primary_language"] || "null"}`,
     `    framework: ${s.cached["framework"] || "null"}`,
     `    source_path: ${s.cached["source_path"] || "null"}`,
+    `    primary_database: ${s.cached["primary_database"] || "null"}`,
+    `    migration_tool: ${s.cached["migration_tool"] || "null"}`,
     `  missing_fields: [${s.missing.join(", ")}]`,
     `  docs_provenance: ${s.docsProvenance}`,
     "</orchestra-preflight>",
