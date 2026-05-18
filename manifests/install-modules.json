@@ -114,9 +114,23 @@
       "stability": "stable"
     },
     {
+      "name": "skill.business-analysis",
+      "kind": "skill",
+      "path": "skills/business-analysis/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
       "name": "agent.product",
       "kind": "agent",
       "path": "agents/product.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.analyst",
+      "kind": "agent",
+      "path": "agents/analyst.md",
       "defaultEnabled": true,
       "stability": "stable"
     },

@@ -105,20 +105,19 @@ After `auto_mode: true`: between-phase "proceed?" gates, per-feature confirmatio
 
 ### spec-to-code (S2/S3/S4)
 
-Spawn `@lead` with locked decisions:
+Dispatcher drives the chain via the 5-gate state machine (see `## Per-feature execution model`). First spawn (business path) goes to `@product`; subsequent spawns are dispatcher-owned between gates.
 
 ```
 phase: spec-draft
-task: forward-chain
-inputs: <context_path>/.orchestra/<service_name>/local.yaml, run-plan.md, docs/business-invariants.md (multi-repo only), docs/<service_name>/<service_name>-BR-AC.md
-chain: PRD → FRS → SAD → ADR (when triggered) → TDD → openapi/asyncapi → backend code + unit tests → @test-author → @test-runner + @evaluator + @reviewer → TSR
+spawned_agent: @product (first), then @analyst, @architect, @lead per gate-approval
+feature_id: <NNN>-<slug>  (dispatcher-minted from features.yaml)
+inputs: <context_path>/.orchestra/<service_name>/local.yaml + run-plan.md + features.yaml (read-only at @product) + docs/business-invariants.md (multi-repo only) + docs/<service_name>/<service_name>-BR-AC.md
+linear chain: @product (PRD + features.yaml entry) → @analyst (FRS) → @architect (SAD + ADR? + TDD + openapi/asyncapi) → @lead (TASKS + run-plan) → @backend ‖ @frontend ‖ @test-author → @test-runner → @evaluator + @reviewer → TSR
 ```
 
-`@lead` routes hard-sequential layers + parallel fan-out (`@backend` ‖ `@frontend` ‖ `@test-author`) gated on `openapi.yaml status: locked`. Converge on `@test-runner` + `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
+After Gate 5 (run-plan approval), `@lead` spawns parallel fan-out (`@backend` ‖ `@frontend` ‖ `@test-author`) gated on `TDD + openapi status: locked`. Converge on `@test-runner` → `@evaluator` + `@reviewer` → `<feature-id>-TSR.md` sections locked.
 
-**Inter-feature parallel spawn (S4).** `S-FEATURES-001` with ≥2 features, distinct aggregate roots / distinct services, no dependency edge → dispatcher spawns `@lead` per feature in ONE message.
-
-**Feature-id minting.** Shape `<NNN>-<noun-phrase-slug>` (NNN = max existing + 1). Slug = tech / CRUD / lifecycle noun (`order`, `order-checkout`, `order-refund`, `<aggregate>-purchase-lifecycle`, `<aggregate>-termination`). Reject Journey-gate category labels (`forward-purchase`, `abandonment`, `reversal`), verb-prefixed slugs.
+**Inter-feature parallel spawn (S4).** `S-FEATURES-001` with ≥2 features, distinct aggregate roots / distinct services, no dependency edge in `features.yaml` → dispatcher spawns per-feature chains in ONE message.
 
 ### code-to-spec (S5/S6/S7)
 
@@ -154,6 +153,8 @@ Auto-promote also patches run-plan: `auto_promote_workspace_sad: true` in frontm
 
 **Portability contract.** Every artifact under `docs/**/*.md` carries domain rules ONLY — no `src/**` path tokens, commit SHAs, branch names, repo URLs. PRD/FRS additionally carry no fenced code blocks. `pre-write-check.js` Gate-D-inverse enforces. Inline backtick spans (single-line snippets) always allowed.
 
+**Reverse-pass R-gates.** Inside `code-to-spec`, dispatcher gates the reverse chain after each agent locks its derived artifact — see `## Per-feature execution model > ### Brownfield R-gates`.
+
 ### `<intent>` router (S8/S9)
 
 Branches per preflight `mode:`:
@@ -162,6 +163,143 @@ Branches per preflight `mode:`:
 - `brownfield` → S9: 1× `AskUserQuestion` workspace-kind-adaptive permission gate. `no` → abort with error. `yes` → S5/S6/S7. After reverse locks: 3× `AskUserQuestion` post-reverse (now informed). Route to S2/S3/S4.
 
 Router's questions cap further confidence-tier dialogue: downstream agents observe `intent_floor: cleared` in lead spawn prompt and skip their own intent-restate.
+
+On S8/S9 paths the dispatcher additionally runs an LLM tech-vs-business classifier before feature-id mint — see `## Per-feature execution model > ### Intent classification`.
+
+## Per-feature execution model
+
+For each `<feature-id>` enumerated in run-plan `S-FEATURES-001`, dispatcher drives a 5-gate state machine (business path) or single-gate (tech path). Gates are dispatcher-owned `AskUserQuestion` calls between agent spawns; spawned agents MUST NOT call `AskUserQuestion` to gate downstream handoff — only dispatcher gates.
+
+### Intent classification (S8/S9 path only)
+
+`<intent>` routes run a tech-vs-business classifier BEFORE feature-id mint. Classifier prompt (run inline by dispatcher):
+
+```
+Classify the user intent into one of two paths:
+
+- business: new user-visible feature, new endpoint, UI change, business rule change, data model change. Anything changing what users can do or see.
+- tech: dependency bump, lint fix, internal refactor with zero contract change, observability tweak, build tooling, log format change. Zero observable surface delta.
+
+DEFAULT: business. Ambiguous phrasing → business.
+
+Confidence:
+- HIGH — proceed silently to chosen path.
+- LOW or MEDIUM — emit AskUserQuestion with two options labelled "Business path" and "Tech path".
+```
+
+Routes:
+
+- `business` → 5-gate machine spawning `@product` → `@analyst` → `@architect` → `@lead`.
+- `tech` → skip to `@lead` with `chain: tech-path`. Shared NNN counter with business features (one `features.yaml` entry per feature regardless of path).
+
+`spec-to-code` and `code-to-spec` entry shapes skip the classifier — business path implied.
+
+### Feature-id mint (manifest-aware)
+
+Dispatcher mints `<feature-id>` BEFORE first agent spawn. Algorithm:
+
+1. Read `<context_path>/.orchestra/<service_name>/features.yaml` (init `{ features: [] }` when absent).
+2. `NNN` = max numeric prefix across all `features[].id` + 1, zero-padded to 3 digits.
+3. User supplies slug at gate 1 (or implicit from intent at HIGH classifier confidence).
+4. Concatenate `<NNN>-<slug>`. Pass into `@product` spawn context; `@product` writes the entry via `mcp__orchestra-utils__upsert_features_yaml`.
+
+Slug shape: tech / CRUD / lifecycle noun (`order`, `order-checkout`, `order-refund`, `<aggregate>-purchase-lifecycle`, `<aggregate>-termination`). Reject Journey-gate category labels (`forward-purchase`, `abandonment`, `reversal`) and verb-prefixed slugs (`regen-*`, `refactor-*`, `fix-*`).
+
+### Gate state machine
+
+```
+[business path]                                       [tech path]
+       │                                                     │
+       ▼                                                     ▼
+ Gate 1: tech | business confirmation              (classifier silent at HIGH;
+  (fires only on LOW/MEDIUM classifier conf.)        no gate fires)
+       │ approved (or HIGH default)                         │
+       ▼                                                    │
+ spawn @product                                             │
+   → PRD locked + features.yaml entry upserted              │
+       │                                                    │
+       ▼                                                    │
+ Gate 2: PRD review → FRS?                                  │
+       │ approved                                           │
+       ▼                                                    │
+ spawn @analyst                                             │
+   → FRS locked                                             │
+       │                                                    │
+       ▼                                                    │
+ Gate 3: FRS review → TDD?                                  │
+       │ approved                                           │
+       ▼                                                    │
+ spawn @architect                                           │
+   → TDD + openapi/asyncapi locked                          │
+       │                                                    │
+       ▼                                                    │
+ Gate 4: TDD+openapi → impl?                                │
+       │ approved                                           │
+       ▼                                                    ▼
+ spawn @lead (business mode)        ◄─────────── spawn @lead (tech mode)
+       │                                                    │
+       ▼                                                    ▼
+ Gate 5: run-plan approval (existing forward-chain gate per "Run-plan + approval gate")
+       │ approved
+       ▼
+ parallel fan-out: @backend ‖ @frontend ‖ @test-author
+       │
+       ▼
+ @test-runner → @evaluator + @reviewer
+       │
+       ▼
+ TSR locked
+```
+
+Per-gate user response branches:
+
+- **Approve** → spawn downstream agent.
+- **Re-author** → flip upstream artifact frontmatter `status: locked` → `status: draft`. Re-spawn upstream agent with user feedback appended as `Feedback:` block in spawn-context. Agent picks up its prior artifact in draft state and revises in place.
+- **Halt** → stop chain; return summary. User resumes by re-invoking `/orchestra`. Chain state recovers from filesystem (see `### Chain state recovery`).
+
+### Chain state recovery
+
+Dispatcher carries no state between user turns. On re-invocation, derives current chain position from filesystem per active `<feature-id>` (entry in `features.yaml` lacking a TSR verdict):
+
+```
+If <feature-id>-PRD.md absent              → gate 1 → spawn @product
+If PRD locked, no FRS                      → gate 2 → spawn @analyst
+If FRS locked, no TDD                      → gate 3 → spawn @architect
+If TDD + openapi locked, no run-plan       → gate 4 → spawn @lead
+If run-plan present + status: draft        → gate 5 (approval)
+If run-plan locked, fan-out incomplete     → spawn fan-out
+If fan-out complete, no TSR verdict        → @test-runner → @evaluator + @reviewer
+```
+
+`features.yaml` carries the dependency DAG; per-feature `pipeline/<feature-id>/` directory carries chain-state artifacts. No separate state file.
+
+### Brownfield R-gates
+
+Reverse-pass reverses the chain: `src` → `@architect` → `@analyst` → `@product`. Dispatcher gates each handoff:
+
+```
+reverse-pass plan-mode gate (existing, EnterPlanMode/ExitPlanMode on run-plan)
+    │ approved
+    ▼
+spawn @architect (brownfield mode; reads src/**; authors TDD + openapi)
+    │
+    ▼
+Gate R-4: extracted TDD + openapi review
+    │ approved
+    ▼
+spawn @analyst (derives FRS from TDD + openapi)
+    │
+    ▼
+Gate R-3: derived FRS review
+    │ approved
+    ▼
+spawn @product (synthesizes PRD + manifest entry from FRS + TDD)
+    │
+    ▼
+Gate R-2: synthesized PRD review → done
+```
+
+Reverse-pass writes the `features.yaml` entry at the END (when `@product` synthesizes), not the start.
 
 ## Shared rules
 

@@ -62,25 +62,25 @@ The router path runs three minimum `AskUserQuestion` rounds before any agent spa
 
 ### `/orchestra spec-to-code` — greenfield forward chain
 
-Empty repo. `@lead` drives layers left to right; the parallel implementer fan-out gates on `openapi.yaml` lock.
+Empty repo. Dispatcher drives a 5-gate state machine; each gate fires one `AskUserQuestion` between agents. The parallel implementer fan-out gates on `TDD + openapi.yaml` lock.
 
 ```
- Business             Architecture           Component        Boundary
- ─────────────────    ──────────────────     ─────────        ────────────────
- PRD ──→ FRS    ──→   SAD ──→ ADR? ──→       TDD       ──→    openapi.yaml
- @product             @architect             @lead            @lead
-                                                                  │ locked
-                                                                  ▼
-                                              parallel:    @backend  ‖  @frontend  ‖  @test-author
-                                                                  │
-                                                                  ▼
-                                              converge:    @test-runner + @evaluator + @reviewer
-                                                                  │
-                                                                  ▼
-                                                              TSR (verdict locked)
+ Business         BA Bridge      Architecture                Component        Boundary
+ ─────────        ─────────      ───────────────             ──────────       ──────────────
+ PRD       ──→    FRS     ──→    SAD ──→ ADR? ──→ TDD ──→    openapi.yaml ──→ TASKS + run-plan
+ @product         @analyst       @architect                                   @lead
+ + features.yaml                                                                  │ gate 5
+                                                                                  ▼
+                                                          parallel:  @backend ‖ @frontend ‖ @test-author
+                                                                                  │
+                                                                                  ▼
+                                                          converge:  @test-runner → @evaluator + @reviewer
+                                                                                  │
+                                                                                  ▼
+                                                                              TSR (verdict locked)
 ```
 
-`ADR?` opens only when a non-obvious system-affecting decision surfaces in PRD / FRS / TDD. `@frontend` is skipped on projects with no UI layer.
+Five dispatcher-owned gates: tech/business confirmation (only on LOW/MEDIUM classifier confidence), PRD→FRS, FRS→TDD, TDD+openapi→impl, run-plan approval. `ADR?` opens only when a non-obvious system-affecting decision surfaces in PRD / FRS / TDD. `@frontend` is skipped on projects with no UI layer.
 
 ### `/orchestra code-to-spec` — brownfield reverse chain
 
@@ -131,13 +131,14 @@ The brownfield path is **reverse-then-forward**: document the existing surface s
 
 Emits the Usage block above. No chain, no agent spawn.
 
-## Agents (9)
+## Agents (10)
 
 | Agent | Purpose |
 | --- | --- |
-| `@product` | Authors `<feature-id>-PRD.md` and `<feature-id>-FRS.md`; runs consultant dialogue and flags ADR-worthy decisions for `@architect`. |
-| `@architect` | Authors `SAD.md`, ADRs, workspace `business-invariants.md`, per-service BR-AC, C4 L1+L2, Logical ERD, Inter-service Sequence. |
-| `@lead` | Authors TDD, `openapi.yaml` / `asyncapi.yaml`, TASKS, C4 L3+L4. Spawns the parallel implementer fan-out on openapi lock. |
+| `@product` | Authors `<feature-id>-PRD.md` and the `features.yaml` manifest entry. Opens every spawn with "relates to existing feature?" AskUserQuestion. Flags ADR-worthy decisions for `@architect`. |
+| `@analyst` | Authors `<feature-id>-FRS.md` from a locked PRD. Owns the BR/AC/pseudocode bridge between business intent and technical design. |
+| `@architect` | Authors `SAD.md`, ADRs, workspace `business-invariants.md`, per-service BR-AC, C4 L1+L2+L3+L4, Logical ERD, Inter-service Sequence, per-feature TDD, per-feature `openapi.yaml`/`asyncapi.yaml`/`clientapi.yaml`. Brownfield: reads `src/**` to derive TDD + openapi. |
+| `@lead` | Orchestrator. Authors TASKS and `run-plan.md`. Spawns the parallel implementer fan-out on TDD+openapi lock; converges test-runner → evaluator + reviewer. |
 | `@backend` | Server-side implementer (endpoints, services, persistence, jobs). Writes source + unit tests under `services/<name>/src/`. |
 | `@frontend` | UI implementer (components, state, styles, accessibility). Ships all four states: loading / empty / error / success. |
 | `@test-author` | Spec-bound test author. Lays out black-box tests + TSR `S-TEST-001` plan rows from openapi + PRD + FRS only; no Bash, no `src/main/**` read. |
@@ -145,16 +146,17 @@ Emits the Usage block above. No chain, no agent spawn.
 | `@evaluator` | Evidence grader. Reads PRD / FRS / openapi / TSR `S-TEST-001` and writes `S-EVAL-001` (PASS / FAIL / PENDING per row). Strict read-only. |
 | `@reviewer` | Diff and ADR reviewer. Writes TSR `S-REVIEW-001` verdict (APPROVED / REQUEST_CHANGES / PENDING); flags ADR-worthy decisions retroactively. |
 
-## Skills (10)
+## Skills (11)
 
 | Skill | Purpose |
 | --- | --- |
+| `business-analysis` | BR/AC discipline + pseudocode shaping. Invoked by `@analyst` when drafting `<feature-id>-FRS.md` from a locked PRD. |
 | `c4-architecture` | C4-model diagrams (Context / Container / Component / Deployment / Dynamic) via C4-PlantUML stdlib. |
 | `clean-architecture` | Dependency-Rule layering (Entities / Use Cases / Adapters / Frameworks) for SAD container layout, TDD components, and review scoring. |
 | `clean-code` | Meaningful names, small functions, exception-based errors, F.I.R.S.T. tests, code-smell heuristics for authoring and review. |
 | `code-review` | Severity-graded checklists for correctness, idioms, performance, security — used by `@reviewer`. |
 | `commit-message` | Authors a Conventional Commits 1.0.0 commit message with the mandatory AI Co-Authored-By trailer. |
-| `java-development` | Java / Spring read-side intel (caller graphs, `@Transactional`, JPA impact) and write-side conventions. Invoked by `@backend` on Java projects. |
+| `java-development` | Java / Spring read-side intel (caller graphs, `@Transactional`, JPA impact) and write-side conventions. Invoked by `@architect` on Java projects (forward-chain TDD authoring + reverse-pass source-walk) and `@backend` for write-side conventions. |
 | `plantuml` | Generates PlantUML diagrams from text and converts `.puml` sources to PNG / SVG. |
 | `qa-test-planner` | Test-plan authoring with coverage strategy and adversarial fuzz inputs. Used by `@test-author` for TSR `S-TEST-001`. |
 | `task-breakdown` | Decomposes intent into a task graph with story-point estimates and agent assignments. Used by `@lead` when routing a feature. |
@@ -182,16 +184,17 @@ Emits the Usage block above. No chain, no agent spawn.
 
 | Server | Tools | Purpose |
 | --- | --- | --- |
-| `orchestra-utils` | `tree`, `write_system_yaml`, `upsert_local_yaml`, `claude_md`, `docs_readme` | Read-only directory listing via `tree`; closed-allowlist schema-validated writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, the consumer `CLAUDE.md` orchestra section, and the `docs/README.md` provenance marker. |
+| `orchestra-utils` | `tree`, `write_system_yaml`, `upsert_local_yaml`, `claude_md`, `docs_readme`, `upsert_features_yaml` | Read-only directory listing via `tree`; closed-allowlist schema-validated writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, the consumer `CLAUDE.md` orchestra section, the `docs/README.md` provenance marker, and the `.orchestra/<service>/features.yaml` intra-service feature DAG manifest. |
 | `orchestra-probe` | `http_probe`, `db_state` | Auditable runtime probes for `@evaluator` (SELECT-only DB, redacted HTTP). |
 
-## Schemas (12)
+## Schemas (13)
 
 | Schema | Purpose |
 | --- | --- |
 | `pipeline-artifact.schema.md` | Frontmatter contract for every `docs/**/*.md` artifact. |
 | `local.schema.json` | `<project>/.orchestra/<service>/local.yaml` closed allowlist. |
 | `system.schema.json` | `<project>/.orchestra/system.yaml` (`workspace_kind`, `context_path`). |
+| `features.schema.json` | `<project>/.orchestra/<service>/features.yaml` intra-service feature DAG manifest (append-only; `depends_on` / `supersedes` edges). |
 | `run-plan.schema.md` | Run-plan author / approval contract. |
 | `br-ac.schema.md` | Business-rule / acceptance-criteria layer (per-service). |
 | `business-invariants.schema.md` | System-wide invariants (multi-repo only). |
@@ -217,7 +220,7 @@ All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setti
 | `ORCHESTRA_HOOK_PREFLIGHT` | **Do not disable** — dispatcher halts without it. |
 | `ORCHESTRA_MCP_ORCHESTRA_UTILS` | **Do not disable** — dispatcher persists system.yaml / local.yaml / CLAUDE.md bootstrap and uses tree through this MCP. |
 | `ORCHESTRA_MCP_ORCHESTRA_PROBE` | Disable runtime probes. |
-| `ORCHESTRA_SKILL_<NAME>` | Per-skill opt-out (10 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`). |
+| `ORCHESTRA_SKILL_<NAME>` | Per-skill opt-out (11 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`, `ORCHESTRA_SKILL_BUSINESS_ANALYSIS`). |
 
 Agents and the dispatcher command have no env-var opt-out — toggle them by removing entries from `plugin.json`.
 
