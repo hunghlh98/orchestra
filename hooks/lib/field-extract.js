@@ -31,6 +31,11 @@ export function extractBootstrapFields(toolInput) {
     mode: matchField(text, /^mode:\s*([a-z]+)/m),
     primary_language: matchField(text, /^primary_language:\s*([a-z0-9_-]+)/m),
     framework: matchField(text, /^framework:\s*([a-z0-9_-]+)/m),
+    service_name: matchField(text, /^service_name:\s*"?([A-Za-z0-9_-]+)"?/m),
+    scope_level: matchField(text, /^scope_level:\s*"?([a-z-]+)"?/m),
+    autonomy_level: matchField(text, /^autonomy:\s*\n\s+level:\s*"?([A-Z_]+)"?/m),
+    auto_mode: matchField(text, /^auto_mode:\s*"?(true|false)"?/m),
+    run_plan_status: matchField(text, /^run_plan_status:\s*"?([a-z_]+)"?/m),
   };
 }
 

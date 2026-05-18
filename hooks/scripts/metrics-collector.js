@@ -21,6 +21,7 @@ import { matchField } from "../lib/field-extract.js";
 import { ensureManifest, applyRedaction } from "../lib/redaction.js";
 import {
   readActivePhase, findJustStoppedSubagent, getProjectSessionsDir,
+  isDuplicateSubagentStop,
 } from "../lib/jsonl-emit.js";
 import {
   emitSubagentTokens, emitInsightsForSession,
@@ -44,8 +45,19 @@ async function main() {
     const input = JSON.parse(stdin);
 
     // Pre-resolve subagent identity before classify() so classify stays pure.
+    // Dedupe: the SubagentStop hook may fire twice per real subagent stop
+    // (observed in the wild — same sid in tokens.jsonl with identical totals).
+    // Skip the entire emission path if a prior subagent.stopped row already
+    // exists for this run_id + sid pair.
     if (input.hook_event_name === "SubagentStop") {
-      input._sub = findJustStoppedSubagent(input);
+      const sub = findJustStoppedSubagent(input);
+      if (sub) {
+        const eventsPath = join(input.cwd || process.cwd(), ".orchestra/metrics/events.jsonl");
+        if (isDuplicateSubagentStop(eventsPath, input.session_id || "", sub.sid)) {
+          process.exit(0);
+        }
+      }
+      input._sub = sub;
     }
 
     const event = classify(input);
@@ -98,19 +110,21 @@ async function main() {
       }
     }
 
-    // Parent dispatcher Stop: runs/<run-id>.json + cost-by-phase.json + parent
-    // insights. emitRunSummary internally checks for matched_orchestra:true
-    // prompt.submitted, so subagent stops short-circuit harmlessly.
+    // Parent dispatcher Stop: parent insights first (so emitRunSummary's
+    // insights_count tally includes them), then runs/<run-id>.json +
+    // cost-by-phase.json. emitRunSummary internally checks for
+    // matched_orchestra:true prompt.submitted, so subagent stops short-circuit
+    // harmlessly.
     if (input.hook_event_name === "Stop") {
       try {
-        emitRunSummary(input);
-        emitCostByPhase(input);
         const cwd = input.cwd || process.cwd();
         const sid = input.session_id || "";
         if (sid) {
           const parentPath = join(getProjectSessionsDir(cwd), `${sid}.jsonl`);
           if (existsSync(parentPath)) emitInsightsForSession(input, parentPath, sid, "dispatcher");
         }
+        emitRunSummary(input);
+        emitCostByPhase(input);
       } catch (e) {
         process.stderr.write(`metrics-collector run summary failed: ${e.message}\n`);
       }

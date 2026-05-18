@@ -73,14 +73,20 @@ export function classify(input) {
   if (hookEvent === "PreToolUse" && (toolName === "Write" || toolName === "Edit" || toolName === "MultiEdit")) {
     const filePath = input?.tool_input?.file_path || "";
     if (typeof filePath !== "string") return null;
-    if (filePath.endsWith("/.orchestra/local.yaml")) {
+    const localMatch = filePath.match(/\/\.orchestra\/(?:([^/]+)\/)?local\.yaml$/);
+    if (localMatch) {
       const fields = extractBootstrapFields(input?.tool_input);
       return {
         ts, event: "local.bootstrapped", run_id,
+        service_name: fields.service_name || localMatch[1] || null,
         mode: fields.mode || "unknown",
         project_mode: fields.mode || "unknown",
         primary_language: fields.primary_language || "unknown",
         framework: fields.framework || "unknown",
+        scope_level: fields.scope_level || null,
+        autonomy_level: fields.autonomy_level || null,
+        auto_mode: fields.auto_mode === "true" ? true : (fields.auto_mode === "false" ? false : null),
+        run_plan_status: fields.run_plan_status || null,
       };
     }
     const planMatch = filePath.match(/\/\.orchestra\/tasks\/([^/]+)\/([^/]+)\/([^/]+)$/);
@@ -123,6 +129,23 @@ export function classify(input) {
         if (fields.duration_seconds) event.duration_seconds = fields.duration_seconds;
       }
       return event;
+    }
+    const docsMatch = filePath.match(/\/docs\/(?:([^/]+)\/)?([^/]+\.(?:md|ya?ml|puml))$/);
+    if (docsMatch) {
+      const fileName = docsMatch[2];
+      const parentDir = docsMatch[1] || null;
+      const artifactType = inferArtifactType(fileName);
+      const featureMatch = fileName.match(/^(\d+-[a-z][a-z0-9-]*)-(?:[A-Z][\w-]*|openapi|asyncapi|clientapi|c4-component|c4-code|frs-usecase|seq-[a-z-]+|state-[a-z-]+|erd-[a-z-]+)\./);
+      const featureId = featureMatch ? featureMatch[1] : null;
+      return {
+        ts, event: "artifact.written", run_id,
+        feature_id: featureId,
+        service_name: parentDir && parentDir !== "diagrams" && parentDir !== "adr" ? parentDir : null,
+        artifact_type: artifactType,
+        artifact_id: deriveArtifactId(artifactType, fileName),
+        file_name: fileName,
+        tool: toolName,
+      };
     }
     return null;
   }

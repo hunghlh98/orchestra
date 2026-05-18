@@ -219,3 +219,16 @@ export function findPhaseForTs(intervals, ts) {
   }
   return null;
 }
+
+// SubagentStop dedupe: Claude Code may fire the hook twice per real subagent
+// stop (one row in tokens.jsonl with identical totals is the smoking gun).
+// Scan events.jsonl for a prior subagent.stopped with matching run_id + sid.
+export function isDuplicateSubagentStop(eventsPath, runId, sid) {
+  if (!sid || !existsSync(eventsPath)) return false;
+  for (const e of readJsonl(eventsPath)) {
+    if (e.event === "subagent.stopped" && e.run_id === runId && e.subagent_session_id === sid) {
+      return true;
+    }
+  }
+  return false;
+}

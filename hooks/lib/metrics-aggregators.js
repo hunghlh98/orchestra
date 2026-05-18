@@ -15,8 +15,9 @@ import { join } from "node:path";
 import { safeAppend, safeWrite } from "./safe-fs.js";
 import { computeUsd } from "./rate-card.js";
 import {
-  readJsonl, sumTokensInJsonl, extractInsightsFromJsonl,
+  readJsonl, sumTokensInJsonl,
   findPhaseForTs, getProjectSessionsDir,
+  extractInsightsFromJsonl,
 } from "./jsonl-emit.js";
 import { ensureManifest, readPluginVersion } from "./redaction.js";
 
@@ -113,11 +114,28 @@ export function emitRunSummary(input) {
   const intentEvent = runEvents.find(e =>
     e.event === "artifact.written" && e.file_name === "intent.yaml"
   );
-  const intent = intentEvent?.intent || null;
-  const confidence = intentEvent?.confidence || null;
-  const pattern = intentEvent?.pattern || null;
-  const autonomyLevel = intentEvent?.autonomy_level || null;
-  const featureId = intentEvent?.feature_id || null;
+  let intent = intentEvent?.intent || null;
+  let confidence = intentEvent?.confidence || null;
+  let pattern = intentEvent?.pattern || null;
+  let autonomyLevel = intentEvent?.autonomy_level || null;
+  let featureId = intentEvent?.feature_id || null;
+
+  // Fallback for reverse-pass runs (no intent.yaml authored): lift from the
+  // most-recent local.bootstrapped event. Feature-id scalar resolves only when
+  // exactly one feature was authored; multi-feature runs leave it null.
+  if (!autonomyLevel) {
+    const localEvents = runEvents.filter(e => e.event === "local.bootstrapped");
+    const latest = localEvents[localEvents.length - 1];
+    if (latest?.autonomy_level) autonomyLevel = latest.autonomy_level;
+  }
+  if (!featureId) {
+    const featureIds = new Set(
+      runEvents
+        .filter(e => e.event === "artifact.written" && e.feature_id)
+        .map(e => e.feature_id)
+    );
+    if (featureIds.size === 1) featureId = [...featureIds][0];
+  }
 
   // agent_role is reliably present (deriveAgentRole fills it from
   // subagent_type or @name) even when agent_name is null.
@@ -162,9 +180,9 @@ export function emitRunSummary(input) {
     }
   }
 
-  // The parent's Stop emission fires AFTER emitRunSummary in main(), so the
-  // parent's own insights aren't on disk yet — only subagent insights are
-  // counted here. Aggregators downstream pick up the late arrivals.
+  // Parent insights now emit BEFORE emitRunSummary in metrics-collector.js
+  // main(), so insights.jsonl carries both subagent + parent rows by the time
+  // this count runs.
   let insightsCount = 0;
   const insightsPath = join(metricsDir, "insights.jsonl");
   if (existsSync(insightsPath)) {
@@ -172,6 +190,8 @@ export function emitRunSummary(input) {
       if (row.run_id === sessionId) insightsCount += 1;
     }
   }
+
+  const warnings = detectStaggeredCohort(runEvents).filter(w => w.run_id === sessionId);
 
   const escalated = artifactsProduced.some(n => /^ESCALATE/.test(n));
   const status = deadlocked ? "deadlocked" : (escalated ? "aborted" : "completed");
@@ -191,6 +211,7 @@ export function emitRunSummary(input) {
     tokens,
     cost_usd: computeUsd(tokens),
     insights_count: insightsCount,
+    warnings,
     deadlocked,
     plugin_version: readPluginVersion(),
   };
@@ -229,26 +250,81 @@ export function emitCostByPhase(input) {
   }
 
   const byPhase = {};
+  const byPhaseRole = {};
   const rows = existsSync(tokensPath) ? readJsonl(tokensPath) : [];
   for (const row of rows) {
     const phase = findPhaseForTs(intervals[row.run_id] || [], row.ts) || "unknown";
+    const role = row.agent_role || "unknown";
+    const t = row.tokens || {};
+
     if (!byPhase[phase]) {
       byPhase[phase] = { tokens: { input: 0, output: 0, cache_read: 0, cache_create: 0 } };
     }
-    const t = row.tokens || {};
     byPhase[phase].tokens.input += t.input || 0;
     byPhase[phase].tokens.output += t.output || 0;
     byPhase[phase].tokens.cache_read += t.cache_read || 0;
     byPhase[phase].tokens.cache_create += t.cache_create || 0;
+
+    const composedKey = `${phase}.${role}`;
+    if (!byPhaseRole[composedKey]) {
+      byPhaseRole[composedKey] = {
+        phase, agent_role: role,
+        tokens: { input: 0, output: 0, cache_read: 0, cache_create: 0 },
+      };
+    }
+    byPhaseRole[composedKey].tokens.input += t.input || 0;
+    byPhaseRole[composedKey].tokens.output += t.output || 0;
+    byPhaseRole[composedKey].tokens.cache_read += t.cache_read || 0;
+    byPhaseRole[composedKey].tokens.cache_create += t.cache_create || 0;
   }
   for (const k of Object.keys(byPhase)) {
     byPhase[k].cost_usd = computeUsd(byPhase[k].tokens);
+  }
+  for (const k of Object.keys(byPhaseRole)) {
+    byPhaseRole[k].cost_usd = computeUsd(byPhaseRole[k].tokens);
   }
 
   const out = {
     schema_version: 1,
     generated_at: new Date().toISOString(),
     by_phase: byPhase,
+    by_phase_role: byPhaseRole,
   };
   safeWrite(join(metricsDir, "cost-by-phase.json"), JSON.stringify(out, null, 2) + "\n");
+}
+
+// detectStaggeredCohort — groups task.subagent.invoked rows by
+// (run_id, phase, agent_role). Cohorts of >=2 spawns spanning more than
+// thresholdMs from first to last surface as a warning row. Honours
+// `parallel-spawn-discipline` rule from commands/orchestra.md S4.
+export function detectStaggeredCohort(events, thresholdMs = 2000) {
+  const groups = new Map();
+  for (const e of events) {
+    if (e.event !== "task.subagent.invoked") continue;
+    if (!e.run_id || !e.ts || !e.agent_role) continue;
+    const phase = e.phase || "unknown";
+    const key = `${e.run_id}::${phase}::${e.agent_role}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);
+  }
+  const warnings = [];
+  for (const [key, list] of groups) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.ts.localeCompare(b.ts));
+    const first = Date.parse(list[0].ts);
+    const last = Date.parse(list[list.length - 1].ts);
+    const stagger = last - first;
+    if (stagger > thresholdMs) {
+      const [run_id, phase, agent_role] = key.split("::");
+      warnings.push({
+        event: "cohort.spawn.staggered",
+        run_id, phase, agent_role,
+        cohort_size: list.length,
+        max_stagger_ms: stagger,
+        first_ts: list[0].ts,
+        last_ts: list[list.length - 1].ts,
+      });
+    }
+  }
+  return warnings;
 }

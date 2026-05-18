@@ -467,11 +467,19 @@ console.log("metrics-collector insight extraction:");
       check(rows[0].line_count === 3, `line_count=3 for first insight (got ${rows[0].line_count})`);
       check(rows[0].char_count === insightBody1.length, `char_count matches body length`);
 
-      // Flip capture_insight_text:false and re-trigger; new rows redact text.
+      // Flip capture_insight_text:false and re-trigger with a FRESH sub-session.
+      // A4 dedupe (commit cebec79) short-circuits the entire emission path on
+      // a repeat SubagentStop for the same (run_id, subagent_session_id) — so
+      // re-emitting against the original sub-sid would not produce new rows.
+      // Mint a new sub-jsonl so dedupe doesn't apply.
       const manifestPath = join(realProj, ".orchestra/metrics/manifest.json");
       const m = JSON.parse(readFileSync(manifestPath, "utf8"));
       m.capture_insight_text = false;
       writeFileSync(manifestPath, JSON.stringify(m, null, 2));
+
+      const subSid2 = "subagent-with-insights-2";
+      const subPath2 = join(sessDir, `${subSid2}.jsonl`);
+      writeFileSync(subPath2, lines.join("\n") + "\n");
 
       runHook(
         { hook_event_name: "SubagentStop", session_id: parentSid, cwd: realProj },
@@ -480,6 +488,7 @@ console.log("metrics-collector insight extraction:");
       const rows2 = readFileSync(insightsPath, "utf8").split("\n").filter(Boolean).map(JSON.parse);
       check(rows2.length === 4, `2 more insight rows emitted on second hook (total ${rows2.length})`);
       check(rows2[2].text === null, `text redacted when capture_insight_text:false`);
+      check(rows2[2].session_id === subSid2, `second batch carries fresh sub session id`);
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
