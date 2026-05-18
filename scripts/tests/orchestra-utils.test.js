@@ -5,6 +5,7 @@
 //   write_system_yaml schema gates
 //   upsert_local_yaml create + patch + deep-merge + cross-field invariants
 //   claude_md create / append / splice / no-op / symlink reject
+//   docs_readme create / no-op when marker present / overwrite when absent / symlink reject
 //   MCP JSON-RPC smoke (initialize, tools/list, unknown tool)
 //   env-var opt-out (ORCHESTRA_MCP_ORCHESTRA_UTILS=off)
 
@@ -21,6 +22,7 @@ import {
   writeSystemYamlImpl,
   upsertLocalYamlImpl,
   claudeMdImpl,
+  docsReadmeImpl,
   TOOLS,
 } from "../mcp-servers/orchestra-utils.js";
 import { parse as parseYaml } from "../../hooks/lib/yaml-mini.js";
@@ -275,6 +277,52 @@ withTmp(tmp => {
   check(existsSync(join(tmp, "CLAUDE.md")), "defaulted: writes to cwd");
 });
 
+// ---------- docs_readme ----------
+console.log("docs_readme:");
+withTmp(tmp => {
+  // Fresh create
+  const a = docsReadmeImpl({ context_path: "." });
+  check(a.action === "created", `fresh: action='created' (got ${a.action})`);
+  const created = readFileSync(join(tmp, "docs", "README.md"), "utf8");
+  check(/^---\n/.test(created), "fresh: starts with frontmatter delimiter");
+  check(/^id:\s*docs-readme$/m.test(created), "fresh: id pinned to docs-readme");
+  check(/^type:\s*README$/m.test(created), "fresh: type pinned to README");
+  check(/^generated_by:\s*orchestra$/m.test(created), "fresh: generated_by pinned");
+  check(/^status:\s*locked$/m.test(created), "fresh: status pinned to locked");
+  check(/# `docs\/` — Orchestra-generated/.test(created), "fresh: body H1 from template");
+
+  // No-op on re-run when marker already present
+  const b = docsReadmeImpl({ context_path: "." });
+  check(b.action === "unchanged", `re-run: action='unchanged' (got ${b.action})`);
+
+  // Overwrite when existing file lacks the marker frontmatter
+  writeFileSync(join(tmp, "docs", "README.md"), "# Existing\n\nuser content without marker\n");
+  const c = docsReadmeImpl({ context_path: "." });
+  check(c.action === "overwritten", `non-marker: action='overwritten' (got ${c.action})`);
+  const overwritten = readFileSync(join(tmp, "docs", "README.md"), "utf8");
+  check(/^generated_by:\s*orchestra$/m.test(overwritten), "non-marker: pinned frontmatter present after overwrite");
+  check(!/user content without marker/.test(overwritten), "non-marker: pre-existing body replaced");
+});
+
+// ---------- docs_readme: symlink reject ----------
+console.log("docs_readme symlink reject:");
+withTmp(tmp => {
+  mkdirSync(join(tmp, "docs"));
+  symlinkSync("/tmp/decoy-docs-readme", join(tmp, "docs", "README.md"));
+  let rejected = false;
+  try { docsReadmeImpl({ context_path: "." }); }
+  catch (e) { rejected = /symlink|refusing/.test(e.message); }
+  check(rejected, "refuses to operate on symlinked docs/README.md");
+});
+
+// ---------- docs_readme: default context_path ----------
+console.log("docs_readme default context_path:");
+withTmp(tmp => {
+  const out = docsReadmeImpl({});
+  check(out.action === "created", `defaulted: action='created' (got ${out.action})`);
+  check(existsSync(join(tmp, "docs", "README.md")), "defaulted: writes to cwd/docs/");
+});
+
 // ---------- MCP JSON-RPC smoke ----------
 console.log("MCP JSON-RPC smoke:");
 {
@@ -291,12 +339,13 @@ console.log("MCP JSON-RPC smoke:");
   try { toolsParsed = JSON.parse(r1lines[0] || "{}"); }
   catch { toolsParsed = {}; }
   check(Array.isArray(toolsParsed?.result?.tools), "tools/list returns array");
-  check(toolsParsed?.result?.tools?.length === 4, `tools/list returns 4 tools (got ${toolsParsed?.result?.tools?.length})`);
+  check(toolsParsed?.result?.tools?.length === 5, `tools/list returns 5 tools (got ${toolsParsed?.result?.tools?.length})`);
   const names = (toolsParsed?.result?.tools || []).map(t => t.name);
   check(names.includes("tree"), "tools/list includes tree");
   check(names.includes("write_system_yaml"), "tools/list includes write_system_yaml");
   check(names.includes("upsert_local_yaml"), "tools/list includes upsert_local_yaml");
   check(names.includes("claude_md"), "tools/list includes claude_md");
+  check(names.includes("docs_readme"), "tools/list includes docs_readme");
 
   // initialize
   const r2 = spawnSync("node", [server], {

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // scripts/mcp-servers/orchestra-utils.js
-// MCP server: orchestra utilities. Four tools.
+// MCP server: orchestra utilities. Five tools.
 //
 //   tree                          read-only directory listing
 //   write_system_yaml             closed-allowlist write to <ctx>/.orchestra/system.yaml
 //   upsert_local_yaml             closed-allowlist create+patch to <ctx>/.orchestra/<svc>/local.yaml
 //   claude_md                     idempotent splice of orchestra section into <ctx>/CLAUDE.md
+//   docs_readme                   idempotent author of <ctx>/docs/README.md provenance marker
 //
 // Intentional pre-write-check bypass: pre-write-check.js is registered only on
 // Write|Edit|MultiEdit matchers (hooks/hooks.json). MCP tools/call events fire
@@ -30,6 +31,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PLUGIN_ROOT = resolve(__dirname, "..", "..");
 const TEMPLATE_PATH = join(PLUGIN_ROOT, "hooks", "references", "consumer-claude-md.template.md");
+const DOCS_README_TEMPLATE_PATH = join(PLUGIN_ROOT, "hooks", "references", "docs-readme.template.md");
+
+const DOCS_README_FRONTMATTER = [
+  "---",
+  "id: docs-readme",
+  "type: README",
+  "generated_by: orchestra",
+  "status: locked",
+  "---",
+  "",
+].join("\n");
 
 const CLAUDE_MD_START = "<!-- orchestra:start -->";
 const CLAUDE_MD_END = "<!-- orchestra:end -->";
@@ -192,6 +204,17 @@ export const TOOLS = [
   {
     name: "claude_md",
     description: "Idempotently splice the <!-- orchestra:start --> ... <!-- orchestra:end --> section into <context_path>/CLAUDE.md. Body comes from hooks/references/consumer-claude-md.template.md. Refuses on symlinked target.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        context_path: { type: "string", minLength: 1, description: "Defaults to cwd when omitted." },
+      },
+    },
+  },
+  {
+    name: "docs_readme",
+    description: "Idempotently author <context_path>/docs/README.md provenance marker. Frontmatter is pinned (id: docs-readme, type: README, generated_by: orchestra, status: locked); body comes from hooks/references/docs-readme.template.md. Skips when an existing file already carries generated_by: orchestra. Refuses on symlinked target.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -414,6 +437,34 @@ export function claudeMdImpl(args = {}) {
   return { path: target, action };
 }
 
+// === docs_readme impl ===
+
+export function docsReadmeImpl(args = {}) {
+  const context_path = args.context_path || ".";
+  const resolvedDir = assertSafeContextPath(context_path);
+  const target = join(resolvedDir, "docs", "README.md");
+  const body = readFileSync(DOCS_README_TEMPLATE_PATH, "utf8");
+  const content = DOCS_README_FRONTMATTER + body;
+
+  if (existsSync(target)) {
+    const buf = safeRead(target);
+    if (buf === null) {
+      throw new Error(`docs_readme: refusing to operate on ${target} (symlink or non-file)`);
+    }
+    const existing = buf.toString("utf8");
+    if (/^generated_by:\s*orchestra\s*$/m.test(existing)) {
+      return { path: target, action: "unchanged" };
+    }
+    mkdirSync(dirname(target), { recursive: true });
+    safeWrite(target, content);
+    return { path: target, action: "overwritten" };
+  }
+
+  mkdirSync(dirname(target), { recursive: true });
+  safeWrite(target, content);
+  return { path: target, action: "created" };
+}
+
 // === MCP server (run only when this file is the entry point) ===
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
@@ -461,6 +512,7 @@ function handleMessage(line) {
       else if (name === "write_system_yaml") out = writeSystemYamlImpl(args);
       else if (name === "upsert_local_yaml") out = upsertLocalYamlImpl(args);
       else if (name === "claude_md") out = claudeMdImpl(args);
+      else if (name === "docs_readme") out = docsReadmeImpl(args);
       else throw new Error(`Unknown tool: ${name}`);
       const text = typeof out === "string" ? out : JSON.stringify(out);
       reply(id, { result: { content: [{ type: "text", text }] } });
