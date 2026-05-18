@@ -74,7 +74,7 @@ e. On `accepted`: append row to `<context_path>/.orchestra/inventory/adr/index.m
 
 `task: reverse-pass` produces SAD + BR-AC + `business-invariants.md` (multi-repo + system-wide only) + ADRs by observing source. NO code, NO tests, NO TSR.
 
-1. **Provenance check.** Read `<context_path>/docs/README.md`. Absent → author marker FIRST with frontmatter `generated_by: orchestra`. Present → existing artifacts eligible for `cite-as-is` / `copy-and-modify`.
+1. **Provenance check.** Read `<context_path>/docs/README.md`. Absent → call `mcp__orchestra-utils__docs_readme(context_path)` FIRST to write the marker (the tool pins frontmatter shape + canonical body from `hooks/references/docs-readme.template.md` — `@architect` MUST NOT author this file via `Write`). Present → existing artifacts eligible for `cite-as-is` / `copy-and-modify`.
 2. **Per-artifact classify-then-author.** Absent or no provenance marker → `re-author`. Present + `generated_by: orchestra` AND `status: locked` → `cite-as-is`. Present + draft → `copy-and-modify`. Frontmatter `reverse_authoring_mode: <mode>` REQUIRED.
 3. **Auto-promote** (multi-repo + `per-service`): SAD OR `business-invariants.md` absent → FIRST run system-wide pass, THEN narrow to requested service. When provenance marker is also absent, the dispatcher spawns `task: provenance-marker` + `task: workspace-sad-author` in ONE message as a 2-element parallel cohort — these two tasks share no read-dependency.
 4. **Authored set by scope:**
@@ -117,7 +117,7 @@ Authorized writes (any other pattern = structural violation):
 - `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md` (service-scoped, per-service 3-digit from 001).
 - `<context_path>/docs/diagrams/{c4-context,c4-container,erd-logical}.puml`, `sequence-inter-<flow>.puml` (system singletons; system-wide only).
 - `<context_path>/docs/<service_name>/diagrams/erd-logical.puml` (service singleton; per-service only).
-- `<context_path>/docs/README.md` (provenance marker; first `code-to-spec` run; `generated_by: orchestra`).
+- `<context_path>/docs/README.md` — **NOT a Write surface**. Provenance marker is authored exclusively via `mcp__orchestra-utils__docs_readme(context_path)`. Calling `Write` against this path is a structural violation.
 - `<feature-id>-TSR.md` `S-DIVERGENCES-001` (brownfield only).
 
 NO L3/L4 — `@lead`'s. Consumer-supplied brownfield intake templates are READ-ONLY.

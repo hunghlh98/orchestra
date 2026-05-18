@@ -146,7 +146,7 @@ Auto-promote also patches run-plan: `auto_promote_workspace_sad: true` in frontm
 
 **Source read-root.** `per-service` → every chain agent reads from `local.yaml.source_path`. `system-wide` → reads from `<context_path>` (workspace root). Auto-promote inherits `system-wide` for workspace pass, reverts to `per-service` for narrowing pass.
 
-**Provenance marker.** First run when preflight reports `docs_provenance: unknown` → spawn `@architect` with `task: provenance-marker` to author `docs/README.md` with frontmatter `generated_by: orchestra`.
+**Provenance marker.** First run when preflight reports `docs_provenance: unknown` → spawn `@architect` with `task: provenance-marker`. `@architect` calls `mcp__orchestra-utils__docs_readme(context_path)` — the tool pins frontmatter (`id: docs-readme`, `type: README`, `generated_by: orchestra`, `status: locked`) and writes a canonical body from `hooks/references/docs-readme.template.md`. No improvisation, no `Write` author path.
 
 **SAD pre-pass cohort.** When auto-promote AND provenance marker BOTH required on the same reverse-pass entry, dispatcher MUST spawn `@architect task: provenance-marker` + `@architect task: workspace-sad-author` in ONE message as a 2-element cohort (no read-dependency between them). Sequential spawn surfaces as `cohort.spawn.staggered` warning.
 
@@ -206,7 +206,7 @@ End turn after writing — `@lead` (or dispatcher) picks up on parent Read.
 
 9 orchestra agents are filesystem-coupled. Handoff: parent writes `Agent(...)` prompt directing spawned agent to write to designated path; spawned writes; turn ends; idle fires; parent `Read(<path>)` consumes.
 
-Parent-write carve-out (narrow): `<context_path>/.orchestra/system.yaml` via `mcp__orchestra-utils__write_system_yaml`; `<context_path>/.orchestra/<service_name>/local.yaml` via `mcp__orchestra-utils__upsert_local_yaml`; `<context_path>/CLAUDE.md` orchestra section via `mcp__orchestra-utils__claude_md`; terminal closing event (no SUMMARY artifact; Stop hook captures terminal state).
+Parent-write carve-out (narrow): `<context_path>/.orchestra/system.yaml` via `mcp__orchestra-utils__write_system_yaml`; `<context_path>/.orchestra/<service_name>/local.yaml` via `mcp__orchestra-utils__upsert_local_yaml`; `<context_path>/CLAUDE.md` orchestra section via `mcp__orchestra-utils__claude_md`; `<context_path>/docs/README.md` provenance marker via `mcp__orchestra-utils__docs_readme`; terminal closing event (no SUMMARY artifact; Stop hook captures terminal state).
 
 ### Journey gate
 

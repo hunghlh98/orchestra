@@ -411,10 +411,15 @@ Required body anchors: `S-INVARIANTS-001` (cross-service business rules + invari
 ### `README.md` (docs/ provenance marker)
 
 ```yaml
+id: docs-readme
+type: README
 generated_by: orchestra
+status: locked
 ```
 
-Authored on first `code-to-spec` run. Body: short description of the docs/ tree layout. Body-grammar exempt (no `sections:` block).
+Authored on first `code-to-spec` run as classification beacon for future reverse-pass runs (`@product` / `@architect` / `@lead` read `generated_by: orchestra` to decide `cite-as-is` vs `re-author`). Body-grammar exempt (no `sections:` block).
+
+**Authoring is owned by `mcp__orchestra-utils__docs_readme(context_path)`** — the tool pins the four-field frontmatter shape above and writes a canonical body from `hooks/references/docs-readme.template.md`. `@architect` MUST NOT author this file via `Write`; the MCP tool guarantees a uniform body across consumer installs and removes the improvisation surface that produced earlier defects (phantom anchors, wrong layout trees, non-enum `type:` values).
 
 ### `<feature-id>-TASKS.md` (`.orchestra/<service_name>/pipeline/<feature-id>/`)
 
