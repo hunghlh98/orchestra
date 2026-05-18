@@ -48,7 +48,7 @@ probes:
 
 ### Step 2 — Coverage strategy
 
-Cover 6 canonical axes for every feature (matches `agents/test-author.md` canonical list):
+Cover 7 canonical axes for every feature (matches `agents/test-author.md` canonical list):
 
 | Axis | What to probe |
 |---|---|
@@ -57,9 +57,10 @@ Cover 6 canonical axes for every feature (matches `agents/test-author.md` canoni
 | **error** | Invalid auth, missing required field, wrong type, payload too large. Each error path has a probe. |
 | **idempotency** | Replay same request; check side effects not duplicated; verify retry-safe contracts. |
 | **adversarial** | Targeted attack inputs (replay, malformed, SQL injection, race condition) — see Step 3. |
+| **cross-process-boundary** | Real-contract probe against every cross-process boundary the feature touches: outbound HTTP fixture against the upstream's published contract (Pact / recorded WireMock from upstream openapi); Kafka publish round-trip asserting consumers receive the canonical topic + payload shape; Kafka consume round-trip asserting the listener handles the publisher's full event shape (`@JsonIgnoreProperties(ignoreUnknown=true)` verified); JPA read against a row whose `@OneToMany` child collection is non-empty (lazy-init + invalid-`mappedBy` detection). One row per boundary; skip only when `<feature-id>-clientapi.yaml` AND `<feature-id>-asyncapi.yaml` are both absent. |
 | **manual** | Reserved for criteria flagged `manual_evaluation: true` in openapi `description:` — `@evaluator` grades by inspection (latency p95, third-party SLA, OS-level state). |
 
-Skip an axis only if CONTRACT explicitly says so (e.g., a read-only GET has no idempotency axis to probe).
+Skip an axis only if CONTRACT explicitly says so (e.g., a read-only GET has no idempotency axis to probe; a service with no upstream callsites and no Kafka surface has no cross-process-boundary axis to probe).
 
 ### Step 3 — Adversarial fuzz inputs
 

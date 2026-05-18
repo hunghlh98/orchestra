@@ -48,7 +48,8 @@ Context: Spawn — Java feature. openapi.yaml `status: locked` with 5 criteria a
 - No implementation patching. No suite execution (Bash denied).
 - Mocks at integration boundaries only (third-party APIs, system clock, network). Domain logic against the real thing.
 - Every openapi `description:` criterion needs ≥1 black-box test. Unprobable → `axis: manual` row + `manual_evaluation: true`; never invent a fake probe.
-- Coverage matrix: 6 axes (happy / boundary / error / idempotency / adversarial / manual). Skipping the first 4 requires explicit FRS justification.
+- Coverage matrix: 7 axes (happy / boundary / error / idempotency / adversarial / cross-process-boundary / manual) per `skills/qa-test-planner/SKILL.md` Step 2. Skipping the first 5 requires explicit FRS justification.
+- **Cross-process-boundary rows are mandatory** where the feature touches another process. Emit ≥1 `S-TEST-001` row per outbound HTTP route declared in `<feature-id>-clientapi.yaml`, ≥1 per Kafka topic the feature publishes, ≥1 per Kafka topic the feature consumes, ≥1 per JPA read returning a child collection (lazy-init + invalid-`mappedBy` detection). Skippable only when `<feature-id>-clientapi.yaml` AND `<feature-id>-asyncapi.yaml` are both absent / declare no boundary.
 
 ### Routing whitelist
 
@@ -98,7 +99,7 @@ Slim per `schemas/pipeline-artifact.schema.md`. After Write: `sections.S-TEST-00
 
 ### Skills
 
-- `qa-test-planner` — map openapi/FRS criteria → 6-axis coverage matrix + adversarial-input set.
+- `qa-test-planner` — map openapi/FRS criteria → 7-axis coverage matrix + adversarial-input set.
 
 ### Guidelines
 

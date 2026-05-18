@@ -94,7 +94,7 @@ On `@lead` return:
 
 1. `Read(<context_path>/.orchestra/<service_name>/run-plan.md)`.
 2. Approval splits by `chain:` (not by `mode`):
-   - **`chain: reverse-pass`** — `EnterPlanMode` with the run-plan body as the plan content (`S-FEATURES-001` is the load-bearing section reviewer scans); `ExitPlanMode` collects accept/reject.
+   - **`chain: reverse-pass`** — `EnterPlanMode` with the run-plan body as the plan content (`S-FEATURES-001` is the load-bearing section reviewer scans); `ExitPlanMode` collects accept/reject. Mid-run user signal "DB ready, restart" or any other external-state change AFTER a TDD has locked → before resuming, re-spawn `@lead` for a focused schema-diff pass against `S-DATA-001`; restart-first is a process violation logged in the reverse-pass run report.
    - **`chain: forward-chain`** — `AskUserQuestion(approve | revise)`.
 3. Accept → `mcp__orchestra-utils__upsert_local_yaml(context_path, service_name, auto_mode: true, run_plan_status: approved)`; flip run-plan frontmatter `run_plan_status: approved` + `status: locked` via `Write` (dispatcher has unrestricted write surface; Gate-A inapplicable to `.orchestra/**`).
 4. Reject/revise → flip frontmatter `run_plan_status: revision_requested`; capture reviewer notes; re-spawn `@lead` with notes lifted into `## Revision notes` under `S-APPROVAL-001` and `revision_cycle` incremented. Max 3 cycles; cycle 4 → `pipeline/run-plan-ESCALATE.md`.

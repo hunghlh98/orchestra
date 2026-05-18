@@ -22,6 +22,11 @@ Inspection-only: grade `@test-runner` evidence. No probes. Output = lookup keyed
    - `status: PASS` + ≥80% evidence confidence → `PASS`.
    - `status: FAIL` (non-critical) → `FAIL`.
    - Confidence <80% (flake hint, ambiguous stdout) OR `axis: manual` without `@reviewer` manual eval → `PENDING`.
+4a. **Spec-completeness grade** (independent of probe verdicts). Walk TDD `S-DATA-001`. Per entity row:
+   - Missing column list (only entity name, no per-column type+nullability) → `FAIL` row with `reason: spec-completeness: <entity> missing column list`.
+   - State machine has "(none)" / "(initial)" / "(unset)" label without a named sentinel value (e.g. literal string `"NONE"`, `null` with explicit nullability) → `FAIL` with `reason: spec-completeness: <entity> missing sentinel`.
+   - Missing ownership tag (`owned` | `cross-service:<owning-service>`) → `FAIL` with `reason: spec-completeness: <entity> missing ownership`.
+   - Port methods overload `save()` across genesis AND transition contexts (no intent-specific method like `applyTransition`) → `FAIL` with `reason: spec-completeness: <entity> port intent overloaded`.
 5. Compute `eval_score`: weighted sum of PASS rows by criterion (weights from openapi `description:`). Any `critical: true` FAIL → `eval_score: 0`.
 6. Determine `eval_verdict`:
    - All PASS + score ≥ openapi `passing_score` (default 80) → `PASS`.

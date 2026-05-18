@@ -52,6 +52,7 @@ Three rules apply to every diff regardless of language:
 - Are there secrets, credentials, or PII in the diff? (`pre-write-check` should have caught; double-check.)
 - Is dead code introduced or left behind?
 - **Diagram render parity**: any `.puml` file in the diff has a paired `.svg` next to it AND the owning markdown body cites `![..](diagrams/<name>.svg)`. Missing paired `.svg` → **Major** auto-`REQUEST_CHANGES`.
+- **Cross-process boundary observability**: every outbound HTTP call, every Kafka publish, every Kafka consumer method, every DB error path in the diff emits INFO on receipt + outcome. HTTP carries route + status + latency; Kafka consume carries `topic` + `partition` + `offset` on receipt and a transition-or-rejection line on outcome. Missing instrumentation → **Major** (silent success is indistinguishable from "no traffic" during bring-up).
 
 **Per-language gates** (when a per-language `*-development` skill is loaded for `local.yaml.primary_language`): apply that skill's convention checklist. Otherwise fall back to consumer repo's existing conventions OR `references/language-checklists.md`.
 
