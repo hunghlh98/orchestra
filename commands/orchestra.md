@@ -148,6 +148,8 @@ Auto-promote also patches run-plan: `auto_promote_workspace_sad: true` in frontm
 
 **Provenance marker.** First run when preflight reports `docs_provenance: unknown` → spawn `@architect` with `task: provenance-marker` to author `docs/README.md` with frontmatter `generated_by: orchestra`.
 
+**SAD pre-pass cohort.** When auto-promote AND provenance marker BOTH required on the same reverse-pass entry, dispatcher MUST spawn `@architect task: provenance-marker` + `@architect task: workspace-sad-author` in ONE message as a 2-element cohort (no read-dependency between them). Sequential spawn surfaces as `cohort.spawn.staggered` warning.
+
 **Per-artifact classify-then-author.** For each chain artifact: Absent → `re-author`. Present + `generated_by: orchestra` AND `status: locked` → `cite-as-is`. Present + `generated_by: orchestra` AND `status: draft` → `copy-and-modify`. Present without provenance marker → `re-author`. Frontmatter `reverse_authoring_mode: <mode>` REQUIRED.
 
 **Portability contract.** Every artifact under `docs/**/*.md` carries domain rules ONLY — no `src/**` path tokens, commit SHAs, branch names, repo URLs. PRD/FRS additionally carry no fenced code blocks. `pre-write-check.js` Gate-D-inverse enforces. Inline backtick spans (single-line snippets) always allowed.
@@ -165,7 +167,11 @@ Router's questions cap further confidence-tier dialogue: downstream agents obser
 
 ### Phase-tag emission
 
-Every `Agent({...})` call MUST prepend `phase: <name>` on its own line. `metrics-collector.js` parses it; without the line, cost-by-phase pivots collapse to `unknown`. Canonical values: `discovery`, `spec-draft`, `verification`, `gap-resolution`, `gate`.
+Every `Agent({...})` call MUST prepend `phase: <name>` on its own line. Canonical values: `discovery`, `spec-draft`, `verification`, `gap-resolution`, `gate`.
+
+### Parallel-spawn discipline
+
+Cohort of N agents (feature fan-out, BR-AC fan-out, SAD pre-pass cohort) MUST emit ALL `Agent({...})` calls in ONE assistant message. Staggered spawns across multiple messages are a structural violation; `metrics-collector` flags them as `cohort.spawn.staggered` warnings on `runs/<id>.json`. Tool-call batching is one message containing N tool-use blocks — not N messages each containing one block.
 
 ### Status output
 
