@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orchestra:features",
+  "title": "orchestra service-level features.yaml",
+  "description": "Closed allowlist for <context_path>/.orchestra/<service_name>/features.yaml — intra-service feature DAG manifest. Acyclicity, edge-existence, self-edge, and uniqueness-by-id are enforced imperatively by the orchestra-utils MCP tool, not by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["features"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    }
+  },
+  "$defs": {
+    "feature_id": {
+      "type": "string",
+      "pattern": "^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "depends_on", "artifacts"],
+      "properties": {
+        "id":         { "$ref": "#/$defs/feature_id" },
+        "status":     { "enum": ["active", "deprecated"] },
+        "depends_on": { "type": "array", "items": { "$ref": "#/$defs/feature_id" } },
+        "supersedes": { "type": "array", "items": { "$ref": "#/$defs/feature_id" } },
+        "artifacts":  { "type": "array", "items": { "enum": ["PRD", "FRS", "TDD", "openapi", "asyncapi", "TSR"] } }
+      }
+    }
+  }
+}

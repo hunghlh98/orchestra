@@ -4,6 +4,7 @@
 //   tree path-escape + walker output
 //   write_system_yaml schema gates
 //   upsert_local_yaml create + patch + deep-merge + cross-field invariants
+//   upsert_features_yaml create + update + DAG enforcement + uniqueness + warnings
 //   claude_md create / append / splice / no-op / symlink reject
 //   docs_readme create / no-op when marker present / overwrite when absent / symlink reject
 //   MCP JSON-RPC smoke (initialize, tools/list, unknown tool)
@@ -21,6 +22,7 @@ import {
   treeImpl,
   writeSystemYamlImpl,
   upsertLocalYamlImpl,
+  upsertFeaturesYamlImpl,
   claudeMdImpl,
   docsReadmeImpl,
   TOOLS,
@@ -323,6 +325,171 @@ withTmp(tmp => {
   check(existsSync(join(tmp, "docs", "README.md")), "defaulted: writes to cwd/docs/");
 });
 
+// ---------- upsert_features_yaml: create + update ----------
+console.log("upsert_features_yaml: create + update:");
+withTmp(tmp => {
+  const f1 = { id: "001-login", status: "active", depends_on: [], artifacts: ["PRD", "FRS"] };
+  const out1 = upsertFeaturesYamlImpl({ context_path: ".", service_name: "auth", feature: f1 });
+  check(out1.mode === "created", `first call mode='created' (got ${out1.mode})`);
+  check(out1.id === "001-login", `first call id echo`);
+  const body1 = readFileSync(join(tmp, ".orchestra", "auth", "features.yaml"), "utf8");
+  check(/id: 001-login/.test(body1), "body contains id");
+  check(/status: active/.test(body1), "body contains status");
+
+  const f1updated = { id: "001-login", status: "active", depends_on: [], artifacts: ["PRD", "FRS", "TDD"] };
+  const out2 = upsertFeaturesYamlImpl({ context_path: ".", service_name: "auth", feature: f1updated });
+  check(out2.mode === "patched", `second call mode='patched' (got ${out2.mode})`);
+  const parsed = parseYaml(readFileSync(out2.path, "utf8"));
+  check(parsed.features.length === 1, "still one entry after update");
+  check(parsed.features[0].artifacts.includes("TDD"), "update persisted");
+
+  const f2 = { id: "002-logout", status: "active", depends_on: ["001-login"], artifacts: ["PRD"] };
+  upsertFeaturesYamlImpl({ context_path: ".", service_name: "auth", feature: f2 });
+  const parsed2 = parseYaml(readFileSync(out2.path, "utf8"));
+  check(parsed2.features.length === 2, "second feature appended");
+  check(parsed2.features[1].depends_on[0] === "001-login", "edge persisted");
+});
+
+// ---------- upsert_features_yaml: schema gates ----------
+console.log("upsert_features_yaml: schema gates:");
+withTmp(_ => {
+  let err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "bad-id", status: "active", depends_on: [], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /SCHEMA_VIOLATION/.test(err) && /pattern/.test(err), "bad id pattern -> SCHEMA_VIOLATION");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "BOGUS", depends_on: [], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /SCHEMA_VIOLATION/.test(err) && /status/.test(err), "bad status -> SCHEMA_VIOLATION");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: [], artifacts: ["XML"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /SCHEMA_VIOLATION/.test(err) && /artifacts/.test(err), "bad artifact enum -> SCHEMA_VIOLATION");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: [], artifacts: ["PRD"], extra: "nope" } }); }
+  catch (e) { err = e.message; }
+  check(err && /unknown field/.test(err), "unknown feature field rejected");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: ["malformed"], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /SCHEMA_VIOLATION/.test(err) && /depends_on/.test(err), "malformed depends_on id -> SCHEMA_VIOLATION");
+});
+
+// ---------- upsert_features_yaml: DAG gates ----------
+console.log("upsert_features_yaml: DAG gates:");
+withTmp(_ => {
+  let err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: ["999-ghost"], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /UNKNOWN_REF/.test(err) && /999-ghost/.test(err), "depends_on missing id -> UNKNOWN_REF");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: [], supersedes: ["999-ghost"], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /UNKNOWN_REF/.test(err), "supersedes missing id -> UNKNOWN_REF");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: ["001-x"], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /SELF_EDGE/.test(err), "self-edge in depends_on -> SELF_EDGE");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: [], supersedes: ["001-x"], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /SELF_EDGE/.test(err), "self-edge in supersedes -> SELF_EDGE");
+});
+
+// ---------- upsert_features_yaml: cycle detection ----------
+console.log("upsert_features_yaml: cycle detection:");
+withTmp(_ => {
+  upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-a", status: "active", depends_on: [], artifacts: ["PRD"] } });
+  upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "002-b", status: "active", depends_on: ["001-a"], artifacts: ["PRD"] } });
+  let err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-a", status: "active", depends_on: ["002-b"], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /CYCLE/.test(err), "A->B then B->A -> CYCLE");
+  check(err && /001-a/.test(err) && /002-b/.test(err), "cycle error names both nodes");
+});
+
+// ---------- upsert_features_yaml: uniqueness on load ----------
+console.log("upsert_features_yaml: uniqueness on load:");
+withTmp(tmp => {
+  const dir = join(tmp, ".orchestra", "svc");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "features.yaml"),
+    "features:\n  - id: 001-x\n    status: active\n    depends_on: []\n    artifacts:\n      - PRD\n  - id: 001-x\n    status: active\n    depends_on: []\n    artifacts:\n      - PRD\n");
+  let err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "002-y", status: "active", depends_on: [], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /UNIQUENESS_VIOLATION/.test(err), "duplicate ids in existing file -> UNIQUENESS_VIOLATION");
+});
+
+// ---------- upsert_features_yaml: deprecation warning ----------
+console.log("upsert_features_yaml: deprecation warning:");
+withTmp(_ => {
+  upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-old", status: "deprecated", depends_on: [], artifacts: ["PRD"] } });
+  const out = upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "002-new", status: "active", depends_on: ["001-old"], artifacts: ["PRD"] } });
+  check(Array.isArray(out.warnings) && out.warnings.some(w => /deprecated/.test(w)), "edge to deprecated emits warning (not block)");
+});
+
+// ---------- upsert_features_yaml: supersedes optional ----------
+console.log("upsert_features_yaml: supersedes optional:");
+withTmp(_ => {
+  upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-base", status: "active", depends_on: [], artifacts: ["PRD"] } });
+  const out = upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "002-v2", status: "active", depends_on: [], supersedes: ["001-base"], artifacts: ["PRD"] } });
+  check(out.id === "002-v2", "supersedes-only entry returns its id");
+  const parsed = parseYaml(readFileSync(out.path, "utf8"));
+  check(parsed.features.length === 2, "supersedes-only entry appended");
+  const base = parsed.features.find(f => f.id === "001-base");
+  check(base.status === "active", "predecessor status not auto-flipped");
+  const v2 = parsed.features.find(f => f.id === "002-v2");
+  check(Array.isArray(v2.supersedes) && v2.supersedes[0] === "001-base", "supersedes round-trips");
+});
+
+// ---------- upsert_features_yaml: path + service safety ----------
+console.log("upsert_features_yaml: path + service safety:");
+withTmp(_ => {
+  let err = null;
+  try { upsertFeaturesYamlImpl({ context_path: "../etc", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: [], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /escapes cwd/.test(err), "context_path '..' escape rejected");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "bad/name", feature: { id: "001-x", status: "active", depends_on: [], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /forbidden characters/.test(err), "service_name with '/' rejected");
+
+  err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "system", feature: { id: "001-x", status: "active", depends_on: [], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /reserved/.test(err), "reserved service_name 'system' rejected");
+});
+
+// ---------- upsert_features_yaml: symlink reject ----------
+console.log("upsert_features_yaml: symlink reject:");
+withTmp(tmp => {
+  const dir = join(tmp, ".orchestra", "svc");
+  mkdirSync(dir, { recursive: true });
+  symlinkSync("/tmp/decoy-features", join(dir, "features.yaml"));
+  let err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: [], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && (/symlink/i.test(err) || /safe-fs/i.test(err) || /non-file/i.test(err)), "refuses to read through symlink");
+});
+
+// ---------- upsert_features_yaml: unknown arg rejected ----------
+console.log("upsert_features_yaml: unknown arg:");
+withTmp(_ => {
+  let err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "001-x", status: "active", depends_on: [], artifacts: ["PRD"] }, extra: "x" }); }
+  catch (e) { err = e.message; }
+  check(err && /unknown field 'extra'/.test(err), "unknown top-level arg rejected");
+});
+
 // ---------- MCP JSON-RPC smoke ----------
 console.log("MCP JSON-RPC smoke:");
 {
@@ -339,11 +506,12 @@ console.log("MCP JSON-RPC smoke:");
   try { toolsParsed = JSON.parse(r1lines[0] || "{}"); }
   catch { toolsParsed = {}; }
   check(Array.isArray(toolsParsed?.result?.tools), "tools/list returns array");
-  check(toolsParsed?.result?.tools?.length === 5, `tools/list returns 5 tools (got ${toolsParsed?.result?.tools?.length})`);
+  check(toolsParsed?.result?.tools?.length === 6, `tools/list returns 6 tools (got ${toolsParsed?.result?.tools?.length})`);
   const names = (toolsParsed?.result?.tools || []).map(t => t.name);
   check(names.includes("tree"), "tools/list includes tree");
   check(names.includes("write_system_yaml"), "tools/list includes write_system_yaml");
   check(names.includes("upsert_local_yaml"), "tools/list includes upsert_local_yaml");
+  check(names.includes("upsert_features_yaml"), "tools/list includes upsert_features_yaml");
   check(names.includes("claude_md"), "tools/list includes claude_md");
   check(names.includes("docs_readme"), "tools/list includes docs_readme");
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // scripts/mcp-servers/orchestra-utils.js
-// MCP server: orchestra utilities. Five tools.
+// MCP server: orchestra utilities. Six tools.
 //
 //   tree                          read-only directory listing
 //   write_system_yaml             closed-allowlist write to <ctx>/.orchestra/system.yaml
 //   upsert_local_yaml             closed-allowlist create+patch to <ctx>/.orchestra/<svc>/local.yaml
+//   upsert_features_yaml          closed-allowlist upsert to <ctx>/.orchestra/<svc>/features.yaml with DAG enforcement
 //   claude_md                     idempotent splice of orchestra section into <ctx>/CLAUDE.md
 //   docs_readme                   idempotent author of <ctx>/docs/README.md provenance marker
 //
@@ -56,6 +57,12 @@ const LOCAL_FIELDS = [
 
 const ALLOWED_WRITE_SYSTEM_ARGS = new Set(["context_path", "workspace_kind", "status"]);
 const ALLOWED_UPSERT_LOCAL_ARGS = new Set(["context_path", ...LOCAL_FIELDS]);
+const ALLOWED_UPSERT_FEATURES_ARGS = new Set(["context_path", "service_name", "feature"]);
+
+const FEATURE_ID_PATTERN = /^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$/;
+const VALID_FEATURE_STATUSES = ["active", "deprecated"];
+const VALID_ARTIFACTS = ["PRD", "FRS", "TDD", "openapi", "asyncapi", "TSR"];
+const FEATURE_FIELDS = new Set(["id", "status", "depends_on", "supersedes", "artifacts"]);
 
 function rejectUnknownArgs(args, allowed, toolName) {
   for (const k of Object.keys(args)) {
@@ -115,6 +122,103 @@ function validateLocalYamlContent(relPath, raw) {
     errs.push(`${relPath}: auto_mode:true requires run_plan_status:approved (got ${JSON.stringify(parsed.run_plan_status)})`);
   }
   return errs;
+}
+
+function validateFeatureShape(f) {
+  // yaml-mini drops empty arrays as null on serialize; tolerate null as empty for depends_on / supersedes.
+  const errs = [];
+  if (!f || typeof f !== "object" || Array.isArray(f)) { errs.push("feature must be an object"); return errs; }
+  for (const k of Object.keys(f)) {
+    if (!FEATURE_FIELDS.has(k)) errs.push(`unknown field '${k}'`);
+  }
+  if (typeof f.id !== "string" || !FEATURE_ID_PATTERN.test(f.id)) {
+    errs.push(`id '${f.id}' does not match pattern ^NNN-slug$`);
+  }
+  if (!VALID_FEATURE_STATUSES.includes(f.status)) {
+    errs.push(`status '${f.status}' not in ${VALID_FEATURE_STATUSES.join("|")}`);
+  }
+  if (f.depends_on === null) {
+    // round-trip artifact: ok
+  } else if (!Array.isArray(f.depends_on)) {
+    errs.push("depends_on must be an array");
+  } else {
+    for (const id of f.depends_on) {
+      if (typeof id !== "string" || !FEATURE_ID_PATTERN.test(id)) errs.push(`depends_on contains malformed id '${id}'`);
+    }
+  }
+  if (f.supersedes !== undefined && f.supersedes !== null) {
+    if (!Array.isArray(f.supersedes)) errs.push("supersedes must be an array");
+    else for (const id of f.supersedes) {
+      if (typeof id !== "string" || !FEATURE_ID_PATTERN.test(id)) errs.push(`supersedes contains malformed id '${id}'`);
+    }
+  }
+  if (!Array.isArray(f.artifacts)) errs.push("artifacts must be an array");
+  else for (const a of f.artifacts) {
+    if (!VALID_ARTIFACTS.includes(a)) errs.push(`artifacts contains invalid value '${a}' (allowed: ${VALID_ARTIFACTS.join("|")})`);
+  }
+  return errs;
+}
+
+function validateFeaturesFileContent(relPath, raw) {
+  const errs = [];
+  let parsed;
+  try { parsed = parseYaml(raw); }
+  catch (e) { errs.push(`${relPath}: parse error: ${e.message}`); return errs; }
+  if (!parsed || typeof parsed !== "object") return errs;
+  for (const k of Object.keys(parsed)) {
+    if (k !== "features") errs.push(`${relPath}: unknown top-level field '${k}'`);
+  }
+  if (parsed.features === undefined) return errs;
+  if (!Array.isArray(parsed.features)) {
+    errs.push(`${relPath}: features must be an array`);
+    return errs;
+  }
+  const seen = new Set();
+  for (let i = 0; i < parsed.features.length; i++) {
+    const f = parsed.features[i];
+    const featErrs = validateFeatureShape(f);
+    for (const e of featErrs) errs.push(`${relPath}: features[${i}]: ${e}`);
+    if (f && typeof f.id === "string") {
+      if (seen.has(f.id)) errs.push(`${relPath}: duplicate id '${f.id}'`);
+      seen.add(f.id);
+    }
+  }
+  return errs;
+}
+
+function detectFeaturesCycle(features) {
+  const adj = new Map();
+  for (const f of features) adj.set(f.id, Array.isArray(f.depends_on) ? f.depends_on : []);
+  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const color = new Map([...adj.keys()].map(k => [k, WHITE]));
+
+  function dfs(node, path) {
+    color.set(node, GRAY);
+    path.push(node);
+    for (const next of adj.get(node) || []) {
+      if (!adj.has(next)) continue;
+      const c = color.get(next);
+      if (c === GRAY) {
+        const startIdx = path.indexOf(next);
+        return path.slice(startIdx).concat([next]);
+      }
+      if (c === WHITE) {
+        const found = dfs(next, path);
+        if (found) return found;
+      }
+    }
+    path.pop();
+    color.set(node, BLACK);
+    return null;
+  }
+
+  for (const node of adj.keys()) {
+    if (color.get(node) === WHITE) {
+      const found = dfs(node, []);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 function validateSystemYamlContent(relPath, raw) {
@@ -196,6 +300,31 @@ export const TOOLS = [
           properties: {
             level: { enum: ["EXECUTION_ONLY", "JOINT_PROCESSING", "OPTION_SYNTHESIS", "DRAFT_AND_GATE", "FULL_AUTONOMY"] },
             resolved_by: { enum: ["cli_flag", "local_yaml", "diagnostic", "default"] },
+          },
+        },
+      },
+    },
+  },
+  {
+    name: "upsert_features_yaml",
+    description: "Insert or update one feature entry in <context_path>/.orchestra/<service_name>/features.yaml against the closed allowlist in schemas/features.schema.json. Enforces DAG acyclicity, edge existence, self-edge prohibition, and id uniqueness imperatively. Append-only graph — features never deleted; status transitions are user-controlled.",
+    inputSchema: {
+      type: "object",
+      required: ["context_path", "service_name", "feature"],
+      additionalProperties: false,
+      properties: {
+        context_path: { type: "string", minLength: 1 },
+        service_name: { type: "string", minLength: 1 },
+        feature: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "status", "depends_on", "artifacts"],
+          properties: {
+            id:         { type: "string", pattern: "^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" },
+            status:     { enum: ["active", "deprecated"] },
+            depends_on: { type: "array", items: { type: "string", pattern: "^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
+            supersedes: { type: "array", items: { type: "string", pattern: "^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
+            artifacts:  { type: "array", items: { enum: ["PRD", "FRS", "TDD", "openapi", "asyncapi", "TSR"] } },
           },
         },
       },
@@ -389,6 +518,102 @@ export function upsertLocalYamlImpl(args = {}) {
   return { path: target, mode, fields: Object.keys(merged) };
 }
 
+// === upsert_features_yaml impl ===
+
+export function upsertFeaturesYamlImpl(args = {}) {
+  rejectUnknownArgs(args, ALLOWED_UPSERT_FEATURES_ARGS, "upsert_features_yaml");
+  const { context_path, service_name, feature } = args;
+  const resolvedDir = assertSafeContextPath(context_path);
+  assertSafeServiceName(service_name);
+
+  const shapeErrs = validateFeatureShape(feature);
+  if (shapeErrs.length > 0) {
+    throw new Error(`upsert_features_yaml: SCHEMA_VIOLATION: ${shapeErrs.join("; ")}`);
+  }
+
+  const target = join(resolvedDir, ".orchestra", service_name, "features.yaml");
+  let existing = { features: [] };
+  let mode = "created";
+
+  if (existsSync(target)) {
+    const buf = safeRead(target);
+    if (buf === null) {
+      throw new Error(`upsert_features_yaml: cannot read ${target} (symlink or non-file)`);
+    }
+    const raw = buf.toString("utf8");
+    try {
+      const parsed = parseYaml(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        existing = parsed;
+        mode = "patched";
+      }
+    } catch (e) {
+      throw new Error(
+        `upsert_features_yaml: existing ${relative(process.cwd(), target)} is malformed ` +
+        `(${e.message}); refusing to overwrite`
+      );
+    }
+    const relPath = relative(process.cwd(), target) || "features.yaml";
+    const loadErrs = validateFeaturesFileContent(relPath, raw);
+    const dupErrs = loadErrs.filter(e => /duplicate id/.test(e));
+    if (dupErrs.length > 0) {
+      throw new Error(`upsert_features_yaml: UNIQUENESS_VIOLATION: ${dupErrs.join("; ")}`);
+    }
+  }
+
+  if (!Array.isArray(existing.features)) existing.features = [];
+
+  const idx = existing.features.findIndex(f => f && f.id === feature.id);
+  const featureCopy = pickDefined(feature, ["id", "status", "depends_on", "supersedes", "artifacts"]);
+  if (idx >= 0) existing.features[idx] = featureCopy;
+  else existing.features.push(featureCopy);
+
+  const allIds = new Set(existing.features.map(f => f.id));
+  for (const ref of feature.depends_on) {
+    if (!allIds.has(ref)) {
+      throw new Error(`upsert_features_yaml: UNKNOWN_REF: depends_on references missing id '${ref}'`);
+    }
+  }
+  for (const ref of (feature.supersedes || [])) {
+    if (!allIds.has(ref)) {
+      throw new Error(`upsert_features_yaml: UNKNOWN_REF: supersedes references missing id '${ref}'`);
+    }
+  }
+  if (feature.depends_on.includes(feature.id) || (feature.supersedes || []).includes(feature.id)) {
+    throw new Error(`upsert_features_yaml: SELF_EDGE: id '${feature.id}' appears in its own depends_on or supersedes`);
+  }
+  const cycle = detectFeaturesCycle(existing.features);
+  if (cycle) {
+    throw new Error(`upsert_features_yaml: CYCLE: ${cycle.join(" -> ")}`);
+  }
+
+  const warnings = [];
+  for (const ref of feature.depends_on) {
+    const tgt = existing.features.find(f => f.id === ref);
+    if (tgt && tgt.status === "deprecated" && tgt.id !== feature.id) {
+      warnings.push(`depends_on references deprecated feature '${ref}'`);
+    }
+  }
+
+  const yamlText = serializeYaml(existing) + "\n";
+  const relPath = relative(process.cwd(), target) || "features.yaml";
+  const finalErrs = validateFeaturesFileContent(relPath, yamlText);
+  if (finalErrs.length > 0) {
+    throw new Error(`upsert_features_yaml: SCHEMA_VIOLATION: ${finalErrs.join("; ")}`);
+  }
+
+  try {
+    mkdirSync(dirname(target), { recursive: true });
+    safeWrite(target, yamlText);
+  } catch (e) {
+    throw new Error(`upsert_features_yaml: WRITE_FAILED: ${e.message}`);
+  }
+
+  const result = { path: target, mode, id: feature.id };
+  if (warnings.length > 0) result.warnings = warnings;
+  return result;
+}
+
 // === claude_md impl ===
 
 function section(body) {
@@ -511,6 +736,7 @@ function handleMessage(line) {
       if (name === "tree") out = treeImpl(args);
       else if (name === "write_system_yaml") out = writeSystemYamlImpl(args);
       else if (name === "upsert_local_yaml") out = upsertLocalYamlImpl(args);
+      else if (name === "upsert_features_yaml") out = upsertFeaturesYamlImpl(args);
       else if (name === "claude_md") out = claudeMdImpl(args);
       else if (name === "docs_readme") out = docsReadmeImpl(args);
       else throw new Error(`Unknown tool: ${name}`);
