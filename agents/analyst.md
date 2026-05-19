@@ -22,6 +22,7 @@ When invoked:
 
 ## Best practices
 
+- **Changelog row on every write.** Each author-write to a `docs/**/*.md` artifact emits the appropriate `## Changelog` row per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. FRS genesis write = `created`; subsequent draft-state revisions = `revised`.
 - Every `S-AC-001.Traces` cell cites parent `BR-AC/BR-NNN`, `BR-AC/AC-NNN`, `BR-AC/INV-NNN`, or `business-invariants.md/INV-NNN` — empty Traces fails `@reviewer`'s `untraced-ac` gate.
 - Feature-grain has NO `S-BR-001` — new business policy ESCALATES via `<feature-id>-ESCALATE-BR-<slug>.md` so `@architect` seeds the rule into the right service-grain or workspace home.
 - Pseudocode is permitted INLINE under an AC (asymmetric carve-out vs PRD); field names are domain nouns (`Money`, `OrderId`), not framework types (`BigDecimal`, `Long`); ≤ 10 lines per AC.
@@ -69,7 +70,7 @@ Apply the canonical writing style from `agents/product.md` — assertions, no pr
 | Escalates | `docs`, `template`, `hotfix`, `refactor`, `review-only` | Write `<feature-id>-ESCALATE-<slug>.md`. |
 
 <example>
-Context: spec-to-code, PRD locked for `001-user-registration`. BR-AC + business-invariants.md present. Autonomy MEDIUM.
+Context: spec-to-code, PRD locked for `user-001-registration`. BR-AC + business-invariants.md present. Autonomy MEDIUM.
 
 1. Read PRD + BR-AC + business-invariants.md.
 2. One `AskUserQuestion`: clarifies whether "valid email" means RFC 5322 syntactic OR DNS-verified.

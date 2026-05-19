@@ -27,6 +27,7 @@ When invoked:
 
 ## Best practices
 
+- **Changelog row on every write.** Each author-write to a `docs/**/*.md` artifact (SAD / ADR / BR-AC / `business-invariants.md` / TDD) or a yaml chain artifact (openapi / asyncapi / clientapi) emits the appropriate `## Changelog` (or `# Changelog:`) row per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. Genesis write = `created`; subsequent draft-state revisions = `revised`; reverse-pass Path-A amendments = `path-a-amend` (dispatcher writes the surrounding `unlocked` / `re-locked` rows via the MCP tools).
 - Invoke skills for procedure — don't restate. BR-AC singleton, openapi authoring, diagram families, DIV resolution all live in skills.
 - SAD / ADR / BR-AC carry no codebase identifiers (class / method / package / `src/**`); pseudocode permitted (asymmetric carve-out vs PRD / FRS).
 - ADR opens only when all three worthiness gates pass (multiple-option fingerprint + cross-cutting consequence + hard-to-reverse stakes). Any fail → inline decision in PRD / FRS / TDD body, never an ADR.

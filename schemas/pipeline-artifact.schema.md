@@ -41,14 +41,15 @@ The `<context_path>/docs/` tree is self-contained: a reader walking it MUST NOT 
 
 ### Feature-id format <a id="S-FEATURE-ID-FMT-001"></a>
 
-`<feature-id> = <NNN>-<slug>` where:
+`<feature-id> = <short-service-name>-<NNN>-<slug>` where:
 
-- `<NNN>` is a zero-padded 3-digit ordinal, monotonically incremented per project. `NNN = max(existing docs/<NNN>-*) + 1`; first feature is `001`.
+- `<short-service-name>` is the value of `local.yaml.service_name` (kebab-case, ASCII letters + digits, ≤ 24 chars). Embeds cross-service uniqueness in the id.
+- `<NNN>` is a zero-padded 3-digit ordinal, monotonically incremented per service. `NNN = max(<NNN> segment across features[].id in .orchestra/<service_name>/features.yaml) + 1`; first feature per service is `001`.
 - `<slug>` is kebab-case, ASCII letters + digits only, derived from the feature name. Length ≤ 40 chars.
 
-Examples: `001-todo-api`, `002-user-auth`, `003-payment-flow`.
+Examples: `order-001-checkout`, `order-002-refund`, `payment-001-reconcile`.
 
-Every per-feature artifact filename embeds the full feature-id as a prefix: `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`, `001-todo-api-openapi.yaml`). The frontmatter `id:` field MUST equal the basename without extension.
+Every per-feature artifact filename embeds the full feature-id as a prefix: `<feature-id>-<TYPE>.<ext>` (e.g., `order-001-checkout-PRD.md`, `order-001-checkout-openapi.yaml`). The frontmatter `id:` field MUST equal the basename without extension.
 
 ### Doc-provenance marker <a id="S-DOC-PROVENANCE-001"></a>
 
@@ -117,8 +118,8 @@ Type → folder map:
 
 | Type | Folder | Example | Notes |
 |---|---|---|---|
-| `PRD`, `FRS`, `TDD`, `TSR` | `docs/<service_name>/<feature-id>/` | `001-order-placement-PRD.md` | per-feature; filename = `<feature-id>-<TYPE>.md` |
-| `API` (openapi/asyncapi) | `docs/<service_name>/<feature-id>/` | `001-order-placement-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
+| `PRD`, `FRS`, `TDD`, `TSR` | `docs/<service_name>/<feature-id>/` | `order-001-placement-PRD.md` | per-feature; filename = `<feature-id>-<TYPE>.md` |
+| `API` (openapi/asyncapi) | `docs/<service_name>/<feature-id>/` | `order-001-placement-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
 | `BR-AC` | `docs/<service_name>/` | `order-BR-AC.md` | per-service BR + AC singleton |
 | `BUSINESS-INVARIANTS` | `docs/` | `business-invariants.md` | workspace-grain singleton; cross-service business rules |
 | `SAD` | `docs/` | `SAD.md` | system-level singleton |
@@ -126,9 +127,9 @@ Type → folder map:
 | `ADR` (service) | `docs/<service_name>/adr/` | `ADR-order-001-use-outbox.md` | affects exactly one service; per-service 3-digit numbering |
 | `README` | `docs/` | `README.md` | provenance marker (`generated_by: orchestra`) |
 | `RUN-PLAN` | `.orchestra/<service_name>/` | `run-plan.md` | per-service singleton |
-| `TASKS` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `001-order-placement-TASKS.md` | agent-internal |
-| `PLAN` | `.orchestra/<service_name>/tasks/<run-id>/<agent>/` | `001-order-placement.md` | per-agent execution plan |
-| `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `001-order-placement-ESCALATE-spec-gap.md` | transient |
+| `TASKS` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `order-001-placement-TASKS.md` | agent-internal |
+| `PLAN` | `.orchestra/<service_name>/tasks/<run-id>/<agent>/` | `order-001-placement.md` | per-agent execution plan |
+| `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `order-001-placement-ESCALATE-spec-gap.md` | transient |
 | `INCOMPLETE` | `.orchestra/<service_name>/pipeline/` | `r2026-05-13T14-22-INCOMPLETE.md` | run-scoped |
 
 ## Common shape (all artifacts)
@@ -219,6 +220,40 @@ Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segm
 
 **Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md` (provenance marker), and per-agent `PLAN` files.
 
+### `## Changelog` (mandatory) <a id="changelog-block"></a>
+
+Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section as the FIRST body element, immediately after frontmatter and BEFORE any `S-<TAG>-NNN` anchor. Yaml chain artifacts (`<feature-id>-openapi.yaml`, `<feature-id>-asyncapi.yaml`, `<feature-id>-clientapi.yaml`) carry the same audit trail in a top-of-file `# Changelog:` comment block; rules below apply equally.
+
+**Row format** (one per line):
+
+```
+- YYYY-MM-DDTHH:MM:SSZ | <action> by @<agent>|dispatcher | <one-line reason or revision_notes excerpt ≤ 100 chars>
+```
+
+**Action enum**: `created` | `revised` | `unlocked` | `re-locked` | `path-a-amend` | `path-b-fix` | `regenerated`.
+
+**Rules:**
+
+1. First row of every artifact MUST have action `created` and `@<agent>` matching the original author. The same write that creates the artifact emits this row.
+2. A `status: locked` artifact's LAST changelog row MUST have action `re-locked` OR `created` — a locked artifact in any other tail state is mid-transition and structurally invalid.
+3. A `status: revision_requested` artifact's LAST changelog row MUST have action `unlocked`.
+4. Rows are append-only; existing rows MUST NOT be modified, removed, or reordered. `pre-write-check.js` Gate-F enforces.
+5. Reason excerpt ≤ 100 chars, single line, no markdown formatting.
+
+**Transitions that emit rows:**
+
+| Transition | Writer | Action |
+|---|---|---|
+| Initial author-write | `@<agent>` | `created` |
+| Section update on draft artifact | `@<agent>` | `revised` |
+| Path-A unlock | dispatcher via `mcp__orchestra-utils__amend_locked_artifact` | `unlocked` |
+| Path-A amendment | authoring agent (typically `@architect`) on `task: path-a-amend` | `path-a-amend` |
+| Path-A re-lock | dispatcher via `mcp__orchestra-utils__relock_artifact` | `re-locked` |
+| Path-B closure | dispatcher | `path-b-fix` |
+| Full regenerate (rare; user-driven) | dispatcher | `regenerated` |
+
+**Carve-outs.** Same exemption set as the `sections:` block-grammar above: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md`, per-agent `PLAN` files. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
+
 ## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
 
 Artifacts under `docs/` deliver decisions and contracts, not narrative. Two universal rules: **bullets over prose** (reserve paragraphs for reasoning that needs them) and **no orchestra plumbing in stakeholder bodies** (the chain is invisible — do not name `@product` / `@lead` / `@architect` / `@test-author` / `@test-runner` / `@evaluator` / `@reviewer` in PRD / FRS / SAD / TDD / ADR / TSR bodies; cross-references between consumer artifacts ARE fine). Per-agent writing-style rules (assertions vs descriptions, no preambles, no hedging, no restatements, persona naming) live in each authoring agent's `## Writing style` section — `agents/product.md`, `agents/architect.md`, `agents/lead.md`.
@@ -279,7 +314,7 @@ OpenAPI/AsyncAPI document is the artifact body. Frontmatter contract lives in a 
 
 ```yaml
 # orchestra:
-#   id: 001-todo-api-openapi
+#   id: todo-001-api-openapi
 #   type: API
 #   status: draft
 #   verdict: PENDING

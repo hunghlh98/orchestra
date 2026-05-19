@@ -8,7 +8,7 @@
 - **Out-of-whitelist enforcement**: if an agent infers an artifact is required that's NOT in its routed-intent whitelist, write `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-ESCALATE-<slug>.md` with `reason: "<role> spawned outside routing whitelist for intent=<intent>"` and end your turn. Do NOT no-op silently.
 - **ADR sub-flow**: `feature` and `refactor` intents may open an ADR mid-flow when a non-obvious system-affecting decision surfaces. `@architect` is sole author; `@reviewer` reviews. 3-round circuit breaker → `<feature-id>-ESCALATE-ADR-<NNNN>.md`. ADRs are referenced from PRD/FRS/TDD/openapi bodies by ID (`ADR-<NNNN>-<slug>`) in plain prose, not by section anchor.
 
-Paths: per-feature prose in `docs/<service_name>/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `001-todo-api-PRD.md`).
+Paths: per-feature prose in `docs/<service_name>/<feature-id>/`, ADRs flat in `docs/adr/`, agent-internal coordination in `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Filenames are `<feature-id>-<TYPE>.<ext>` (e.g., `todo-001-api-PRD.md`).
 
 ---
 

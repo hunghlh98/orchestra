@@ -10,7 +10,7 @@ Every file under `docs/` carries frontmatter declaring `generated_by: orchestra`
 
 ## Layout
 
-Expected layout at full chain completion. `<service_name>` resolves from `<context_path>/.orchestra/<service_name>/local.yaml`; `<feature-id>` shape is `<NNN>-<slug>` per run-plan `S-FEATURES-001`.
+Expected layout at full chain completion. `<service_name>` resolves from `<context_path>/.orchestra/<service_name>/local.yaml`; `<feature-id>` shape is `<short-service-name>-<NNN>-<slug>` (e.g., `order-001-checkout`) per run-plan `S-FEATURES-001`.
 
 ```
 docs/

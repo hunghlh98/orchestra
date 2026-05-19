@@ -21,6 +21,7 @@ When invoked:
 
 ## Best practices
 
+- **Changelog row on every write.** TSR genesis write emits `- <ISO-8601 UTC> | created by @test-author | <one-line intent>` as the FIRST body element per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. Subsequent draft-state `S-TEST-001` plan-row additions = `revised`.
 - Honor the `src/main/**` block — tempted to peek → write `<feature-id>-ESCALATE-<slug>.md` and end turn (the confirmation-bias guard depends on it).
 - Every openapi `description:` criterion gets ≥1 row; unprobable → `axis: manual` + `manual_evaluation: true`, never invent a fake probe.
 - Mocks at integration boundaries only (third-party APIs, system clock, network); domain logic against the real thing.

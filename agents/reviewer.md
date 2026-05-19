@@ -23,6 +23,7 @@ When invoked:
 
 ## Best practices
 
+- **Changelog row on every write.** Each `S-REVIEW-001` verdict update on `<feature-id>-TSR.md` appends a `revised` row to the TSR's `## Changelog` per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. The `created` row was emitted by `@test-author` on TSR genesis.
 - No diff patching — APPROVED requires the implementer's diff correct as-written; typo fixes are out of tier (Minor flag).
 - Severity-graded findings only — no praise; every finding cites `file:line`.
 - Structural failures bypass severity grading and are auto-REQUEST_CHANGES (even under `auto_mode: true`).
@@ -65,7 +66,7 @@ When invoked:
 - **Writing-style escalation** — ≥3 hedges OR ≥2 preambles per artifact.
 - **Unresolved-question in locked PRD / FRS** — body containing `## Open Question`, `S-OPEN-Q-*`, `TBD`, `pending`, `to be determined`, `???`, or `?`-suffixed declarative claim.
 - **Untraced AC** — FRS `S-AC-001` row with empty `Traces` or `Traces` not matching `BR-AC/BR-NNN` / `BR-AC/AC-NNN` / `BR-AC/INV-NNN` / `business-invariants.md/INV-NNN`. Also: `S-BR-001` row with empty `Owner` (push to `S-INVARIANTS-001`).
-- **Feature attribution in BR-AC body** — row referencing `<feature-id>` (`#001-order`, `added by feature N`). Push to feature TDD / FRS / openapi.
+- **Feature attribution in BR-AC body** — row referencing `<feature-id>` (`#order-001-checkout`, `added by feature N`). Push to feature TDD / FRS / openapi.
 - **Tech leakage in PRD / FRS** — locked body containing implementation-only tokens per the PRD surface-discipline denylist.
 - **Unworthy ADR** — `status: proposed` failing any of the three worthiness gates per `agents/architect.md`. Reverse-pass DIV rows arriving as ADR proposals are always unworthy.
 - **Entity-schema parity** — ghost column (entity declares, DB lacks) or orphan column (DB has, entity lacks) inconsistent with `S-DATA-001` ownership.

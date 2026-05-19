@@ -231,10 +231,10 @@ This project uses **orchestra** for SDLC orchestration. The chain owns spec / ar
 
 ## Source of truth
 
-- Behavior specs: `docs/<feature-id>/<feature-id>-PRD.md` (problem / scope), `<feature-id>-FRS.md` (FR / AC). `<feature-id>` = `<NNN>-<slug>` (e.g., `001-todo-api`).
+- Behavior specs: `docs/<service_name>/<feature-id>/<feature-id>-PRD.md` (problem / scope), `<feature-id>-FRS.md` (FR / AC). `<feature-id>` = `<short-service-name>-<NNN>-<slug>` (e.g., `order-001-checkout`).
 - Architecture: `docs/SAD.md` and `docs/adr/ADR-NNNN-*.md`.
-- API contracts: `docs/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`).
-- Test plans + verdicts: `docs/<feature-id>/<feature-id>-TSR.md`.
+- API contracts: `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` (or `<feature-id>-asyncapi.yaml`).
+- Test plans + verdicts: `docs/<service_name>/<feature-id>/<feature-id>-TSR.md`.
 - Runtime config: `.orchestra/<service_name>/local.yaml`.
 - Feature manifest: `.orchestra/<service_name>/features.yaml` (intra-service DAG of `<feature-id>` nodes with `depends_on:` / `supersedes:` edges).
 

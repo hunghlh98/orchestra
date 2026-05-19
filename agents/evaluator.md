@@ -21,6 +21,7 @@ When invoked:
 
 ## Best practices
 
+- **Changelog row on every write.** Each `S-EVAL-001` verdict update on `<feature-id>-TSR.md` appends a `revised` row to the TSR's `## Changelog` per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. The `created` row was emitted by `@test-author` on TSR genesis.
 - Strict read-only on `src/**` (honor-system mirror of `@test-author`'s block) — source-vs-spec disagreement → `@reviewer`.
 - Confidence ≥80% per calibration anchor; below → `PENDING`, never `PASS` / `FAIL`.
 - Critical-failure conditions outrank probe results — `critical: true` + any FAIL trigger = FAIL even when every individual test passed.

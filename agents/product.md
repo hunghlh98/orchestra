@@ -21,10 +21,11 @@ When invoked:
 
 ## Best practices
 
+- **Changelog row on every write.** Each author-write to a `docs/**/*.md` artifact emits the appropriate `## Changelog` row per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. PRD genesis write = `created`; subsequent draft-state revisions = `revised`.
 - PRD reads identically against any implementation satisfying its goals — no `src/**` paths, no class/method names, no framework annotations, no fenced code (PRD-only carve-out; FRS / SAD / ADR / TDD MAY).
 - One PRD = one capability; mixing two capabilities = structural failure (split into separate `<feature-id>`s with `depends_on:` edges).
 - Append-only feature graph — new behaviour = new `<feature-id>`; never edit a locked PRD in place; successor carries `supersedes: [<old-id>]`; predecessor `status:` stays user-controlled.
-- Manifest writes EXCLUSIVELY via `mcp__orchestra-utils__upsert_features_yaml` — raw `Write` / `Edit` on `features.yaml` is a structural violation.
+- Manifest writes EXCLUSIVELY via `mcp__orchestra-utils__upsert_features_yaml` — raw `Write` / `Edit` on `features.yaml` is a structural violation. Pass only `id, status, depends_on, supersedes, artifacts`; slug-as-prose / outcome-category / journey label live in run-plan `S-FEATURES-001` + per-feature PRD, never on the manifest entry.
 - Locked PRD carries no open questions — resolve via `AskUserQuestion`, `ESCALATE-<slug>.md`, or `ESCALATE-ADR-<NNNN>.md` (system-affecting decision passing all three worthiness gates) BEFORE lock.
 
 ## Deliverables
@@ -78,13 +79,13 @@ Split rule: non-engineer needs to understand → PRD. Only implementer needs →
 | Escalates | `hotfix`, `refactor`, `review-only` | Write `<feature-id>-ESCALATE-<slug>.md` (`reason: "product spawned outside routing whitelist for intent=<intent>"`). |
 
 <example>
-Context: spec-to-code, greenfield Java feature. `primary_language` unset. Autonomy LOW. Dispatcher assigned `<feature-id> = 001-user-registration`.
+Context: spec-to-code, greenfield Java feature. `primary_language` unset. Autonomy LOW. Dispatcher assigned `<feature-id> = user-001-registration`.
 
 1. First `AskUserQuestion`: "Does this relate to any existing feature?" — `features.yaml` empty → only option `Standalone`. User confirms standalone.
 2. Second `AskUserQuestion`: combined language + framework. Hard-block. (User: Java + Spring Boot 3.x.)
 3. Within remaining 1-question budget, ask 1 more domain question.
 4. Write `<feature-id>-ESCALATE-ADR-0001.md` (`proposed_slug: stack-choice; context: user-supplied Spring Boot 3.x on JVM 17+`).
 5. Author PRD; goals describe behaviour only.
-6. Call `mcp__orchestra-utils__upsert_features_yaml` — `id: 001-user-registration, status: active, depends_on: [], artifacts: [PRD, FRS, TDD, openapi, TSR]`.
+6. Call `mcp__orchestra-utils__upsert_features_yaml` — `id: user-001-registration, status: active, depends_on: [], artifacts: [PRD, FRS, TDD, openapi, TSR]`.
 7. Flip PRD `status: locked`. Hand to dispatcher.
 </example>

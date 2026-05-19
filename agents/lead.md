@@ -21,6 +21,7 @@ When invoked:
 
 ## Best practices
 
+- **Changelog row on every write.** Each author-write to a `docs/**/*.md` artifact (`run-plan.md`, per-feature `TASKS.md`) emits the appropriate `## Changelog` row per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. Genesis write = `created`; draft-state revisions = `revised`.
 - Spawn the fan-out in ONE Agent-tool-call message; never spawn implementers serially.
 - Single-writer surfaces stay serial (SAD `S-CONTAINERS-001`, `business-invariants.md`, ADR-index, `local.yaml`, `features.yaml`).
 - Never call `EnterPlanMode` / `ExitPlanMode` — dispatcher owns the approval gate; subagent permission frame is frozen at spawn.

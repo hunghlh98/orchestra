@@ -94,10 +94,12 @@ On `@lead` return:
 
 1. `Read(<context_path>/.orchestra/<service_name>/run-plan.md)`.
 2. Approval splits by `chain:` (not by `mode`):
-   - **`chain: reverse-pass`** — `EnterPlanMode` with the run-plan body as the plan content (`S-FEATURES-001` is the load-bearing section reviewer scans); `ExitPlanMode` collects accept/reject. Mid-run user signal "DB ready, restart" or any other external-state change AFTER a TDD has locked → before resuming, re-spawn `@lead` for a focused schema-diff pass against `S-DATA-001`; restart-first is a process violation logged in the reverse-pass run report.
+   - **`chain: reverse-pass`** — `EnterPlanMode` with the run-plan body as the plan content (`S-FEATURES-001` is the load-bearing section reviewer scans); `ExitPlanMode` collects accept/reject. Plan-mode body MUST prepend an `## Auto-mode notice` block above `S-FEATURES-001` warning the reviewer that accept flips `auto_mode: true` and skips between-phase gates, per-feature confirmations, and `DRAFT_AND_GATE` checkpoints; reject keeps them firing. Mid-run user signal "DB ready, restart" or any other external-state change AFTER a TDD has locked → before resuming, re-spawn `@lead` for a focused schema-diff pass against `S-DATA-001`; restart-first is a process violation logged in the reverse-pass run report.
    - **`chain: forward-chain`** — `AskUserQuestion(approve | revise)`.
 3. Accept → `mcp__orchestra-utils__upsert_local_yaml(context_path, service_name, auto_mode: true, run_plan_status: approved)`; flip run-plan frontmatter `run_plan_status: approved` + `status: locked` via `Write` (dispatcher has unrestricted write surface; Gate-A inapplicable to `.orchestra/**`).
-4. Reject/revise → flip frontmatter `run_plan_status: revision_requested`; capture reviewer notes; re-spawn `@lead` with notes lifted into `## Revision notes` under `S-APPROVAL-001` and `revision_cycle` incremented. Max 3 cycles; cycle 4 → `pipeline/run-plan-ESCALATE.md`.
+4. Reject/revise splits by `chain:`:
+   - **`chain: reverse-pass`** — dispatcher updates the plan-mode file inline with the revised approach (plan-mode's native edit affordance — multiple edits per session, single `ExitPlanMode` on accept). Capture reviewer notes; re-spawn `@lead` only when the revision requires fresh content from upstream artifacts. Max 3 in-plan-mode revision cycles; cycle 4 → `pipeline/run-plan-ESCALATE.md`.
+   - **`chain: forward-chain`** — flip frontmatter `run_plan_status: revision_requested`; capture reviewer notes; re-spawn `@lead` with notes lifted into `## Revision notes` under `S-APPROVAL-001` and `revision_cycle` incremented. Max 3 cycles; cycle 4 → `pipeline/run-plan-ESCALATE.md`.
 
 After `auto_mode: true`: between-phase "proceed?" gates, per-feature confirmations, and `DRAFT_AND_GATE` checkpoints skip. Structural-failure halts + `ESCALATE` / `DEADLOCK` emission always preserved.
 
@@ -110,7 +112,7 @@ Dispatcher drives the chain via the 5-gate state machine (see `## Per-feature ex
 ```
 phase: spec-draft
 spawned_agent: @product (first), then @analyst, @architect, @lead per gate-approval
-feature_id: <NNN>-<slug>  (dispatcher-minted from features.yaml)
+feature_id: <short-service-name>-<NNN>-<slug>  (dispatcher-minted from features.yaml; service from local.yaml.service_name)
 inputs: <context_path>/.orchestra/<service_name>/local.yaml + run-plan.md + features.yaml (read-only at @product) + docs/business-invariants.md (multi-repo only) + docs/<service_name>/<service_name>-BR-AC.md
 linear chain: @product (PRD + features.yaml entry) → @analyst (FRS) → @architect (SAD + ADR? + TDD + openapi/asyncapi) → @lead (TASKS + run-plan) → @backend ‖ @frontend ‖ @test-author → @test-runner → @evaluator + @reviewer → TSR
 ```
@@ -144,6 +146,41 @@ Authored set by scope:
 Auto-promote also patches run-plan: `auto_promote_workspace_sad: true` in frontmatter + `S-SCOPE-UPGRADE-001` anchor declares upgrade (human reviewer sees it before approving).
 
 **Source read-root.** `per-service` → every chain agent reads from `local.yaml.source_path`. `system-wide` → reads from `<context_path>` (workspace root). Auto-promote inherits `system-wide` for workspace pass, reverts to `per-service` for narrowing pass.
+
+**Per-task deliverable contract.** Every `@architect` spawn under `task: reverse-pass` MUST author the full set below for the spawn's scope. Dispatcher post-pass walks the brief's deliverable list; absent paths → `task: deliverable-gap-fill` re-spawn.
+
+| `task:` value | Scope | Deliverable paths |
+|---|---|---|
+| `provenance-marker` | one-shot | `<context_path>/docs/README.md` via `mcp__orchestra-utils__docs_readme` only. |
+| `workspace-sad-author` | workspace | `<context_path>/docs/SAD.md`; `<context_path>/docs/business-invariants.md`; `<context_path>/docs/adr/ADR-<NNNN>-<slug>.md`; `<context_path>/docs/diagrams/{c4-context,c4-container,erd-logical}.puml`; `sequence-inter-<flow>.puml`. |
+| `per-service-narrowing` | one service | `<context_path>/docs/<service_name>/<service_name>-BR-AC.md`; `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md` (when newly opened); `<context_path>/docs/<service_name>/diagrams/{c4-component,c4-code,erd-logical}.puml`; per-feature `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TDD.md` (anchors `S-OVERVIEW-001`, `S-COMPONENTS-001`, `S-DATA-001`, `S-STATE-001`, `S-CONFIG-001`, `S-ARCHITECTURE-001`); `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` / `<feature-id>-clientapi.yaml`; per-feature `<feature-id>-{c4-context,c4-container,seq-<journey>,state-technical,erd-physical}.puml`. |
+| `deliverable-gap-fill` | one service, list in brief | absent paths from a preceding `per-service-narrowing` pass. |
+| `reverse-pass` (single-repo single-service) | one service | identical to `per-service-narrowing` row above (no `workspace-sad-author` precondition). |
+
+**Spawn brief template (per-service-narrowing).**
+
+```
+phase: discovery
+task: per-service-narrowing
+feature_ids: [<feature-id>, ...]                # ids minted via features.yaml NNN + 1
+source_read_root: <local.yaml.source_path>
+scope_frame: per-service
+service_name: <local.yaml.service_name>
+deliverables:                                   # full paths per contract row above
+  - <context_path>/docs/<service_name>/<service_name>-BR-AC.md
+  - <context_path>/docs/<service_name>/diagrams/c4-component.puml
+  - <context_path>/docs/<service_name>/diagrams/c4-code.puml
+  - <context_path>/docs/<service_name>/diagrams/erd-logical.puml
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-TDD.md          # per feature_id
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml    # per feature_id
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-asyncapi.yaml   # per feature_id (event-emitting only)
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml  # per feature_id (consumer of upstream only)
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-seq-<journey>.puml
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-state-technical.puml
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-erd-physical.puml
+```
+
+**Post-pass deliverable check.** Dispatcher walks the brief's `deliverables:` list after `@architect` returns; absent paths → `Write(<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/MISSING-DELIVERABLES-<service>.md)` listing absent paths; re-spawn `@architect` with `task: deliverable-gap-fill` carrying the list. Cycles until coverage closes.
 
 **Provenance marker.** First run when preflight reports `docs_provenance: unknown` → spawn `@architect` with `task: provenance-marker`. `@architect` calls `mcp__orchestra-utils__docs_readme(context_path)` — the tool pins frontmatter (`id: docs-readme`, `type: README`, `generated_by: orchestra`, `status: locked`) and writes a canonical body from `hooks/references/docs-readme.template.md`. No improvisation, no `Write` author path.
 
@@ -199,9 +236,10 @@ Routes:
 Dispatcher mints `<feature-id>` BEFORE first agent spawn. Algorithm:
 
 1. Read `<context_path>/.orchestra/<service_name>/features.yaml` (init `{ features: [] }` when absent).
-2. `NNN` = max numeric prefix across all `features[].id` + 1, zero-padded to 3 digits.
-3. User supplies slug at gate 1 (or implicit from intent at HIGH classifier confidence).
-4. Concatenate `<NNN>-<slug>`. Pass into `@product` spawn context; `@product` writes the entry via `mcp__orchestra-utils__upsert_features_yaml`.
+2. `<short-service-name>` = `local.yaml.service_name`.
+3. `<NNN>` = max numeric segment across all `features[].id` + 1, zero-padded to 3 digits (per-service ordinal; the intra-service manifest already partitions by service).
+4. User supplies slug at gate 1 (or implicit from intent at HIGH classifier confidence).
+5. Concatenate `<short-service-name>-<NNN>-<slug>` (e.g., `order-001-checkout`). Pass into `@product` spawn context; `@product` writes the entry via `mcp__orchestra-utils__upsert_features_yaml`.
 
 Slug shape: tech / CRUD / lifecycle noun (`order`, `order-checkout`, `order-refund`, `<aggregate>-purchase-lifecycle`, `<aggregate>-termination`). Reject Journey-gate category labels (`forward-purchase`, `abandonment`, `reversal`) and verb-prefixed slugs (`regen-*`, `refactor-*`, `fix-*`).
 
@@ -301,6 +339,8 @@ Gate R-2: synthesized PRD review → done
 
 Reverse-pass writes the `features.yaml` entry at the END (when `@product` synthesizes), not the start.
 
+**Manifest scope.** `features.yaml` carries the intra-service DAG shape only: `id, status, depends_on, supersedes, artifacts`. Semantic dimensions (slug-as-prose, outcome category, journey label, business intent) live in the run-plan `S-FEATURES-001` body and the per-feature PRD — never in `features.yaml`. The slug is already embedded in `id` per pattern `^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$` (e.g., `order-001-checkout`); do not author a separate `slug:` field.
+
 ## Shared rules
 
 ### Phase-tag emission
@@ -309,7 +349,25 @@ Every `Agent({...})` call MUST prepend `phase: <name>` on its own line. Canonica
 
 ### Parallel-spawn discipline
 
-Cohort of N agents (feature fan-out, BR-AC fan-out, SAD pre-pass cohort) MUST emit ALL `Agent({...})` calls in ONE assistant message. Staggered spawns across multiple messages are a structural violation; `metrics-collector` flags them as `cohort.spawn.staggered` warnings on `runs/<id>.json`. Tool-call batching is one message containing N tool-use blocks — not N messages each containing one block.
+Cohort of N agents (feature fan-out, BR-AC fan-out, SAD pre-pass cohort, `@analyst` / `@product` reverse-pass per-feature batches) MUST emit ALL `Agent({...})` calls in ONE assistant message. Before spawning, count: are there N>1 agents at the same `phase:` with no read-dependency between them? If yes → ONE message with N tool-use blocks. Staggered spawns across multiple messages are a structural violation; `metrics-collector` flags them as `cohort.spawn.staggered` warnings on `runs/<id>.json`. Tool-call batching is one message containing N tool-use blocks — not N messages each containing one block.
+
+### Spawn brief discipline
+
+Spawn briefs describe what to look for, not what to find. Prescriptive findings risk fabrication; descriptive briefs let well-behaved agents flag divergences instead of confirming pre-supplied conclusions.
+
+- ❌ `the cancel/refund path enforces X-User-Id ownership matching the order's owner (lift from BR-AC INV-*)`
+- ✅ `verify whether cancel/refund endpoints enforce ownership; if observed, lift the constraint to BR-AC. If absent, raise as a divergence candidate.`
+
+Violations surface late (only via `@analyst` resistance or `@evaluator` cross-check); model-disciplined drafters can mask them entirely.
+
+### Preconditions to surface in run-plans
+
+Dispatcher lifts the applicable bullets into the run-plan's `S-CONTEXT-001` body for human reviewer awareness pre-approval:
+
+- Spawn briefs describe, never prescribe (see `### Spawn brief discipline`).
+- Path-A ratification on locked chain artifacts requires `mcp__orchestra-utils__amend_locked_artifact` + `relock_artifact` (sibling tools; emit the matching `unlocked` / `re-locked` row in the same write that flips `status:`). Surface up-front if reverse-pass is likely to raise Path-A divergences.
+- Single-writer surfaces (SAD `S-CONTAINERS-001`, workspace `business-invariants.md`, ADR-index) stay serial — never fan out parent-write.
+- Cohort spawns (feature fan-out, BR-AC fan-out, SAD pre-pass cohort) emit ONE message (see `### Parallel-spawn discipline`).
 
 ### Status output
 
@@ -357,6 +415,14 @@ A **journey** = one **terminal-state outcome category** of an aggregate root. Mu
 **Stub rejection.** One hop + no transition + no failure variant = sub-step, not journey. Fold into parent journey of its outcome category.
 
 Worked example (value-transfer aggregate, `{PAID, DELIVERED, PARTIAL_DELIVERY, DELIVERY_FAILED, PAYMENT_FAILED, CANCELLED, EXPIRED, REFUNDED}`): yields three user-actor categories (forward-attempt / pre-completion abandonment / post-completion reversal) + operational. Four journeys: `<aggregate>-purchase-lifecycle` (happy + payment-failure as `alt`), `<aggregate>-termination` (user-cancel + TTL-expiry as `alt`), `<aggregate>-refund`, operational `<aggregate>-reconciliation`. Non-value-transfer domains partition differently — names above are NOT the contract.
+
+### Tool prerequisites
+
+Dispatcher tool surface splits by call-readiness:
+
+- **Immediate** (callable without `ToolSearch`): `Read`, `Write`, `Edit`, `Bash`, `Agent`, `AskUserQuestion`.
+- **Deferred** (require `ToolSearch select:<name>` before first call): `TaskCreate`, `TaskUpdate`, `EnterPlanMode`, `ExitPlanMode`, all `mcp__orchestra-utils__*`, all `mcp__orchestra-probe__*`.
+- Load orchestra MCP tools in a single batch: `ToolSearch query: "select:tree,write_system_yaml,upsert_local_yaml,upsert_features_yaml,claude_md,docs_readme"` (single round-trip).
 
 ## Runtime hooks
 
