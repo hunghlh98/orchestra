@@ -15,7 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const agentsDir = resolve(root, "agents");
 
 const VALID_NAMES = new Set([
-  "product", "architect", "lead", "backend", "frontend",
+  "product", "analyst", "architect", "lead", "backend", "frontend",
   "test-author", "test-runner", "evaluator", "reviewer",
 ]);
 
