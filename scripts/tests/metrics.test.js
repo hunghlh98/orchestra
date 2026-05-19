@@ -18,7 +18,17 @@ function check(cond, msg) {
   else { failures++; console.error(`  FAIL: ${msg}`); }
 }
 
-function runHook(stdinObj, env = {}) {
+function runHook(stdinObj, env = {}, opts = {}) {
+  // Cold-start gate (F-014): metrics-collector no-ops until
+  // .orchestra/system.yaml exists. Auto-seed for every test that supplies
+  // a cwd unless opts.skipSeed = true (used by the cold-start gate test).
+  if (stdinObj && stdinObj.cwd && !opts.skipSeed) {
+    const sysYamlPath = join(stdinObj.cwd, ".orchestra", "system.yaml");
+    if (!existsSync(sysYamlPath)) {
+      mkdirSync(dirname(sysYamlPath), { recursive: true });
+      writeFileSync(sysYamlPath, "workspace_kind: single-repo\ncontext_path: .\n");
+    }
+  }
   return spawnSync("node", [collector], {
     input: JSON.stringify(stdinObj),
     encoding: "utf8",
@@ -901,6 +911,23 @@ console.log("metrics-collector opt-out:");
     check(r.status === 0, `opt-out: exits 0`);
     const events = join(tmp, ".orchestra/metrics/events.jsonl");
     check(!existsSync(events), `opt-out: no events file created`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// --- 6. F-014 cold-start gate: no .orchestra/system.yaml → no-op ---
+console.log("metrics-collector cold-start gate:");
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-coldstart-"));
+  try {
+    const r = runHook(
+      { session_id: "s", cwd: tmp, hook_event_name: "Stop" },
+      {},
+      { skipSeed: true }
+    );
+    check(r.status === 0, `cold-start: exits 0`);
+    check(!existsSync(join(tmp, ".orchestra")), `cold-start: no .orchestra/ dir materialized`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

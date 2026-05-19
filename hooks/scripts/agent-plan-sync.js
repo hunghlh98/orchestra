@@ -18,6 +18,7 @@
 // Crash semantics: never block. Exit 0 on any failure.
 
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { resolveContext, findJustStoppedSubagentMeta, deriveFeatureId } from "../lib/plan-sync.js";
 import {
   planPathFor, readOrInitPlan, readPlan, writePlan, renderPlan,
@@ -42,6 +43,19 @@ async function main() {
     }
 
     const input = JSON.parse(stdin);
+
+    // Cold-start gate: until .orchestra/system.yaml exists (first /orchestra
+    // invocation writes it via mcp__orchestra-utils__write_system_yaml), no
+    // orchestra session has bootstrapped here — no-op so this hook never
+    // creates .orchestra/tasks/* unsolicited.
+    {
+      const cwdGuess = input.cwd || process.cwd();
+      if (!existsSync(join(cwdGuess, ".orchestra/system.yaml"))) {
+        emitAllowIfPreToolUse(stdin);
+        process.exit(0);
+      }
+    }
+
     const event = input.hook_event_name;
     const tool = input.tool_name;
 

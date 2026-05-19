@@ -44,6 +44,22 @@ async function main() {
     for await (const chunk of process.stdin) stdin += chunk;
     const input = JSON.parse(stdin);
 
+    // Cold-start gate: no orchestra session has materialized in this project
+    // until .orchestra/system.yaml exists (written by mcp__orchestra-utils__write_system_yaml
+    // on first /orchestra invocation). Until then, no-op so this hook never
+    // creates .orchestra/ unsolicited in projects that only have the plugin installed.
+    {
+      const cwdGuess = input.cwd || process.cwd();
+      if (!existsSync(join(cwdGuess, ".orchestra/system.yaml"))) {
+        if (input.hook_event_name === "PreToolUse") {
+          process.stdout.write(JSON.stringify({
+            hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow" },
+          }));
+        }
+        process.exit(0);
+      }
+    }
+
     // Pre-resolve subagent identity before classify() so classify stays pure.
     // Dedupe: the SubagentStop hook may fire twice per real subagent stop
     // (observed in the wild — same sid in tokens.jsonl with identical totals).

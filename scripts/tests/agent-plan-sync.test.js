@@ -41,7 +41,17 @@ function seedSubagentSession({ projectsDir, parentSid, subSid, agentRole, featur
   writeFileSync(join(subagentsDir, `agent-${subSid}.meta.json`), JSON.stringify({ agentType: `orchestra:${agentRole}` }));
 }
 
-function runHook(input, env = {}) {
+function runHook(input, env = {}, opts = {}) {
+  // Cold-start gate (F-014): agent-plan-sync no-ops until
+  // .orchestra/system.yaml exists. Auto-seed for every test that supplies
+  // a cwd unless opts.skipSeed = true.
+  if (input && input.cwd && !opts.skipSeed) {
+    const sysYamlPath = join(input.cwd, ".orchestra", "system.yaml");
+    if (!existsSync(sysYamlPath)) {
+      mkdirSync(dirname(sysYamlPath), { recursive: true });
+      writeFileSync(sysYamlPath, "workspace_kind: single-repo\ncontext_path: .\n");
+    }
+  }
   return spawnSync("node", [SCRIPT], {
     input: JSON.stringify(input),
     encoding: "utf8",
@@ -238,6 +248,28 @@ console.log("agent-plan-sync — idempotent on duplicate PostToolUse(TaskCreate)
       const plan = readPlanFile(planPath);
       check(plan.frontmatter.tasks?.length === 1, `same claude_task_id appended once, not twice`);
     }
+  } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
+}
+
+// ---------- F-014 cold-start gate: no .orchestra/system.yaml → no-op ----------
+console.log("agent-plan-sync — cold-start gate (F-014):");
+{
+  const sb = setupSandbox("cold-start");
+  try {
+    const r = runHook(
+      {
+        cwd: sb.cwdDir,
+        session_id: "ses-coldstart",
+        hook_event_name: "PostToolUse",
+        tool_name: "TaskCreate",
+        tool_input: { subject: "test", description: "" },
+        tool_response: { taskId: "tk-1" },
+      },
+      { HOME: sb.homeDir },
+      { skipSeed: true }
+    );
+    check(r.status === 0, `cold-start: exits 0`);
+    check(!existsSync(join(sb.cwdDir, ".orchestra")), `cold-start: no .orchestra/ dir materialized`);
   } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
 }
 

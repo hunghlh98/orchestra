@@ -92,13 +92,13 @@ export function safeRead(path, maxBytes) {
   }
 }
 
-export function safeWrite(path, content) {
+export function safeWrite(path, content, mode = 0o600) {
   assertParentOwnedByEuid(path);
   rejectSymlink(path);
   const parent = dirname(path);
   const tempName = `.${basename(path)}.tmp.${process.pid}.${randomBytes(6).toString("hex")}`;
   const tempPath = join(parent, tempName);
-  const fd = openSync(tempPath, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600);
+  const fd = openSync(tempPath, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, mode);
   try {
     const buf = Buffer.isBuffer(content) ? content : Buffer.from(content, "utf8");
     let off = 0;

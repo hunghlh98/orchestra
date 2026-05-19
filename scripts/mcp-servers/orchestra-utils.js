@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/mcp-servers/orchestra-utils.js
-// MCP server: orchestra utilities. Six tools.
+// MCP server: orchestra utilities. Eight tools.
 //
 //   tree                          read-only directory listing
 //   write_system_yaml             closed-allowlist write to <ctx>/.orchestra/system.yaml
@@ -8,6 +8,8 @@
 //   upsert_features_yaml          closed-allowlist upsert to <ctx>/.orchestra/<svc>/features.yaml with DAG enforcement
 //   claude_md                     idempotent splice of orchestra section into <ctx>/CLAUDE.md
 //   docs_readme                   idempotent author of <ctx>/docs/README.md provenance marker
+//   amend_locked_artifact         flip locked → revision_requested; append `unlocked` changelog row (Path-A)
+//   relock_artifact               flip revision_requested → locked; append `re-locked` changelog row (Path-A)
 //
 // Intentional pre-write-check bypass: pre-write-check.js is registered only on
 // Write|Edit|MultiEdit matchers (hooks/hooks.json). MCP tools/call events fire
@@ -58,8 +60,10 @@ const LOCAL_FIELDS = [
 const ALLOWED_WRITE_SYSTEM_ARGS = new Set(["context_path", "workspace_kind", "status"]);
 const ALLOWED_UPSERT_LOCAL_ARGS = new Set(["context_path", ...LOCAL_FIELDS]);
 const ALLOWED_UPSERT_FEATURES_ARGS = new Set(["context_path", "service_name", "feature"]);
+const ALLOWED_AMEND_ARGS = new Set(["context_path", "target_path", "revision_notes"]);
+const ALLOWED_RELOCK_ARGS = new Set(["context_path", "target_path", "amendment_summary"]);
 
-const FEATURE_ID_PATTERN = /^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$/;
+const FEATURE_ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$/;
 const VALID_FEATURE_STATUSES = ["active", "deprecated"];
 const VALID_ARTIFACTS = ["PRD", "FRS", "TDD", "openapi", "asyncapi", "TSR"];
 const FEATURE_FIELDS = new Set(["id", "status", "depends_on", "supersedes", "artifacts"]);
@@ -132,7 +136,7 @@ function validateFeatureShape(f) {
     if (!FEATURE_FIELDS.has(k)) errs.push(`unknown field '${k}'`);
   }
   if (typeof f.id !== "string" || !FEATURE_ID_PATTERN.test(f.id)) {
-    errs.push(`id '${f.id}' does not match pattern ^NNN-slug$`);
+    errs.push(`id '${f.id}' does not match pattern ^<service>-<NNN>-<slug>$`);
   }
   if (!VALID_FEATURE_STATUSES.includes(f.status)) {
     errs.push(`status '${f.status}' not in ${VALID_FEATURE_STATUSES.join("|")}`);
@@ -320,10 +324,10 @@ export const TOOLS = [
           additionalProperties: false,
           required: ["id", "status", "depends_on", "artifacts"],
           properties: {
-            id:         { type: "string", pattern: "^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" },
+            id:         { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" },
             status:     { enum: ["active", "deprecated"] },
-            depends_on: { type: "array", items: { type: "string", pattern: "^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
-            supersedes: { type: "array", items: { type: "string", pattern: "^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
+            depends_on: { type: "array", items: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
+            supersedes: { type: "array", items: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
             artifacts:  { type: "array", items: { enum: ["PRD", "FRS", "TDD", "openapi", "asyncapi", "TSR"] } },
           },
         },
@@ -349,6 +353,34 @@ export const TOOLS = [
       additionalProperties: false,
       properties: {
         context_path: { type: "string", minLength: 1, description: "Defaults to cwd when omitted." },
+      },
+    },
+  },
+  {
+    name: "amend_locked_artifact",
+    description: "Path-A: unlock a docs/**/*.{md,yaml,yml} artifact for verification-phase amendment. Flips frontmatter status:locked → revision_requested AND appends an `unlocked by dispatcher` row to the artifact's mandatory ## Changelog block in the SAME write. Closed allowlist: target_path must be under <context_path>/docs/ and end with .md/.yaml/.yml. Re-spawn the authoring agent with task: path-a-amend; agent emits the `path-a-amend` row; then call relock_artifact.",
+    inputSchema: {
+      type: "object",
+      required: ["context_path", "target_path", "revision_notes"],
+      additionalProperties: false,
+      properties: {
+        context_path: { type: "string", minLength: 1 },
+        target_path: { type: "string", minLength: 1, description: "Path relative to context_path, must start with docs/ and end with .md/.yaml/.yml." },
+        revision_notes: { type: "string", minLength: 1, description: "Reviewer-facing reason for the unlock; truncated to 100 chars in the changelog row." },
+      },
+    },
+  },
+  {
+    name: "relock_artifact",
+    description: "Path-A: re-lock a docs/**/*.{md,yaml,yml} artifact after architect's path-a-amend write. Verifies last changelog row is `path-a-amend` (sanity check). Flips frontmatter revision_requested → locked AND appends a `re-locked by dispatcher` row in the SAME write. Closed allowlist matches amend_locked_artifact.",
+    inputSchema: {
+      type: "object",
+      required: ["context_path", "target_path", "amendment_summary"],
+      additionalProperties: false,
+      properties: {
+        context_path: { type: "string", minLength: 1 },
+        target_path: { type: "string", minLength: 1, description: "Path relative to context_path, must start with docs/ and end with .md/.yaml/.yml." },
+        amendment_summary: { type: "string", minLength: 1, description: "One-line summary of what the amendment changed; truncated to 100 chars in the changelog row." },
       },
     },
   },
@@ -681,13 +713,218 @@ export function docsReadmeImpl(args = {}) {
       return { path: target, action: "unchanged" };
     }
     mkdirSync(dirname(target), { recursive: true });
-    safeWrite(target, content);
+    safeWrite(target, content, 0o644);
     return { path: target, action: "overwritten" };
   }
 
   mkdirSync(dirname(target), { recursive: true });
-  safeWrite(target, content);
+  safeWrite(target, content, 0o644);
   return { path: target, action: "created" };
+}
+
+// === amend_locked_artifact / relock_artifact helpers (Path-A) ===
+
+function assertSafeArtifactPath(resolvedCtxDir, targetPath) {
+  if (typeof targetPath !== "string" || targetPath === "") {
+    throw new Error("target_path is required and must be a non-empty string");
+  }
+  if (targetPath.includes("..")) {
+    throw new Error(`target_path contains forbidden '..' segment: ${targetPath}`);
+  }
+  const resolved = resolve(resolvedCtxDir, targetPath);
+  const relFromCtx = relative(resolvedCtxDir, resolved);
+  if (relFromCtx.startsWith("..") || resolved.split("/").includes("..")) {
+    throw new Error(`target_path escapes context_path: ${targetPath}`);
+  }
+  if (!relFromCtx.startsWith("docs/") && relFromCtx !== "docs") {
+    throw new Error(`target_path must be under docs/: ${targetPath}`);
+  }
+  if (/(^|\/)(src|services|\.orchestra|node_modules|\.git)\//.test("/" + relFromCtx)) {
+    throw new Error(`target_path forbidden directory segment: ${targetPath}`);
+  }
+  if (!/\.(md|yaml|yml)$/.test(resolved)) {
+    throw new Error(`target_path must end with .md, .yaml, or .yml: ${targetPath}`);
+  }
+  return resolved;
+}
+
+function splitFrontmatter(content) {
+  const m = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (m) return { kind: "md", frontmatter: m[1], body: m[2] };
+  return { kind: "yaml", frontmatter: null, body: content };
+}
+
+function rebuildContent(parts, newFrontmatter, newBody) {
+  if (parts.kind === "md") return `---\n${newFrontmatter}\n---\n${newBody}`;
+  return newBody;
+}
+
+function flipFrontmatterStatus(frontmatter, from, to) {
+  const re = new RegExp(`^status:\\s*${from}\\s*$`, "m");
+  if (!re.test(frontmatter)) {
+    throw new Error(`expected frontmatter 'status: ${from}', did not find it`);
+  }
+  return frontmatter.replace(re, `status: ${to}`);
+}
+
+function isoTimestamp() {
+  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function buildChangelogRow(action, author, reason) {
+  const trimmed = String(reason || "").replace(/[\r\n]+/g, " ").trim().slice(0, 100);
+  return `- ${isoTimestamp()} | ${action} by ${author} | ${trimmed}`;
+}
+
+function locateChangelogBlock(body, kind) {
+  const lines = body.split("\n");
+  const headerRe = kind === "md" ? /^##\s+Changelog\s*$/ : /^#\s+Changelog:\s*$/;
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (headerRe.test(lines[i])) { start = i; break; }
+  }
+  if (start === -1) return null;
+  let end = lines.length;
+  for (let j = start + 1; j < lines.length; j++) {
+    if (kind === "md") {
+      if (/^##\s+/.test(lines[j])) { end = j; break; }
+    } else {
+      if (!/^#/.test(lines[j]) && lines[j].trim() !== "") { end = j; break; }
+    }
+  }
+  return { start, end, lines };
+}
+
+function lastChangelogRow(block, kind) {
+  const rowPrefix = kind === "md" ? /^-\s+/ : /^#\s+-\s+/;
+  let last = null;
+  for (let k = block.start + 1; k < block.end; k++) {
+    if (!rowPrefix.test(block.lines[k])) continue;
+    const stripped = block.lines[k].replace(rowPrefix, "");
+    const m = stripped.match(/^(\S+)\s*\|\s*(\S+)\s+by\s+([^|]+?)\s*\|\s*(.*)$/);
+    if (m) last = { ts: m[1], action: m[2], author: m[3], reason: m[4] };
+  }
+  return last;
+}
+
+function appendChangelogRow(body, kind, row) {
+  const block = locateChangelogBlock(body, kind);
+  if (!block) {
+    throw new Error(
+      kind === "md"
+        ? "missing mandatory `## Changelog` block in artifact body"
+        : "missing mandatory `# Changelog:` comment block at top of yaml artifact"
+    );
+  }
+  const formatted = kind === "md" ? row : `# ${row}`;
+  let insertAt = block.end;
+  for (let k = block.end - 1; k > block.start; k--) {
+    if (block.lines[k].trim() !== "") { insertAt = k + 1; break; }
+  }
+  block.lines.splice(insertAt, 0, formatted);
+  return block.lines.join("\n");
+}
+
+// === amend_locked_artifact impl ===
+
+export function amendLockedArtifactImpl(args = {}) {
+  rejectUnknownArgs(args, ALLOWED_AMEND_ARGS, "amend_locked_artifact");
+  const { context_path, target_path, revision_notes } = args;
+  if (typeof revision_notes !== "string" || revision_notes.trim() === "") {
+    throw new Error("amend_locked_artifact: revision_notes is required and must be a non-empty string");
+  }
+  const resolvedDir = assertSafeContextPath(context_path);
+  const target = assertSafeArtifactPath(resolvedDir, target_path);
+  if (!existsSync(target)) {
+    throw new Error(`amend_locked_artifact: target does not exist: ${target_path}`);
+  }
+  const buf = safeRead(target);
+  if (buf === null) {
+    throw new Error(`amend_locked_artifact: cannot read ${target_path} (symlink or non-file)`);
+  }
+  const content = buf.toString("utf8");
+  const parts = splitFrontmatter(content);
+  if (parts.kind === "md") {
+    if (!/^status:\s*locked\s*$/m.test(parts.frontmatter)) {
+      throw new Error(`amend_locked_artifact: ${target_path} is not status: locked; nothing to amend`);
+    }
+  } else {
+    if (!/^status:\s*locked\s*$/m.test(parts.body)) {
+      throw new Error(`amend_locked_artifact: ${target_path} is not status: locked; nothing to amend`);
+    }
+  }
+  const row = buildChangelogRow("unlocked", "dispatcher", revision_notes);
+  const newBody = appendChangelogRow(parts.body, parts.kind, row);
+  let newFrontmatter = parts.frontmatter;
+  let finalBody = newBody;
+  if (parts.kind === "md") {
+    newFrontmatter = flipFrontmatterStatus(parts.frontmatter, "locked", "revision_requested");
+  } else {
+    finalBody = flipFrontmatterStatus(newBody, "locked", "revision_requested");
+  }
+  const next = rebuildContent(parts, newFrontmatter, finalBody);
+  safeWrite(target, next, 0o644);
+  return {
+    path: target,
+    new_status: "revision_requested",
+    changelog_row_appended: true,
+    next_step: "re-spawn authoring agent with task: path-a-amend; agent appends path-a-amend changelog row; then call relock_artifact",
+  };
+}
+
+// === relock_artifact impl ===
+
+export function relockArtifactImpl(args = {}) {
+  rejectUnknownArgs(args, ALLOWED_RELOCK_ARGS, "relock_artifact");
+  const { context_path, target_path, amendment_summary } = args;
+  if (typeof amendment_summary !== "string" || amendment_summary.trim() === "") {
+    throw new Error("relock_artifact: amendment_summary is required and must be a non-empty string");
+  }
+  const resolvedDir = assertSafeContextPath(context_path);
+  const target = assertSafeArtifactPath(resolvedDir, target_path);
+  if (!existsSync(target)) {
+    throw new Error(`relock_artifact: target does not exist: ${target_path}`);
+  }
+  const buf = safeRead(target);
+  if (buf === null) {
+    throw new Error(`relock_artifact: cannot read ${target_path} (symlink or non-file)`);
+  }
+  const content = buf.toString("utf8");
+  const parts = splitFrontmatter(content);
+  if (parts.kind === "md") {
+    if (!/^status:\s*revision_requested\s*$/m.test(parts.frontmatter)) {
+      throw new Error(`relock_artifact: ${target_path} is not status: revision_requested; nothing to re-lock`);
+    }
+  } else {
+    if (!/^status:\s*revision_requested\s*$/m.test(parts.body)) {
+      throw new Error(`relock_artifact: ${target_path} is not status: revision_requested; nothing to re-lock`);
+    }
+  }
+  const block = locateChangelogBlock(parts.body, parts.kind);
+  const last = block ? lastChangelogRow(block, parts.kind) : null;
+  if (!last || last.action !== "path-a-amend") {
+    const got = last ? last.action : "<missing>";
+    throw new Error(
+      `relock_artifact: ${target_path} last changelog row action='${got}', expected 'path-a-amend' ` +
+      `(the authoring agent must append the path-a-amend row before dispatcher re-locks)`
+    );
+  }
+  const row = buildChangelogRow("re-locked", "dispatcher", amendment_summary);
+  const newBody = appendChangelogRow(parts.body, parts.kind, row);
+  let newFrontmatter = parts.frontmatter;
+  let finalBody = newBody;
+  if (parts.kind === "md") {
+    newFrontmatter = flipFrontmatterStatus(parts.frontmatter, "revision_requested", "locked");
+  } else {
+    finalBody = flipFrontmatterStatus(newBody, "revision_requested", "locked");
+  }
+  const next = rebuildContent(parts, newFrontmatter, finalBody);
+  safeWrite(target, next, 0o644);
+  return {
+    path: target,
+    new_status: "locked",
+    changelog_row_appended: true,
+  };
 }
 
 // === MCP server (run only when this file is the entry point) ===
@@ -739,6 +976,8 @@ function handleMessage(line) {
       else if (name === "upsert_features_yaml") out = upsertFeaturesYamlImpl(args);
       else if (name === "claude_md") out = claudeMdImpl(args);
       else if (name === "docs_readme") out = docsReadmeImpl(args);
+      else if (name === "amend_locked_artifact") out = amendLockedArtifactImpl(args);
+      else if (name === "relock_artifact") out = relockArtifactImpl(args);
       else throw new Error(`Unknown tool: ${name}`);
       const text = typeof out === "string" ? out : JSON.stringify(out);
       reply(id, { result: { content: [{ type: "text", text }] } });

@@ -5,6 +5,7 @@
 //   Gate-D          — src/** cite denylist; exit 2 on hit
 //   Gate-D-inverse  — docs/** codebase-identifier denylist; exit 2 on hit
 //   Gate-E          — workspace-scope SAD/c4-container container floor
+//   Gate-F          — docs/**/*.md ## Changelog append-only (Write-only)
 //   Gate-A          — frontmatter `status: locked` rejects writes
 //   Gate-B          — frontmatter `sections:` all-locked rejection
 //   Gate-C          — frontmatter `readers:` allowlist warning (non-blocking)
@@ -14,6 +15,7 @@ import { parse as parseYaml } from "../lib/yaml-mini.js";
 import {
   checkSecrets, checkGateD, checkGateDInverse, checkGateE,
 } from "../lib/gate-d.js";
+import { checkGateF } from "../lib/gate-f.js";
 
 const NAME = "ORCHESTRA_HOOK_PRE_WRITE_CHECK";
 
@@ -39,6 +41,7 @@ async function main() {
       checkGateD(filePath, content),
       checkGateDInverse(filePath, content),
       checkGateE(filePath, content),
+      checkGateF(filePath, content, input.tool_name),
     ]) {
       if (result) {
         process.stderr.write(result.message);

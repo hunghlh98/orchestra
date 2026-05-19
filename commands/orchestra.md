@@ -184,6 +184,14 @@ deliverables:                                   # full paths per contract row ab
 
 **Provenance marker.** First run when preflight reports `docs_provenance: unknown` → spawn `@architect` with `task: provenance-marker`. `@architect` calls `mcp__orchestra-utils__docs_readme(context_path)` — the tool pins frontmatter (`id: docs-readme`, `type: README`, `generated_by: orchestra`, `status: locked`) and writes a canonical body from `hooks/references/docs-readme.template.md`. No improvisation, no `Write` author path.
 
+**Path-A locked-artifact resolution.** Verification-phase divergences whose resolution is Path A (ratify-as-invariant on a `status: locked` chain artifact under `docs/`) go through `mcp__orchestra-utils__amend_locked_artifact` + `mcp__orchestra-utils__relock_artifact`. The tools flip `status:` AND append the matching `## Changelog` row in the SAME write — no silent unlocks. Cycle:
+
+1. Dispatcher calls `mcp__orchestra-utils__amend_locked_artifact(context_path, target_path, revision_notes)` — flips frontmatter `status: locked → revision_requested`, appends `- <ISO-8601> | unlocked by dispatcher | <revision_notes>` to `## Changelog`.
+2. Dispatcher re-spawns the original authoring agent with `task: path-a-amend` and the revision notes lifted into the brief. Agent reads the now-unlocked artifact, applies the amendment, and appends `- <ISO-8601> | path-a-amend by @<agent> | <amendment summary>` as part of its `Write`.
+3. Dispatcher calls `mcp__orchestra-utils__relock_artifact(context_path, target_path, amendment_summary)` — verifies last changelog row is `path-a-amend`, flips frontmatter `revision_requested → locked`, appends `- <ISO-8601> | re-locked by dispatcher | <amendment_summary>` to `## Changelog`.
+
+Net audit trail per cycle: three new rows beyond the prior tail (`unlocked`, `path-a-amend`, `re-locked`). `pre-write-check.js` Gate-F rejects any `Write` that mutates / removes / reorders existing changelog rows. Path-B divergences (correct the source instead) close via dispatcher `Write` against `src/**`; no changelog row is appended to the chain artifact since the artifact's invariant stayed correct.
+
 **SAD pre-pass cohort.** When auto-promote AND provenance marker BOTH required on the same reverse-pass entry, dispatcher MUST spawn `@architect task: provenance-marker` + `@architect task: workspace-sad-author` in ONE message as a 2-element cohort (no read-dependency between them). Sequential spawn surfaces as `cohort.spawn.staggered` warning.
 
 **Per-artifact classify-then-author.** For each chain artifact: Absent → `re-author`. Present + `generated_by: orchestra` AND `status: locked` → `cite-as-is`. Present + `generated_by: orchestra` AND `status: draft` → `copy-and-modify`. Present without provenance marker → `re-author`. Frontmatter `reverse_authoring_mode: <mode>` REQUIRED.
