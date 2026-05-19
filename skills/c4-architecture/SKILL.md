@@ -114,6 +114,67 @@ Walk this checklist; any "no" → fix the source, do not render:
 - [ ] **Stand-alone test**: a stranger reading the rendered `.svg` (no narration) can tell what the system does, who uses it, how it's built.
 - [ ] **Two-folder rule**: project singleton at `docs/diagrams/c4-<noun>.puml` is unstyled; per-feature copy under `docs/<service_name>/<feature-id>/diagrams/` differs ONLY in `UpdateElementStyle()` highlights — never in element identity.
 
+### Step 6b — Sequence diagram style (SD)
+
+Per-feature sequence (`<feature-id>-seq-<journey>.puml`) and workspace inter-service sequence (`sequence-inter-<flow>.puml`) carry richer style than C4 levels. Apply this discipline before render:
+
+**Header.** `@startuml <SD-id> <title>` → `!theme plain` → three skinparams (`sequenceArrowThickness 1.5`, `maxMessageSize 300`, `responseMessageBelowArrow true`) → `title <SD-id>: <flow name>\n(<journey> step range → <PRD or HLD anchor>)`.
+
+**Participants.** One `actor` for the human originator (when the flow crosses the customer seam). `participant` / `database` / `queue` for systems. Background-colour every system by category:
+
+| Hex | Category |
+| --- | --- |
+| `#Orange` | Core (Order, Payment Engine, Fulfillment) |
+| `#LightYellow` | Commerce (Cashier, Promotion, Inventory) |
+| `#Plum` | Financial (Wallet, Invoice) |
+| `#LightGreen` | Platform (Identity, Configuration, Risk, Payment Gateway) |
+| `#LightBlue` | Channel (BFF / WebShop) |
+| `#Gray` | External (Game Store API, Game API, third-party REST) |
+| `#Pink` | External PSP |
+| `#LightCoral` | Event Bus / Kafka |
+
+Re-use the same hex for the same service across every SD in the workspace.
+
+**Step numbering.** Tag every action with `[N]` matching the parent journey's narrative numbering (PRD `S-USE-CASES-001` step list or HLD anchor). Sub-steps `[N.a]` / `[N.b]`. Numbers stay stable across diagram revisions — never renumber.
+
+**Inline cites on governed steps.** When a step is governed by `BR-NNN`, `AC-NNN`, `INV-NNN`, `ADR-NNNN`, or a Journey-gate anchor, append the cite to the step label (`[12] Validate payment params (BR-V002)`). Inline cites permitted here — diagram is design surface.
+
+**Source-of-truth markers.** Every persistence / messaging operation carries an `hnote over <participant> #<colour>` block stating the operation + the marker tag. Two markers only:
+
+- `★SoT` — write-failure BLOCKS the flow (e.g., Redis cache that is the order's authoritative state)
+- `◇Best-effort` — failure logged, does NOT block (e.g., MySQL mirror, audit-trail row, metrics emit)
+
+Example: `hnote over ORD #Salmon : Redis SET ORDER_CACHE_{orderId}\nTTL=30d | ★SoT`. Salmon hex (`#Salmon`) reserved for `★SoT`; light-tint hex (`#LightBlue`, `#LightGreen`) reserved for `◇Best-effort`.
+
+**Block conventions.** `group ... end` for ≥3-step sub-flows. `opt ... end` for conditional branches keyed off a single boolean. `alt ... else ... end` for mutually exclusive paths (success branch first; every failure branch label cites the governing `AC-NNN` row). `par ... end` for parallel event-consumer fan-out.
+
+**Tail — Data Store Operations Summary.** Single `note over <first>, <last>` block at end of diagram enumerating every persistence operation reached:
+
+- **Redis Keys** table: `Key Pattern | Purpose | TTL | Marker`
+- **Kafka Topics** table: `Topic | Producer | Consumer(s)`
+- **<RDBMS> Tables** table: `Table | Operations | Marker`
+- **Lock Patterns** table: `Lock Key | TTL | Used By | Purpose`
+- **State Lifecycle**: arrow-chain (`CREATED → PENDING_PAYMENT → PAID → DELIVERED`) against the `★SoT` store
+
+Omit any sub-table whose store the diagram does not touch.
+
+**Tail — Legend.** Bottom `legend bottom` block carrying:
+
+1. Colour → category table (subset of the palette actually used in this diagram)
+2. Marker glossary: `[N]` = parent-journey step, `★SoT` = source of truth (blocks flow), `◇Best-effort` = non-blocking
+3. (optional) Cross-cutting design notes (HARD RULE / ADR-driven flow changes from the prior system)
+
+**Self-check.** Walk the row before rendering:
+
+- [ ] Header carries theme + 3 skinparams + title with journey anchor
+- [ ] Every system participant carries a category hex
+- [ ] Every action carries a `[N]` step number
+- [ ] Every persistence / messaging op carries an `hnote` SoT marker
+- [ ] Failure paths sit inside `alt ... else` with `AC-NNN` cites
+- [ ] Tail Data Store Summary + Legend present
+
+Missing any row = SD-style defect; `@reviewer` returns a `sd-style` structural finding.
+
 ## When to escalate
 
 - Microservice ownership crosses team lines mid-render → consult `references/c4-rules.md` for the multi-team pattern.

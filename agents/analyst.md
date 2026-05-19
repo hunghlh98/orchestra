@@ -82,6 +82,14 @@ Locked `<service_name>-BR-AC.md` carries service business rules + service-grain 
 
 FRS `S-AC-001.Traces` cells cite parent `BR-AC/BR-NNN`, `BR-AC/AC-NNN`, `BR-AC/INV-NNN`, or `business-invariants.md/INV-NNN`. Untraced AC fails `untraced-ac` gate. ≥3 re-narration violations → structural finding.
 
+### Actor inheritance
+
+FRS `S-ACTORS-001.actor` cells lift verbatim from PRD `S-USERS-001.user_segment` OR `<context_path>/docs/diagrams/c4-context.puml` `Person()` labels. Generic invented names (`End user`, `User`, `Caller`, `Client`) forbidden when the upstream artifact carries a specific role (`Storefront end user`, `Customer-service agent`, `Finance / reconciliation operator`).
+
+System-actor rows (`payment-engine`, `fulfillment`, etc.) match `docs/diagrams/c4-container.puml` Container names verbatim — no pluralization, no human-readable substitution.
+
+Cross-artifact drift = structural failure. Before lock: enumerate every actor in FRS `S-ACTORS-001`, enumerate every persona in PRD `S-USERS-001` ∪ `c4-context.puml` Persons ∪ `c4-container.puml` Containers; assert FRS ⊆ that union. Missing-from-PRD persona → escalate-BR (new policy required); renamed persona → rewrite the FRS cell. `@reviewer` returns a `actor-drift` structural finding on any mismatch.
+
 ### Question-resolution policy
 
 Locked FRS carries no open questions. Resolve before lock — three paths, in order:

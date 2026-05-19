@@ -98,8 +98,12 @@ Audience: PM, compliance officer, support lead (non-engineers). Tech detail → 
 | Persona names from `S-STAKEHOLDERS-001` | Data-type primitives: `BigDecimal`, `DECIMAL(20,4)`, `varchar(255)` |
 | ISO standards: `ISO 4217`, `RFC 6750` | Framework/storage: `Spring Boot`, `PostgreSQL`, `Redis key OR:{orderId}`, `Kafka topic billing.payment.succeeded` |
 | Business event names PascalCase: `PaymentSucceeded`, `OrderRefunded` | Use business event instead: "publish `PaymentSucceeded`" |
+| Persona / boundary phrasing: "the storefront caller", "downstream payment-method providers" | Service-name enumeration: "the X, Y, Z services collaborate", "N sibling services" |
+| Outcome-oriented prose: "purchase moves through pre-payment, paid, delivered" | Implementation nouns: `aggregate`, `state machine`, `distributed lock`, `event bus`, `audit row`, `idempotency key`, `lock TTL`, `state transition`, `outbox`, `saga`, `compensation` |
 
 Split rule: non-engineer needs to understand/sign → PRD. Only implementer needs → FRS pseudocode / TDD / openapi / source.
+
+**Self-check before PRD lock.** Grep the body for (a) every service name from `<context_path>/CLAUDE.md` Service Topology, (b) every implementation noun in the table above, (c) the literal phrases `"sibling services"` / `"N services"` / `"the … service collaborates"`. ≥1 hit → rewrite the offending paragraph in persona / outcome vocabulary before flipping `status: locked`. Reverse-pass authoring is the high-risk path: source naming leaks into PRD prose unless this self-check runs.
 
 ### Append-only feature graph
 
