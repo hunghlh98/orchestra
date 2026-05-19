@@ -28,3 +28,8 @@ This project uses **orchestra** for SDLC orchestration. The chain owns spec / ar
   - `/orchestra` — usage block, no chain.
 - Decisions cache to `.orchestra/<service_name>/local.yaml` on first run; re-runs skip the questionnaire.
 - Pipeline coordination state lives at `.orchestra/<service_name>/pipeline/<feature-id>/`.
+
+## Code Navigation
+
+- Utilize LSP go-to-definition, find-references, and diagnostics features for all Java code modifications.
+- Only fall back to grep/text search if LSP is unavailable.
