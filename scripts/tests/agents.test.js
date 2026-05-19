@@ -19,10 +19,10 @@ const VALID_NAMES = new Set([
   "test-author", "test-runner", "evaluator", "reviewer",
 ]);
 
-// Per-role forbidden tools. Every agent declares either a `tools` allowlist
-// or a `disallowedTools` denylist: orchestra policy is exactly-one-of.
-// Forbidden tools = tools that MUST NOT appear in `tools` allowlist (or MUST
-// appear in `disallowedTools` denylist when that form is chosen).
+// Per-role forbidden tools. Every agent declares a `tools` allowlist —
+// `disallowedTools` denylists are forbidden per plugin-authoring.md R2
+// ("deny-lists leave the surface implicit and drift silently").
+// Forbidden tools = tools that MUST NOT appear in `tools` allowlist.
 //
 // @test-author has no Bash by design — spec-bound test authoring, suite
 // execution belongs to @test-runner. The src/main/** read-block is honor-
@@ -128,41 +128,24 @@ export function validateAgent(name, parsed) {
     errors.push(`description ${wordCount} words > 30 cap`);
   }
 
-  // Check 4: per-role tool surface — exactly one of `tools` (allowlist) or
-  // `disallowedTools` (denylist) is set per agent. Orchestra-local policy;
-  // not required by official Claude Code docs.
+  // Check 4: per-role tool surface — every agent declares a `tools` allowlist.
+  // `disallowedTools` is forbidden per plugin-authoring.md R2.
+  if (fm.disallowedTools !== undefined) {
+    errors.push(`disallowedTools is forbidden per plugin-authoring.md R2 — use tools allowlist instead`);
+  }
   const forbidden = FORBIDDEN_TOOLS_PER_AGENT[fm.name];
   if (forbidden === undefined) {
     // name already flagged by Check 2; skip
+  } else if (fm.tools === undefined) {
+    errors.push(`tools allowlist required (per orchestra policy + plugin-authoring.md R2)`);
   } else {
-    const hasTools = fm.tools !== undefined;
-    const hasDisallowed = fm.disallowedTools !== undefined;
-    if (hasTools && hasDisallowed) {
-      errors.push(`exactly one of tools/disallowedTools allowed per orchestra policy (both set)`);
-    } else if (!hasTools && !hasDisallowed) {
-      errors.push(`exactly one of tools/disallowedTools required per orchestra policy (neither set)`);
-    } else if (hasTools) {
-      const list = normalizeToolList(fm.tools);
-      if (list === null) {
-        errors.push(`tools must be a JSON array or comma-separated string`);
-      } else {
-        const violations = forbidden.filter(t => list.includes(t));
-        if (violations.length > 0) {
-          errors.push(`tools includes forbidden tool(s) for role '${fm.name}': ${violations.join(", ")}`);
-        }
-      }
-    } else if (hasDisallowed) {
-      const list = normalizeToolList(fm.disallowedTools);
-      if (list === null) {
-        errors.push(`disallowedTools must be a JSON array or comma-separated string`);
-      } else {
-        const sorted = [...list].sort();
-        const expected = [...forbidden].sort();
-        const matches = sorted.length === expected.length &&
-                        sorted.every((t, i) => t === expected[i]);
-        if (!matches) {
-          errors.push(`disallowedTools ${JSON.stringify(sorted)} ≠ forbidden list for '${fm.name}' (${JSON.stringify(expected)})`);
-        }
+    const list = normalizeToolList(fm.tools);
+    if (list === null) {
+      errors.push(`tools must be a JSON array or comma-separated string`);
+    } else {
+      const violations = forbidden.filter(t => list.includes(t));
+      if (violations.length > 0) {
+        errors.push(`tools includes forbidden tool(s) for role '${fm.name}': ${violations.join(", ")}`);
       }
     }
   }
@@ -248,20 +231,21 @@ console.log("Mutation tests (validator must fail red on bad input):");
     `mutation: @product with Bash in tools flagged`);
 }
 
-// Fixture 2b: @reviewer with over-restrictive disallowedTools (denies Bash) —
-// reviewer is allowed Bash for static analysis; denying it violates the role.
+// Fixture 2b: any agent with disallowedTools — must flag (deny-lists forbidden
+// per plugin-authoring.md R2).
 {
   const bad = {
     fm: {
       name: "reviewer", description: "ok",
-      disallowedTools: ["Bash", "Edit", "MultiEdit"],
+      disallowedTools: ["Edit", "MultiEdit"],
+      tools: ["Read", "Grep", "Glob", "Skill"],
       model: "sonnet", context_mode: "default", color: "red",
     },
     body: "<example>x</example>",
   };
   const errs = validateAgent("reviewer", bad);
-  check(errs.some(e => /disallowedTools.*forbidden list/.test(e)),
-    `mutation: @reviewer over-restrictive disallowedTools flagged`);
+  check(errs.some(e => /disallowedTools is forbidden/.test(e)),
+    `mutation: disallowedTools presence flagged`);
 }
 
 // Fixture 2c: @test-author with Bash in tools allowlist — must flag (Bash is

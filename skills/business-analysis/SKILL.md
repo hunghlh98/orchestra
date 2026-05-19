@@ -78,9 +78,28 @@ Self-check before flipping `status: locked`:
 
 Flip locked; hand to dispatcher.
 
+### Step 7 — BR-AC singleton authoring (service-grain)
+
+When `@architect` writes the per-service `<service_name>-BR-AC.md` singleton, the same BR/AC/INV discipline applies — but at SERVICE grain, not feature grain.
+
+**Path:** `<context_path>/docs/<service_name>/<service_name>-BR-AC.md`. Full grammar in `schemas/br-ac.schema.md`.
+
+**Trigger:** first feature in an undocumented service (`spec-to-code`); system-wide narrowing or canonical service-grain run (`code-to-spec`); `@analyst` ESCALATE-BR marker promoted.
+
+**Anchor contents:**
+
+- `S-BR-001` — stakeholder-signable rules (refund windows, KYC thresholds, fee caps). Row: `| BR-NNN | <one-sentence policy> | <named human Owner> | <source> |`. Owner MUST be a named human role (Finance, Compliance, Platform-Lead, Risk-Ops). No signable owner → push the row to `S-INVARIANTS-001`.
+- `S-AC-001` — service-grain criteria across features. Row: `| AC-NNN | <assertion> | <verification surface> | <Traces: BR-NNN / INV-NNN / business-invariants.md/INV-NNN> |`. Empty Traces = structural failure.
+- `S-INVARIANTS-001` — implementer-only consistency rules (idempotency-key derivation, ordering, currency precision).
+
+**BR vs INV test:** a row no business owner could sign is INV. Per-feature concerns NEVER appear in BR-AC — those stay in FRS `S-AC-001`.
+
+**Workspace business-invariants placement.** `<context_path>/docs/business-invariants.md` carries rules binding ≥2 services. Schema: `schemas/business-invariants.schema.md`. Single anchor `S-INVARIANTS-001`; `Services` column needs ≥2. A row appearing in BOTH per-service BR-AC AND workspace `business-invariants.md` = structural failure. NOT authored under `single-repo`; under `multi-repo` + `per-service` only via auto-promote.
+
 ## Outputs
 
 - `<feature-id>-FRS.md` rows under `S-FR-001` + `S-AC-001`.
+- `<service_name>-BR-AC.md` rows under `S-BR-001` + `S-AC-001` + `S-INVARIANTS-001` (when `@architect` authors).
 - Pseudocode blocks inline under AC rows (when applicable).
 - `ESCALATE-BR` markers for cross-tier business policy surfacing.
 

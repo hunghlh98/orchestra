@@ -175,6 +175,41 @@ Omit any sub-table whose store the diagram does not touch.
 
 Missing any row = SD-style defect; `@reviewer` returns a `sd-style` structural finding.
 
+### Step 7 — Logical ERD authoring
+
+**Workspace-scope** (`docs/diagrams/erd-logical.puml`): one PlantUML `package` per service-owned schema. Inside each package, one `entity` per aggregate root — NOT one per table. Entity body: `pk(<id> : TYPE)` first row, then key business attributes (~5 max — logical, not physical). Cross-aggregate references drawn as PlantUML arrows stereotyped `<<by-value>>` with explicit cardinality (`||--o{`, `}o--||`, etc.); no FK lines cross service boundaries.
+
+**Service-scope** (`docs/<service_name>/diagrams/erd-logical.puml`): single service's aggregates + every upstream aggregate it references by value. Upstream entities stereotyped `<<external>>`. Same row syntax as workspace.
+
+Forbidden at either scope: physical column lists, indexes, audit-log tables, snapshot tables, prose-string columns. Those belong in `<feature-id>-erd-physical.puml` (per-feature).
+
+**Scope-routing.** `per-service` → service-scope ERD only, bind to BR-AC `diagrams:`. `system-wide` → workspace ERD covering every walked service, bind to SAD `diagrams:`; skip service-scope ERDs.
+
+### Step 8 — Inter-service Sequence authoring
+
+`docs/diagrams/sequence-inter-<flow>.puml` — one file per Journey-gate outcome category (`forward-purchase`, `abandonment`, `reversal`, `partial-or-failed-delivery`, etc.). Every cross-service call MUST show request AND response on adjacent arrows:
+
+```
+caller -> callee : <verb> <path> { <request payload skeleton> }
+callee --> caller : <status-code> { <response payload skeleton> }
+```
+
+Payload skeletons carry field names only, no values — they describe contract shape, not test data. Field names lift verbatim from the corresponding `<feature-id>-openapi.yaml` schemas.
+
+**Failure paths.** Every cross-service call whose FRS row carries ≥1 error AC OR whose openapi operation declares ≥1 non-2xx response MUST sit inside an `alt` block with success branch first, then one `else` branch per distinct failure category. Reference the FRS `S-AC-001` row by id in the alt branch label (`else AC-014: payment declined`).
+
+**One-way notifications.** Annotate as `caller ->> callee : <event> {payload}` per PlantUML async syntax — no response arrow required.
+
+Forbidden: synchronous arrows without response; payload values; reused payload aliases that hide the field set.
+
+### Step 9 — SAD/TDD lock-gate enforcement
+
+**SAD lock-gate (c4-context mandatory).** SAD `status: locked` is denied unless BOTH `<context_path>/docs/diagrams/c4-context.puml` AND `c4-container.puml` exist. The context diagram carries one `System(...)` box for the workspace under design, every external `Person` / `System_Ext` the workspace touches, and nothing else (per `### Step 1c`). Reverse-pass authoring routinely skips context.puml when the container topology "feels obvious from `src/**`" — this gate stops that failure mode.
+
+**TDD lock-gate (erd-physical mandatory on persistence).** TDD `status: locked` is denied for any feature whose `S-DATA-001` carries ≥1 row unless `<feature-id>-erd-physical.puml` exists under the feature's `diagrams/` folder. The diagram enumerates every persistent entity in physical form (table name + column list + nullability + indexes + FK lines); Redis key shapes + Kafka payload envelopes belong in the same `.puml` labelled per store. Logical aggregates only → `erd-logical.puml` instead (per Step 7).
+
+`pre-write-check.js` Gate-E enforces both gates at write time.
+
 ## When to escalate
 
 - Microservice ownership crosses team lines mid-render → consult `references/c4-rules.md` for the multi-team pattern.

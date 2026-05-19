@@ -127,40 +127,139 @@ Frontmatter — **required**:
 ```yaml
 ---
 name: skill-auditor
-description: PROACTIVELY use when creating, reviewing, or validating Claude Code skills. ...
+description: "Use this agent when ..."
 ---
 ```
 
-The `description` MUST start with a trigger phrase such as
-"PROACTIVELY use when …" or "Use this agent when …". Claude reads this
-to decide auto-spawn.
+### Description shape
 
-Frontmatter — **recommended**:
+`description` has ONE job: tell Claude's auto-router and a human
+agent picker **when to pick this agent**. Not a feature list, not a
+coupling diagram, not a behavioral spec.
 
-- `tools:` — explicit allow-list. Name every MCP tool by its exact
-  qualified name (`mcp__perplexity__search`, …). **Never use `*`** in
-  agents you ship; the source plugin only allows `*` on its general
-  catch-all coordinator agent.
+- **Lead with a trigger verb.** `Use this agent when …`, `Use when …`,
+  or `PROACTIVELY use when …`. Claude reads this to decide auto-spawn.
+- **Length: 120–300 chars (~20–40 words).** A 144-agent community
+  sample reports min 117, max 417, avg ~220.
+- **Shape:** trigger verb + primary scenario + (optional)
+  `Invoke when X, Y, Z` expansion for secondary triggers.
+
+Forbidden in `description:`:
+
+- Output inventory (`Authors SAD, ADRs, BR-AC…`) — belongs in body
+  workflow and README component table.
+- Behavioral rules (`Always opens with X question`) — body only.
+- Coupling info (`Spawned by dispatcher after gate-3`,
+  `Paired with @other-agent`) — body only; pollutes routing surface
+  and excludes free-form spawn paths.
+- Tool / permission claims (`No Bash`, `src/ never read`) —
+  frontmatter is the source of truth.
+- Version stamps.
+
+Wrong (output inventory + dispatcher coupling):
+
+```yaml
+description: Architecture + per-feature design owner. Authors SAD, ADRs, BR-AC, C4 L1+L2+L3+L4, per-feature TDD, openapi/asyncapi/clientapi. Spawned by dispatcher.
+```
+
+Right (trigger + scenario):
+
+```yaml
+description: "Use this agent when authoring system architecture (SAD, ADRs, C4 diagrams), per-feature design (TDD, openapi/asyncapi/clientapi), or deriving architecture from existing source."
+```
+
+### Frontmatter — recommended
+
+- `tools:` — **explicit allow-list**, comma-separated. Name every MCP
+  tool by its exact qualified name (`mcp__perplexity__search`).
+  **Never use `*`** in agents you ship; the source plugin only allows
+  `*` on its catch-all coordinator agent.
+- `disallowedTools:` is valid spec but **deny-lists are forbidden
+  here**. They leave the surface implicit and drift silently when
+  Claude Code adds new built-in tools.
 - `model:` — `opus` | `sonnet` | `haiku`. Pick by reasoning need vs
-  cost. Auditors are usually `opus`; lookup helpers are `haiku`.
-- `color:` — for visual differentiation in the agent picker.
-- `permissionMode:` — `plan` is appropriate for auditors and analysts
-  (they read, they don't write).
-- `skills:` — list of skills auto-loaded into the agent's startup
-  context. **This is how you wire delegation.** Example:
-  `skills: skill-development` means the agent boots with that skill
-  preloaded.
+  cost. Auditors usually `opus`; lookup helpers `haiku`.
+- `color:` — visual differentiation in the picker.
+- `permissionMode:` — `plan` for auditors and analysts (read, do not
+  write).
+- `skills:` — skills auto-loaded into the agent's startup context.
+  **This is how you wire delegation.**
 
-Body shape:
+Tool allow-list by role:
 
-1. Single-sentence Purpose.
+| Role | Allow-list |
+|---|---|
+| read-only reviewer / auditor | `Read, Grep, Glob, Skill` |
+| research | `Read, Grep, Glob, WebFetch, WebSearch, Skill` |
+| spec / doc author | `Read, Write, Glob, Grep, Skill, AskUserQuestion` |
+| implementer | `Read, Write, Edit, MultiEdit, Glob, Grep, Skill` |
+| test runner (needs execution) | `Read, Write, Edit, MultiEdit, Glob, Grep, Bash, Skill` |
+
+### Custom frontmatter fields — permitted only when CI-gated
+
+Only fields documented in the current Claude Code agent spec are
+honored at runtime. Custom fields (e.g. `context_mode:`, `tier:`,
+`phase:`) are **silently ignored by the host harness** — they look
+authoritative but do nothing at run time.
+
+Custom fields are **permitted** when ALL three hold:
+
+1. A CI validator in the plugin's own `scripts/tests/` enforces field
+   shape and value-consistency against a manifest.
+2. The field's purpose is documented in the maintainer `CLAUDE.md`.
+3. Readers cannot confuse the field for a runtime knob — i.e., it
+   pairs with a spec field whose values it constrains, not a
+   standalone behavior switch.
+
+Canonical example: orchestra's `context_mode: default | 1m`. CI check 6
+in `scripts/tests/agents.test.js` requires the value to live in
+`manifests/known-models.json.<model>.supportsContextMode`. The field
+declares intent (this agent needs the 1M-context variant of the model
+named in `model:`) and gates which `model:` pairings are valid. The
+host harness ignores the field; CI prevents the inconsistency that
+would otherwise drift.
+
+**Forbidden** when ungated: a `context_mode: 1m` line on an agent in a
+plugin with no CI validator. Looks authoritative; does nothing.
+Encode the intent in body prose instead.
+
+Drift hazards an ungated custom field carries:
+
+- Reader assumes the field shapes runtime behavior.
+- Field claims one thing (`context_mode: 1m`); runtime delivers
+  whatever the host selects.
+- Speculative cleanup during unrelated renames silently drops the
+  field; nothing fails.
+
+### Body shape
+
+1. **Purpose.** One declarative: "You are `@name`. [What you do.]"
 2. **CRITICAL: Single Source of Truth Pattern.** Name the skill this
    agent delegates to; restate "do NOT hardcode logic — invoke the
-   skill". Skipping this block is the #1 cause of drift.
-3. Numbered Workflow (5–8 steps).
-4. Scoring rubric / report template, if the agent generates one.
+   skill". Skipping this block is the #1 cause of drift. Omit only
+   when the agent has zero canonical skill (rare).
+3. **Numbered Workflow (5–8 steps).** Step `0` is `PLAN` per the
+   host plugin's plan discipline, if used.
+4. **Scoring rubric / report template,** if the agent generates one.
+5. **One worked `<example>` block** at the foot. Two if forward /
+   reverse paths differ materially.
 
-Rules:
+### Forbidden: body anti-patterns
+
+- **Frontmatter-restatement tables**
+  (`## Setup → ### Valid field values | Field | Value | Rationale |`).
+  DRY violation: change frontmatter → table drifts. Frontmatter is
+  the source of truth. If rationale matters, encode it in the
+  maintainer CLAUDE.md, not the agent body.
+- **Hook-path cites in prose**
+  (`hooks/scripts/val-calibration.js autonomy tier`). The agent
+  shouldn't know which hook implements which behavior. Reference the
+  *behavior* (`the calibration anchor injected into your prompt`),
+  not the script path.
+- **Inline restatements** of constraints already enforced by hooks or
+  schemas. Trust the gate; do not narrate it.
+
+### Rules
 
 - **R2.1** — Agents coordinate, skills know. If you find yourself
   writing rules in an agent that already live in a skill, fold them
@@ -169,8 +268,20 @@ Rules:
   a **validation protocol**: which server to query first, which to
   cross-check, what to do when none answer. See claude-ecosystem's
   `skill-auditor.md` for the canonical shape.
-- **R2.3** — One agent, one job. Multi-purpose agents are an
-  anti-pattern; split into smaller agents and let a coordinator route.
+- **R2.3** — One agent, one job. **Hard limit ≤2 workflow trees per
+  agent file.** N distinct trees (reverse-pass + forward-chain +
+  source-walk + DIV resolution in one agent) is an anti-pattern;
+  split into smaller agents and let a coordinator route.
+- **R2.4** — Description is routing surface; body is specification.
+  A fact belongs to one surface, not both. Description leaks into
+  body = harmless verbosity; body leaks into description = blocks
+  free-form spawn and pollutes auto-routing.
+- **R2.5** — Frontmatter is the truth for fields it defines. Body
+  restatement tables (`### Valid field values`) are forbidden — they
+  drift the moment frontmatter changes.
+- **R2.6** — Reference behaviors by name in prose, never by
+  implementing path. The implementing tier may change without
+  touching every agent.
 
 ---
 

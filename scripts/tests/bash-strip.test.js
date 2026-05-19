@@ -5,9 +5,9 @@
 // authority stops at the source diff; Bash escalation goes through @test-runner
 // (suite execution) or @reviewer (read-only static analysis).
 //
-// Frontmatter shape: either declare `tools` (allowlist) without Bash, OR
-// declare `disallowedTools` (denylist) with Bash included. Mutation test
-// verifies the validator fails red when an implementer gains Bash.
+// Frontmatter shape: declare `tools` allowlist without Bash. `disallowedTools`
+// denylists are forbidden per plugin-authoring.md R2. Mutation test verifies
+// the validator fails red when an implementer gains Bash.
 
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -30,15 +30,11 @@ function check(cond, msg) {
 export function assertNoBashIfImplementer(name, fm) {
   if (!IMPLEMENTER_AGENTS.has(name)) return null;
   const tools = normalizeToolList(fm.tools);
-  const disallowed = normalizeToolList(fm.disallowedTools);
-  if (tools !== null && tools.includes("Bash")) {
+  if (tools === null) {
+    return `implementer agent '${name}' must declare tools allowlist (missing)`;
+  }
+  if (tools.includes("Bash")) {
     return `implementer agent '${name}' must deny Bash: found Bash in tools allowlist (${JSON.stringify(tools)})`;
-  }
-  if (disallowed !== null && !disallowed.includes("Bash")) {
-    return `implementer agent '${name}' must declare Bash in disallowedTools (got ${JSON.stringify(disallowed)})`;
-  }
-  if (tools === null && disallowed === null) {
-    return `implementer agent '${name}' must declare either tools (without Bash) or disallowedTools (with Bash); both missing`;
   }
   return null;
 }
@@ -70,16 +66,16 @@ for (const file of files) {
 // === Mutation test: implementer agent with Bash MUST be flagged ===
 console.log("Mutation test (validator must fail red when implementer gains Bash):");
 {
-  // Allowlist form: implementer with Bash in tools → violation
+  // Implementer with Bash in tools allowlist → violation
   const mutatedTools = ["Read", "Grep", "Glob", "Write", "Edit", "MultiEdit", "Bash"];
   const violation = assertNoBashIfImplementer("backend", { tools: mutatedTools });
   check(violation !== null && /must deny Bash.*Bash in tools allowlist/.test(violation),
     `mutation: backend with Bash in tools is flagged`);
 
-  // Denylist form: implementer with disallowedTools missing Bash → violation
-  const missingBan = assertNoBashIfImplementer("backend", { disallowedTools: ["Edit", "MultiEdit"] });
-  check(missingBan !== null && /must declare Bash in disallowedTools/.test(missingBan),
-    `mutation: backend with disallowedTools missing Bash is flagged`);
+  // Implementer with no tools allowlist at all → violation
+  const missingTools = assertNoBashIfImplementer("backend", {});
+  check(missingTools !== null && /must declare tools allowlist/.test(missingTools),
+    `mutation: backend with no tools allowlist is flagged`);
 
   // Inverse: a non-implementer (e.g., reviewer) with Bash is FINE
   const reviewerOk = assertNoBashIfImplementer("reviewer", {
@@ -87,9 +83,11 @@ console.log("Mutation test (validator must fail red when implementer gains Bash)
   });
   check(reviewerOk === null, `inverse: reviewer (non-implementer) with Bash is allowed`);
 
-  // Inverse: implementer with denylist containing Bash is FINE
-  const backendDenylistOk = assertNoBashIfImplementer("backend", { disallowedTools: ["Bash"] });
-  check(backendDenylistOk === null, `inverse: backend with Bash in disallowedTools is allowed`);
+  // Inverse: implementer with tools allowlist excluding Bash is FINE
+  const backendAllowlistOk = assertNoBashIfImplementer("backend", {
+    tools: ["Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Skill"],
+  });
+  check(backendAllowlistOk === null, `inverse: backend with Bash absent from tools allowlist is allowed`);
 }
 
 if (failures > 0) {

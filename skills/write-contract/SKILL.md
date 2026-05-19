@@ -38,6 +38,16 @@ Patterns:
 
 A **critical** criterion fails the feature on a single FAIL regardless of other PASSes. Reserve for: security leaks, data-loss paths, compliance-mandated behavior, broken contracts. Mark inline in `description:` with the literal token `CRITICAL:` so `@evaluator`'s rubric can grep for it.
 
+### Step 2b — Weight criteria + cite the AC row each criterion operationalizes
+
+Per operation, every criterion in `description:` carries:
+
+- **A weight** — integer percentage. All weights for one operation sum to **100**. The weight reflects business impact: a 70-weight criterion failing matters more than three 10-weight ones. `@evaluator` uses weights to compute `eval_score` (weighted sum of PASS rows; `passing_score` default 80).
+- **A trace cite** — every criterion ends with `(AC-NNN)` naming the FRS `S-AC-001` row it operationalizes (`criterion: idempotency key echoed in response (AC-003)`). Untraced criterion fails `@reviewer`'s spec-trace gate.
+- **Critical flag** — `critical: true` for security/data-loss/contract-break criteria (per Step 2's `CRITICAL:` token).
+
+Same weight + AC-trace + critical mandate applies to `<feature-id>-asyncapi.yaml` event channels.
+
 ### Step 3 — Author the producer openapi document
 
 Path: `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml`. Top-of-file `# orchestra:` comment block carries frontmatter-equivalent metadata (`pre-write-check.js` parses it). Full YAML example + sections shape: `references/contract-patterns.md` "Producer openapi.yaml".

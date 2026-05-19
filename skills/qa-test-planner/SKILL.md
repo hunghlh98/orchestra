@@ -100,6 +100,26 @@ Row shape (single table — `@test-author` leaves `status` + `evidence` empty; `
 
 `@test-runner` does not append a subsection. It fills the `status` (`PASS|FAIL`) and `evidence` (last 5–10 lines of stdout; append `flake=N` if non-zero) cells in place. `@test-author`'s `id` / `criterion` / `axis` / `critical` / `fixture` cells are preserved verbatim. Newly-introduced white-box tests get new rows with fresh `T-NNN` ids past the `@test-author` max.
 
+### Step 5 — DIV resolution (brownfield reverse-pass)
+
+When `@architect`'s reverse-pass walks source and finds source behaviour diverges from the regenerated spec, the divergence rides in `<feature-id>-TSR.md` `S-DIVERGENCES-001` BEFORE TSR locks. Row shape:
+
+```
+| ID      | UC slug         | Where           | Finding                                                   | Guard test ID |
+| DIV-001 | order-validate  | OrderValidator  | Accepts negative quantities; FRS FR-3 says positive only  | TSR-T-014     |
+```
+
+`Where` names the source element by role/name (NOT `file:line`). `Finding` is a single declarative sentence.
+
+**Each `DIV-NNN` closes via exactly one path — NEVER an ADR.** Source IS the spec in brownfield reverse-doc.
+
+- **Path A — ratify-as-invariant.** Source is consistent + intentional-looking, no contradicting evidence. Append `INV-NNN` to BR-AC `S-INVARIANTS-001`. Write `INV-NNN (ratified)` into the DIV `Resolution` cell.
+- **Path B — correct-source.** External evidence (commit, doc, support ticket, customer report) says source is wrong. Write `<feature-id>-DEFECT-<slug>.md` at `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/`. Write `defect: <slug>` into the DIV `Resolution` cell.
+
+Path unclear → `AskUserQuestion`. Do not route DIV into ADR — half-implementations and accidental shapes fail ADR-worthiness gate 1.
+
+`@lead` (DIV resolution phase) iterates each unresolved row, picks Path A or B, and hands off via `subagent_type: orchestra:architect` with `task: div-resolution`, `div: DIV-<NNN>`, `proposed_path: ratify | correct`.
+
 ## When to escalate
 
 - A criterion is too vague to write a probe for → ask `@lead` to re-spec the criterion (Pattern B). Don't invent a probe and call it the test.
