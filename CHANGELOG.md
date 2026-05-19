@@ -4,6 +4,40 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.0] — 2026-05-19
+
+Minor release. Agents distilled to a hybrid ruflo + awesome-claude form (4-section body, 5-bullet best-practices, decision framework + handoff arrows); orchestra-specific procedure migrated from agent bodies to skill homes per R2.1 ("agents coordinate, skills know"). Audit ran against the plugin's own `docs/plugin-authoring.md` rulebook — every agent was found in violation (`disallowedTools:` deny-lists, `### Valid field values` tables, hook-path cites, workflow-tree counts above R2.3's 2-tree cap). Corpus halved from 1394 → 740 lines (47% reduction); orchestra-pipeline behavior unchanged; consumer-facing agent prompts re-shaped (BREAKING).
+
+### Breaking
+
+- **Every agent prompt body re-shaped to the ruflo skeleton.** Consumers who pinned against prior prompt phrasing or inline procedure (BR-AC singleton authoring under `@architect`, openapi criterion-weighting under `@architect`, DIV resolution mechanics under `@architect`, Logical ERD / Inter-service Sequence under `@architect`) will see those procedures invoked via `Skill(<name>)` instead of read inline. The behavior preserved verbatim — just moved tiers.
+- **`disallowedTools:` deny-lists replaced with `tools:` allow-lists everywhere.** Per `docs/plugin-authoring.md` line 188: every agent now enumerates an explicit Read / Write / Edit / Bash / Skill / AskUserQuestion / `mcp__orchestra-utils__*` / `mcp__orchestra-probe__*` set. `*` is never used. CI `scripts/tests/agents.test.js` Check 4 now hard-fails on `disallowedTools:` presence.
+
+### Added
+
+- **Hybrid ruflo + awesome-claude skeleton.** Every agent now opens with a one-sentence role line, then a `When invoked:` 4-step numbered checklist, then `## Skills` / `## Best practices` (5 imperative one-liners) / `## Deliverables` (canonical paths + S-anchor enumeration) / `## Decision framework` (5 pre-action questions) / `## Handoff` (← spawned-by / → next / ↯ escalate arrows). One compact `<example>` block per agent (CI Check 7 still requires ≥1). Inline subsections retained only for orchestra-mechanics that have no skill home (greenfield SAD bootstrap, ADR-open subroutine, ADR-worthiness gates, structural-failures rubric, phase-tag emission, run-plan bootstrap, DEADLOCK loop on spec gaps).
+- **`skills/c4-architecture/SKILL.md` Steps 7–9.** Receives Logical ERD authoring (workspace + service scope-routing per `local.yaml.scope_level`), Inter-service Sequence (req / resp / alt mandate), SAD/TDD lock-gates (`c4-context.puml` mandatory at SAD lock; `<feature-id>-erd-physical.puml` mandatory when `S-DATA-001` carries ≥1 row).
+- **`skills/write-contract/SKILL.md` Step 2b.** Receives criterion weighting (per-operation weights sum to 100, `@evaluator` uses for `eval_score` computation), AC-trace mandate (every criterion ends with `(AC-NNN)`), inline `critical: true` flag.
+- **`skills/business-analysis/SKILL.md` Step 7.** Receives BR-AC singleton authoring (`<service_name>-BR-AC.md` `S-BR-001` / `S-AC-001` / `S-INVARIANTS-001` anchors, BR-vs-INV test, workspace `business-invariants.md` placement rule for multi-repo + system-wide). Auto-promotes from `@analyst` `ESCALATE-BR-<slug>.md` markers via `@architect`.
+- **`skills/qa-test-planner/SKILL.md` Step 5.** Receives DIV resolution discipline — Path A (ratify-as-invariant; append `INV-NNN` to BR-AC) or Path B (correct-source; write `<feature-id>-DEFECT-<slug>.md`). Source IS the spec in brownfield reverse-doc; DIV NEVER closes via ADR.
+
+### Changed
+
+- **Agent corpus 1394 → 740 lines (47% reduction).** Per-agent: `@evaluator` 102→55, `@frontend` 86→57, `@test-author` 106→57, `@test-runner` 92→58, `@backend` 108→64, `@lead` 146→80, `@analyst` 151→80, `@reviewer` 141→82, `@product` 181→90, `@architect` 281→117. Each agent in the 55–117 line band; corpus mean ~74 lines.
+- **Frontmatter MCP-tool allow-lists.** `@product` gains `mcp__orchestra-utils__upsert_features_yaml` (manifest writes). `@architect` gains `mcp__orchestra-utils__docs_readme` (provenance marker). `@evaluator` gains `mcp__orchestra-probe__http_probe` + `mcp__orchestra-probe__db_state` (auditable runtime probes). No agent uses `*`.
+- **Five-step `When invoked:` collapses to four.** Prior workflows averaged 9 numbered steps; the four-step opening (read input → apply calibration → author / grade → hand back) compresses without losing decision points (those move to `Decision framework`).
+- **Restate-frontmatter tables removed.** `### Valid field values` / `### Inputs` / `### Outputs` / `### Frontmatter contract` / `### Setup` / `### Guidelines` sub-blocks dropped across all 10 agents — ~250 lines net. Anything load-bearing moved to maintainer `CLAUDE.md`; the rest was duplication against `schemas/pipeline-artifact.schema.md`.
+- **`agents/reviewer.md` `Structural failures` re-shaped.** Twelve auto-REQUEST_CHANGES triggers kept verbatim as the rubric (cannot promote without losing teeth); literal `§` character removed from prose (the `validate-cite.js` cite-purity scan forbids it anywhere in `agents/` / `commands/` / `skills/`). Re-worded "§-anchor cite" → "anchor cite" with explicit token enumeration `(PRD / FRS / TDD / openapi / TSR / FR-N / AC-N / S-XXX-NNN / ADR-NNNN)`.
+- **`agents/lead.md` `### Phase-tag emission` subsection retained inline.** `metrics-collector.js` reads the canonical phase values (`discovery`, `spec-draft`, `verification`, `gap-resolution`, `gate`) at runtime; subsection drop would break observability joins. Surfaced + caught by `validate-cite.js` during step-3 validation.
+- **`scripts/tests/agents.test.js` Check 4** tightened to hard-fail on `disallowedTools:` presence (was: tolerated as legacy). Mutation Fixture 2b flags the deny-list shape; Check 4's complement now asserts the allow-list shape.
+- **`scripts/tests/bash-strip.test.js`** rewired to prove Bash absence via allow-list inspection only (was: deny-list-and-allow-list double-check). Mutation cases reduced from 6 to 4.
+- **`docs/plugin-authoring.md`** tightened: R2.5 (no restatement tables) + R2.6 (no hook-path cites) examples regenerated against the distilled agent corpus; line 188 (`tools:` role-allow-list table) cross-referenced from CI Check 4.
+
+### Fixed
+
+- **CI gate surfaced during validation.** `validate-cite.js` requires `### Phase-tag emission` subsection in `agents/lead.md` carrying all five canonical phase values. Step-3 distillation initially dropped the subsection; validator caught it; subsection restored inline.
+- **`permissionMode: plan` correction.** The audit plan originally proposed `permissionMode: plan` on `@reviewer` and `@evaluator` (read-only-ish auditors). Both Write TSR sections (`S-REVIEW-001` / `S-EVAL-001`); plan mode would block the writes. Dropped from both; `docs/plugin-authoring.md` line 183 reserves `permissionMode: plan` for pure-read auditors.
+
 ## [5.0.1] — 2026-05-19
 
 Patch release. Closes one audit finding (`DIST-GITIGNORE-STALE-ALLOWLIST`, MINOR, from a 96.4% PASS audit run against v5.0.0) and five reverse-pass authoring gaps surfaced by consumer feedback against a real multi-service workspace (`vngg-pay-docs/new-docs`). All changes are hygiene + prompt-tightening; no schema-shape changes, no agent/skill additions, no behavioural breaks for existing consumers.
