@@ -233,7 +233,7 @@ Agents and the dispatcher command have no env-var opt-out — toggle them by rem
 
 ### Optional
 
-- PlantUML CLI on `$PATH` — for `post-write-puml` render-on-write (`.puml` → `.png`)
+- PlantUML CLI on `$PATH` — for `post-write-puml` render-on-write (`.puml` → `.svg`)
 
 ## Versioning
 
