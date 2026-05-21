@@ -141,7 +141,7 @@ Authored set by scope:
 - `scope_frame: workspace` — brief names workspace as "system under design"; source-read-rooted service is one container among siblings.
 - Container source: `<context_path>/CLAUDE.md` "Service Topology" table. Every entry → `Container(...)` row in `S-CONTAINERS-001` + `Container()` entry inside `System_Boundary(workspace, ...)` of `c4-container.puml`.
 - Forbidden: any workspace-topology service rendered as `System_Ext(...)`. Only external systems (upstream merchants, third-party networks) are `System_Ext`.
-- Post-lock: dispatcher re-spawns `@architect` with `task: per-service-narrowing` for originally requested service.
+- Post-lock: dispatcher runs the two-phase narrowing for the originally requested service — `task: service-shell-author` first (one spawn), then DAG-topo-sorted `task: feature-narrowing` fan-out (N spawns per rank). See `**Two-phase narrowing.**` below.
 
 Auto-promote also patches run-plan: `auto_promote_workspace_sad: true` in frontmatter + `S-SCOPE-UPGRADE-001` anchor declares upgrade (human reviewer sees it before approving).
 
@@ -153,34 +153,82 @@ Auto-promote also patches run-plan: `auto_promote_workspace_sad: true` in frontm
 |---|---|---|
 | `provenance-marker` | one-shot | `<context_path>/docs/README.md` via `mcp__orchestra-utils__docs_readme` only. |
 | `workspace-sad-author` | workspace | `<context_path>/docs/SAD.md`; `<context_path>/docs/business-invariants.md`; `<context_path>/docs/adr/ADR-<NNNN>-<slug>.md`; `<context_path>/docs/diagrams/{c4-context,c4-container,erd-logical}.puml`; `sequence-inter-<flow>.puml`. |
-| `per-service-narrowing` | one service | `<context_path>/docs/<service_name>/<service_name>-BR-AC.md`; `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md` (when newly opened); `<context_path>/docs/<service_name>/diagrams/{c4-component,c4-code,erd-logical}.puml`; per-feature `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TDD.md` (anchors `S-OVERVIEW-001`, `S-COMPONENTS-001`, `S-DATA-001`, `S-STATE-001`, `S-CONFIG-001`, `S-ARCHITECTURE-001`); `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` / `<feature-id>-clientapi.yaml`; per-feature `<feature-id>-{c4-context,c4-container,seq-<journey>,state-technical,erd-physical}.puml`. |
-| `deliverable-gap-fill` | one service, list in brief | absent paths from a preceding `per-service-narrowing` pass. |
-| `reverse-pass` (single-repo single-service) | one service | identical to `per-service-narrowing` row above (no `workspace-sad-author` precondition). |
+| `service-shell-author` | one service, phase A (single-writer surfaces) | `<context_path>/docs/<service_name>/<service_name>-BR-AC.md`; `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md` (when newly opened); `<context_path>/docs/<service_name>/diagrams/{c4-component,c4-code,erd-logical}.puml`. |
+| `feature-narrowing` | one feature, phase B (parallel within DAG rank) | `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TDD.md` (anchors `S-OVERVIEW-001`, `S-COMPONENTS-001`, `S-DATA-001`, `S-STATE-001`, `S-CONFIG-001`, `S-ARCHITECTURE-001`); `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` / `<feature-id>-clientapi.yaml`; per-feature `<feature-id>-{c4-context,c4-container,seq-<journey>,state-technical,erd-physical}.puml`. |
+| `deliverable-gap-fill` | one service OR one feature, list in brief | absent paths from a preceding `service-shell-author` or `feature-narrowing` pass. |
+| `reverse-pass` (single-repo single-service) | two-phase, one service | identical to `service-shell-author` + `feature-narrowing` rows combined (no `workspace-sad-author` precondition). |
 
-**Spawn brief template (per-service-narrowing).**
+**Arrow-evidence (`c4-container.puml`).** Every `Rel(...)` between containers in `workspace-sad-author`'s `c4-container.puml` MUST cite source evidence: REST controller path, Kafka topic + producer / consumer class pair, outbound HTTP adapter call site, or `pom.xml` runtime dependency. Lift evidence into a paired markdown table at the tail of SAD `S-CONTAINERS-001` — columns `source-container | dest-container | evidence file:line | relationship type`. Arrows without source evidence are dropped from the diagram. Referenced HLDs / external design docs do NOT count as evidence — they are reference-only.
+
+**Per-feature `c4-context.puml` is a highlighted copy.** Each `<feature-id>-c4-context.puml` is a verbatim copy of `<context_path>/docs/diagrams/c4-context.puml` — same `System(...)` box, same `Person(...)` / `System_Ext(...)` set, identical ids + labels + descriptions. The only delta is `UpdateElementStyle(<feature-touched-element>, $bgColor="#1168bd", ...)` highlights on the elements the feature touches. NEVER `Container(...)` / `ContainerDb(...)` — those belong in `<feature-id>-c4-container.puml`. Layer mismatch (containers inside context) is a structural defect; re-author at the L1 abstraction. Same two-folder rule applies to `<feature-id>-c4-container.puml` (highlighted copy of workspace `c4-container.puml`).
+
+**Two-phase narrowing.** Per-service narrowing runs as two phases — phase A authors single-writer service surfaces in ONE spawn; phase B authors per-feature deliverables in N spawns per topological rank of the intra-service feature DAG. Service-level singletons (BR-AC + 3 diagrams) cannot fan out (multi-writer race); per-feature deliverables can (disjoint paths).
+
+**Spawn brief template — phase A (`service-shell-author`).** Always one spawn per service. Authors service-level singletons only.
 
 ```
 phase: discovery
-task: per-service-narrowing
-feature_ids: [<feature-id>, ...]                # ids minted via features.yaml NNN + 1
+task: service-shell-author
 source_read_root: <local.yaml.source_path>
 scope_frame: per-service
 service_name: <local.yaml.service_name>
-deliverables:                                   # full paths per contract row above
+deliverables:
   - <context_path>/docs/<service_name>/<service_name>-BR-AC.md
   - <context_path>/docs/<service_name>/diagrams/c4-component.puml
   - <context_path>/docs/<service_name>/diagrams/c4-code.puml
   - <context_path>/docs/<service_name>/diagrams/erd-logical.puml
-  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-TDD.md          # per feature_id
-  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml    # per feature_id
-  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-asyncapi.yaml   # per feature_id (event-emitting only)
-  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml  # per feature_id (consumer of upstream only)
+```
+
+**Spawn brief template — phase B (`feature-narrowing`).** One spawn per `<feature-id>`. ALL spawns at the same DAG rank batched into ONE message (parallel within rank).
+
+```
+phase: discovery
+task: feature-narrowing
+feature_id: <feature-id>                        # ONE id per spawn
+depends_on: [<feature-id>, ...]                 # lifted from features.yaml; every dep already locked at spawn time
+source_read_root: <local.yaml.source_path>
+scope_frame: per-feature
+service_name: <local.yaml.service_name>
+service_shell_inputs:                           # phase-A outputs read as locked context
+  - <context_path>/docs/<service_name>/<service_name>-BR-AC.md
+  - <context_path>/docs/<service_name>/diagrams/c4-component.puml
+  - <context_path>/docs/<service_name>/diagrams/c4-code.puml
+  - <context_path>/docs/<service_name>/diagrams/erd-logical.puml
+deliverables:
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-TDD.md
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-asyncapi.yaml   # event-emitting only
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml  # upstream-consuming only
   - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-seq-<journey>.puml
   - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-state-technical.puml
   - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-erd-physical.puml
 ```
 
-**Post-pass deliverable check.** Dispatcher walks the brief's `deliverables:` list after `@architect` returns; absent paths → `Write(<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/MISSING-DELIVERABLES-<service>.md)` listing absent paths; re-spawn `@architect` with `task: deliverable-gap-fill` carrying the list. Cycles until coverage closes.
+**DAG-aware topo-sort.** Dispatcher computes phase-B ranks BEFORE spawning. Algorithm:
+
+```
+features = features.yaml.features filtered to {status: planned | in-progress}
+done = {}
+ranks = []
+while features:
+  rank = [f for f in features if every f.depends_on id already in done]
+  if rank == []: abort "cycle"                  # defensive — schema guards acyclicity at write time
+  ranks.append(rank)
+  done.update(rank ids)
+  features -= rank
+```
+
+For each `rank` in order: ONE `Agent` tool-call message with `len(rank)` `@architect task: feature-narrowing` spawns (one per feature in rank). Wait converge; advance to next rank only after every rank-N TDD locks. Single-feature ranks still wrap in one Agent-tool-call message — uniform shape, no special-case.
+
+**Post-pass deliverable check.** Dispatcher walks each spawn's `deliverables:` list after `@architect` returns; absent paths → `Write(<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/MISSING-DELIVERABLES-<service>.md)` listing absent paths; re-spawn `@architect` with `task: deliverable-gap-fill` carrying the list. Cycles until coverage closes. Per-phase: phase-A gap-fill writes against the service-shell path; phase-B gap-fill writes against `pipeline/<feature-id>/`.
+
+**Post-pass spec-correctness audit (reverse-pass only).** After deliverable presence closes for a `feature-narrowing` spawn, dispatcher samples ≥3 endpoints per `<feature-id>-openapi.yaml`, ≥1 channel per `<feature-id>-asyncapi.yaml`, ≥1 outbound operation per `<feature-id>-clientapi.yaml`. For each sample:
+
+- openapi: `paths.<route>.<method>.requestBody.content.application/json.schema` MUST match the Spring controller's `@RequestBody <Type>` source class shape (field names + nullability); `parameters` MUST match `@PathVariable` / `@RequestParam` annotations; `responses` MUST cover the controller's return-type + every `@ExceptionHandler` mapped error.
+- asyncapi: `channels.<topic>.publish.message.payload` / `subscribe.message.payload` MUST match the Kafka producer's `KafkaTemplate.send(...)` value type / the `@KafkaListener` argument type.
+- clientapi: each outbound operation MUST match the adapter's `RestTemplate.exchange(...)` / `WebClient.<method>(...).bodyValue(...)` call site (path template + request body type + expected response type).
+
+Mismatches → append a row to the feature's TDD `S-DIVERGENCES-001` carrying `source file:line | spec field | drift type | resolution-path-hint (A=ratify-spec / B=fix-source)`. The audit gates feature lock — `task: spec-correctness-fix` re-spawn cycles until either source + spec align (Path B) OR `S-DIVERGENCES-001` carries a ratification entry (Path A via `mcp__orchestra-utils__amend_locked_artifact`).
 
 **Provenance marker.** First run when preflight reports `docs_provenance: unknown` → spawn `@architect` with `task: provenance-marker`. `@architect` calls `mcp__orchestra-utils__docs_readme(context_path)` — the tool pins frontmatter (`id: docs-readme`, `type: README`, `generated_by: orchestra`, `status: locked`) and writes a canonical body from `hooks/references/docs-readme.template.md`. No improvisation, no `Write` author path.
 

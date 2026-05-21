@@ -48,6 +48,12 @@ C4 scope is a load-bearing contract between SAD frontmatter and SAD body. Mismat
 
 **L2 (Container) shape.** Every `Container(...)` inside `System_Boundary(...)` is a deployable unit of the system under design. Their internals belong to L3.
 
+**L3 (Component) shape.** Every `Component(...)` inside `Container_Boundary(...)` is an internal component of ONE zoomed-in container.
+
+- **Inbound callers.** Every upstream container that calls into the zoomed-in container MUST appear as `Container_Ext(...)` OUTSIDE the boundary, with inbound `Rel(<upstream-ext>, <component-or-boundary>, "<verb>", "<protocol>")` showing call direction + transport.
+- **Outbound dependencies.** Downstream containers the zoomed container calls (databases, message brokers, sibling services) appear as `Container_Ext` / `ContainerDb_Ext` / `ContainerQueue_Ext` outside the boundary, with outbound `Rel(...)` from the calling component.
+- **Completeness.** A component diagram without external callers is structurally incomplete — the reader cannot see who triggers the flow.
+
 **Workspace SAD** ("system under design" = the workspace / platform):
 
 - `c4-context.puml`: one `System("<platform name>")` box. Every service in `<context_path>/CLAUDE.md` Service Topology MUST appear as a container in L2 — NOT `System_Ext`. Only entities outside the workspace (upstream merchants, third-party payment networks, end-user personas) are `System_Ext` / `Person`.
@@ -109,7 +115,7 @@ Walk this checklist; any "no" → fix the source, do not render:
 - [ ] **Title** present (e.g., `title C4 Level 2 — Containers — hello-world`).
 - [ ] **Stdlib `!include`** used; no raw `rectangle` / `actor` / `component` / `package` / `node` / `database` in body.
 - [ ] **Every element**: name (1st arg), type-by-macro, description (last arg), technology (3rd arg at Container/Component level).
-- [ ] **L1 Context**: no transport protocols on relationships. **L3 Component**: no framework internals.
+- [ ] **L1 Context**: no transport protocols on relationships. **L3 Component**: no framework internals; every upstream container that calls in appears as `Container_Ext(...)` outside `Container_Boundary`, with inbound `Rel(...)` showing direction + protocol.
 - [ ] **Every `Rel(...)`**: label, technology arg at Container/Component level, action verb, unidirectional.
 - [ ] **Stand-alone test**: a stranger reading the rendered `.svg` (no narration) can tell what the system does, who uses it, how it's built.
 - [ ] **Two-folder rule**: project singleton at `docs/diagrams/c4-<noun>.puml` is unstyled; per-feature copy under `docs/<service_name>/<feature-id>/diagrams/` differs ONLY in `UpdateElementStyle()` highlights — never in element identity.
