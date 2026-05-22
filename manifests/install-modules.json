@@ -53,14 +53,14 @@
     {
       "name": "mcp.orchestra-utils",
       "kind": "mcp",
-      "path": "scripts/mcp-servers/orchestra-utils.js",
+      "path": "mcp-servers/orchestra-utils.js",
       "defaultEnabled": true,
       "stability": "stable"
     },
     {
       "name": "mcp.orchestra-probe",
       "kind": "mcp",
-      "path": "scripts/mcp-servers/orchestra-probe.js",
+      "path": "mcp-servers/orchestra-probe.js",
       "defaultEnabled": true,
       "stability": "stable"
     },

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/mcp-servers/orchestra-utils.js
+// mcp-servers/orchestra-utils.js
 // MCP server: orchestra utilities. Eight tools.
 //
 //   tree                          read-only directory listing
@@ -27,12 +27,12 @@ import { readdirSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, relative, basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parse as parseYaml, serialize as serializeYaml } from "../../hooks/lib/yaml-mini.js";
-import { safeRead, safeWrite } from "../../hooks/lib/safe-fs.js";
+import { parse as parseYaml, serialize as serializeYaml } from "../hooks/lib/yaml-mini.js";
+import { safeRead, safeWrite } from "../hooks/lib/safe-fs.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const PLUGIN_ROOT = resolve(__dirname, "..", "..");
+const PLUGIN_ROOT = resolve(__dirname, "..");
 const TEMPLATE_PATH = join(PLUGIN_ROOT, "hooks", "references", "consumer-claude-md.template.md");
 const DOCS_README_TEMPLATE_PATH = join(PLUGIN_ROOT, "hooks", "references", "docs-readme.template.md");
 

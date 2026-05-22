@@ -3,6 +3,9 @@
 // MCP probe contract tests: http_probe round-trip, db_state SELECT-only +
 // secret redaction + timeout + row_cap. orchestra-utils coverage lives in
 // scripts/tests/orchestra-utils.test.js.
+//
+// Server source lives at mcp-servers/orchestra-probe.js (plugin-root sibling
+// to agents/, commands/, hooks/, skills/). Tests import via ../../mcp-servers/.
 
 import { createServer } from "node:http";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
@@ -11,7 +14,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-import { httpProbeImpl, dbStateImpl, redact } from "../mcp-servers/orchestra-probe.js";
+import { httpProbeImpl, dbStateImpl, redact } from "../../mcp-servers/orchestra-probe.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 let passes = 0, failures = 0;
@@ -155,7 +158,7 @@ console.log("db_state sqlite3 + SELECT-only:");
 // ---------- MCP smoke: probe tools/list over JSON-RPC stdio ----------
 console.log("MCP protocol smoke:");
 {
-  const probeServer = resolve(root, "scripts/mcp-servers/orchestra-probe.js");
+  const probeServer = resolve(root, "mcp-servers/orchestra-probe.js");
   const r = spawnSync("node", [probeServer], {
     input: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) + "\n",
     encoding: "utf8",

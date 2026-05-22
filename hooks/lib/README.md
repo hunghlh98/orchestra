@@ -17,8 +17,9 @@ Internal modules consumed by `hooks/scripts/*.js`. Ship to consumers as part of 
 | `metrics-aggregators.js` | Derived metrics writers (`emitSubagentTokens`, `emitInsightsForSession`, `emitRunSummary`, `emitCostByPhase`). | `metrics-collector.js` |
 | `plan-frontmatter.js` | Per-agent PLAN file shape: `planPathFor`, `readPlan`/`writePlan`/`readOrInitPlan`/`initPlan`/`renderPlan`, `rebuildTasksChecklist`, `recomputeCounts`, `nextTaskOrdinal`, `mapClaudeStatus`, `oneLine`, `extractCreatedTaskId`. | `agent-plan-sync.js` |
 | `plan-sync.js` | Subagent identity + feature-id resolution: `resolveContext`, `findJustStoppedSubagentMeta`, `deriveFeatureId`. | `agent-plan-sync.js` |
-| `cite-patterns.js` | Canonical regex tables for pre-write-check (`SECRET_PATTERNS`, `SKIP_PATTERNS`, `CITE_DENYLIST_RE`, Gate-D / Gate-D-inverse path + identifier patterns, `isChainArtifactUnderDocs`). | `gate-d.js` |
-| `gate-d.js` | Pure gate matchers returning `{gate, message}` on hit (`checkSecrets`, `checkGateD`, `checkGateDInverse`, `checkGateE`). | `pre-write-check.js` |
+| `cite-patterns.js` | Canonical regex tables for pre-write-check (`SECRET_PATTERNS`, `SKIP_PATTERNS`, `CITE_DENYLIST_RE`, chain-cite-reject / codebase-token-reject path + identifier patterns, `isChainArtifactUnderDocs`). | `gate-d.js` |
+| `gate-d.js` | Pure gate matchers returning `{gate, message}` on hit (`checkSecrets`, `checkChainCiteReject`, `checkCodebaseTokenReject`, `checkWorkspaceSadContainerFloor`). | `pre-write-check.js` |
+| `gate-f.js` | Changelog append-only enforcement (`checkChangelogAppendOnly`, `parseChangelogRows`). | `pre-write-check.js` |
 | `preflight-detect.js` | `/orchestra` preflight detection + block builder (`buildPreflightBlock`, `parseSourceFlag`). | `orchestra-preflight.js` |
 
 ## Stability contract
@@ -27,7 +28,7 @@ These modules are **consumer surface**. Breaking changes require:
 
 1. SemVer MAJOR bump (per `CLAUDE.md` release workflow).
 2. CHANGELOG `### Breaking` entry citing the affected module + migration path.
-3. Audit every consumer of the module (`grep -rn "require.*hooks/lib/<name>" hooks/scripts/ scripts/mcp-servers/`) before merge.
+3. Audit every consumer of the module (`grep -rn "require.*hooks/lib/<name>" hooks/scripts/ mcp-servers/`) before merge.
 
 Function signatures and exported names are part of the public contract. Internal helpers (not exported) may change freely.
 

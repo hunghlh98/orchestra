@@ -1,12 +1,14 @@
 {
   "mcpServers": {
     "orchestra-utils": {
+      "type": "stdio",
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-servers/orchestra-utils.js"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/orchestra-utils.js"]
     },
     "orchestra-probe": {
+      "type": "stdio",
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-servers/orchestra-probe.js"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/orchestra-probe.js"]
     }
   }
 }

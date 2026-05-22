@@ -26,7 +26,7 @@ import {
   claudeMdImpl,
   docsReadmeImpl,
   TOOLS,
-} from "../mcp-servers/orchestra-utils.js";
+} from "../../mcp-servers/orchestra-utils.js";
 import { parse as parseYaml } from "../../hooks/lib/yaml-mini.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -494,7 +494,7 @@ withTmp(_ => {
 // ---------- MCP JSON-RPC smoke ----------
 console.log("MCP JSON-RPC smoke:");
 {
-  const server = resolve(root, "scripts/mcp-servers/orchestra-utils.js");
+  const server = resolve(root, "mcp-servers/orchestra-utils.js");
 
   // tools/list
   const r1 = spawnSync("node", [server], {
@@ -542,7 +542,7 @@ console.log("MCP JSON-RPC smoke:");
 // ---------- env-var opt-out ----------
 console.log("MCP env-var opt-out:");
 {
-  const r = spawnSync("node", [resolve(root, "scripts/mcp-servers/orchestra-utils.js")], {
+  const r = spawnSync("node", [resolve(root, "mcp-servers/orchestra-utils.js")], {
     encoding: "utf8",
     env: { ...process.env, ORCHESTRA_MCP_ORCHESTRA_UTILS: "off" },
     timeout: 1000,

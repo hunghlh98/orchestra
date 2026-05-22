@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/mcp-servers/orchestra-probe.js
+// mcp-servers/orchestra-probe.js
 // MCP server: runtime probes for @evaluator. Two tools: http_probe, db_state.
 //
 // SQL backend support: sqlite3 only via the `sqlite3` CLI.
