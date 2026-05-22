@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 // scripts/tests/hooks.test.js
-// Hook contract tests for v4.0:
+// Hook contract tests:
 //   - yaml-mini round-trip (frontmatter parser, formerly lockfile parser)
-//   - pre-write-check.js: secrets matcher + 4 new gates
-//       Gate-A — frontmatter status: locked rejects writes
-//       Gate-B — frontmatter sections: all-locked rejects writes
-//       Gate-C — frontmatter readers: emits non-blocking warning to stderr
-//       Gate-D — §7.28 src/ cite denylist; exit 2 on hit when target is business src/
+//   - pre-write-check.js: secrets matcher + 4 frontmatter / cite gates
+//       locked-status-reject     — frontmatter status: locked rejects writes
+//       all-sections-locked-reject — frontmatter sections: all-locked rejects writes
+//       readers-scope-warning    — frontmatter readers: emits non-blocking warning
+//       chain-cite-reject        — src/ cite denylist; exit 2 on hit under business src/
 //   - post-bash-lint (Observer)
 //   - val-calibration (Rewriter — calibration source at scripts/evaluator-tuning/)
 //   - hooks.json matcher validation
-//   - orchestra.md v4.0 decision-tree + chain-rigor + subcommand fixture
+//   - orchestra.md subcommand surface fixture
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -95,11 +95,11 @@ console.log("pre-write-check secrets:");
   check(offR.status === 0, `pre-write-check opt-out: exits 0`);
 }
 
-// ---------- pre-write-check Gate-A: status: locked ----------
-console.log("pre-write-check Gate-A (status: locked):");
+// ---------- pre-write-check locked-status-reject ----------
+console.log("pre-write-check locked-status-reject (status: locked):");
 {
   const script = resolve(root, "hooks/scripts/pre-write-check.js");
-  withTmp("gate-a", (tmp) => {
+  withTmp("locked-status-reject", (tmp) => {
     const lockedPath = join(tmp, "PRD-001.md");
     writeFileSync(lockedPath, `---
 id: PRD-001
@@ -113,8 +113,8 @@ verdict: PENDING
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Edit",
       tool_input: { file_path: lockedPath, old_string: "PRD body", new_string: "modified body" },
     });
-    check(blockR.status === 2, `Gate-A: rejects Edit on status:locked file (got ${blockR.status})`);
-    check(/gate-A/i.test(blockR.stderr) && /locked/.test(blockR.stderr), `Gate-A: stderr names gate + locked status`);
+    check(blockR.status === 2, `locked-status-reject: rejects Edit on status:locked file (got ${blockR.status})`);
+    check(/locked-status-reject/i.test(blockR.stderr) && /locked/.test(blockR.stderr), `locked-status-reject: stderr names gate + locked status`);
 
     // Inverse: status: draft permits Edit.
     const draftPath = join(tmp, "PRD-002.md");
@@ -137,15 +137,15 @@ verdict: PENDING
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Edit",
       tool_input: { file_path: lockedPath, old_string: "PRD body", new_string: "force-unlocked" },
     }, { ORCHESTRA_HOOK_PRE_WRITE_CHECK: "off" });
-    check(overrideR.status === 0, `Gate-A override: env=off bypasses lock`);
+    check(overrideR.status === 0, `locked-status-reject override: env=off bypasses lock`);
   });
 }
 
-// ---------- pre-write-check Gate-B: sections all locked ----------
-console.log("pre-write-check Gate-B (sections all-locked):");
+// ---------- pre-write-check all-sections-locked-reject ----------
+console.log("pre-write-check all-sections-locked-reject:");
 {
   const script = resolve(root, "hooks/scripts/pre-write-check.js");
-  withTmp("gate-b", (tmp) => {
+  withTmp("all-sections-locked-reject", (tmp) => {
     // All sections locked → reject.
     const allLockedPath = join(tmp, "TSR-001.md");
     writeFileSync(allLockedPath, `---
@@ -170,8 +170,8 @@ sections:
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Edit",
       tool_input: { file_path: allLockedPath, old_string: "TSR body", new_string: "trying to amend" },
     });
-    check(blockR.status === 2, `Gate-B: rejects when all sections locked (got ${blockR.status})`);
-    check(/gate-B/i.test(blockR.stderr), `Gate-B: stderr names the gate`);
+    check(blockR.status === 2, `all-sections-locked-reject: rejects when all sections locked (got ${blockR.status})`);
+    check(/all-sections-locked-reject/i.test(blockR.stderr), `all-sections-locked-reject: stderr names the gate`);
 
     // Mixed-state sections → allow (trust-frontmatter).
     const mixedPath = join(tmp, "TSR-002.md");
@@ -197,7 +197,7 @@ sections:
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Edit",
       tool_input: { file_path: mixedPath, old_string: "TSR body", new_string: "evaluator amends" },
     });
-    check(allowR.status === 0, `Gate-B inverse: at least one open section permits Edit`);
+    check(allowR.status === 0, `all-sections-locked-reject inverse: at least one open section permits Edit`);
 
     // No sections block → allow.
     const noSectionsPath = join(tmp, "PRD-003.md");
@@ -212,15 +212,15 @@ status: draft
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Edit",
       tool_input: { file_path: noSectionsPath, old_string: "PRD body", new_string: "edited" },
     });
-    check(noSectionsR.status === 0, `Gate-B: file without sections: block is allowed`);
+    check(noSectionsR.status === 0, `all-sections-locked-reject: file without sections: block is allowed`);
   });
 }
 
-// ---------- pre-write-check Gate-C: readers warning, non-blocking ----------
-console.log("pre-write-check Gate-C (readers, non-blocking):");
+// ---------- pre-write-check readers-scope-warning (non-blocking) ----------
+console.log("pre-write-check readers-scope-warning:");
 {
   const script = resolve(root, "hooks/scripts/pre-write-check.js");
-  withTmp("gate-c", (tmp) => {
+  withTmp("readers-scope-warning", (tmp) => {
     const filePath = join(tmp, "PRD-001.md");
     writeFileSync(filePath, `---
 id: PRD-001
@@ -236,16 +236,16 @@ readers:
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Edit",
       tool_input: { file_path: filePath, old_string: "PRD body", new_string: "edited" },
     });
-    check(r.status === 0, `Gate-C: non-blocking; exit 0 even with readers set (got ${r.status})`);
-    check(/gate-C/i.test(r.stderr) && /readers-scope/.test(r.stderr), `Gate-C: stderr emits readers-scope warning`);
+    check(r.status === 0, `readers-scope-warning: non-blocking; exit 0 even with readers set (got ${r.status})`);
+    check(/readers-scope-warning/i.test(r.stderr), `readers-scope-warning: stderr emits warning`);
   });
 }
 
-// ---------- pre-write-check Gate-D: src/ cite denylist ----------
-console.log("pre-write-check Gate-D (§7.28 src/ purity):");
+// ---------- pre-write-check chain-cite-reject: src/ cite denylist ----------
+console.log("pre-write-check chain-cite-reject (src/ purity):");
 {
   const script = resolve(root, "hooks/scripts/pre-write-check.js");
-  withTmp("gate-d", (tmp) => {
+  withTmp("chain-cite-reject", (tmp) => {
     const javaPath = join(tmp, "src/main/java/com/example/UserService.java");
     mkdirSync(dirname(javaPath), { recursive: true });
 
@@ -254,36 +254,36 @@ console.log("pre-write-check Gate-D (§7.28 src/ purity):");
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: { file_path: javaPath, content: `// implements user creation per PRD §3.2\npublic class UserService {}` },
     });
-    check(blockR1.status === 2, `Gate-D: PRD §3.2 cite in src/main/ rejected`);
-    check(/gate-D/i.test(blockR1.stderr), `Gate-D: stderr names gate`);
+    check(blockR1.status === 2, `chain-cite-reject: PRD §3.2 cite in src/main/ rejected`);
+    check(/chain-cite-reject/i.test(blockR1.stderr), `chain-cite-reject: stderr names gate`);
 
     // Block: FR-NN cite
     const blockR2 = runHook(script, {
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: { file_path: javaPath, content: `// satisfies FR-12\npublic class UserService {}` },
     });
-    check(blockR2.status === 2, `Gate-D: FR-12 cite in src/main/ rejected`);
+    check(blockR2.status === 2, `chain-cite-reject: FR-12 cite in src/main/ rejected`);
 
     // Block: S-XXX-NNN anchor cite
     const blockR3 = runHook(script, {
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: { file_path: javaPath, content: `// per S-VALIDATION-002\npublic class UserService {}` },
     });
-    check(blockR3.status === 2, `Gate-D: S-VALIDATION-002 anchor cite in src/main/ rejected`);
+    check(blockR3.status === 2, `chain-cite-reject: S-VALIDATION-002 anchor cite in src/main/ rejected`);
 
     // Block: openapi.yaml#/paths/ cite
     const blockR4 = runHook(script, {
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: { file_path: javaPath, content: `// openapi.yaml#/paths/users\npublic class UserService {}` },
     });
-    check(blockR4.status === 2, `Gate-D: openapi.yaml#/paths/ cite rejected`);
+    check(blockR4.status === 2, `chain-cite-reject: openapi.yaml#/paths/ cite rejected`);
 
     // Allow: domain comment with no cites.
     const allowR = runHook(script, {
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: { file_path: javaPath, content: `// Validates user input before persistence.\npublic class UserService {}` },
     });
-    check(allowR.status === 0, `Gate-D: domain-only comment is allowed`);
+    check(allowR.status === 0, `chain-cite-reject: domain-only comment is allowed`);
 
     // Allow: same cite outside of src/ (e.g., docs/<feature>/PRD-001.md)
     const docsPath = join(tmp, "docs/001/PRD-001.md");
@@ -292,7 +292,7 @@ console.log("pre-write-check Gate-D (§7.28 src/ purity):");
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: { file_path: docsPath, content: `cross-cite per FR-12 holds.\n` },
     });
-    check(docsR.status === 0, `Gate-D: cite in docs/ (non-src/) is allowed`);
+    check(docsR.status === 0, `chain-cite-reject: cite in docs/ (non-src/) is allowed`);
 
     // Allow: README.md inside src/ is exempted by extension allowlist.
     const readmePath = join(tmp, "src/main/README.md");
@@ -300,7 +300,7 @@ console.log("pre-write-check Gate-D (§7.28 src/ purity):");
       session_id: "test", hook_event_name: "PreToolUse", tool_name: "Write",
       tool_input: { file_path: readmePath, content: `# Module docs\nSee FR-12 in upstream.\n` },
     });
-    check(readmeR.status === 0, `Gate-D: README.md under src/ is exempted`);
+    check(readmeR.status === 0, `chain-cite-reject: README.md under src/ is exempted`);
   });
 }
 

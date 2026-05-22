@@ -121,6 +121,28 @@ Required rows:
 
 ---
 
+## Spec-correctness match rules (reverse-pass audit)
+
+Invoked by `@architect`'s post-pass spec-correctness audit after `task: feature-narrowing` deliverables close. For each sampled endpoint / channel / outbound operation, match the spec field against the Spring call site:
+
+**openapi.yaml** — sampled endpoints:
+
+- `paths.<route>.<method>.requestBody.content.application/json.schema` MUST match the controller's `@RequestBody <Type>` source class shape (field names + nullability).
+- `parameters` MUST match `@PathVariable` / `@RequestParam` annotations on the controller method signature.
+- `responses` MUST cover the controller's return-type AND every `@ExceptionHandler` mapped error code-path. Missing `responses.<status>` for an emitted `@ExceptionHandler` is a `DIV-NNN` candidate.
+
+**asyncapi.yaml** — sampled channels:
+
+- `channels.<topic>.publish.message.payload` MUST match the Kafka producer's `KafkaTemplate.send(<topic>, <key>, <value>)` value-type.
+- `channels.<topic>.subscribe.message.payload` MUST match the `@KafkaListener(topics = "<topic>")` argument-type (or `ConsumerRecord<K,V>` `V`).
+
+**clientapi.yaml** — sampled outbound operations:
+
+- Each operation MUST match the adapter's `RestTemplate.exchange(<url>, <method>, <HttpEntity>, <responseType>)` call site OR `WebClient.<method>().uri(<url>).bodyValue(<req>).retrieve().bodyToMono(<resp>)`.
+- Path template MUST match the call site's URL template; request body type MUST match `bodyValue` arg; expected response type MUST match `bodyToMono` arg.
+
+**Mismatch resolution.** `@architect` appends one `DIV-NNN` row per mismatch to feature TDD `S-DIVERGENCES-001`: `source file:line | spec field | drift type | resolution-path-hint`. Hint = `ratify-spec` (lift source shape into the spec) OR `fix-source` (correct the Spring code). Dispatcher routes the chosen path.
+
 ## When to escalate
 
 - ripgrep returns >100 hits → narrow the search. Don't dump 100 lines into impact summary.

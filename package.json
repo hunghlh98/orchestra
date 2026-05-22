@@ -28,6 +28,7 @@
     "test:agent-plan-sync": "node scripts/tests/agent-plan-sync.test.js",
     "test:validate-mutations": "node scripts/tests/validate-mutations.test.js",
     "test:mcp-shipping": "node scripts/tests/mcp-shipping.test.js",
-    "test": "npm run validate && npm run test:hooks && npm run test:scaffold && npm run test:validate-extensions && npm run test:validate-mutations && npm run test:agents && npm run test:bash-strip && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:orchestra-utils && npm run test:probe && npm run test:report && npm run test:cite-purity && npm run test:agent-plan-sync && npm run test:mcp-shipping"
+    "test:marketplace-parity": "node scripts/tests/marketplace-parity.test.js",
+    "test": "npm run validate && npm run test:hooks && npm run test:scaffold && npm run test:validate-extensions && npm run test:validate-mutations && npm run test:agents && npm run test:bash-strip && npm run test:removability && npm run test:metrics && npm run test:bootstrap && npm run test:orchestra-utils && npm run test:probe && npm run test:report && npm run test:cite-purity && npm run test:agent-plan-sync && npm run test:mcp-shipping && npm run test:marketplace-parity"
   }
 }

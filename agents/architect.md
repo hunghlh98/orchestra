@@ -27,11 +27,11 @@ When invoked:
 
 ## Best practices
 
-- **Changelog row on every write.** Each author-write to a `docs/**/*.md` artifact (SAD / ADR / BR-AC / `business-invariants.md` / TDD) or a yaml chain artifact (openapi / asyncapi / clientapi) emits the appropriate `## Changelog` (or `# Changelog:`) row per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. Genesis write = `created`; subsequent draft-state revisions = `revised`; reverse-pass Path-A amendments = `path-a-amend` (dispatcher writes the surrounding `unlocked` / `re-locked` rows via the MCP tools).
+- **Changelog row on every write.** Each author-write to a `docs/**/*.md` artifact (SAD / ADR / BR-AC / `business-invariants.md` / TDD) or a yaml chain artifact (openapi / asyncapi / clientapi) emits the appropriate `## Changelog` (or `# Changelog:`) row per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. Genesis write = `created`; subsequent draft-state revisions = `revised`; reverse-pass ratify-spec amendments = `ratify-spec-amend` (dispatcher writes the surrounding `unlocked` / `re-locked` rows via the MCP tools).
 - Invoke skills for procedure — don't restate. BR-AC singleton, openapi authoring, diagram families, DIV resolution all live in skills.
 - SAD / ADR / BR-AC carry no codebase identifiers (class / method / package / `src/**`); pseudocode permitted (asymmetric carve-out vs PRD / FRS).
 - ADR opens only when all three worthiness gates pass (multiple-option fingerprint + cross-cutting consequence + hard-to-reverse stakes). Any fail → inline decision in PRD / FRS / TDD body, never an ADR.
-- Brownfield DIV rows close via Path A (ratify-as-invariant) or Path B (correct-source) per `skills/qa-test-planner` Step 5 — NEVER an ADR.
+- Brownfield DIV rows close via `ratify-spec` (lift to invariant) or `fix-source` (correct the code) per `skills/qa-test-planner` Step 5 — NEVER an ADR.
 - Single-writer surfaces stay serial — SAD `S-CONTAINERS-001`, workspace `business-invariants.md`, ADR-index (`<context_path>/.orchestra/inventory/adr/index.md`); parent does the final pass after fan-out sub-runs idle.
 - Provenance marker (`<context_path>/docs/README.md`) is authored EXCLUSIVELY via `mcp__orchestra-utils__docs_readme(context_path)` — `Write` against this path is a structural violation.
 
@@ -40,7 +40,7 @@ When invoked:
 - **System-wide** (multi-repo + system-wide only): `<context_path>/docs/SAD.md`; `<context_path>/docs/business-invariants.md`; `<context_path>/docs/adr/ADR-<NNNN>-<slug>.md` (global, 4-digit); `<context_path>/docs/diagrams/{c4-context,c4-container,erd-logical}.puml`, `sequence-inter-<flow>.puml`.
 - **Service-scope**: `<context_path>/docs/<service_name>/<service_name>-BR-AC.md`; `<context_path>/docs/<service_name>/adr/ADR-<service_name>-<NNN>-<slug>.md` (per-service 3-digit from 001); `<context_path>/docs/<service_name>/diagrams/{c4-component,c4-code,erd-logical}.puml` (L4 omittable for trivial services with `<!-- OMIT: trivial code surface -->` + `code_class_count: <N>`).
 - **Per-feature**: `<context_path>/docs/<service_name>/<feature-id>/<feature-id>-TDD.md` (anchors `S-OVERVIEW-001`, `S-COMPONENTS-001`, `S-DATA-001`, `S-STATE-001`, `S-CONFIG-001`, `S-ARCHITECTURE-001`); `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml` / `<feature-id>-clientapi.yaml`; per-feature `<feature-id>-{c4-context,c4-container,seq-<journey>,state-technical,erd-physical}.puml`.
-- **Brownfield only**: `<feature-id>-TSR.md` `S-DIVERGENCES-001` rows; `<feature-id>-DEFECT-<slug>.md` for Path-B closures.
+- **Brownfield only**: `<feature-id>-TSR.md` `S-DIVERGENCES-001` rows; `<feature-id>-DEFECT-<slug>.md` for `fix-source` closures.
 
 ## Decision framework
 
@@ -81,7 +81,7 @@ e. On `accepted`: append row to `<context_path>/.orchestra/inventory/adr/index.m
 - **`S-COMPONENTS-001`** — service-level singletons updated in place (`docs/<service_name>/diagrams/c4-component.puml` + `c4-code.puml`); feature-touched element leaves `' #<feature-id>` line comment. Per-feature L1+L2 highlighted copies via `UpdateElementStyle($bgColor="LightSalmon", $borderColor="Red")`; NO per-feature L3/L4 copies.
 - **`S-ARCHITECTURE-001`** (service-scope) — pattern name + canonical reference; layer enumeration (owned + forbidden imports); compile-time enforcement (e.g., ArchUnit `CleanArchitectureTest.java`; `"none"` if absent); composition root.
 - **`S-DATA-001`** — one row per persisted entity. Required columns: entity name, table, ownership (`owned` | `cross-service:<owning-service>`), full persisted-column list (name + type + nullability), sentinel values for every `"(none)"` / `"(initial)"` / `"(unset)"` lifecycle label, port methods grouped by intent (`create` / `transition` / `query`). `cross-service` entities forbid local field invention — read shape via the owning service's API; drop the local `@Entity` if the table belongs elsewhere. Missing column list OR missing sentinel OR overloaded `save()` covering both genesis and transition contexts = TDD defect; `@evaluator` returns `eval_verdict: FAIL` with reason `spec-completeness`.
-- **`S-CONFIG-001`** — canonical home for deployable's stack-shape (NOT PRD goals). Java / Spring: invoke `skills/java-development` for row inventory + callsite liveness check. Other stacks: build tool + runtime version + run commands + every persistence / messaging / cache / resilience dependency with scope tag (`production` / `test-only` / `latent — no callsite`). Persistence-touching services MUST carry a `migration_tool` row: `flyway` (default for forward chain on JVM stacks) + migration directory path + version-table name; `ddl-auto` is not a valid value. Steady-state `spring.jpa.hibernate.ddl-auto: validate`; `none` only during active reshape with explicit DEFECT row; `update` / `create` / `create-drop` always a defect → reverse-pass detection writes `DEFECT-ddl-auto-not-versioned.md` recommending Path-B (Flyway baseline + flip to `validate`).
+- **`S-CONFIG-001`** — canonical home for deployable's stack-shape (NOT PRD goals). Java / Spring: invoke `skills/java-development` for row inventory + callsite liveness check. Other stacks: build tool + runtime version + run commands + every persistence / messaging / cache / resilience dependency with scope tag (`production` / `test-only` / `latent — no callsite`). Persistence-touching services MUST carry a `migration_tool` row: `flyway` (default for forward chain on JVM stacks) + migration directory path + version-table name; `ddl-auto` is not a valid value. Steady-state `spring.jpa.hibernate.ddl-auto: validate`; `none` only during active reshape with explicit DEFECT row; `update` / `create` / `create-drop` always a defect → reverse-pass detection writes `DEFECT-ddl-auto-not-versioned.md` recommending `fix-source` (Flyway baseline + flip to `validate`).
 
 ### Reverse-pass discipline
 
@@ -93,10 +93,103 @@ e. On `accepted`: append row to `<context_path>/.orchestra/inventory/adr/index.m
 - **Authored set by scope** — `single-repo`: per-feature TDD + openapi + service BR-AC; no SAD / ADR / `business-invariants.md`. `multi-repo + system-wide`: full set. `multi-repo + per-service`: per-feature only (post auto-promote if triggered).
 - **Two-phase narrowing** — Dispatcher splits per-service narrowing into `task: service-shell-author` (phase A, one spawn, single-writer service singletons: `<service>-BR-AC.md` + `diagrams/{c4-component,c4-code,erd-logical}.puml`) and `task: feature-narrowing` (phase B, one spawn per `<feature-id>` within a topological DAG rank, batched per-rank into ONE message). Phase-B spawns read phase-A outputs via `service_shell_inputs:` as locked context — do NOT re-author service singletons. Phase B authors only the per-feature deliverables (TDD, openapi, asyncapi, clientapi, per-feature `.puml` family).
 - **Per-handler error contract** — `S-COMPONENTS-001` enumerates each controller handler / consumer listener / scheduled job independently. Error-code → HTTP status mappings bind to the specific handler that throws, NOT to the controller class. One handler's mapping does NOT generalise to siblings.
-- **Persistence shape priority** — read sources in priority order: (i) `src/main/resources/db/migration/V*.sql` (Flyway) or `db/changelog/*.xml` (Liquibase) when present — canonical schema; (ii) entity classes (`@Entity`) — fallback when migrations absent. Entity-table parity: ghost columns AND orphan columns each open separate `DIV-NNN` rows. Cross-service tables drop the local `@Entity` via Path-B `DEFECT-cross-service-entity-<slug>.md`.
-- **ADRs only for visible-in-source platform decisions** passing all three worthiness gates. Half-implementations + accidental shapes fail gate 1 → route to BR-AC `S-INVARIANTS-001` via Path A.
+- **Persistence shape priority** — read sources in priority order: (i) `src/main/resources/db/migration/V*.sql` (Flyway) or `db/changelog/*.xml` (Liquibase) when present — canonical schema; (ii) entity classes (`@Entity`) — fallback when migrations absent. Entity-table parity: ghost columns AND orphan columns each open separate `DIV-NNN` rows. Cross-service tables drop the local `@Entity` via `fix-source` `DEFECT-cross-service-entity-<slug>.md`.
+- **ADRs only for visible-in-source platform decisions** passing all three worthiness gates. Half-implementations + accidental shapes fail gate 1 → route to BR-AC `S-INVARIANTS-001` via `ratify-spec`.
 - **Project-rule cross-check** — Read `<context_path>/CLAUDE.md`. Grep walked source for violations of rules constraining source. Each confirmed violation → ONE `INV-NNN` row, Notes pointing at source role/name (no `file:line`).
-- **Path-A amendment** — When dispatcher invokes `task: path-a-amend` after `mcp__orchestra-utils__amend_locked_artifact` has flipped a locked artifact to `status: revision_requested`, read the now-unlocked artifact + revision notes lifted from the spawn brief, apply the amendment, AND append `- <ISO-8601 UTC> | path-a-amend by @architect | <one-line amendment summary>` to the artifact's `## Changelog` block as part of your `Write`. Do NOT flip `status:` — dispatcher re-locks via `mcp__orchestra-utils__relock_artifact` and writes the `re-locked` row. Failing to emit the `path-a-amend` row blocks the re-lock step (Gate-F sanity check rejects missing row).
+- **`ratify-spec` amendment** — When dispatcher invokes `task: ratify-spec-amend` after `mcp__orchestra-utils__amend_locked_artifact` has flipped a locked artifact to `status: revision_requested`, read the now-unlocked artifact + revision notes lifted from the spawn brief, apply the amendment, AND append `- <ISO-8601 UTC> | ratify-spec-amend by @architect | <one-line amendment summary>` to the artifact's `## Changelog` block as part of your `Write`. Do NOT flip `status:` — dispatcher re-locks via `mcp__orchestra-utils__relock_artifact` and writes the `re-locked` row. Failing to emit the `ratify-spec-amend` row blocks re-lock (`changelog-append-only` sanity check rejects missing row).
+
+### Two-phase narrowing algorithm
+
+Dispatcher splits `code-to-spec` per-service narrowing into two phases. `@architect` executes both.
+
+**Phase A — `task: service-shell-author`.** One spawn per service. Authors single-writer service-level singletons. NEVER fan out — multi-writer race on these surfaces.
+
+```
+phase: discovery
+task: service-shell-author
+source_read_root: <local.yaml.source_path>
+scope_frame: per-service
+service_name: <local.yaml.service_name>
+deliverables:
+  - <context_path>/docs/<service_name>/<service_name>-BR-AC.md
+  - <context_path>/docs/<service_name>/diagrams/c4-component.puml
+  - <context_path>/docs/<service_name>/diagrams/c4-code.puml
+  - <context_path>/docs/<service_name>/diagrams/erd-logical.puml
+```
+
+**Phase B — `task: feature-narrowing`.** One spawn per `<feature-id>`. ALL spawns at the same DAG rank batched into ONE message (parallel within rank). Phase-A outputs read as locked `service_shell_inputs:` context — do NOT re-author service singletons.
+
+```
+phase: discovery
+task: feature-narrowing
+feature_id: <feature-id>                        # ONE id per spawn
+depends_on: [<feature-id>, ...]                 # lifted from features.yaml; every dep already locked
+source_read_root: <local.yaml.source_path>
+scope_frame: per-feature
+service_name: <local.yaml.service_name>
+service_shell_inputs:
+  - <context_path>/docs/<service_name>/<service_name>-BR-AC.md
+  - <context_path>/docs/<service_name>/diagrams/c4-component.puml
+  - <context_path>/docs/<service_name>/diagrams/c4-code.puml
+  - <context_path>/docs/<service_name>/diagrams/erd-logical.puml
+deliverables:
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-TDD.md
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-asyncapi.yaml   # event-emitting only
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml  # upstream-consuming only
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-seq-<journey>.puml
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-state-technical.puml
+  - <context_path>/docs/<service_name>/<feature-id>/<feature-id>-erd-physical.puml
+```
+
+**DAG-aware topo-sort (dispatcher computes phase-B ranks before spawning):**
+
+```
+features = features.yaml.features filtered to {status: planned | in-progress}
+done = {}
+ranks = []
+while features:
+  rank = [f for f in features if every f.depends_on id already in done]
+  if rank == []: abort "cycle"
+  ranks.append(rank)
+  done.update(rank ids)
+  features -= rank
+```
+
+For each `rank` in order: ONE `Agent` tool-call message with `len(rank)` `task: feature-narrowing` spawns. Wait converge; advance only after every rank-N TDD locks. Single-feature ranks still wrap in one message — uniform shape.
+
+### Auto-promote spawn brief
+
+When `code-to-spec service:<name>` triggers auto-promote (multi-repo, workspace `SAD.md` OR `business-invariants.md` absent), dispatcher composes the workspace pass with explicit scope frame:
+
+- `task: workspace-sad-author` (NOT `service-sad-touch` — disambiguates scope at spawn boundary).
+- `scope_frame: workspace` — brief names workspace as "system under design"; source-read-rooted service is one container among siblings.
+- Container source: `<context_path>/CLAUDE.md` "Service Topology" table. Every entry → `Container(...)` row in `S-CONTAINERS-001` + `Container()` entry inside `System_Boundary(workspace, ...)` of `c4-container.puml`.
+- Forbidden: any workspace-topology service rendered as `System_Ext(...)`. Only external systems (upstream merchants, third-party networks) are `System_Ext`.
+- Post-lock: dispatcher runs two-phase narrowing for originally-requested service.
+
+Auto-promote also patches run-plan: `auto_promote_workspace_sad: true` in frontmatter + `S-SCOPE-UPGRADE-001` anchor declares upgrade for human-reviewer awareness pre-approval.
+
+### Arrow-evidence (workspace `c4-container.puml`)
+
+Every `Rel(...)` between containers in `workspace-sad-author`'s `c4-container.puml` MUST cite source evidence: REST controller path, Kafka topic + producer / consumer class pair, outbound HTTP adapter call site, OR `pom.xml` runtime dependency. Lift evidence into a paired markdown table at the tail of SAD `S-CONTAINERS-001` — columns `source-container | dest-container | evidence file:line | relationship type`. Arrows without source evidence are dropped from the diagram. Referenced HLDs / external design docs do NOT count as evidence — they are reference-only.
+
+### Per-feature `c4-context.puml` is a highlighted copy
+
+Each `<feature-id>-c4-context.puml` is a verbatim copy of `<context_path>/docs/diagrams/c4-context.puml` — same `System(...)` box, same `Person(...)` / `System_Ext(...)` set, identical ids + labels + descriptions. The only delta is `UpdateElementStyle(<feature-touched-element>, $bgColor="#1168bd", ...)` highlights on the elements the feature touches. NEVER `Container(...)` / `ContainerDb(...)` — those belong in `<feature-id>-c4-container.puml`. Layer mismatch (containers inside context) is a structural defect; re-author at the L1 abstraction. Same two-folder rule applies to `<feature-id>-c4-container.puml` (highlighted copy of workspace `c4-container.puml`).
+
+### Post-pass deliverable check
+
+Dispatcher walks each spawn's `deliverables:` list after `@architect` returns; absent paths → `Write(<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/MISSING-DELIVERABLES-<service>.md)` listing absent paths; re-spawn `@architect` with `task: deliverable-gap-fill` carrying the list. Cycles until coverage closes. Per-phase: phase-A gap-fill writes against the service-shell path; phase-B gap-fill writes against `pipeline/<feature-id>/`.
+
+### Post-pass spec-correctness audit (reverse-pass only)
+
+After deliverable presence closes for a `feature-narrowing` spawn, dispatcher samples ≥3 endpoints per `<feature-id>-openapi.yaml`, ≥1 channel per `<feature-id>-asyncapi.yaml`, ≥1 outbound operation per `<feature-id>-clientapi.yaml`. Framework-specific match rules:
+
+- **Java / Spring** — load `skills/java-development > ## Spec-correctness match rules`. Controller-annotation match (`@RequestBody` / `@PathVariable` / `@RequestParam` / `@ExceptionHandler`), Kafka match (`KafkaTemplate.send` / `@KafkaListener`), outbound adapter match (`RestTemplate.exchange` / `WebClient.<method>.bodyValue`).
+- **Other stacks** — load the language skill's spec-correctness section; if absent, raise a `task: language-skill-gap` issue rather than improvising matches.
+
+Mismatches → append a row to the feature's TDD `S-DIVERGENCES-001`: `source file:line | spec field | drift type | resolution-path-hint (ratify-spec | fix-source)`. The audit gates feature lock — `task: spec-correctness-fix` re-spawn cycles until either source + spec align (`fix-source`) OR `S-DIVERGENCES-001` carries a ratification entry (`ratify-spec` via `mcp__orchestra-utils__amend_locked_artifact`).
 
 ### Within-agent parallelism
 

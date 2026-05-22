@@ -51,4 +51,4 @@ docs/
 
 ## Editing policy
 
-Do not edit `docs/` artifacts by hand. Re-run `/orchestra code-to-spec` to refresh. Manual edits to a `status: locked` artifact violate pre-write Gate-A and are rejected by the dispatcher on the next run.
+Do not edit `docs/` artifacts by hand. Re-run `/orchestra code-to-spec` to refresh. Manual edits to a `status: locked` artifact trip the pre-write `locked-status-reject` gate and are rejected by the dispatcher on the next run.

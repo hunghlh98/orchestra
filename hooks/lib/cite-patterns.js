@@ -32,18 +32,19 @@ export const SKIP_PATTERNS = [
   /test-fixture/i,
 ];
 
-// Gate-D — src/ cite denylist (mirrored in schemas/pipeline-artifact.schema.md).
+// chain-cite-reject — src/ cite denylist (mirrored in schemas/pipeline-artifact.schema.md).
 export const CITE_DENYLIST_RE =
   /(?:PRD|FRS|TDD|CONTRACT|TSR)\s*§\s*\d+|ADR-\d{4}\s*§\s*\d+|\b(?:FR|AC|C|NFR)-\d+\b|\bS-[A-Z]+(?:-[A-Z]+)*-\d{3}\b|openapi\.yaml#\/paths\//;
 
-// Business-src path activation: Gate-D triggers when target file is under a
-// code dir AND not a markdown/yaml/json/txt file (READMEs in src/ exempt).
+// Business-src path activation: chain-cite-reject triggers when target file
+// is under a code dir AND not a markdown/yaml/json/txt file (READMEs in src/
+// exempt).
 export const SRC_PATH_RE = /(^|\/)(src|app|cmd|pkg|internal|lib)\//;
 export const SRC_EXEMPT_EXT_RE = /\.(md|yaml|yml|json|txt)$/i;
 
-// Gate-D-inverse — chain-artifact-under-docs codebase-identifier denylist.
-// Enforces portability: docs/**/*.md authored in project A must be valid as
-// spec-to-code input in project B.
+// codebase-token-reject — chain-artifact-under-docs codebase-identifier
+// denylist. Enforces portability: docs/**/*.md authored in project A must be
+// valid as spec-to-code input in project B.
 export const DOCS_PREFIX_RE = /(^|\/)docs\//;
 export const DOCS_CHAIN_PRDFRS_RE = /-(?:PRD|FRS)\.md$/;
 export const SRC_PATH_TOKEN_RE = /(?:^|[\s`(])(?:src|app|cmd|pkg|internal|lib)\/[\w./-]+/;

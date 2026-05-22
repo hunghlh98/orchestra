@@ -1,7 +1,8 @@
 {
   "name": "orchestra-marketplace",
   "owner": {
-    "name": "hunghlh98"
+    "name": "hunghlh98",
+    "url": "https://github.com/hunghlh98"
   },
   "description": "Single-plugin marketplace for orchestra: a multi-agent SDLC pipeline behind /orchestra.",
   "plugins": [
@@ -9,9 +10,26 @@
       "name": "orchestra",
       "source": {
         "source": "github",
-        "repo": "hunghlh98/orchestra"
+        "repo": "hunghlh98/orchestra",
+        "ref": "v5.2.1"
       },
-      "description": "Multi-agent SDLC pipeline behind /orchestra. One developer, generator/evaluator separation, document-driven gates."
+      "description": "Multi-agent SDLC pipeline behind /orchestra. One developer, generator/evaluator separation, document-driven gates.",
+      "version": "5.2.1",
+      "author": { "name": "hunghlh98" },
+      "homepage": "https://github.com/hunghlh98/orchestra",
+      "repository": "https://github.com/hunghlh98/orchestra.git",
+      "license": "MIT",
+      "keywords": [
+        "claude-code",
+        "sdlc",
+        "multi-agent",
+        "orchestrator",
+        "prd-frs-sad",
+        "spec-driven",
+        "dispatcher",
+        "c4-architecture",
+        "openapi"
+      ]
     }
   ]
 }

@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 // hooks/scripts/pre-write-check.js
 // PreToolUse(Write|Edit|MultiEdit) hook. Gates run in order:
-//   secrets         — secret detection; exit 2 on hit
-//   Gate-D          — src/** cite denylist; exit 2 on hit
-//   Gate-D-inverse  — docs/** codebase-identifier denylist; exit 2 on hit
-//   Gate-E          — workspace-scope SAD/c4-container container floor
-//   Gate-F          — docs/**/*.md ## Changelog append-only (Write-only)
-//   Gate-A          — frontmatter `status: locked` rejects writes
-//   Gate-B          — frontmatter `sections:` all-locked rejection
-//   Gate-C          — frontmatter `readers:` allowlist warning (non-blocking)
+//   secrets                          — secret detection; exit 2 on hit
+//   chain-cite-reject                — src/** cite denylist; exit 2 on hit
+//   codebase-token-reject            — docs/** codebase-identifier denylist; exit 2 on hit
+//   workspace-sad-container-floor    — workspace-scope SAD/c4-container container floor
+//   changelog-append-only            — docs/**/*.md ## Changelog append-only (Write-only)
+//   locked-status-reject             — frontmatter `status: locked` rejects writes
+//   all-sections-locked-reject       — frontmatter `sections:` all-locked rejection
+//   readers-scope-warning            — frontmatter `readers:` allowlist warning (non-blocking)
 
 import { existsSync, readFileSync } from "node:fs";
 import { parse as parseYaml } from "../lib/yaml-mini.js";
 import {
-  checkSecrets, checkGateD, checkGateDInverse, checkGateE,
+  checkSecrets, checkChainCiteReject, checkCodebaseTokenReject, checkWorkspaceSadContainerFloor,
 } from "../lib/gate-d.js";
-import { checkGateF } from "../lib/gate-f.js";
+import { checkChangelogAppendOnly } from "../lib/gate-f.js";
 
 const NAME = "ORCHESTRA_HOOK_PRE_WRITE_CHECK";
 
@@ -38,10 +38,10 @@ async function main() {
     // Content-only gates run in declared order; first hit exits 2.
     for (const result of [
       checkSecrets(content),
-      checkGateD(filePath, content),
-      checkGateDInverse(filePath, content),
-      checkGateE(filePath, content),
-      checkGateF(filePath, content, input.tool_name),
+      checkChainCiteReject(filePath, content),
+      checkCodebaseTokenReject(filePath, content),
+      checkWorkspaceSadContainerFloor(filePath, content),
+      checkChangelogAppendOnly(filePath, content, input.tool_name),
     ]) {
       if (result) {
         process.stderr.write(result.message);
@@ -50,14 +50,14 @@ async function main() {
     }
 
     // Frontmatter gates only run when the target file already exists on disk
-    // (Edit/MultiEdit). Write to a new path skips A/B/C — there's no prior
+    // (Edit/MultiEdit). Write to a new path skips frontmatter gates — no prior
     // frontmatter to consult.
     if (filePath && existsSync(filePath)) {
       const fm = readFrontmatter(filePath);
       if (fm) {
-        if (runGateA(filePath, fm)) process.exit(2);
-        if (runGateB(filePath, fm)) process.exit(2);
-        runGateC(filePath, fm);
+        if (runLockedStatusReject(filePath, fm)) process.exit(2);
+        if (runAllSectionsLockedReject(filePath, fm)) process.exit(2);
+        runReadersScopeWarning(filePath, fm);
       }
     }
 
@@ -68,15 +68,17 @@ async function main() {
   }
 }
 
-function runGateA(filePath, fm) {
+function runLockedStatusReject(filePath, fm) {
   if (fm.status !== "locked") return false;
   process.stderr.write(
-    `pre-write-check: gate-A — ${filePath} is locked (status: locked). Set ORCHESTRA_HOOK_PRE_WRITE_CHECK=off to override.\n`
+    `pre-write-check: locked-status-reject — ${filePath} is locked (status: locked). ` +
+    `Hint: dispatcher may unlock via mcp__orchestra-utils__amend_locked_artifact for a ratify-spec amendment. ` +
+    `Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`
   );
   return true;
 }
 
-function runGateB(filePath, fm) {
+function runAllSectionsLockedReject(filePath, fm) {
   const sections = fm.sections;
   if (!sections || typeof sections !== "object" || Array.isArray(sections)) return false;
   const entries = Object.values(sections).filter(s => s && typeof s === "object");
@@ -84,16 +86,17 @@ function runGateB(filePath, fm) {
   const allLocked = entries.every(s => s.status === "locked");
   if (!allLocked) return false;
   process.stderr.write(
-    `pre-write-check: gate-B — ${filePath} has all sections locked; no writer can amend without status transition. Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`
+    `pre-write-check: all-sections-locked-reject — ${filePath} has all sections locked; no writer can amend without status transition. ` +
+    `Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`
   );
   return true;
 }
 
-function runGateC(filePath, fm) {
+function runReadersScopeWarning(filePath, fm) {
   if (!Array.isArray(fm.readers) || fm.readers.length === 0) return;
   // Soft enforcement; non-blocking. Reporter aggregates these warnings.
   process.stderr.write(
-    `pre-write-check: gate-C — readers-scope: ${filePath} readers=[${fm.readers.join(",")}] (non-blocking).\n`
+    `pre-write-check: readers-scope-warning — ${filePath} readers=[${fm.readers.join(",")}] (non-blocking).\n`
   );
 }
 

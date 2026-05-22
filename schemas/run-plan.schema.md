@@ -54,7 +54,7 @@ Required anchors:
 - `S-CONTEXT-001` — `## Context` — `| Field | Value |` table lifted from `system.yaml` + `local.yaml` (workspace_kind, context_path, service_name, scope_level, primary_language, framework).
 - `S-PHASES-001` — `## Phases` — `| Phase | Agents | Output anchors |`. Phase ∈ `discovery | spec-draft | verification | gate`.
 - `S-FEATURES-001` — `## Features` — `| Feature slug | Authoring agents | Artifacts | Source anchors | State-machine role |`. Column semantics:
-  - **Source anchors** — observable code anchors the feature derives from when reverse-authoring. Brownfield-mandatory; greenfield may use `—`. Anchors are described in prose (e.g., "order placement controller in the order service"), never as filesystem paths (Gate-D inverse enforces).
+  - **Source anchors** — observable code anchors the feature derives from when reverse-authoring. Brownfield-mandatory; greenfield may use `—`. Anchors are described in prose (e.g., "order placement controller in the order service"), never as filesystem paths (`codebase-token-reject` gate enforces).
   - **State-machine role** — `owner` (the feature owns a user-facing lifecycle authored as business-state PUML), `participant` (the feature contributes transitions but does not own them), or `—` (no lifecycle).
 - `S-GATES-001` — `## Gates` — `| Gate | Auto-passed under auto_mode | Preserved under auto_mode |`. **Preserved** lists structural-failure halts (allowed-set, diagram allowlist), reviewer `REQUEST_CHANGES`, schema-validation failures, `ESCALATE` / `DEADLOCK` emission.
 - `S-APPROVAL-001` — `## Approval` — `plan_status:` line carries the current `run_plan_status` value; on `revision_requested`, follow with `revision_notes:` listing user-requested changes.

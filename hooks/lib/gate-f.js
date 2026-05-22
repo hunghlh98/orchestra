@@ -1,6 +1,6 @@
 // hooks/lib/gate-f.js
-// Gate-F: append-only enforcement on the `## Changelog` body block of
-// consumer chain artifacts under <consumer>/docs/**/*.md.
+// changelog-append-only: append-only enforcement on the `## Changelog` body
+// block of consumer chain artifacts under <consumer>/docs/**/*.md.
 //
 // Scope: PreToolUse(Write) only. Edit/MultiEdit fragments don't carry the
 // full new-content body and cannot be safely diffed against on-disk rows;
@@ -45,14 +45,15 @@ function parseRow(row) {
   return { ts: m[1], action: m[2], author: m[3].trim(), reason: m[4] };
 }
 
-export function checkGateF(filePath, content, toolName) {
+export function checkChangelogAppendOnly(filePath, content, toolName) {
   if (!filePath) return null;
   if (toolName !== "Write") return null;
   if (!DOCS_MD_RE.test(filePath)) return null;
 
-  // Narrow Gate-F to orchestra chain artifacts. Plain user-authored
-  // docs/ markdown (no orchestra frontmatter) bypasses — the changelog
-  // requirement applies to chain artifacts that opt-in via frontmatter.
+  // Narrow changelog-append-only to orchestra chain artifacts. Plain
+  // user-authored docs/ markdown (no orchestra frontmatter) bypasses — the
+  // changelog requirement applies to chain artifacts that opt-in via
+  // frontmatter.
   const fileExists = existsSync(filePath);
   let onDiskText = null;
   if (fileExists) {
@@ -68,9 +69,9 @@ export function checkGateF(filePath, content, toolName) {
   if (!fileExists) {
     if (newRows === null) {
       return {
-        gate: "F",
+        gate: "changelog-append-only",
         message:
-          `pre-write-check: gate-F — ${filePath} genesis write missing mandatory ` +
+          `pre-write-check: changelog-append-only — ${filePath} genesis write missing mandatory ` +
           `\`## Changelog\` body section. First row MUST be ` +
           `\`- <ISO-8601 UTC> | created by @<agent> | <intent>\`. ` +
           `Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`,
@@ -78,9 +79,9 @@ export function checkGateF(filePath, content, toolName) {
     }
     if (newRows.length === 0) {
       return {
-        gate: "F",
+        gate: "changelog-append-only",
         message:
-          `pre-write-check: gate-F — ${filePath} genesis write \`## Changelog\` ` +
+          `pre-write-check: changelog-append-only — ${filePath} genesis write \`## Changelog\` ` +
           `must contain a \`created\` row. Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`,
       };
     }
@@ -88,9 +89,9 @@ export function checkGateF(filePath, content, toolName) {
     if (!first || first.action !== "created") {
       const got = first ? first.action : "<unparseable>";
       return {
-        gate: "F",
+        gate: "changelog-append-only",
         message:
-          `pre-write-check: gate-F — ${filePath} genesis write first changelog ` +
+          `pre-write-check: changelog-append-only — ${filePath} genesis write first changelog ` +
           `row action='${got}', expected 'created'. ` +
           `Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`,
       };
@@ -106,9 +107,9 @@ export function checkGateF(filePath, content, toolName) {
 
   if (newRows.length < onDiskRows.length) {
     return {
-      gate: "F",
+      gate: "changelog-append-only",
       message:
-        `pre-write-check: gate-F — ${filePath} \`## Changelog\` is append-only. ` +
+        `pre-write-check: changelog-append-only — ${filePath} \`## Changelog\` is append-only. ` +
         `On-disk has ${onDiskRows.length} rows; pending write has ${newRows.length}. ` +
         `Existing rows must not be removed. ` +
         `Override via ORCHESTRA_HOOK_PRE_WRITE_CHECK=off.\n`,
@@ -117,9 +118,9 @@ export function checkGateF(filePath, content, toolName) {
   for (let i = 0; i < onDiskRows.length; i++) {
     if (newRows[i] !== onDiskRows[i]) {
       return {
-        gate: "F",
+        gate: "changelog-append-only",
         message:
-          `pre-write-check: gate-F — ${filePath} \`## Changelog\` row ${i + 1} mutated. ` +
+          `pre-write-check: changelog-append-only — ${filePath} \`## Changelog\` row ${i + 1} mutated. ` +
           `On-disk: ${JSON.stringify(onDiskRows[i])}. ` +
           `Pending: ${JSON.stringify(newRows[i])}. ` +
           `Existing rows must not be modified or reordered. ` +

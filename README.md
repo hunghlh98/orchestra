@@ -15,9 +15,9 @@ Pedagogy is researchable; enforcement is not. The plugin is orthogonal to "ask p
 | Action | perplexity + Claude (manual) | orchestra harness (runtime) |
 | --- | --- | --- |
 | Author PRD-001 | LLM drafts free-form prose | `@product` writes; `pre-write-check` validates frontmatter against `pipeline-artifact.schema.md` at write time |
-| Edit a `status: locked` artifact | LLM edits silently | `pre-write-check` Gate-A blocks the write |
+| Edit a `status: locked` artifact | LLM edits silently | `pre-write-check` `locked-status-reject` gate blocks the write |
 | Probe a running service for evidence | LLM cannot reach the network | `@evaluator` routes through `orchestra-probe`'s `http_probe` (redacted) / `db_state` (SELECT-only) MCP tools |
-| Cite `FR-3` from business code | LLM may inline the cite | `pre-write-check` Gate-D rejects the write under `src/**` |
+| Cite `FR-3` from business code | LLM may inline the cite | `pre-write-check` `chain-cite-reject` gate rejects the write under `src/**` |
 | Trace an artifact to its author | Author identity guessed from prose | Frontmatter `subagent_session_id` joins to `events.jsonl` via the `metrics-collector` hook |
 
 ## Architecture
@@ -173,7 +173,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | Hook script | Event | Purpose |
 | --- | --- | --- |
 | `orchestra-preflight.js` | UserPromptSubmit (`^/orchestra`) | Emit `<orchestra-preflight>` block — mode / workspace / scope / cached fields / missing fields. Dispatcher halts without it. |
-| `pre-write-check.js` | PreToolUse (Write / Edit / MultiEdit) | Secret detection + Gate-D portability inverse for `docs/**/*.md`. |
+| `pre-write-check.js` | PreToolUse (Write / Edit / MultiEdit) | Multi-gate guard: secret detection, `chain-cite-reject` (src/ cite denylist), `codebase-token-reject` (docs/ portability inverse), `workspace-sad-container-floor` (workspace SAD ≥2 containers), `changelog-append-only` (docs/ append-only `## Changelog`), `locked-status-reject` + `all-sections-locked-reject` + `readers-scope-warning` frontmatter gates. |
 | `metrics-collector.js` | All major events | Append `events.jsonl` for observability joins. |
 | `val-calibration.js` | PreToolUse (Task / Agent) | Inject confidence-tier calibration into agent prompts. |
 | `agent-plan-sync.js` | PreToolUse / PostToolUse (TaskCreate / TaskUpdate), SubagentStop | Single writer for per-agent PLAN file `tasks:` / `tasks_pending` / `tasks_in_progress` / `tasks_done` / `updated:` / top-level `status:` and the `## Tasks` body. |
@@ -211,7 +211,7 @@ All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setti
 
 | Variable | Effect |
 | --- | --- |
-| `ORCHESTRA_HOOK_PRE_WRITE_CHECK` | Disable secret detection + Gate-D inverse. |
+| `ORCHESTRA_HOOK_PRE_WRITE_CHECK` | Disable secret detection + cite-reject / codebase-token / workspace-SAD-floor / changelog-append-only / status-lock gates. |
 | `ORCHESTRA_HOOK_METRICS_COLLECTOR` | Disable `events.jsonl` append. |
 | `ORCHESTRA_HOOK_VAL_CALIBRATION` | Disable confidence-tier injection. |
 | `ORCHESTRA_HOOK_AGENT_PLAN_SYNC` | Disable PLAN-file single-writer. |
@@ -222,14 +222,14 @@ All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setti
 | `ORCHESTRA_MCP_ORCHESTRA_PROBE` | Disable runtime probes. |
 | `ORCHESTRA_SKILL_<NAME>` | Per-skill opt-out (11 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`, `ORCHESTRA_SKILL_BUSINESS_ANALYSIS`). |
 
-Agents and the dispatcher command have no env-var opt-out — toggle them by removing entries from `plugin.json`.
+Agents and the dispatcher command have no env-var opt-out. Plugin manifest declares no per-component arrays (Claude Code auto-discovers from convention directories); to remove an agent or command, delete its file from `agents/` or `commands/` directly.
 
 ## Requirements
 
 ### Required
 
-- Claude Code with plugin support
-- Node.js 18+ (hook scripts + MCP servers)
+- Claude Code ≥ 2.0.42 (orchestra relies on prompt-based hooks, MCP slash commands, and schema-pinned frontmatter introduced in this baseline)
+- Node.js 18+ on `$PATH` (Claude Code launches hook scripts and MCP servers with `node`; ESM imports under `mcp-servers/*.js` fail silently on older runtimes)
 
 ### Optional
 

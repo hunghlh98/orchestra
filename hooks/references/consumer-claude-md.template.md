@@ -2,7 +2,7 @@ This project uses **orchestra** for SDLC orchestration. The chain owns spec / ar
 
 ## Rules
 
-- **No chain-artifact cites in business code.** `src/**` must not embed `PRD §N` / `FRS §N` / `TDD §N` / `openapi §N` / `TSR §N` / `FR-N` / `AC-N` / `S-<TAG>-NNN` / `ADR-NNNN §N`. Traceability lives in commits, PRs, and TSR `S-EVAL-001` / `S-REVIEW-001`. `pre-write-check.js` Gate-D rejects violations.
+- **No chain-artifact cites in business code.** `src/**` must not embed `PRD §N` / `FRS §N` / `TDD §N` / `openapi §N` / `TSR §N` / `FR-N` / `AC-N` / `S-<TAG>-NNN` / `ADR-NNNN §N`. Traceability lives in commits, PRs, and TSR `S-EVAL-001` / `S-REVIEW-001`. `pre-write-check.js` `chain-cite-reject` gate rejects violations.
 - **Append-only feature graph.** New behavior = new `<feature-id>` with `depends_on:` edges in `.orchestra/<service_name>/features.yaml`. Never edit existing locked PRDs in place. Successor features carry `supersedes: [<old-id>]`; predecessor `status:` stays user-controlled (no auto-flip). Manifest writes only via `mcp__orchestra-utils__upsert_features_yaml` — never hand-edited. Graph is intra-service; cross-service relationships are not modelled.
 - **Batch independent writes.** N independent file writes (multiple `.puml`, per-feature singletons, per-service singletons) → N parallel `Write()` calls in ONE message.
 - **Batch independent spawns.** Inter-feature, intra-feature fan-out, within-agent per-unit → ONE Agent-tool-call message with N spawns.

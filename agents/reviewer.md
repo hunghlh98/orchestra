@@ -71,7 +71,7 @@ When invoked:
 - **Unworthy ADR** — `status: proposed` failing any of the three worthiness gates per `agents/architect.md`. Reverse-pass DIV rows arriving as ADR proposals are always unworthy.
 - **Entity-schema parity** — ghost column (entity declares, DB lacks) or orphan column (DB has, entity lacks) inconsistent with `S-DATA-001` ownership.
 - **Missing cross-process observability** — outbound HTTP / Kafka publish / Kafka consumer without INFO log on receipt + outcome.
-- **src/ purity** — chain-artifact anchor cite (PRD / FRS / TDD / openapi / TSR / FR-N / AC-N / S-XXX-NNN / ADR-NNNN) in `src/**` (Gate-D misfired or disabled — investigate).
+- **src/ purity** — chain-artifact anchor cite (PRD / FRS / TDD / openapi / TSR / FR-N / AC-N / S-XXX-NNN / ADR-NNNN) in `src/**` (`chain-cite-reject` gate misfired or disabled — investigate).
 
 <example>
 Context: TSR review. Eval halves filled by `@evaluator` (PASS, score 92). Diff: 4 files / +220 / -15 LOC.

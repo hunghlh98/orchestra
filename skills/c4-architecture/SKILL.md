@@ -65,7 +65,7 @@ C4 scope is a load-bearing contract between SAD frontmatter and SAD body. Mismat
 - `c4-context.puml`: one `System("<service name>")` box. Other services in the workspace ARE `System_Ext` here.
 - `c4-container.puml`: containers are the service's internal deployable units (e.g. Spring Boot app + dedicated DB + dedicated cache). NOT the workspace's services.
 
-**Verification.** Before locking SAD: re-read frontmatter `workspace_kind` (from `system.yaml`) and confirm `S-CONTAINERS-001` row count matches scope. Workspace scope with <2 rows → rewrite. `pre-write-check.js` Gate-E enforces the same minimum at write time.
+**Verification.** Before locking SAD: re-read frontmatter `workspace_kind` (from `system.yaml`) and confirm `S-CONTAINERS-001` row count matches scope. Workspace scope with <2 rows → rewrite. `pre-write-check.js` `workspace-sad-container-floor` gate enforces the same minimum at write time.
 
 ### Step 2 — Apply MUST / MUST-NOT (binding)
 
@@ -208,13 +208,35 @@ Payload skeletons carry field names only, no values — they describe contract s
 
 Forbidden: synchronous arrows without response; payload values; reused payload aliases that hide the field set.
 
+### Step 8b — Per-feature highlighted copy rule
+
+Each `<feature-id>-c4-context.puml` and `<feature-id>-c4-container.puml` is a **verbatim copy** of the workspace singleton with ONE delta: `UpdateElementStyle(<feature-touched-element>, $bgColor="#1168bd", $borderColor="#0b4884", $fontColor="white")` highlights on the elements the feature touches.
+
+- Same `System(...)` / `Container(...)` boxes, same ids + labels + descriptions
+- Same `Person(...)` / `System_Ext(...)` set verbatim
+- NEVER introduce `Container(...)` in `c4-context.puml` (layer-mismatch defect) — those belong in `c4-container.puml`
+- NEVER drop, rename, or merge upstream actors
+
+Layer mismatch (containers inside context) is a structural defect — re-author at the L1 abstraction. The two-folder rule is symmetric for `c4-container.puml`.
+
+### Step 8c — Arrow evidence (workspace `c4-container.puml`)
+
+Every `Rel(...)` between containers in a workspace-scope `c4-container.puml` MUST cite source evidence:
+
+- REST controller path, OR
+- Kafka topic + producer/consumer class pair, OR
+- Outbound HTTP adapter call site, OR
+- `pom.xml` runtime dependency
+
+Lift evidence into a paired markdown table at the tail of SAD `S-CONTAINERS-001` — columns `source-container | dest-container | evidence file:line | relationship type`. Arrows without source evidence are dropped from the diagram. Referenced HLDs / external design docs do NOT count as evidence — they are reference-only.
+
 ### Step 9 — SAD/TDD lock-gate enforcement
 
 **SAD lock-gate (c4-context mandatory).** SAD `status: locked` is denied unless BOTH `<context_path>/docs/diagrams/c4-context.puml` AND `c4-container.puml` exist. The context diagram carries one `System(...)` box for the workspace under design, every external `Person` / `System_Ext` the workspace touches, and nothing else (per `### Step 1c`). Reverse-pass authoring routinely skips context.puml when the container topology "feels obvious from `src/**`" — this gate stops that failure mode.
 
 **TDD lock-gate (erd-physical mandatory on persistence).** TDD `status: locked` is denied for any feature whose `S-DATA-001` carries ≥1 row unless `<feature-id>-erd-physical.puml` exists under the feature's `diagrams/` folder. The diagram enumerates every persistent entity in physical form (table name + column list + nullability + indexes + FK lines); Redis key shapes + Kafka payload envelopes belong in the same `.puml` labelled per store. Logical aggregates only → `erd-logical.puml` instead (per Step 7).
 
-`pre-write-check.js` Gate-E enforces both gates at write time.
+`pre-write-check.js` `workspace-sad-container-floor` gate enforces the SAD container-count floor at write time; c4-context.puml + erd-physical.puml presence is checked by the authoring agent before requesting `status: locked`.
 
 ## When to escalate
 

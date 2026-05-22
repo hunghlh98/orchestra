@@ -6,7 +6,21 @@
     "name": "hunghlh98"
   },
   "license": "MIT",
-  "keywords": ["claude-code", "sdlc", "multi-agent", "orchestrator"],
+  "keywords": [
+    "claude-code",
+    "sdlc",
+    "multi-agent",
+    "orchestrator",
+    "prd-frs-sad",
+    "spec-driven",
+    "dispatcher",
+    "c4-architecture",
+    "openapi"
+  ],
   "homepage": "https://github.com/hunghlh98/orchestra",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hunghlh98/orchestra.git"
+  },
   "mcpServers": "./.claude-plugin/.mcp.json"
 }

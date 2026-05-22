@@ -1,17 +1,24 @@
 #!/usr/bin/env node
 // scripts/bump-version.js
 // Atomic version bump for orchestra. Single arg = new semver. Updates
-// VERSION + package.json + .claude-plugin/plugin.json in one shot.
+// VERSION + package.json + .claude-plugin/plugin.json +
+// .claude-plugin/marketplace.json in one shot.
 //
 // Usage: node scripts/bump-version.js <semver>
 // Example: node scripts/bump-version.js 2.0.0
 //
 // Why a script instead of manual edits: validate.js enforces
 // `VERSION === plugin.json.version` (and the test chain runs validate.js).
-// Hand-editing the three files in sequence yields a window where the values
-// disagree → CI red. This script reads all three first (parse-checks JSON),
-// then writes all three. JSON edits are surgical (regex on the `"version":`
+// Hand-editing the files in sequence yields a window where the values
+// disagree → CI red. This script reads all four first (parse-checks JSON),
+// then writes all four. JSON edits are surgical (regex on the `"version":`
 // line) so other formatting + key order is preserved.
+//
+// marketplace.json carries an additional field — `plugins[0].source.ref` —
+// pinning the consumer install to a release tag (`v<semver>`). Bumping
+// version without rolling the ref forward leaves a rolling-master install
+// path that contradicts the pinned-version intent. This script keeps both
+// in lockstep.
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -26,10 +33,18 @@ const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?$/;
 // Matches the indent so the replacement preserves it.
 const VERSION_FIELD_RE = /^(\s*)"version":\s*"[^"]+"/m;
 
+// First `"version"` field inside marketplace.json (plugin entry under
+// plugins[0]; the file has no top-level version, so a leading match is
+// guaranteed to land on the plugin entry).
+const MKT_VERSION_RE = /("version":\s*)"[^"]+"/;
+// The single `"ref"` field under plugins[0].source. Unique per file.
+const MKT_REF_RE = /("ref":\s*)"v[^"]+"/;
+
 const TARGETS = [
   { path: resolve(ROOT, "VERSION"), kind: "plain" },
   { path: resolve(ROOT, "package.json"), kind: "json" },
   { path: resolve(ROOT, ".claude-plugin/plugin.json"), kind: "json" },
+  { path: resolve(ROOT, ".claude-plugin/marketplace.json"), kind: "marketplace" },
 ];
 
 function fail(msg) {
@@ -52,6 +67,25 @@ for (const t of TARGETS) {
     if (!VERSION_FIELD_RE.test(content)) {
       fail(`no top-level "version" field found in ${t.path}`);
     }
+  } else if (t.kind === "marketplace") {
+    let parsed;
+    try { parsed = JSON.parse(content); }
+    catch (e) { fail(`parse failed (${t.path}): ${e.message}`); }
+    if (parsed.version !== undefined) {
+      fail(`${t.path}: unexpected top-level "version" field — surgical regex assumes plugin-entry-only`);
+    }
+    if (!parsed?.plugins?.[0]?.version) {
+      fail(`${t.path}: missing plugins[0].version`);
+    }
+    if (!parsed?.plugins?.[0]?.source?.ref) {
+      fail(`${t.path}: missing plugins[0].source.ref`);
+    }
+    if (!MKT_VERSION_RE.test(content)) {
+      fail(`${t.path}: surgical version regex did not match`);
+    }
+    if (!MKT_REF_RE.test(content)) {
+      fail(`${t.path}: surgical ref regex did not match`);
+    }
   }
   reads.push({ ...t, content });
 }
@@ -61,8 +95,12 @@ for (const r of reads) {
   let next;
   if (r.kind === "plain") {
     next = newVersion + (r.content.endsWith("\n") ? "\n" : "");
-  } else {
+  } else if (r.kind === "json") {
     next = r.content.replace(VERSION_FIELD_RE, `$1"version": "${newVersion}"`);
+  } else if (r.kind === "marketplace") {
+    next = r.content
+      .replace(MKT_VERSION_RE, `$1"${newVersion}"`)
+      .replace(MKT_REF_RE, `$1"v${newVersion}"`);
   }
   writeFileSync(r.path, next);
   console.log(`  ${r.path.slice(ROOT.length + 1)} → ${newVersion}`);
@@ -78,12 +116,24 @@ for (const t of TARGETS) {
     if (fresh.trim() !== newVersion) {
       mismatches.push(`${t.path}: VERSION file content "${fresh.trim()}" != "${newVersion}"`);
     }
-  } else {
+  } else if (t.kind === "json") {
     let parsed;
     try { parsed = JSON.parse(fresh); }
     catch (e) { mismatches.push(`${t.path}: post-write JSON parse failed: ${e.message}`); continue; }
     if (parsed.version !== newVersion) {
       mismatches.push(`${t.path}: post-write version field "${parsed.version}" != "${newVersion}"`);
+    }
+  } else if (t.kind === "marketplace") {
+    let parsed;
+    try { parsed = JSON.parse(fresh); }
+    catch (e) { mismatches.push(`${t.path}: post-write JSON parse failed: ${e.message}`); continue; }
+    const v = parsed?.plugins?.[0]?.version;
+    const ref = parsed?.plugins?.[0]?.source?.ref;
+    if (v !== newVersion) {
+      mismatches.push(`${t.path}: post-write plugins[0].version "${v}" != "${newVersion}"`);
+    }
+    if (ref !== `v${newVersion}`) {
+      mismatches.push(`${t.path}: post-write plugins[0].source.ref "${ref}" != "v${newVersion}"`);
     }
   }
 }

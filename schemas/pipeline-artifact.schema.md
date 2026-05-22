@@ -29,7 +29,7 @@ Every artifact path embeds the elected `service_name`. Single-repo workspaces st
 
 ## Link discipline — `docs/` is a sealed, portable narrative tree <a id="link-discipline"></a>
 
-The `<context_path>/docs/` tree is self-contained: a reader walking it MUST NOT have to open the codebase, an external URL, or the `.orchestra/` sibling to resolve a reference. Docs authored under project A must be valid `spec-to-code` inputs in project B unchanged. Enforced at write time by `hooks/scripts/pre-write-check.js` (Gate-D inverse) — token classes in `#gate-d` below.
+The `<context_path>/docs/` tree is self-contained: a reader walking it MUST NOT have to open the codebase, an external URL, or the `.orchestra/` sibling to resolve a reference. Docs authored under project A must be valid `spec-to-code` inputs in project B unchanged. Enforced at write time by `hooks/scripts/pre-write-check.js` (`codebase-token-reject` gate) — token classes in `#cite-rejects` below.
 
 **Forbidden in `docs/*` artifact bodies:** codebase paths, external URLs, `.orchestra/` sibling paths, codebase-specific identifiers (commit SHAs, branch names, repo URLs), and — in PRD/FRS only — fenced code blocks.
 
@@ -163,7 +163,7 @@ sections:
 | value | meaning | who can write |
 |---|---|---|
 | `draft` | Author is iterating; downstream consumers may read but should not cite | The artifact's owning agent (per role table) |
-| `locked` | Frozen; downstream lifts from this revision | Owning agent; subsequent writes by anyone else are rejected by `pre-write-check.js` Gate-A |
+| `locked` | Frozen; downstream lifts from this revision | Owning agent; subsequent writes by anyone else are rejected by `pre-write-check.js` `locked-status-reject` gate |
 
 ### `verdict:` <a id="S-VERDICT-001"></a>
 
@@ -189,13 +189,13 @@ Set by code-to-spec authors. Three values reflect the per-artifact inspect+class
 
 ### `readers:` <a id="S-READERS-001"></a>
 
-List of agents authorized to read this artifact. **Soft enforcement** — prompt-level discipline only. The `pre-write-check.js` Gate-C reads the target artifact's frontmatter at write time; a write whose calling agent isn't in `readers:` is logged as a non-blocking warning.
+List of agents authorized to read this artifact. **Soft enforcement** — prompt-level discipline only. The `pre-write-check.js` `readers-scope-warning` gate reads the target artifact's frontmatter at write time; a write whose calling agent isn't in `readers:` is logged as a non-blocking warning.
 
 ### `sections:` <a id="S-SECTIONS-001"></a>
 
 Multi-writer coordination. Map of `S-<TYPE>-NNN → { writer, status }` where `status ∈ {pending, in_progress, locked}`. Most artifacts have a single owning writer and a flat sections list; TSR exercises this most because `S-TEST-001` itself accepts a sequential dual-write (`@test-author` lays the plan rows with empty `status`/`evidence` cells; `@test-runner` fills those cells in place and locks). Other TSR sections: `@evaluator` owns `S-EVAL-001`; `@reviewer` owns `S-REVIEW-001`.
 
-`pre-write-check.js` Gate-B enforces:
+`pre-write-check.js` `all-sections-locked-reject` gate enforces:
 - A writer not listed for a section's `writer:` cannot write to that section.
 - A write whose target section is `locked` is rejected.
 - A writer can only transition own sections (`pending → in_progress → locked`).
@@ -230,14 +230,14 @@ Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section
 - YYYY-MM-DDTHH:MM:SSZ | <action> by @<agent>|dispatcher | <one-line reason or revision_notes excerpt ≤ 100 chars>
 ```
 
-**Action enum**: `created` | `revised` | `unlocked` | `re-locked` | `path-a-amend` | `path-b-fix` | `regenerated`.
+**Action enum**: `created` | `revised` | `unlocked` | `re-locked` | `ratify-spec-amend` | `fix-source` | `regenerated`.
 
 **Rules:**
 
 1. First row of every artifact MUST have action `created` and `@<agent>` matching the original author. The same write that creates the artifact emits this row.
 2. A `status: locked` artifact's LAST changelog row MUST have action `re-locked` OR `created` — a locked artifact in any other tail state is mid-transition and structurally invalid.
 3. A `status: revision_requested` artifact's LAST changelog row MUST have action `unlocked`.
-4. Rows are append-only; existing rows MUST NOT be modified, removed, or reordered. `pre-write-check.js` Gate-F enforces.
+4. Rows are append-only; existing rows MUST NOT be modified, removed, or reordered. `pre-write-check.js` `changelog-append-only` gate enforces.
 5. Reason excerpt ≤ 100 chars, single line, no markdown formatting.
 
 **Transitions that emit rows:**
@@ -246,10 +246,10 @@ Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section
 |---|---|---|
 | Initial author-write | `@<agent>` | `created` |
 | Section update on draft artifact | `@<agent>` | `revised` |
-| Path-A unlock | dispatcher via `mcp__orchestra-utils__amend_locked_artifact` | `unlocked` |
-| Path-A amendment | authoring agent (typically `@architect`) on `task: path-a-amend` | `path-a-amend` |
-| Path-A re-lock | dispatcher via `mcp__orchestra-utils__relock_artifact` | `re-locked` |
-| Path-B closure | dispatcher | `path-b-fix` |
+| ratify-spec unlock | dispatcher via `mcp__orchestra-utils__amend_locked_artifact` | `unlocked` |
+| ratify-spec amendment | authoring agent (typically `@architect`) on `task: ratify-spec-amend` | `ratify-spec-amend` |
+| ratify-spec re-lock | dispatcher via `mcp__orchestra-utils__relock_artifact` | `re-locked` |
+| fix-source closure | dispatcher | `fix-source` |
 | Full regenerate (rare; user-driven) | dispatcher | `regenerated` |
 
 **Carve-outs.** Same exemption set as the `sections:` block-grammar above: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md`, per-agent `PLAN` files. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
@@ -281,7 +281,7 @@ verdict: PENDING
 version: <semver>
 ```
 
-PRD body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specific identifiers (Gate-D inverse enforces).
+PRD body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specific identifiers (`codebase-token-reject` gate enforces).
 
 ### `<feature-id>-FRS.md`
 
@@ -291,7 +291,7 @@ acceptance_criteria_count: <int>     # MUST equal S-AC-001 row count
 usecase_count: <int>                 # MUST equal state-business diagram actor-count
 ```
 
-FRS body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specific identifiers (Gate-D inverse enforces).
+FRS body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specific identifiers (`codebase-token-reject` gate enforces).
 
 ### `<feature-id>-TDD.md`
 
@@ -516,11 +516,11 @@ strike_count: <int>
 
 Body-grammar carve-out applies (no `sections:` block).
 
-## src/ ↔ docs/ cite denylist (Gate-D bidirectional) <a id="gate-d"></a>
+## src/ ↔ docs/ cite denylist (bidirectional) <a id="cite-rejects"></a>
 
 Enforced by `hooks/scripts/pre-write-check.js`. Both directions reject the write on hit.
 
-**Gate-D (src/** ← docs/-anchor cite)** — writes to `<context_path>/services/<service_name>/src/**` (and language equivalents) rejecting chain-artifact §-anchor cites:
+**`chain-cite-reject` (src/** ← docs/-anchor cite)** — writes to `<context_path>/services/<service_name>/src/**` (and language equivalents) rejecting chain-artifact §-anchor cites:
 
 ```
 /(?:PRD|FRS|TDD|CONTRACT|TSR)\s*§\s*\d+|ADR-\d{4}\s*§\s*\d+|\b(?:FR|AC|C|NFR)-\d+\b|\bS-[A-Z]+(?:-[A-Z]+)*-\d{3}\b|openapi\.yaml#\/paths\//
@@ -528,11 +528,11 @@ Enforced by `hooks/scripts/pre-write-check.js`. Both directions reject the write
 
 Token classes: `PRD §N` / `FRS §N` / `TDD §N` / `CONTRACT §N` / `TSR §N` / `ADR-NNNN §N` / `FR-N` / `AC-N` / `C-N` / `NFR-N` / `S-<UPPER>-NNN` / `openapi.yaml#/paths/`.
 
-**Gate-D inverse (docs/** ← codebase token)** — writes to chain-artifact `.md` files under `<context_path>/docs/<service_name>/**` (filenames: `PRD`, `FRS`, `SAD`, `ADR-NNNN`, `TDD`, `TSR`, `BR-AC`, `business-invariants`) reject codebase path tokens (`src/`, `services/<…>/src/`, `app/`, `cmd/`, `pkg/`, `internal/`, `lib/`), codebase-specific identifiers (commit SHAs `\b[0-9a-f]{7,40}\b`, branch patterns `feature/<…>`/`release/<…>`, repo URLs `github.com/…`/`gitlab.com/…`), and — PRD/FRS only — fenced code blocks.
+**`codebase-token-reject` (docs/** ← codebase token)** — writes to chain-artifact `.md` files under `<context_path>/docs/<service_name>/**` (filenames: `PRD`, `FRS`, `SAD`, `ADR-NNNN`, `TDD`, `TSR`, `BR-AC`, `business-invariants`) reject codebase path tokens (`src/`, `services/<…>/src/`, `app/`, `cmd/`, `pkg/`, `internal/`, `lib/`), codebase-specific identifiers (commit SHAs `\b[0-9a-f]{7,40}\b`, branch patterns `feature/<…>`/`release/<…>`, repo URLs `github.com/…`/`gitlab.com/…`), and — PRD/FRS only — fenced code blocks.
 
 ## Validation
 
-Frontmatter shape validators live in `scripts/validate.js`; the four write-time gates (A: `status: locked` rejects non-owner writes; B: `sections:` enforces per-section writer + lock; C: `readers:` allowlist warning; D: bidirectional cite denylist per `#gate-d`) plus secrets matcher live in `hooks/scripts/pre-write-check.js`. Drift detection via `git diff` in CI on `locked` artifacts.
+Frontmatter shape validators live in `scripts/validate.js`; the write-time gates (`locked-status-reject`: `status: locked` rejects non-owner writes; `all-sections-locked-reject`: `sections:` enforces per-section writer + lock; `readers-scope-warning`: `readers:` allowlist warning; `chain-cite-reject` + `codebase-token-reject`: bidirectional cite denylist per `#cite-rejects`) plus secrets matcher live in `hooks/scripts/pre-write-check.js`. Drift detection via `git diff` in CI on `locked` artifacts.
 
 ## Versioning
 

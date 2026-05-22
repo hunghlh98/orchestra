@@ -5,7 +5,7 @@
       "module": "hook.pre-write-check",
       "envVar": "ORCHESTRA_HOOK_PRE_WRITE_CHECK",
       "default": "on",
-      "description": "Blocks Write/Edit/MultiEdit containing detectable secrets and enforces frontmatter Gate-A/B/C/D. Disable for fixtures that must contain secret-shaped values (rare)."
+      "description": "Blocks Write/Edit/MultiEdit containing detectable secrets and enforces the locked-status-reject / all-sections-locked-reject / readers-scope-warning / chain-cite-reject / codebase-token-reject / workspace-sad-container-floor / changelog-append-only gates. Disable for fixtures that must contain secret-shaped values (rare)."
     },
     {
       "module": "hook.post-bash-lint",

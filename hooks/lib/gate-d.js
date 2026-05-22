@@ -3,9 +3,9 @@
 // content) and returns either null (gate passes / not applicable) or
 // { gate, message } — caller writes message to stderr and exits 2.
 //
-// Gate-D        — src/** chain-artifact cite rejection
-// Gate-D-inverse — docs/** codebase-identifier rejection (a/b/c sub-cases)
-// Gate-E        — workspace SAD + workspace c4-container.puml container floor
+// chain-cite-reject              — src/** chain-artifact cite rejection
+// codebase-token-reject          — docs/** codebase-identifier rejection (a/b/c sub-cases)
+// workspace-sad-container-floor  — workspace SAD + workspace c4-container.puml container floor
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,7 +35,7 @@ export function checkSecrets(content) {
   return null;
 }
 
-export function checkGateD(filePath, content) {
+export function checkChainCiteReject(filePath, content) {
   if (!filePath) return null;
   if (!SRC_PATH_RE.test(filePath)) return null;
   if (SRC_EXEMPT_EXT_RE.test(filePath)) return null;
@@ -44,15 +44,15 @@ export function checkGateD(filePath, content) {
     const m = lines[i].match(CITE_DENYLIST_RE);
     if (m) {
       return {
-        gate: "D",
-        message: `pre-write-check: gate-D — chain-artifact cite '${m[0]}' at line ${i + 1} forbidden in <consumer>/src/**. Move to commit message / PR description / TSR S-VERDICT-* sections.\n`,
+        gate: "chain-cite-reject",
+        message: `pre-write-check: chain-cite-reject — chain-artifact cite '${m[0]}' at line ${i + 1} forbidden in <consumer>/src/**. Move to commit message / PR description / TSR S-VERDICT-* sections.\n`,
       };
     }
   }
   return null;
 }
 
-export function checkGateDInverse(filePath, content) {
+export function checkCodebaseTokenReject(filePath, content) {
   if (!filePath) return null;
   if (!isChainArtifactUnderDocs(filePath)) return null;
   const isPRDorFRS = DOCS_CHAIN_PRDFRS_RE.test(filePath);
@@ -64,8 +64,8 @@ export function checkGateDInverse(filePath, content) {
     // (b) PRD/FRS fenced-code rejection — line-anchored ``` (optional lang tag)
     if (isPRDorFRS && FENCED_CODE_RE.test(line)) {
       return {
-        gate: "D-inverse",
-        message: `pre-write-check: gate-D-inverse (b) — fenced code block at line ${i + 1} forbidden in PRD/FRS. PRD/FRS describe behavior; inline backtick spans for type names are allowed.\n`,
+        gate: "codebase-token-reject",
+        message: `pre-write-check: codebase-token-reject (b) — fenced code block at line ${i + 1} forbidden in PRD/FRS. PRD/FRS describe behavior; inline backtick spans for type names are allowed.\n`,
       };
     }
 
@@ -75,8 +75,8 @@ export function checkGateDInverse(filePath, content) {
     const sm = line.match(SRC_PATH_TOKEN_RE);
     if (sm) {
       return {
-        gate: "D-inverse",
-        message: `pre-write-check: gate-D-inverse (a) — codebase path token '${sm[0].trim()}' at line ${i + 1} forbidden under docs/. Docs must be project-portable; describe shapes domain-only.\n`,
+        gate: "codebase-token-reject",
+        message: `pre-write-check: codebase-token-reject (a) — codebase path token '${sm[0].trim()}' at line ${i + 1} forbidden under docs/. Docs must be project-portable; describe shapes domain-only.\n`,
       };
     }
 
@@ -84,29 +84,29 @@ export function checkGateDInverse(filePath, content) {
     const cm = line.match(COMMIT_SHA_RE);
     if (cm && !inFence) {
       return {
-        gate: "D-inverse",
-        message: `pre-write-check: gate-D-inverse (c) — commit SHA '${cm[0].trim()}' at line ${i + 1} forbidden under docs/. Portability: docs must not pin to a specific repo state.\n`,
+        gate: "codebase-token-reject",
+        message: `pre-write-check: codebase-token-reject (c) — commit SHA '${cm[0].trim()}' at line ${i + 1} forbidden under docs/. Portability: docs must not pin to a specific repo state.\n`,
       };
     }
     const bm = line.match(BRANCH_RE);
     if (bm) {
       return {
-        gate: "D-inverse",
-        message: `pre-write-check: gate-D-inverse (c) — branch name '${bm[0]}' at line ${i + 1} forbidden under docs/.\n`,
+        gate: "codebase-token-reject",
+        message: `pre-write-check: codebase-token-reject (c) — branch name '${bm[0]}' at line ${i + 1} forbidden under docs/.\n`,
       };
     }
     const rm = line.match(REPO_URL_RE);
     if (rm) {
       return {
-        gate: "D-inverse",
-        message: `pre-write-check: gate-D-inverse (c) — repo URL '${rm[0]}' at line ${i + 1} forbidden under docs/.\n`,
+        gate: "codebase-token-reject",
+        message: `pre-write-check: codebase-token-reject (c) — repo URL '${rm[0]}' at line ${i + 1} forbidden under docs/.\n`,
       };
     }
   }
   return null;
 }
 
-// === Gate-E: workspace SAD + workspace c4-container.puml container floor ===
+// === workspace-sad-container-floor: workspace SAD + workspace c4-container.puml container floor ===
 
 const WORKSPACE_CONTAINER_FLOOR = 2;
 
@@ -145,7 +145,7 @@ function countPumlContainersInBoundary(content) {
   return matches ? matches.length : 0;
 }
 
-export function checkGateE(filePath, content) {
+export function checkWorkspaceSadContainerFloor(filePath, content) {
   if (!filePath) return null;
   const base = filePath.split("/").pop();
   const isWorkspaceSad = base === "SAD.md" && /(^|\/)docs\/SAD\.md$/.test(filePath);
@@ -160,8 +160,8 @@ export function checkGateE(filePath, content) {
     const rows = countSadContainerRows(content);
     if (rows !== null && rows < WORKSPACE_CONTAINER_FLOOR) {
       return {
-        gate: "E",
-        message: `pre-write-check: gate-E — workspace SAD (workspace_kind: multi-repo) S-CONTAINERS-001 lists ${rows} container row(s); workspace SAD must enumerate ≥${WORKSPACE_CONTAINER_FLOOR} services as Containers. One service rendered as System() with siblings as System_Ext is a service-scope L1/L2 wearing a workspace label — see agents/architect.md "C4 scope continuity".\n`,
+        gate: "workspace-sad-container-floor",
+        message: `pre-write-check: workspace-sad-container-floor — workspace SAD (workspace_kind: multi-repo) S-CONTAINERS-001 lists ${rows} container row(s); workspace SAD must enumerate ≥${WORKSPACE_CONTAINER_FLOOR} services as Containers. One service rendered as System() with siblings as System_Ext is a service-scope L1/L2 wearing a workspace label — see agents/architect.md "C4 scope continuity".\n`,
       };
     }
   }
@@ -169,8 +169,8 @@ export function checkGateE(filePath, content) {
     const containers = countPumlContainersInBoundary(content);
     if (containers !== null && containers < WORKSPACE_CONTAINER_FLOOR) {
       return {
-        gate: "E",
-        message: `pre-write-check: gate-E — workspace c4-container.puml inside System_Boundary declares ${containers} Container() entr(ies); workspace L2 must enumerate ≥${WORKSPACE_CONTAINER_FLOOR} services as Container — see agents/architect.md "C4 scope continuity".\n`,
+        gate: "workspace-sad-container-floor",
+        message: `pre-write-check: workspace-sad-container-floor — workspace c4-container.puml inside System_Boundary declares ${containers} Container() entr(ies); workspace L2 must enumerate ≥${WORKSPACE_CONTAINER_FLOOR} services as Container — see agents/architect.md "C4 scope continuity".\n`,
       };
     }
   }

@@ -22,7 +22,7 @@ See @README.md for what orchestra is. This file is **plugin-authoring discipline
 - **Business code carries no chain-artifact cites.** Consumer business code (`<consumer>/src/**`) must not embed `FR-N` / `AC-N` / `C-N` / `S-XXX-NNN` / PRD / FRS / TDD references.
 - **Blank-install assumption.** orchestra applies to blank installs. No migration gates, no schema unions, no parallel old/new paths — update files in place.
 - **C4 zoom continuity.** Container = zoom of one Context system. Component = zoom of one Container. Mindset, not just tooling.
-- **Audit-trail conformance (maintainer contract).** Consumer-project chain artifacts under `<consumer>/docs/**/*.md` carry a mandatory `## Changelog` body block (yaml variants use `# Changelog:`); canonical body-grammar + row format + action enum live in `schemas/pipeline-artifact.schema.md`. Enforced by `pre-write-check.js` Gate-F + `mcp__orchestra-utils__{amend_locked_artifact,relock_artifact}`. **Scope of this CLAUDE.md rule**: when adding or modifying any consumer-shipped surface that authors / mutates consumer chain artifacts (`agents/*.md`, `commands/*.md`, `hooks/scripts/*.js`, `scripts/mcp-servers/*.js`), ensure it conforms — agent prompts emit the `created` row on first write; MCP tools that flip `status:` emit the matching `unlocked` / `re-locked` row in the same write; hook layer rejects mutating writes. **Does NOT apply to orchestra's own `docs/`** (dev-surface methodology / planning).
+- **Audit-trail conformance (maintainer contract).** Consumer-project chain artifacts under `<consumer>/docs/**/*.md` carry a mandatory `## Changelog` body block (yaml variants use `# Changelog:`); canonical body-grammar + row format + action enum live in `schemas/pipeline-artifact.schema.md`. Enforced by `pre-write-check.js` `changelog-append-only` gate + `mcp__orchestra-utils__{amend_locked_artifact,relock_artifact}`. **Scope of this CLAUDE.md rule**: when adding or modifying any consumer-shipped surface that authors / mutates consumer chain artifacts (`agents/*.md`, `commands/*.md`, `hooks/scripts/*.js`, `mcp-servers/*.js`), ensure it conforms — agent prompts emit the `created` row on first write; MCP tools that flip `status:` emit the matching `unlocked` / `re-locked` row in the same write; hook layer rejects mutating writes. **Does NOT apply to orchestra's own `docs/`** (dev-surface methodology / planning).
 - **Plugin-authoring rules live in `docs/plugin-authoring.md`.** When adding, modifying, or refactoring any plugin component (`agents/`, `commands/`, `skills/`, `hooks/`, `output-styles/`, `schemas/`, `manifests/`, `rules/`, `CLAUDE.md`, tests), follow the declarative numbered rules R1-R14 there. The three-layer architecture (knowledge / navigation / orchestration) is the central insight: knowledge lives in ONE canonical skill; navigation skills publish triggers + delegate; agents orchestrate workflows without storing facts. Pairs with **Two surfaces, never mix them** — `docs/plugin-authoring.md` is dev-surface, the rules it codifies apply across both surfaces.
 
 ## Two surfaces, never mix them
@@ -35,6 +35,7 @@ The repo has two surface classes. They look similar (markdown / JS in the same c
 - `commands/*.md` — loaded as slash-command bodies
 - `skills/*/SKILL.md` (and `references/`, `scripts/` under each skill) — loaded when a skill is invoked
 - `hooks/scripts/*.js`, `hooks/lib/*.js` — executed as hook handlers on the consumer's machine
+- `mcp-servers/*.js` — MCP servers launched by Claude Code on the consumer's machine (referenced by `.claude-plugin/.mcp.json`)
 - `schemas/*.schema.json`, `schemas/*.schema.md` — normative shape for manifests + pipeline artifacts; consumer agents reference these directly
 - `manifest.json`, `plugin.json`, `package.json`
 - `README.md`, `CHANGELOG.md` (visible in install but informational)
@@ -153,13 +154,13 @@ Why commit-derived: hand-authoring duplicates work the commit log already encode
 
 ## Audit-trail conformance (maintainer contract)
 
-**Scope of this section**: maintainer obligation when authoring or modifying consumer-shipped surfaces (`agents/`, `commands/`, `hooks/`, `scripts/mcp-servers/`) that produce or mutate consumer-project chain artifacts. Body-grammar canonical home: `schemas/pipeline-artifact.schema.md` — when the schema's `## Changelog` block-grammar exists, this maintainer rule cites it. Until then (PR 1 lands the schema body-grammar), the rule is "ensure your consumer-surface edit conforms to the contract once the schema lands; do not introduce silent locked-artifact mutations".
+**Scope of this section**: maintainer obligation when authoring or modifying consumer-shipped surfaces (`agents/`, `commands/`, `hooks/`, `mcp-servers/`) that produce or mutate consumer-project chain artifacts. Body-grammar canonical home: `schemas/pipeline-artifact.schema.md` — when the schema's `## Changelog` block-grammar exists, this maintainer rule cites it. Until then (PR 1 lands the schema body-grammar), the rule is "ensure your consumer-surface edit conforms to the contract once the schema lands; do not introduce silent locked-artifact mutations".
 
 ### Why this is a dev-surface contract, not a consumer-CLAUDE.md rule
 
 - Consumer CLAUDE.md splice (`hooks/references/consumer-claude-md.template.md`) already tells the consumer "Don't trample chain-owned dirs. `docs/` is chain-written" — the chain agents enforce on the consumer's behalf, so the consumer's Claude session doesn't need the row format.
 - Schemas (consumer surface) carry the format authoritatively for chain agents that author artifacts.
-- Hooks (consumer surface) enforce Gate-F at write-time.
+- Hooks (consumer surface) enforce the `changelog-append-only` gate at write-time.
 - MCP tools (consumer surface) emit matching rows on lock/unlock transitions.
 - The only audience for the maintainer-side rule is THIS repo's authors — when they add a new agent or modify an MCP tool, the contract reminds them to keep conformance.
 
@@ -169,24 +170,24 @@ Why commit-derived: hand-authoring duplicates work the commit log already encode
 |---|---|---|
 | `agents/*.md` author-write | Forward chain / reverse-pass initial artifact creation | Emit `created` row |
 | `agents/*.md` section update on draft artifact | Section author updates a `status: draft` artifact | Emit `revised` row |
-| `scripts/mcp-servers/orchestra-utils.js > amend_locked_artifact` | Dispatcher unlocks for Path-A amendment | Emit `unlocked` row + flip `status: locked → revision_requested` in one write |
-| `agents/architect.md` (etc.) on `task: path-a-amend` | Architect re-authors the unlocked artifact | Emit `path-a-amend` row |
-| `scripts/mcp-servers/orchestra-utils.js > relock_artifact` | Dispatcher re-locks after amendment | Emit `re-locked` row + flip `status: revision_requested → locked` in one write |
-| Dispatcher on Path-B closure | Source-side fix closes a divergence | Emit `path-b-fix` row |
+| `mcp-servers/orchestra-utils.js > amend_locked_artifact` | Dispatcher unlocks for ratify-spec amendment | Emit `unlocked` row + flip `status: locked → revision_requested` in one write |
+| `agents/architect.md` (etc.) on `task: ratify-spec-amend` | Architect re-authors the unlocked artifact | Emit `ratify-spec-amend` row |
+| `mcp-servers/orchestra-utils.js > relock_artifact` | Dispatcher re-locks after amendment | Emit `re-locked` row + flip `status: revision_requested → locked` in one write |
+| Dispatcher on fix-source closure | Source-side fix closes a divergence | Emit `fix-source` row |
 | Dispatcher on full regenerate (rare; user-driven) | User-requested full artifact rebuild | Emit `regenerated` row |
-| `hooks/scripts/pre-write-check.js` Gate-F | Any `Write` / `Edit` to a chain artifact | Reject mutations / removals of existing rows |
+| `hooks/scripts/pre-write-check.js` `changelog-append-only` gate | Any `Write` / `Edit` to a chain artifact | Reject mutations / removals of existing rows |
 
 ### Why
 
 1. **Git-context-independence.** The consumer's artifact carries provenance + amendment history in the body itself — survives standalone reads.
-2. **No silent unlocks.** Verification-phase Path-A on locked artifacts leaves a trace a reviewer audits without `git log`.
-3. **Gate-F append-only enforcement.** Hook layer guarantees the audit trail is trustworthy — agents cannot retroactively rewrite.
+2. **No silent unlocks.** Verification-phase ratify-spec on locked artifacts leaves a trace a reviewer audits without `git log`.
+3. **changelog-append-only enforcement.** Hook layer guarantees the audit trail is trustworthy — agents cannot retroactively rewrite.
 
 ### How to apply when authoring a new component
 
 - New agent that authors `docs/**/*.md`: its Deliverables section requires "First body section is `## Changelog` with row `- <ISO-8601> | created by @<self> | <intent>`".
 - New MCP tool that mutates a locked artifact: tool writes the matching changelog row in the SAME write as the `status:` flip — never separate writes.
-- New hook touching chain artifacts: respect Gate-F's append-only contract; do not write into the `## Changelog` block unless implementing a new producer surface above.
+- New hook touching chain artifacts: respect the `changelog-append-only` gate contract; do not write into the `## Changelog` block unless implementing a new producer surface above.
 
 ## Plugin authoring
 
@@ -221,7 +222,7 @@ This project uses **orchestra** for SDLC orchestration. The chain owns spec / ar
 
 ## Rules
 
-- **No chain-artifact cites in business code.** `src/**` must not embed `PRD §N` / `FRS §N` / `TDD §N` / `openapi §N` / `TSR §N` / `FR-N` / `AC-N` / `S-<TAG>-NNN` / `ADR-NNNN §N`. Traceability lives in commits, PRs, and TSR `S-EVAL-001` / `S-REVIEW-001`. `pre-write-check.js` Gate-D rejects violations.
+- **No chain-artifact cites in business code.** `src/**` must not embed `PRD §N` / `FRS §N` / `TDD §N` / `openapi §N` / `TSR §N` / `FR-N` / `AC-N` / `S-<TAG>-NNN` / `ADR-NNNN §N`. Traceability lives in commits, PRs, and TSR `S-EVAL-001` / `S-REVIEW-001`. `pre-write-check.js` `chain-cite-reject` gate rejects violations.
 - **Append-only feature graph.** New behavior = new `<feature-id>` with `depends_on:` edges in `.orchestra/<service_name>/features.yaml`. Never edit existing locked PRDs in place. Successor features carry `supersedes: [<old-id>]`; predecessor `status:` stays user-controlled (no auto-flip). Manifest writes only via `mcp__orchestra-utils__upsert_features_yaml` — never hand-edited. Graph is intra-service; cross-service relationships are not modelled.
 - **Batch independent writes.** N independent file writes (multiple `.puml`, per-feature singletons, per-service singletons) → N parallel `Write()` calls in ONE message.
 - **Batch independent spawns.** Inter-feature, intra-feature fan-out, within-agent per-unit → ONE Agent-tool-call message with N spawns.
