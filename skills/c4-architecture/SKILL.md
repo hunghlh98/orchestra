@@ -6,7 +6,7 @@ origin: orchestra-internal (structure adapted from .agents/skills/c4-architectur
 
 # c4-architecture
 
-Generates C4-model diagrams (Context / Container / Component / Deployment / Dynamic) in PlantUML via the C4-PlantUML stdlib. Invoked by `@architect` (L1/L2) and `@architect` (L3/L4 + Dynamic).
+Generates C4-model diagrams (Context / Container / Component / Deployment / Dynamic) in PlantUML via the C4-PlantUML stdlib. Invoked by `@architect` (all levels: L1+L2+L3+L4 + Dynamic).
 
 ## When to use
 
@@ -121,6 +121,8 @@ Walk this checklist; any "no" → fix the source, do not render:
 - [ ] **Two-folder rule**: project singleton at `docs/diagrams/c4-<noun>.puml` is unstyled; per-feature copy under `docs/<service_name>/<feature-id>/diagrams/` differs ONLY in `UpdateElementStyle()` highlights — never in element identity.
 
 ### Step 6b — Sequence diagram style (SD)
+
+For sequence-diagram authoring discipline (Operations Summary tables + `ref over` reuse pattern for shared sub-flows), see `skills/plantuml/SKILL.md > ## Sequence diagrams — authoring discipline`. The styling rules below cover render-side formatting only.
 
 Per-feature sequence (`<feature-id>-seq-<journey>.puml`) and workspace inter-service sequence (`sequence-inter-<flow>.puml`) carry richer style than C4 levels. Apply this discipline before render:
 
