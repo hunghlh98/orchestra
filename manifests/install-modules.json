@@ -51,6 +51,13 @@
       "stability": "stable"
     },
     {
+      "name": "hook.stop-plan-verify",
+      "kind": "hook",
+      "path": "hooks/scripts/stop-plan-verify.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
       "name": "mcp.orchestra-utils",
       "kind": "mcp",
       "path": "mcp-servers/orchestra-utils.js",

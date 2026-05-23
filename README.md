@@ -8,7 +8,7 @@ Multi-agent SDLC pipeline behind `/orchestra`. One developer, generator/evaluato
 
 The forward chain (PRD → FRS → SAD → ADR → TDD → openapi → code → TSR) is published methodology — BABOK for PRD / FRS, TOGAF / IEEE 1471 for SAD, Nygard's ADR practice, the OpenAPI Initiative for the contract layer. Any LLM can explain each artifact type on demand and draft a generic template.
 
-What orchestra ships is the *harness* that runs on top: 7 hooks intercept `Write` / `Edit` / `Bash` / `Task` events at tool-call time; 2 MCP servers — `orchestra-utils` (tree + closed-allowlist writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, and consumer `CLAUDE.md` orchestra section) and `orchestra-probe` (auditable runtime probes via `@evaluator`); schema-pinned frontmatter blocks malformed artifacts before they reach disk; `tools:` allowlists enforce generator/evaluator separation by capability, not convention. These are runtime behaviors — they execute during a Claude Code session, not on a documentation site you can paste prompts into.
+What orchestra ships is the *harness* that runs on top: 8 hooks intercept `Write` / `Edit` / `Bash` / `Task` / `Stop` events at tool-call time; 2 MCP servers — `orchestra-utils` (tree + closed-allowlist writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, and consumer `CLAUDE.md` orchestra section) and `orchestra-probe` (auditable runtime probes via `@evaluator`); schema-pinned frontmatter blocks malformed artifacts before they reach disk; `tools:` allowlists enforce generator/evaluator separation by capability, not convention. These are runtime behaviors — they execute during a Claude Code session, not on a documentation site you can paste prompts into.
 
 Pedagogy is researchable; enforcement is not. The plugin is orthogonal to "ask perplexity + generate manually" because anyone can describe the chain — only the harness can gate writes against it during a session.
 
@@ -36,7 +36,7 @@ Three load-bearing decisions:
 - Schema-pinned artifacts — every frontmatter under `<project>/docs/` validates against `schemas/pipeline-artifact.schema.md`
 - Capability-first default models (Opus 4.7 1M for spec / review tiers, overridable per-project in `local.yaml`)
 - Versioned-migration discipline — `migration_tool` (`flyway` default on JVM, `liquibase`, `none`) + `primary_database` bootstrap fields drive forward-chain migration authoring and reverse-chain schema derivation (`ddl-auto` surfaces as DEFECT)
-- 7 runtime hooks + 2 MCP servers, env-var opt-out per component
+- 8 runtime hooks + 2 MCP servers, env-var opt-out per component
 
 ## Installation
 
@@ -168,7 +168,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | --- | --- |
 | `/orchestra` | Dispatcher. 4 entry shapes: `spec-to-code`, `code-to-spec`, `<intent>` router, empty→usage. |
 
-## Hooks (7)
+## Hooks (8)
 
 | Hook script | Event | Purpose |
 | --- | --- | --- |
@@ -176,6 +176,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `pre-write-check.js` | PreToolUse (Write / Edit / MultiEdit) | Multi-gate guard: secret detection, `chain-cite-reject` (src/ cite denylist), `codebase-token-reject` (docs/ portability inverse), `workspace-sad-container-floor` (workspace SAD ≥2 containers), `changelog-append-only` (docs/ append-only `## Changelog`), `locked-status-reject` + `all-sections-locked-reject` + `readers-scope-warning` frontmatter gates. |
 | `metrics-collector.js` | All major events | Append `events.jsonl` for observability joins. |
 | `val-calibration.js` | PreToolUse (Task / Agent) | Inject confidence-tier calibration into agent prompts. |
+| `stop-plan-verify.js` | Stop | Silent-approval gate. Scans the just-ended main-agent turn for `ExitPlanMode` followed by `Task`/`Agent` spawn in the SAME turn — the dangerous shape from anthropics/claude-code#50110 (model receives `"User has approved"` with no UI interaction). On detection, returns `decision: "block"` so the user can verify approval via the PlanMode UI before any swarm dispatch. |
 | `agent-plan-sync.js` | SubagentStop | Projects each finished subagent's `TaskCreate` / `TaskUpdate` activity from its transcript into the session-level ledger at `.orchestra/plans/<session-id>/agent-tasks.md`. Single writer; subagents never author the file. |
 | `post-bash-lint.js` | PostToolUse (Bash) | Observe Bash output; surface lint issues. |
 | `post-write-puml.js` | PostToolUse (Write / Edit / MultiEdit) | Render-on-write for `.puml` files. |
@@ -215,6 +216,7 @@ All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setti
 | `ORCHESTRA_HOOK_METRICS_COLLECTOR` | Disable `events.jsonl` append. |
 | `ORCHESTRA_HOOK_VAL_CALIBRATION` | Disable confidence-tier injection. |
 | `ORCHESTRA_HOOK_AGENT_PLAN_SYNC` | Disable PLAN-file single-writer. |
+| `ORCHESTRA_HOOK_STOP_PLAN_VERIFY` | Disable silent-approval gate. Safe to bypass when approval IS confirmed via PlanMode UI; never disable as a default — leaves you exposed to anthropics/claude-code#50110. |
 | `ORCHESTRA_HOOK_POST_BASH_LINT` | Disable Bash lint observer. |
 | `ORCHESTRA_HOOK_POST_WRITE_PUML` | Disable `.puml` render-on-write. |
 | `ORCHESTRA_HOOK_PREFLIGHT` | **Do not disable** — dispatcher halts without it. |

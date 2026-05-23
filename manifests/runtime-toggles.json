@@ -38,6 +38,12 @@
       "description": "On UserPromptSubmit, when the prompt starts with `/orchestra`, emits an <orchestra-preflight> YAML block to additional context: mode (greenfield/brownfield), workspace_kind, service_name, scope_level, cached fields, missing_fields, docs provenance, CLAUDE.md state. The dispatcher reads it to skip already-resolved bootstrap prompts."
     },
     {
+      "module": "hook.stop-plan-verify",
+      "envVar": "ORCHESTRA_HOOK_STOP_PLAN_VERIFY",
+      "default": "on",
+      "description": "On Stop event, scans the just-ended main-agent turn for ExitPlanMode followed by Task spawn in the SAME turn — the silent-approval pattern from anthropics/claude-code#50110. On detection, emits `decision: block` to halt the turn so the user can verify the plan was actually approved via the PlanMode UI before any subagent dispatch. Disable when an upstream Claude Code fix lands."
+    },
+    {
       "module": "hook.agent-plan-sync",
       "envVar": "ORCHESTRA_HOOK_AGENT_PLAN_SYNC",
       "default": "on",
