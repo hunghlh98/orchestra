@@ -41,7 +41,7 @@
       "module": "hook.agent-plan-sync",
       "envVar": "ORCHESTRA_HOOK_AGENT_PLAN_SYNC",
       "default": "on",
-      "description": "Binds Claude Code task IDs to per-agent PLAN files at <cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md — recomputes T-NNN counts, mirrors the ## Tasks checklist, and flips plan status. Disable for runs that don't author plan files."
+      "description": "On SubagentStop, reads the finished subagent's transcript and projects every TaskCreate/TaskUpdate event into the session-level ledger at <cwd>/.orchestra/plans/<session-id>/agent-tasks.md — rows keyed on (agent, feature_id, task_id). Single writer; subagents never author this file. Disable to skip ledger projection."
     },
     {
       "module": "mcp.orchestra-utils",

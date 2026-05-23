@@ -5,6 +5,7 @@
 //
 // Output shape consumed by commands/orchestra.md dispatcher:
 //   <orchestra-preflight>
+//     session_id: <claude-code-session-id>
 //     mode: greenfield | brownfield
 //     workspace_kind: single-repo | multi-repo | null
 //     service_name: <string> | null
@@ -20,7 +21,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseYaml } from "./yaml-mini.js";
 
-export function buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt) {
+export function buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt, sessionId) {
   const mode = detectMode(cwd);
   const systemYaml = loadYaml(join(cwd, ".orchestra/system.yaml"));
   const serviceName = systemYaml?.context_path
@@ -48,7 +49,7 @@ export function buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt)
   });
   const docsProvenance = detectDocsProvenance(cwd) ? "orchestra-generated" : "unknown";
 
-  return renderBlock({ mode, workspaceKind, serviceName, scopeLevel, cached, missing, docsProvenance });
+  return renderBlock({ sessionId, mode, workspaceKind, serviceName, scopeLevel, cached, missing, docsProvenance });
 }
 
 export function parseSourceFlag(prompt) {
@@ -149,6 +150,7 @@ function detectMissingFields({ mode, workspaceKind, serviceName, scopeLevel, cac
 function renderBlock(s) {
   return [
     "<orchestra-preflight>",
+    `  session_id: ${s.sessionId || "null"}`,
     `  mode: ${s.mode}`,
     `  workspace_kind: ${s.workspaceKind || "null"}`,
     `  service_name: ${s.serviceName || "null"}`,

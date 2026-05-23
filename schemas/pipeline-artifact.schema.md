@@ -3,7 +3,7 @@ id: PIPELINE-SCHEMA
 title: orchestra Pipeline Artifact Frontmatter Schemas
 created: 2026-05-08
 status: draft
-revision: 9
+revision: 10
 scope: type-specific frontmatter shapes for every artifact authored by the orchestra agents.
 ---
 
@@ -101,7 +101,7 @@ Workspace-global state at the `.orchestra/` root; per-service execution state pa
 │       ├── discovery/                                    ← brownfield only
 │       │   └── <service>.md                              ← @explorer report per service (EXPLORER-REPORT type)
 │       ├── events.jsonl                                  ← metrics for this session
-│       └── tasks/<agent>/<feature-id>.md                 ← per-agent execution plan (PLAN type)
+│       └── agent-tasks.md                                ← session-level task ledger (AGENT-TASKS type; hook-projected)
 └── <service_name>/                     ← per-service workspace-persistent state
     ├── local.yaml                                  ← service config
     ├── features.yaml                               ← intra-service feature DAG manifest (append-only)
@@ -131,7 +131,7 @@ Type → folder map:
 | `RUN-PLAN` | `.orchestra/plans/<session_id>/` | `run-plan.md` | one per Claude Code session; workspace-level unified plan |
 | `EXPLORER-REPORT` | `.orchestra/plans/<session_id>/discovery/` | `order.md` | per-service discovery summary; brownfield only; filename = `<service>.md` |
 | `TASKS` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `order-001-placement-TASKS.md` | agent-internal |
-| `PLAN` | `.orchestra/plans/<session_id>/tasks/<agent>/` | `order-001-placement.md` | per-agent execution plan |
+| `AGENT-TASKS` | `.orchestra/plans/<session_id>/` | `agent-tasks.md` | session-level ledger; rows-per-(agent × feature-id × task) projected by `agent-plan-sync` hook on `SubagentStop` from subagent transcripts |
 | `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `order-001-placement-ESCALATE-spec-gap.md` | transient |
 | `INCOMPLETE` | `.orchestra/<service_name>/pipeline/` | `r2026-05-13T14-22-INCOMPLETE.md` | run-scoped |
 
@@ -140,7 +140,7 @@ Type → folder map:
 ```yaml
 ---
 id: <basename-without-extension>
-type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|PLAN|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT>
+type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|AGENT-TASKS|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT>
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                       # draft | locked
@@ -223,7 +223,7 @@ Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segm
 
 **Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in the body, and every `<a id>` in the body MUST have a matching key in `sections:`. `validate.js` flags either direction as a violation.
 
-**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md` (provenance marker), per-agent `PLAN` files, and `EXPLORER-REPORT` files under `.orchestra/plans/<session_id>/discovery/`.
+**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md` (provenance marker), session-level `agent-tasks.md` (hook-projected ledger), and `EXPLORER-REPORT` files under `.orchestra/plans/<session_id>/discovery/`.
 
 ### `## Changelog` (mandatory) <a id="changelog-block"></a>
 
@@ -257,7 +257,7 @@ Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section
 | fix-source closure | dispatcher | `fix-source` |
 | Full regenerate (rare; user-driven) | dispatcher | `regenerated` |
 
-**Carve-outs.** Same exemption set as the `sections:` block-grammar above: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md`, per-agent `PLAN` files, and `EXPLORER-REPORT` files. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
+**Carve-outs.** Same exemption set as the `sections:` block-grammar above: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md`, session-level `agent-tasks.md`, and `EXPLORER-REPORT` files. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
 
 ## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
 
@@ -475,41 +475,46 @@ tasks_done: <int>
 
 `S-TASKS-001` is **mutable by design** — implementer-tier owners (`@backend`, `@frontend`) flip rows from `pending → in_progress → done` on pickup/completion.
 
-### `<feature-id>.md` PLAN (`.orchestra/<service_name>/tasks/<run-id>/<agent>/`)
+### `agent-tasks.md` AGENT-TASKS (`.orchestra/plans/<session_id>/`)
 
-Per-agent execution plan. The agent authors the body before any artifact write or substantial Bash; the `agent-plan-sync` hook owns mutation of `tasks:`, `tasks_pending`, `tasks_in_progress`, `tasks_done`, and lifecycle `status:` flips on `Task*` tool use and on `SubagentStop`.
+Session-level ledger of subagent task activity. Single file per Claude Code session aggregates rows across every subagent spawned in the session, indexed by `(agent, feature_id, task_id)` compound key. Hook-projected: `agent-plan-sync` reads each finished subagent's transcript on `SubagentStop`, extracts `TaskCreate` / `TaskUpdate` tool-call events, and upserts rows into the single file. Subagents do not write to this artifact directly.
 
 ```yaml
-id: <feature-id>
-type: PLAN
-agent: "@<role>"
-run_id: <parent-dispatcher-session-id>
-feature_id: <feature-id>
+id: agent-tasks
+type: AGENT-TASKS
+session_id: <claude-code-session-id>
 created: <ISO-8601>
 updated: <ISO-8601>
-status: pending | in_progress | interrupted | done
-tasks_pending: <int>
-tasks_in_progress: <int>
-tasks_done: <int>
-tasks:
-  - id: T-001
-    description: <one-line>
-    status: pending | in_progress | completed
+revision: <integer ≥ 1>
+status: in_progress | done
 ```
 
-Body grammar (free-form, no `<a id>` anchors required):
+Body grammar (single `## Tasks` table; row order = insertion order; one row per `(agent, feature_id, task_id)` tuple):
 
 ```markdown
-## Approach
-<2-5 sentence narrative — what the agent intends to do, in what order, citing inputs it will read and outputs it will write>
-
 ## Tasks
-- [ ] T-001 — <one-line>
-- [ ] T-002 — <one-line>
-- [x] T-003 — <one-line>      # completed
+
+| agent     | feature_id          | task_id | description           | status      | updated              |
+|-----------|---------------------|---------|-----------------------|-------------|----------------------|
+| @backend  | order-001-checkout  | 1       | Create User entity    | completed   | 2026-05-23T10:14:02Z |
+| @backend  | order-001-checkout  | 2       | Wire repository       | in_progress | 2026-05-23T10:18:11Z |
+| @frontend | order-001-checkout  | 1       | Checkout form         | pending     | 2026-05-23T10:14:02Z |
 ```
 
-The agent body owns the `## Approach` section. The hook owns the `## Tasks` checklist sync.
+**Row semantics:**
+
+- `agent` — subagent role with `@` prefix (e.g., `@backend`, `@analyst`).
+- `feature_id` — derived from subagent spawn-prompt (`<short-service-name>-<NNN>-<slug>`) OR `_workspace` for non-feature-scoped spawns (e.g., reverse-pass `@explorer`).
+- `task_id` — Claude Code's assigned task identifier (opaque to orchestra; sourced from `TaskCreate` `tool_response.taskId`).
+- `description` — one-line description, ≤ 200 chars, sourced from `tool_input.subject` (falls back to `tool_input.description`).
+- `status` — `pending` | `in_progress` | `completed`. Derived from latest `TaskUpdate` event for this `task_id` within the subagent transcript; `pending` if only `TaskCreate` observed.
+- `updated` — ISO-8601 timestamp of latest event observed for this row.
+
+**Upsert key:** `(agent, feature_id, task_id)`. Subsequent `SubagentStop` events re-projecting the same subagent transcript overwrite the existing row (idempotent).
+
+**File-level `status:`** flips `in_progress → done` when every row reaches `completed` AND no spawned subagent is still running (heuristic: hook can't observe parent state; `done` set only when the projecting `SubagentStop` event observes all rows `completed`).
+
+Body-grammar exempt from `<a id>` ↔ `sections:` invariant (carve-out above). The hook is the single writer; agents must not write to this path.
 
 ### `<service>.md` EXPLORER-REPORT (`.orchestra/plans/<session_id>/discovery/`)
 

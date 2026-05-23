@@ -35,7 +35,8 @@ async function main() {
     const cwd = input.cwd || process.cwd();
     const sourceFromPrompt = parseSourceFlag(prompt);
     const perServiceFromPrompt = /(^|\s)service:\S+/.test(prompt);
-    process.stdout.write(buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt));
+    const sessionId = typeof input.session_id === "string" ? input.session_id : null;
+    process.stdout.write(buildPreflightBlock(cwd, sourceFromPrompt, perServiceFromPrompt, sessionId));
     process.exit(0);
   } catch (err) {
     process.stderr.write(`orchestra-preflight: crashed (non-blocking) — ${err.message}\n`);

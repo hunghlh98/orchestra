@@ -2,8 +2,10 @@
 // scripts/tests/agent-plan-sync.test.js
 // Hook contract tests for hooks/scripts/agent-plan-sync.js.
 //
-// Each test sets up a tmp HOME so the hook's getProjectSessionsDir()
-// (which uses os.homedir()) reads from a sandboxed jsonl/meta layout.
+// SubagentStop-only model: each test seeds a subagent transcript with
+// TaskCreate/TaskUpdate events, fires SubagentStop in the parent session,
+// and asserts the resulting session-level ledger at
+// <cwd>/.orchestra/plans/<sessionId>/agent-tasks.md.
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -30,21 +32,43 @@ function setupSandbox(label) {
   return { tmp, homeDir, cwdDir, projectsDir };
 }
 
-function seedSubagentSession({ projectsDir, parentSid, subSid, agentRole, featureId }) {
+// Seeds a subagent transcript with user-spawn-prompt + N task events.
+// taskEvents: [{ kind: "create", toolUseId, subject, claudeTaskId, ts }] or
+//             [{ kind: "update", taskId, status, ts }].
+function seedSubagentSession({ projectsDir, parentSid, subSid, agentRole, featureId, taskEvents = [] }) {
   const subagentsDir = join(projectsDir, parentSid, "subagents");
   mkdirSync(subagentsDir, { recursive: true });
-  const userMsg = {
+  const jsonlPath = join(subagentsDir, `agent-${subSid}.jsonl`);
+  const lines = [];
+  lines.push(JSON.stringify({
     type: "user",
     message: { content: `You are @${agentRole} in the orchestra pipeline\nfeature_id: ${featureId}` },
-  };
-  writeFileSync(join(subagentsDir, `agent-${subSid}.jsonl`), JSON.stringify(userMsg) + "\n");
+  }));
+  for (const evt of taskEvents) {
+    if (evt.kind === "create") {
+      lines.push(JSON.stringify({
+        type: "assistant", timestamp: evt.ts || "2026-05-23T10:00:00Z",
+        message: { content: [{ type: "tool_use", id: evt.toolUseId, name: "TaskCreate", input: { subject: evt.subject } }] },
+      }));
+      lines.push(JSON.stringify({
+        type: "user", timestamp: evt.ts || "2026-05-23T10:00:00Z",
+        message: { content: [{ type: "tool_result", tool_use_id: evt.toolUseId, content: `Task #${evt.claudeTaskId} created` }] },
+      }));
+    } else if (evt.kind === "update") {
+      lines.push(JSON.stringify({
+        type: "assistant", timestamp: evt.ts || "2026-05-23T10:05:00Z",
+        message: { content: [{ type: "tool_use", id: `update-${evt.taskId}`, name: "TaskUpdate", input: { taskId: evt.taskId, status: evt.status } }] },
+      }));
+    }
+  }
+  writeFileSync(jsonlPath, lines.join("\n") + "\n");
   writeFileSync(join(subagentsDir, `agent-${subSid}.meta.json`), JSON.stringify({ agentType: `orchestra:${agentRole}` }));
+  return jsonlPath;
 }
 
 function runHook(input, env = {}, opts = {}) {
-  // Cold-start gate (F-014): agent-plan-sync no-ops until
-  // .orchestra/system.yaml exists. Auto-seed for every test that supplies
-  // a cwd unless opts.skipSeed = true.
+  // Cold-start gate: agent-plan-sync no-ops until .orchestra/system.yaml exists.
+  // Auto-seed for every test that supplies a cwd unless opts.skipSeed = true.
   if (input && input.cwd && !opts.skipSeed) {
     const sysYamlPath = join(input.cwd, ".orchestra", "system.yaml");
     if (!existsSync(sysYamlPath)) {
@@ -59,173 +83,113 @@ function runHook(input, env = {}, opts = {}) {
   });
 }
 
-function readPlanFile(planPath) {
+function readLedger(planPath) {
   const content = readFileSync(planPath, "utf8");
   const m = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { frontmatter: {}, body: content, raw: content };
-  return { frontmatter: parseYaml(m[1]) || {}, body: m[2], raw: content };
+  if (!m) return { frontmatter: {}, rows: [], raw: content };
+  const frontmatter = parseYaml(m[1]) || {};
+  const rows = parseTaskRows(m[2]);
+  return { frontmatter, rows, body: m[2], raw: content };
+}
+
+function parseTaskRows(body) {
+  const rows = [];
+  let inTable = false;
+  for (const line of body.split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("|")) { inTable = false; continue; }
+    const cells = t.split("|").map(c => c.trim()).filter((_, i, arr) => i > 0 && i < arr.length - 1);
+    if (cells.length === 0) continue;
+    if (cells.every(c => /^:?-+:?$/.test(c))) { inTable = true; continue; }
+    if (!inTable) { inTable = (cells[0] === "agent"); continue; }
+    if (cells.length < 6) continue;
+    rows.push({ agent: cells[0], feature_id: cells[1], task_id: cells[2], description: cells[3], status: cells[4], updated: cells[5] });
+  }
+  return rows;
 }
 
 // ---------- opt-out ----------
 console.log("agent-plan-sync — opt-out:");
 {
   const r = runHook(
-    { hook_event_name: "PreToolUse", tool_name: "TaskCreate", tool_input: {}, session_id: "x", cwd: "/tmp" },
+    { hook_event_name: "SubagentStop", session_id: "x", cwd: "/tmp" },
     { ORCHESTRA_HOOK_AGENT_PLAN_SYNC: "off" },
   );
   check(r.status === 0, `opt-out exits 0`);
-  check(/permissionDecision/.test(r.stdout), `opt-out emits allow envelope on PreToolUse`);
 }
 
-// ---------- PostToolUse(TaskCreate) creates plan ----------
-console.log("agent-plan-sync — PostToolUse(TaskCreate) creates plan + appends task:");
+// ---------- SubagentStop projects transcript to ledger ----------
+console.log("agent-plan-sync — SubagentStop projects task rows from subagent transcript:");
 {
-  const sb = setupSandbox("create");
+  const sb = setupSandbox("project");
   try {
-    // Real shape (matches Claude Code's session jsonl layout):
-    //   parent session ID: UUID-with-hyphens (top-level dir name)
-    //   subagent ID:       short hex without hyphens (the hook's
-    //                      findJustStoppedSubagentMeta regex requires [a-f0-9]+)
     const parentSid = "aaaaaaaa-1111-2222-3333-444444444444";
     const subSid = "ac88355b4ef902c50";
     seedSubagentSession({
       projectsDir: sb.projectsDir, parentSid, subSid,
       agentRole: "backend", featureId: "001-todo-api",
+      taskEvents: [
+        { kind: "create", toolUseId: "toolu_01", subject: "Create User entity", claudeTaskId: "1", ts: "2026-05-23T10:00:00Z" },
+        { kind: "update", taskId: "1", status: "in_progress", ts: "2026-05-23T10:01:00Z" },
+        { kind: "create", toolUseId: "toolu_02", subject: "Wire JPA repository", claudeTaskId: "2", ts: "2026-05-23T10:02:00Z" },
+        { kind: "update", taskId: "2", status: "completed", ts: "2026-05-23T10:03:00Z" },
+      ],
     });
-    const r = runHook(
-      {
-        hook_event_name: "PostToolUse",
-        tool_name: "TaskCreate",
-        tool_input: { subject: "Create User entity", description: "POJO + JPA mapping" },
-        tool_response: "Task #1 created successfully: Create User entity",
-        session_id: subSid,
-        cwd: sb.cwdDir,
-      },
-      { HOME: sb.homeDir },
-    );
-    check(r.status === 0, `PostToolUse(TaskCreate) exits 0`);
-    const planPath = join(sb.cwdDir, ".orchestra", "tasks", parentSid, "backend", "001-todo-api.md");
-    check(existsSync(planPath), `plan file created at .orchestra/tasks/<parent_sid>/<agent>/<feature-id>.md`);
-    if (existsSync(planPath)) {
-      const plan = readPlanFile(planPath);
-      check(plan.frontmatter.type === "PLAN", `frontmatter type: PLAN`);
-      check(plan.frontmatter.agent === "@backend", `frontmatter agent: @backend`);
-      check(plan.frontmatter.run_id === parentSid, `frontmatter run_id matches parent_sid`);
-      check(plan.frontmatter.feature_id === "001-todo-api", `frontmatter feature_id`);
-      check(plan.frontmatter.status === "in_progress", `status flipped pending → in_progress on first TaskCreate`);
-      check(Array.isArray(plan.frontmatter.tasks) && plan.frontmatter.tasks.length === 1, `one task entry appended`);
-      const t = plan.frontmatter.tasks?.[0];
-      check(t?.id === "T-001", `first task id: T-001`);
-      check(String(t?.claude_task_id) === "1", `claude_task_id bound from "Task #1" tool_response`);
-      check(t?.status === "pending", `task starts pending`);
-      check(plan.frontmatter.tasks_pending === 1 && plan.frontmatter.tasks_done === 0, `counts: 1 pending`);
-      check(/## Tasks/.test(plan.body) && /T-001/.test(plan.body), `body contains Tasks checklist mirror`);
-    }
-  } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
-}
-
-// ---------- TaskUpdate flips status ----------
-console.log("agent-plan-sync — TaskUpdate(in_progress) flips task status + counts:");
-{
-  const sb = setupSandbox("update");
-  try {
-    const parentSid = "cccccccc-9999-aaaa-bbbb-cccccccccccc";
-    const subSid = "a6f3b2272e43a03e6";
-    seedSubagentSession({
-      projectsDir: sb.projectsDir, parentSid, subSid,
-      agentRole: "lead", featureId: "002-payments",
-    });
-    runHook(
-      { hook_event_name: "PostToolUse", tool_name: "TaskCreate",
-        tool_input: { subject: "Author TDD" },
-        tool_response: { taskId: "42" },
-        session_id: subSid, cwd: sb.cwdDir },
-      { HOME: sb.homeDir },
-    );
-    const r = runHook(
-      { hook_event_name: "PreToolUse", tool_name: "TaskUpdate",
-        tool_input: { taskId: "42", status: "in_progress" },
-        session_id: subSid, cwd: sb.cwdDir },
-      { HOME: sb.homeDir },
-    );
-    check(r.status === 0, `TaskUpdate exits 0`);
-    const planPath = join(sb.cwdDir, ".orchestra", "tasks", parentSid, "lead", "002-payments.md");
-    if (existsSync(planPath)) {
-      const plan = readPlanFile(planPath);
-      check(plan.frontmatter.tasks?.[0]?.status === "in_progress", `task[0] flipped pending → in_progress`);
-      check(plan.frontmatter.tasks_in_progress === 1 && plan.frontmatter.tasks_pending === 0, `counts: 0 pending, 1 in_progress`);
-      check(/\(in progress\)/.test(plan.body), `body checklist annotates "(in progress)"`);
-    }
-  } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
-}
-
-// ---------- TaskUpdate(completed) flips plan status: done when all done ----------
-console.log("agent-plan-sync — last-task completion flips plan status: done:");
-{
-  const sb = setupSandbox("done");
-  try {
-    const parentSid = "eeeeeeee-3333-4444-5555-666666666666";
-    const subSid = "be1d52b39f01a7c";
-    seedSubagentSession({
-      projectsDir: sb.projectsDir, parentSid, subSid,
-      agentRole: "test", featureId: "003-search",
-    });
-    runHook(
-      { hook_event_name: "PostToolUse", tool_name: "TaskCreate",
-        tool_input: { subject: "Write black-box tests" },
-        tool_response: { taskId: "99" },
-        session_id: subSid, cwd: sb.cwdDir },
-      { HOME: sb.homeDir },
-    );
-    runHook(
-      { hook_event_name: "PreToolUse", tool_name: "TaskUpdate",
-        tool_input: { taskId: "99", status: "completed" },
-        session_id: subSid, cwd: sb.cwdDir },
-      { HOME: sb.homeDir },
-    );
-    const planPath = join(sb.cwdDir, ".orchestra", "tasks", parentSid, "test", "003-search.md");
-    if (existsSync(planPath)) {
-      const plan = readPlanFile(planPath);
-      check(plan.frontmatter.status === "done", `plan status: done when all tasks completed`);
-      check(plan.frontmatter.tasks_done === 1, `tasks_done: 1`);
-      check(/\[x\] T-001/.test(plan.body), `body checklist shows [x] for completed task`);
-    }
-  } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
-}
-
-// ---------- SubagentStop with open tasks → interrupted ----------
-console.log("agent-plan-sync — SubagentStop with open tasks flips status: interrupted:");
-{
-  const sb = setupSandbox("interrupt");
-  try {
-    const parentSid = "11111111-2222-3333-4444-555555555555";
-    const subSid = "f0a3c1e2b994d7c";
-    seedSubagentSession({
-      projectsDir: sb.projectsDir, parentSid, subSid,
-      agentRole: "backend", featureId: "004-auth",
-    });
-    runHook(
-      { hook_event_name: "PostToolUse", tool_name: "TaskCreate",
-        tool_input: { subject: "Implement JWT filter" }, tool_response: { taskId: "1" },
-        session_id: subSid, cwd: sb.cwdDir },
-      { HOME: sb.homeDir },
-    );
-    // SubagentStop fires on parent dispatcher session; session_id IS the parent's.
     const r = runHook(
       { hook_event_name: "SubagentStop", session_id: parentSid, cwd: sb.cwdDir },
       { HOME: sb.homeDir },
     );
     check(r.status === 0, `SubagentStop exits 0`);
-    const planPath = join(sb.cwdDir, ".orchestra", "tasks", parentSid, "backend", "004-auth.md");
-    if (existsSync(planPath)) {
-      const plan = readPlanFile(planPath);
-      check(plan.frontmatter.status === "interrupted", `status: interrupted on stop with open tasks`);
+    const ledgerPath = join(sb.cwdDir, ".orchestra", "plans", parentSid, "agent-tasks.md");
+    check(existsSync(ledgerPath), `ledger written at .orchestra/plans/<sessionId>/agent-tasks.md`);
+    if (existsSync(ledgerPath)) {
+      const l = readLedger(ledgerPath);
+      check(l.frontmatter.type === "AGENT-TASKS", `frontmatter type: AGENT-TASKS`);
+      check(l.frontmatter.session_id === parentSid, `frontmatter session_id matches parent_sid`);
+      check(l.frontmatter.id === "agent-tasks", `frontmatter id: agent-tasks`);
+      check(l.rows.length === 2, `two rows (one per TaskCreate observed); got ${l.rows.length}`);
+      const r1 = l.rows.find(r => r.task_id === "1");
+      check(r1 && r1.agent === "@backend", `row task_id=1 agent: @backend`);
+      check(r1 && r1.feature_id === "001-todo-api", `row task_id=1 feature_id: 001-todo-api`);
+      check(r1 && r1.description === "Create User entity", `row task_id=1 description`);
+      check(r1 && r1.status === "in_progress", `row task_id=1 status: in_progress (latest update)`);
+      const r2 = l.rows.find(r => r.task_id === "2");
+      check(r2 && r2.status === "completed", `row task_id=2 status: completed`);
+      check(l.frontmatter.status === "in_progress", `file status: in_progress (one row not completed)`);
     }
   } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
 }
 
-// ---------- Idempotent: same claude_task_id doesn't double-bind ----------
-console.log("agent-plan-sync — idempotent on duplicate PostToolUse(TaskCreate):");
+// ---------- All rows completed → file status: done ----------
+console.log("agent-plan-sync — all-completed rows flip file status: done:");
+{
+  const sb = setupSandbox("done");
+  try {
+    const parentSid = "cccccccc-9999-aaaa-bbbb-cccccccccccc";
+    const subSid = "a6f3b2272e43a03e6";
+    seedSubagentSession({
+      projectsDir: sb.projectsDir, parentSid, subSid,
+      agentRole: "test", featureId: "003-search",
+      taskEvents: [
+        { kind: "create", toolUseId: "toolu_t1", subject: "Write black-box tests", claudeTaskId: "99", ts: "2026-05-23T11:00:00Z" },
+        { kind: "update", taskId: "99", status: "completed", ts: "2026-05-23T11:05:00Z" },
+      ],
+    });
+    runHook(
+      { hook_event_name: "SubagentStop", session_id: parentSid, cwd: sb.cwdDir },
+      { HOME: sb.homeDir },
+    );
+    const ledgerPath = join(sb.cwdDir, ".orchestra", "plans", parentSid, "agent-tasks.md");
+    if (existsSync(ledgerPath)) {
+      const l = readLedger(ledgerPath);
+      check(l.frontmatter.status === "done", `file status: done when every row completed`);
+      check(l.rows.length === 1 && l.rows[0].status === "completed", `one completed row`);
+    }
+  } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
+}
+
+// ---------- Idempotent re-projection: same subagent twice → same row count ----------
+console.log("agent-plan-sync — idempotent on re-projection of same subagent:");
 {
   const sb = setupSandbox("idempotent");
   try {
@@ -234,42 +198,50 @@ console.log("agent-plan-sync — idempotent on duplicate PostToolUse(TaskCreate)
     seedSubagentSession({
       projectsDir: sb.projectsDir, parentSid, subSid,
       agentRole: "backend", featureId: "005-loyalty",
+      taskEvents: [
+        { kind: "create", toolUseId: "toolu_x", subject: "Loyalty service", claudeTaskId: "7", ts: "2026-05-23T12:00:00Z" },
+      ],
     });
     for (let i = 0; i < 2; i++) {
       runHook(
-        { hook_event_name: "PostToolUse", tool_name: "TaskCreate",
-          tool_input: { subject: "Same subject" }, tool_response: { taskId: "7" },
-          session_id: subSid, cwd: sb.cwdDir },
+        { hook_event_name: "SubagentStop", session_id: parentSid, cwd: sb.cwdDir },
         { HOME: sb.homeDir },
       );
     }
-    const planPath = join(sb.cwdDir, ".orchestra", "tasks", parentSid, "backend", "005-loyalty.md");
-    if (existsSync(planPath)) {
-      const plan = readPlanFile(planPath);
-      check(plan.frontmatter.tasks?.length === 1, `same claude_task_id appended once, not twice`);
+    const ledgerPath = join(sb.cwdDir, ".orchestra", "plans", parentSid, "agent-tasks.md");
+    if (existsSync(ledgerPath)) {
+      const l = readLedger(ledgerPath);
+      check(l.rows.length === 1, `same (agent, feature_id, task_id) projected twice yields one row, not two`);
     }
   } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
 }
 
-// ---------- F-014 cold-start gate: no .orchestra/system.yaml → no-op ----------
-console.log("agent-plan-sync — cold-start gate (F-014):");
+// ---------- Cold-start gate: no .orchestra/system.yaml → no-op ----------
+console.log("agent-plan-sync — cold-start gate:");
 {
   const sb = setupSandbox("cold-start");
   try {
     const r = runHook(
-      {
-        cwd: sb.cwdDir,
-        session_id: "ses-coldstart",
-        hook_event_name: "PostToolUse",
-        tool_name: "TaskCreate",
-        tool_input: { subject: "test", description: "" },
-        tool_response: { taskId: "tk-1" },
-      },
+      { hook_event_name: "SubagentStop", session_id: "ses-coldstart", cwd: sb.cwdDir },
       { HOME: sb.homeDir },
-      { skipSeed: true }
+      { skipSeed: true },
     );
     check(r.status === 0, `cold-start: exits 0`);
     check(!existsSync(join(sb.cwdDir, ".orchestra")), `cold-start: no .orchestra/ dir materialized`);
+  } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
+}
+
+// ---------- Non-SubagentStop event ignored ----------
+console.log("agent-plan-sync — non-SubagentStop events ignored:");
+{
+  const sb = setupSandbox("ignore");
+  try {
+    const r = runHook(
+      { hook_event_name: "PreToolUse", tool_name: "TaskCreate", session_id: "x", cwd: sb.cwdDir },
+      { HOME: sb.homeDir },
+    );
+    check(r.status === 0, `PreToolUse exits 0 (ignored)`);
+    check(!existsSync(join(sb.cwdDir, ".orchestra", "plans")), `no ledger materialized for non-SubagentStop event`);
   } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
 }
 

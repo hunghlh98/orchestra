@@ -15,8 +15,8 @@ Internal modules consumed by `hooks/scripts/*.js`. Ship to consumers as part of 
 | `jsonl-emit.js` | Read-side helpers for session jsonls + events.jsonl (`readJsonl`, `sumTokensInJsonl`, `identifyAgent`, `extractInsightsFromJsonl`, `findJustStoppedSubagent`, `readActivePhase`, `findPhaseForTs`, `getProjectSessionsDir`). Read-only. | `metrics-collector.js`, `metrics-aggregators.js` |
 | `redaction.js` | Manifest + redaction policy (`ensureManifest`, `applyRedaction`, `readPluginVersion`). | `metrics-collector.js`, `metrics-aggregators.js` |
 | `metrics-aggregators.js` | Derived metrics writers (`emitSubagentTokens`, `emitInsightsForSession`, `emitRunSummary`, `emitCostByPhase`). | `metrics-collector.js` |
-| `plan-frontmatter.js` | Per-agent PLAN file shape: `planPathFor`, `readPlan`/`writePlan`/`readOrInitPlan`/`initPlan`/`renderPlan`, `rebuildTasksChecklist`, `recomputeCounts`, `nextTaskOrdinal`, `mapClaudeStatus`, `oneLine`, `extractCreatedTaskId`. | `agent-plan-sync.js` |
-| `plan-sync.js` | Subagent identity + feature-id resolution: `resolveContext`, `findJustStoppedSubagentMeta`, `deriveFeatureId`. | `agent-plan-sync.js` |
+| `plan-frontmatter.js` | Session-level AGENT-TASKS ledger shape: `planPathFor`, `readPlan`/`writePlan`/`readOrInitPlan`/`initPlan`/`renderPlan`, `upsertTaskRow`, `finalizeFrontmatter`, `mapClaudeStatus`, `oneLine`, `extractCreatedTaskId`. | `agent-plan-sync.js` |
+| `plan-sync.js` | Subagent transcript projection: `findJustStoppedSubagentMeta`, `projectSubagentRows`, `deriveFeatureId`. | `agent-plan-sync.js` |
 | `cite-patterns.js` | Canonical regex tables for pre-write-check (`SECRET_PATTERNS`, `SKIP_PATTERNS`, `CITE_DENYLIST_RE`, chain-cite-reject / codebase-token-reject path + identifier patterns, `isChainArtifactUnderDocs`). | `gate-d.js` |
 | `gate-d.js` | Pure gate matchers returning `{gate, message}` on hit (`checkSecrets`, `checkChainCiteReject`, `checkCodebaseTokenReject`, `checkWorkspaceSadContainerFloor`). | `pre-write-check.js` |
 | `gate-f.js` | Changelog append-only enforcement (`checkChangelogAppendOnly`, `parseChangelogRows`). | `pre-write-check.js` |

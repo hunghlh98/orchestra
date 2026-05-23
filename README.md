@@ -176,7 +176,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `pre-write-check.js` | PreToolUse (Write / Edit / MultiEdit) | Multi-gate guard: secret detection, `chain-cite-reject` (src/ cite denylist), `codebase-token-reject` (docs/ portability inverse), `workspace-sad-container-floor` (workspace SAD ≥2 containers), `changelog-append-only` (docs/ append-only `## Changelog`), `locked-status-reject` + `all-sections-locked-reject` + `readers-scope-warning` frontmatter gates. |
 | `metrics-collector.js` | All major events | Append `events.jsonl` for observability joins. |
 | `val-calibration.js` | PreToolUse (Task / Agent) | Inject confidence-tier calibration into agent prompts. |
-| `agent-plan-sync.js` | PreToolUse / PostToolUse (TaskCreate / TaskUpdate), SubagentStop | Single writer for per-agent PLAN file `tasks:` / `tasks_pending` / `tasks_in_progress` / `tasks_done` / `updated:` / top-level `status:` and the `## Tasks` body. |
+| `agent-plan-sync.js` | SubagentStop | Projects each finished subagent's `TaskCreate` / `TaskUpdate` activity from its transcript into the session-level ledger at `.orchestra/plans/<session-id>/agent-tasks.md`. Single writer; subagents never author the file. |
 | `post-bash-lint.js` | PostToolUse (Bash) | Observe Bash output; surface lint issues. |
 | `post-write-puml.js` | PostToolUse (Write / Edit / MultiEdit) | Render-on-write for `.puml` files. |
 

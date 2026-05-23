@@ -89,17 +89,14 @@ export function classify(input) {
         run_plan_status: fields.run_plan_status || null,
       };
     }
-    const planMatch = filePath.match(/\/\.orchestra\/tasks\/([^/]+)\/([^/]+)\/([^/]+)$/);
+    const planMatch = filePath.match(/\/\.orchestra\/plans\/([^/]+)\/agent-tasks\.md$/);
     if (planMatch) {
-      const fileName = planMatch[3];
       return {
         ts, event: "artifact.written", run_id,
-        feature_id: fileName.replace(/\.md$/, ""),
-        artifact_type: "PLAN",
-        artifact_id: `${planMatch[1]}-${planMatch[2]}-${fileName.replace(/\.md$/, "")}`,
-        file_name: fileName,
-        agent_role: planMatch[2].replace(/^@/, ""),
-        plan_run_id: planMatch[1],
+        artifact_type: "AGENT-TASKS",
+        artifact_id: "agent-tasks",
+        file_name: "agent-tasks.md",
+        plan_session_id: planMatch[1],
         tool: toolName,
       };
     }

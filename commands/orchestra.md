@@ -34,7 +34,7 @@ This command body runs in the main thread between agent spawns. It owns every ga
 
 **Hooks own side effects.** 7 runtime hooks (see Runtime hooks table) own their events. Do not write to `<cwd>/.orchestra/metrics/events.jsonl`, hash artifact frontmatter, or replicate any hook's work. Provenance and review state live in artifact frontmatter (`status`, `verdict`, `readers`, `sections`); drift detection is `git diff` in CI.
 
-**`agent-plan-sync` owns PLAN mutation.** `tasks:`, `tasks_pending`, `tasks_in_progress`, `tasks_done`, `updated:`, top-level `status:`, and the `## Tasks` checklist body of every per-agent PLAN file under `<cwd>/.orchestra/tasks/<run-id>/<agent>/<feature-id>.md` are hook-owned. Agents author `## Approach` only.
+**`agent-plan-sync` owns the session task ledger.** Single session-level file at `<cwd>/.orchestra/plans/<session-id>/agent-tasks.md` projects each subagent's `TaskCreate` / `TaskUpdate` activity into rows keyed on `(agent, feature_id, task_id)`. Hook fires on `SubagentStop` only, reads the finished subagent's transcript, upserts rows. Subagents must not author this file directly.
 
 ## Parse `$1` / `$ARGUMENTS`
 
@@ -346,7 +346,7 @@ Tool surface splits by call-readiness:
 | `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-*\|TaskCreate\|TaskUpdate / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl`. Groups by `run_id`. |
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher + `locked-status-reject` (frontmatter `status: locked` in `docs/**`) + `all-sections-locked-reject` (every section locked) + `readers-scope-warning` (non-blocking) + `chain-cite-reject` (PRD/FRS/TDD cites in `src/**`) + `codebase-token-reject` (`src/**` tokens / SHAs / branches / repo URLs in `docs/**`) + `workspace-sad-container-floor` (multi-repo workspace SAD/c4-container container floor) + `changelog-append-only` (`## Changelog` row mutations in `docs/**/*.md`). |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts. |
-| `agent-plan-sync` | PreToolUse:TaskCreate\|TaskUpdate / PostToolUse:TaskCreate / SubagentStop | Owns per-agent PLAN file mutation. Agent body authors `## Approach` only. |
+| `agent-plan-sync` | SubagentStop | Projects each subagent's `TaskCreate` / `TaskUpdate` activity from its transcript into the session-level ledger at `.orchestra/plans/<session-id>/agent-tasks.md`. Single writer; subagents never touch the file. |
 | `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash to stderr (observer; never blocks). |
 | `post-write-puml` | PostToolUse:Write\|Edit\|MultiEdit | Renders `.puml` → `.svg` via plantuml CLI. Warns when sibling SAD/TDD frontmatter `diagrams: [...]` omits the rendered name. |
 

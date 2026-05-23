@@ -36,6 +36,7 @@ export const SOFT_CAPS = {
   "BR-AC": 200,
   "BUSINESS-INVARIANTS": 150,
   "EXPLORER-REPORT": 150,
+  "AGENT-TASKS": 500,
 };
 
 // Filename patterns v2 .orchestra/ MUST NOT contain.
@@ -68,6 +69,7 @@ export function typeFromFilename(filePath) {
   const normalized = filePath.replace(/\\/g, "/");
   if (/\.orchestra\/plans\/[^/]+\/discovery\/[^/]+\.md$/.test(normalized)) return "EXPLORER-REPORT";
   if (/\.orchestra\/plans\/[^/]+\/run-plan\.md$/.test(normalized)) return "RUN-PLAN";
+  if (/\.orchestra\/plans\/[^/]+\/agent-tasks\.md$/.test(normalized)) return "AGENT-TASKS";
   const base = basename(filePath);
   if (base === "SAD.md") return "SAD";
   if (base === "business-invariants.md") return "BUSINESS-INVARIANTS";
