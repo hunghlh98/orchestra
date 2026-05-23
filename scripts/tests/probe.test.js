@@ -134,6 +134,22 @@ console.log("db_state sqlite3 + SELECT-only:");
       const r4 = dbStateImpl({ dsn, query: "-- comment\n/* block */ SELECT id FROM users WHERE id = 1" });
       check(r4.length === 1, `comments before SELECT allowed`);
 
+      // SELECT-only: multi-statement bypass rejected (first-token-only check would have passed this)
+      let multiBlocked = false;
+      try { dbStateImpl({ dsn, query: "SELECT 1; DROP TABLE users" }); }
+      catch (e) {
+        multiBlocked = /SELECT-only/.test(e.message);
+      }
+      check(multiBlocked, `multi-statement (SELECT;DROP) rejected with SELECT-only message`);
+
+      // SELECT-only: trailing semicolon allowed (no statement after the `;`)
+      const r5 = dbStateImpl({ dsn, query: "SELECT id FROM users WHERE id = 1;" });
+      check(r5.length === 1, `trailing-semicolon SELECT allowed (got ${r5.length} rows)`);
+
+      // SELECT-only: semicolon inside string literal allowed (not a statement separator)
+      const r6 = dbStateImpl({ dsn, query: "SELECT 'a;b' AS payload FROM users WHERE id = 1" });
+      check(r6[0]?.payload === "a;b", `semicolon inside string literal allowed (got ${JSON.stringify(r6[0])})`);
+
       // Postgres DSN: deferred-stub message
       let pgDeferred = false;
       try { dbStateImpl({ dsn: "postgres://x:y@h/db", query: "SELECT 1" }); }

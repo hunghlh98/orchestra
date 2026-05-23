@@ -23,6 +23,7 @@ import {
   writeSystemYamlImpl,
   upsertLocalYamlImpl,
   upsertFeaturesYamlImpl,
+  relockArtifactImpl,
   claudeMdImpl,
   docsReadmeImpl,
   TOOLS,
@@ -416,8 +417,8 @@ withTmp(_ => {
   check(err && /001-a/.test(err) && /002-b/.test(err), "cycle error names both nodes");
 });
 
-// ---------- upsert_features_yaml: uniqueness on load ----------
-console.log("upsert_features_yaml: uniqueness on load:");
+// ---------- upsert_features_yaml: existing-file validation on load ----------
+console.log("upsert_features_yaml: existing-file validation on load:");
 withTmp(tmp => {
   const dir = join(tmp, ".orchestra", "svc");
   mkdirSync(dir, { recursive: true });
@@ -426,7 +427,21 @@ withTmp(tmp => {
   let err = null;
   try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "svc-002-y", status: "active", depends_on: [], artifacts: ["PRD"] } }); }
   catch (e) { err = e.message; }
-  check(err && /UNIQUENESS_VIOLATION/.test(err), "duplicate ids in existing file -> UNIQUENESS_VIOLATION");
+  check(err && /EXISTING_FILE_INVALID/.test(err), "duplicate ids in existing file -> EXISTING_FILE_INVALID");
+  check(err && /duplicate id/.test(err), "EXISTING_FILE_INVALID error names the duplicate-id cause");
+});
+
+// non-duplicate validation error in existing file also surfaces (previously silently dropped)
+withTmp(tmp => {
+  const dir = join(tmp, ".orchestra", "svc");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "features.yaml"),
+    "features:\n  - id: svc-001-x\n    status: active\n    depends_on: []\n    artifacts:\n      - PRD\nstray_top_level: oops\n");
+  let err = null;
+  try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "svc-002-y", status: "active", depends_on: [], artifacts: ["PRD"] } }); }
+  catch (e) { err = e.message; }
+  check(err && /EXISTING_FILE_INVALID/.test(err), "non-duplicate validation error -> EXISTING_FILE_INVALID (no silent drop)");
+  check(err && /unknown top-level field 'stray_top_level'/.test(err), "EXISTING_FILE_INVALID surfaces the underlying validation reason");
 });
 
 // ---------- upsert_features_yaml: deprecation warning ----------
@@ -489,6 +504,37 @@ withTmp(_ => {
   try { upsertFeaturesYamlImpl({ context_path: ".", service_name: "svc", feature: { id: "svc-001-x", status: "active", depends_on: [], artifacts: ["PRD"] }, extra: "x" }); }
   catch (e) { err = e.message; }
   check(err && /unknown field 'extra'/.test(err), "unknown top-level arg rejected");
+});
+
+// ---------- relock_artifact: action-name contract ----------
+console.log("relock_artifact: action-name contract:");
+withTmp(tmp => {
+  mkdirSync("docs", { recursive: true });
+  const fixture = (lastAction) =>
+    "---\n" +
+    "phase: 1\n" +
+    "status: revision_requested\n" +
+    "---\n" +
+    "## Changelog\n" +
+    "- 2026-05-23T12:00:00Z | created by @architect | initial draft\n" +
+    "- 2026-05-23T12:30:00Z | unlocked by dispatcher | reviewer flagged ambiguity\n" +
+    `- 2026-05-23T13:00:00Z | ${lastAction} by @architect | clarified BR-3 wording\n`;
+
+  // Happy path: last changelog row action='ratify-spec-amend' → relock succeeds
+  writeFileSync("docs/happy-PRD.md", fixture("ratify-spec-amend"));
+  const out = relockArtifactImpl({ context_path: ".", target_path: "docs/happy-PRD.md", amendment_summary: "BR-3 clarified" });
+  check(out && out.new_status === "locked", "ratify-spec-amend last row → relock returns new_status=locked");
+  const after = readFileSync("docs/happy-PRD.md", "utf8");
+  check(/^status:\s*locked\s*$/m.test(after), "ratify-spec-amend last row → frontmatter flipped to status: locked");
+  check(/re-locked by dispatcher \| BR-3 clarified/.test(after), "ratify-spec-amend last row → re-locked changelog row appended");
+
+  // Reject path: last changelog row action='path-a-amend' (stale name) → relock throws
+  writeFileSync("docs/stale-PRD.md", fixture("path-a-amend"));
+  let err = null;
+  try { relockArtifactImpl({ context_path: ".", target_path: "docs/stale-PRD.md", amendment_summary: "x" }); }
+  catch (e) { err = e.message; }
+  check(err && /expected 'ratify-spec-amend'/.test(err), "path-a-amend last row → relock rejects with ratify-spec-amend expected message");
+  check(err && /path-a-amend/.test(err), "rejection error names the actual stale action seen");
 });
 
 // ---------- MCP JSON-RPC smoke ----------

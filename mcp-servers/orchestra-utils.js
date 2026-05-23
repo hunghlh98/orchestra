@@ -358,7 +358,7 @@ export const TOOLS = [
   },
   {
     name: "amend_locked_artifact",
-    description: "Path-A: unlock a docs/**/*.{md,yaml,yml} artifact for verification-phase amendment. Flips frontmatter status:locked → revision_requested AND appends an `unlocked by dispatcher` row to the artifact's mandatory ## Changelog block in the SAME write. Closed allowlist: target_path must be under <context_path>/docs/ and end with .md/.yaml/.yml. Re-spawn the authoring agent with task: path-a-amend; agent emits the `path-a-amend` row; then call relock_artifact.",
+    description: "Path-A: unlock a docs/**/*.{md,yaml,yml} artifact for verification-phase amendment. Flips frontmatter status:locked → revision_requested AND appends an `unlocked by dispatcher` row to the artifact's mandatory ## Changelog block in the SAME write. Closed allowlist: target_path must be under <context_path>/docs/ and end with .md/.yaml/.yml. Re-spawn the authoring agent with task: ratify-spec-amend; agent emits the `ratify-spec-amend` row; then call relock_artifact.",
     inputSchema: {
       type: "object",
       required: ["context_path", "target_path", "revision_notes"],
@@ -372,7 +372,7 @@ export const TOOLS = [
   },
   {
     name: "relock_artifact",
-    description: "Path-A: re-lock a docs/**/*.{md,yaml,yml} artifact after architect's path-a-amend write. Verifies last changelog row is `path-a-amend` (sanity check). Flips frontmatter revision_requested → locked AND appends a `re-locked by dispatcher` row in the SAME write. Closed allowlist matches amend_locked_artifact.",
+    description: "Path-A: re-lock a docs/**/*.{md,yaml,yml} artifact after architect's ratify-spec-amend write. Verifies last changelog row is `ratify-spec-amend` (sanity check). Flips frontmatter revision_requested → locked AND appends a `re-locked by dispatcher` row in the SAME write. Closed allowlist matches amend_locked_artifact.",
     inputSchema: {
       type: "object",
       required: ["context_path", "target_path", "amendment_summary"],
@@ -587,13 +587,18 @@ export function upsertFeaturesYamlImpl(args = {}) {
     }
     const relPath = relative(process.cwd(), target) || "features.yaml";
     const loadErrs = validateFeaturesFileContent(relPath, raw);
-    const dupErrs = loadErrs.filter(e => /duplicate id/.test(e));
-    if (dupErrs.length > 0) {
-      throw new Error(`upsert_features_yaml: UNIQUENESS_VIOLATION: ${dupErrs.join("; ")}`);
+    if (loadErrs.length > 0) {
+      throw new Error(`upsert_features_yaml: EXISTING_FILE_INVALID: ${loadErrs.join("; ")}`);
     }
   }
 
   if (!Array.isArray(existing.features)) existing.features = [];
+
+  const seenIds = new Map();
+  for (const f of existing.features) {
+    if (f && typeof f.id === "string" && !seenIds.has(f.id)) seenIds.set(f.id, f);
+  }
+  existing.features = Array.from(seenIds.values());
 
   const idx = existing.features.findIndex(f => f && f.id === feature.id);
   const featureCopy = pickDefined(feature, ["id", "status", "depends_on", "supersedes", "artifacts"]);
@@ -868,7 +873,7 @@ export function amendLockedArtifactImpl(args = {}) {
     path: target,
     new_status: "revision_requested",
     changelog_row_appended: true,
-    next_step: "re-spawn authoring agent with task: path-a-amend; agent appends path-a-amend changelog row; then call relock_artifact",
+    next_step: "re-spawn authoring agent with task: ratify-spec-amend; agent appends ratify-spec-amend changelog row; then call relock_artifact",
   };
 }
 
@@ -902,11 +907,11 @@ export function relockArtifactImpl(args = {}) {
   }
   const block = locateChangelogBlock(parts.body, parts.kind);
   const last = block ? lastChangelogRow(block, parts.kind) : null;
-  if (!last || last.action !== "path-a-amend") {
+  if (!last || last.action !== "ratify-spec-amend") {
     const got = last ? last.action : "<missing>";
     throw new Error(
-      `relock_artifact: ${target_path} last changelog row action='${got}', expected 'path-a-amend' ` +
-      `(the authoring agent must append the path-a-amend row before dispatcher re-locks)`
+      `relock_artifact: ${target_path} last changelog row action='${got}', expected 'ratify-spec-amend' ` +
+      `(the authoring agent must append the ratify-spec-amend row before dispatcher re-locks)`
     );
   }
   const row = buildChangelogRow("re-locked", "dispatcher", amendment_summary);

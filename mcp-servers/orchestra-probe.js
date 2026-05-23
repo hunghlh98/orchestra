@@ -165,6 +165,27 @@ function isSelectOnly(query) {
     .replace(/--.*$/gm, "")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .trim();
+  // Walk char-by-char tracking string/identifier state; reject any non-trailing `;`
+  // (multi-statement bypass). String delimiters: '' (SQL), "" (identifier), `` (MySQL-ish), [] (bracket).
+  let inSingle = false, inDouble = false, inBacktick = false, inBracket = false;
+  for (let i = 0; i < stripped.length; i++) {
+    const c = stripped[i];
+    if (!inDouble && !inBacktick && !inBracket && c === "'") {
+      if (inSingle && stripped[i + 1] === "'") { i++; continue; }
+      inSingle = !inSingle;
+    } else if (!inSingle && !inBacktick && !inBracket && c === '"') {
+      inDouble = !inDouble;
+    } else if (!inSingle && !inDouble && !inBracket && c === "`") {
+      inBacktick = !inBacktick;
+    } else if (!inSingle && !inDouble && !inBacktick && !inBracket && c === "[") {
+      inBracket = true;
+    } else if (inBracket && c === "]") {
+      inBracket = false;
+    } else if (!inSingle && !inDouble && !inBacktick && !inBracket && c === ";") {
+      const rest = stripped.slice(i + 1).trim();
+      if (rest.length > 0) return false;
+    }
+  }
   const first = stripped.split(/\s+/)[0]?.toUpperCase() || "";
   return first === "SELECT";
 }
@@ -191,7 +212,7 @@ function sqliteRun(dsn, query, params, timeout_ms, row_cap) {
   const finalQuery = substituteParams(query, params);
   // Pipe via stdin so sqlite3 does not parse leading `--`/`-` (SQL comments)
   // as CLI options.
-  const result = spawnSync("sqlite3", ["-json", path], {
+  const result = spawnSync("sqlite3", ["-readonly", "-json", path], {
     input: finalQuery,
     timeout: timeout_ms,
     encoding: "utf8",
