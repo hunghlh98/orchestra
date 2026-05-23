@@ -379,3 +379,273 @@ sequenceDiagram
   StopVerify-->>Main: pass (no ExitPlanMode in turn)
   Main->>Metrics: Stop
 ```
+
+## Strategy walkthroughs (S1–S9)
+
+On-demand traces per (entry shape × precondition state) combination. Each walkthrough maps the 4-phase model (Discovery → Plan → Swarm → Convergence) to one strategy. Read the matching walkthrough during Phase 1 classification before `EnterPlanMode`.
+
+| Strategy | Entry | Precondition |
+|---|---|---|
+| S1 | `/orchestra` (empty) | `$1` + `$ARGUMENTS` empty |
+| S2 | `/orchestra spec-to-code` | greenfield, clean `docs/` + `src/**` |
+| S3 | `/orchestra spec-to-code` | greenfield, partial locks / partial impl |
+| S4 | `/orchestra spec-to-code` | greenfield, N locked features, empty `src/**` |
+| S5 | `/orchestra code-to-spec` | brownfield, no second token (auto-scope) |
+| S6 | `/orchestra code-to-spec system` | brownfield, `workspace_kind: multi-repo`, system-wide reverse |
+| S7 | `/orchestra code-to-spec service:<name> --source=<path>` | brownfield, per-service reverse |
+| S8 | `/orchestra <intent>` | greenfield router (`src/**` empty) |
+| S9 | `/orchestra <intent>` | brownfield router (`src/**` present) |
+
+### S1 — empty invocation
+
+**Trigger.** `$1` is empty (whitespace-only or absent); `$ARGUMENTS` empty.
+
+**Trace.**
+
+1. Preflight hook fires; main thread Reads the `<orchestra-preflight>` block but does not act on `missing_fields`.
+2. Emit the Usage block verbatim.
+3. End turn. No agent spawn. No bootstrap. No persistence. No `EnterPlanMode`.
+
+**Artifacts produced.** None.
+
+**Edge cases.**
+
+- Whitespace-only `$ARGUMENTS` (e.g., `/orchestra   `): still classifies as S1. Trim before classifying.
+- User typed an unknown subcommand keyword (e.g., a help token): NOT S1. `$1` set to that keyword triggers the freeform router (unknown subcommand). Router's Q1 reads the keyword as restate-intent seed → 3× `AskUserQuestion` rather than usage block. If user wants usage, they invoke `/orchestra` bare.
+
+### S2 — greenfield, clean repo
+
+**Trigger.** `$1 = "spec-to-code"`; preflight `mode: greenfield`, `docs/` empty, `src/**` empty. Optional tail seeds feature-slug + PRD title.
+
+**Trace.**
+
+1. Phase 1 — Read preflight; walk bootstrap `missing_fields`; persist via `mcp__orchestra-utils__*`. Feature-id mint from `features.yaml` + `$ARGUMENTS` slug. No `@explorer` (greenfield).
+2. Phase 2a — `EnterPlanMode`. Compose plan body inline: `## Features` lists single feature `classifier: business, depends_on: []`. `## Agent assignments` covers per-feature PRD/FRS/TDD + per-service singleton seeds + impl + test plan. `## Risks + decisions` lists preflight constraints + revision cap. `ExitPlanMode({plan})`. Turn ends.
+3. Phase 2b + 3 (next turn on approve) — Write `.orchestra/plans/<session-id>/run-plan.md` locked; `TaskCreate × N` in ONE message; `Agent × N` spawn cohort in ONE message. Subagents `TaskUpdate` per row; `SubagentStop` projects ledger. Verify via `TaskList`.
+4. Phase 4 — Spawn `@test-runner` (sequential). On return, spawn `@evaluator ‖ @reviewer` in ONE message. TSR sections lock.
+
+**Artifacts produced.**
+
+```
+.orchestra/system.yaml
+.orchestra/<service_name>/{local.yaml, features.yaml}
+.orchestra/<service_name>/pipeline/<feature-id>/...
+.orchestra/plans/<session-id>/{run-plan.md, agent-tasks.md}
+docs/README.md
+docs/<service_name>/{<service_name>-openapi.yaml, <service_name>-BR-AC.md}
+docs/<service_name>/diagrams/{c4-component,erd-logical,state-machine,usecase}.puml + *.svg
+docs/<service_name>/<feature-id>/{<feature-id>-PRD.md, -FRS.md, -TDD.md, -TSR.md}
+docs/<service_name>/<feature-id>/diagrams/<feature-id>-sd-*.puml + *.svg
+docs/adr/ADR-<NNNN>-*.md                                       (only when ADR-worthy decision surfaces)
+services/<service_name>/src/{main,test}/<lang>/...
+web/src/...                                                    (only when UI layer present)
+```
+
+**Edge cases.**
+
+- Single-repo: workspace SAD/ADRs/business-invariants skipped (multi-repo concerns).
+- UI-less: `@frontend` omitted from Phase 3 swarm.
+- `migration_tool: none`: persistence-bearing TDD without migration; `primary_database` prompt skipped.
+- ADR-worthy decision mid-Phase-3: `@architect` writes ADR(s) under `phase: gap-resolution`.
+- Plan-mode rejection: Phase 2c revision loop (≤3 cycles); 4th writes `run-plan-DEADLOCK.md`.
+
+### S3 — greenfield, partial locks / partial impl
+
+**Trigger.** `$1 = "spec-to-code"`; preflight `mode: greenfield` (or `brownfield` if `docs/` provenance present); ≥1 `docs/<service_name>/<feature-id>/<feature-id>-*.md` carries `status: locked`. Locked layers non-contiguous OR impl partial OR TSR rows partial.
+
+**Trace.**
+
+1. Phase 1 — Bootstrap. Read `features.yaml` + `local.yaml`. Walk `docs/<service_name>/<feature-id>/` for lock state. Build resume-state map `{slot: present-locked | present-draft | absent}`.
+2. Phase 2a — `EnterPlanMode`. `## Agent assignments` lifts ONLY absent / draft slots. Locked artifacts in `## Features` as references, not assignments. Per-slot classification: `cite-as-is` (locked + plugin-format), `copy-and-modify` (locked + format-drift), `re-author` (absent or draft + structural divergence). `## Risks + decisions` surfaces partial-resume nature + ratify-spec availability. `ExitPlanMode`.
+3. Phase 2b + 3 — Write `run-plan.md` locked; `TaskCreate × N` where N = non-locked rows ONLY; `Agent × N` cohort. Subagents read locked upstream artifacts as inputs.
+4. Phase 4 — If impl slots authored, run `@test-runner` → `@evaluator ‖ @reviewer` → TSR. Otherwise trivially completes.
+
+**Artifacts produced.** Same shape as S2; only absent / draft files written. Locked files untouched.
+
+**Edge cases.**
+
+- Locked artifact with stale content: reviewer flags Phase 4. Use `mcp__orchestra-utils__amend_locked_artifact` + `relock_artifact` (ratify-spec). Never bypass via direct `Write` — `pre-write-check` `locked-status-reject` rejects.
+- Multiple features with partial locks across: each gets its own `## Features` row + non-locked-slot assignments. Phase 3 spawns union in ONE cohort.
+- Source-side divergence from locked spec (`fix-source`): Write corrections to `src/**`; locked artifact untouched.
+- `features.yaml` entry exists, `docs/<service_name>/<feature-id>/` empty: treat as fresh feature; full spec stack as `re-author`.
+- Plan rejection on partial-resume: Phase 2c targets missed slot or stale lock.
+
+### S4 — greenfield, N locked features, empty src
+
+**Trigger.** `$1 = "spec-to-code"`; `features.yaml` lists ≥2 features all with locked PRD/FRS/TDD/contracts; `src/**` empty.
+
+**Trace.**
+
+1. Phase 1 — Bootstrap. Read `features.yaml`. Build candidate set = features lacking TSR verdict. Resolve `depends_on:`; DAG-rank.
+2. Phase 2a — `EnterPlanMode`. `## Features` enumerates ALL candidates. `## Agent assignments` per-feature impl + test-plan only (specs already locked). `service_singletons_touched` rows ONLY for features that touch them (e.g., new endpoint → `<service>-openapi.yaml` `append-endpoints`). `## Risks + decisions` surfaces DAG structure + single-writer serialization. `ExitPlanMode`.
+3. Phase 2b + 3 — Write `run-plan.md` locked; `TaskCreate` per per-feature slot in ONE message; `Agent × M` spawn cohort — rank-zero features only, parallel within rank; per-service singleton path-intersection serialization enforced by main agent.
+4. Phase 4 — Per-feature `@test-runner` → `@evaluator ‖ @reviewer` → `<feature-id>-TSR.md`. Independent verdicts. Iterate ranks until all features pass or DEADLOCK.
+
+**Artifacts produced.**
+
+```
+services/<service_name>/src/{main,test}/<lang>/...               (multi-feature impl)
+docs/<service_name>/<service_name>-openapi.yaml                  (append-endpoints per feature)
+docs/<service_name>/diagrams/{c4-component,erd-logical,state-machine,usecase}.puml  (per-feature appends)
+docs/<service_name>/<feature-id-N>/<feature-id-N>-TSR.md
+.orchestra/<service_name>/pipeline/<feature-id-N>/...
+.orchestra/plans/<session-id>/{run-plan.md, agent-tasks.md}
+```
+
+Spec artifacts (PRD/FRS/TDD/sd) unchanged — already locked from prior runs.
+
+**Edge cases.**
+
+- One feature's `@test-runner` fails: its TSR locks `verdict: FAIL`. Dependents stay blocked. Other independent features proceed.
+- `depends_on:` cycle: `upsert_features_yaml` rejects at write-time. Cycle in existing file → ESCALATE.
+- Cross-feature shared code conflict: plan author serializes same authoring agent on intersecting paths. Detected via `service_singletons_touched` path-intersection check.
+- `supersedes:` chain: predecessor `status:` stays user-controlled; successor authors fresh artifacts.
+- Plan rejection on multi-feature scope: Phase 2c — reject usually narrows ("drop feature X" / "re-order Y before Z" / "missed feature W").
+
+### S5 — brownfield, auto-scope
+
+**Trigger.** `$1 = "code-to-spec"`, no second token; preflight `mode: brownfield`; `system.yaml.workspace_kind` set (or bootstrap sets it).
+
+**Trace.** Scope-resolver only. Heavy lifting in S6 or S7.
+
+1. Resolve scope: `single-repo` → `scope_level: per-service` (auto; hand off to S7). `multi-repo` → `scope_level: system-wide` (hand off to S6).
+2. Bootstrap walks `workspace_kind` / `service_name` / `scope_level` / `source_path` (per-service only).
+3. Persist scope to `.orchestra/<service_name>/local.yaml`.
+4. Hand off to resolved sub-strategy's 4-phase trace.
+
+**Artifacts produced.** Same as resolved sub-strategy (S6 or S7).
+
+**Edge cases.**
+
+- `workspace_kind` ambiguous: bootstrap `AskUserQuestion(single-repo | multi-repo)`.
+- `single-repo` with multiple build manifests at repo root: heuristic surfaces; bootstrap prompts for primary `service_name`.
+- User intended `system` but omitted token on multi-repo: S5 auto-routes to S6 — correct.
+- User intended `per-service` on multi-repo but omitted `service:<name>`: S5 auto-routes to S6. To narrow, re-invoke with explicit `service:<name> --source=<path>`.
+
+### S6 — brownfield, system-wide reverse
+
+**Trigger.** `$1 = "code-to-spec"`, second token `system`; preflight `mode: brownfield`, `workspace_kind: multi-repo`; `src/**` exists across ≥2 services.
+
+**Trace.**
+
+1. Phase 1 — Confirm `workspace_kind: multi-repo`. Persist `scope_level: system-wide` to every per-service `local.yaml`. Enumerate services. Spawn `@explorer` fan-out in ONE message — one spawn per service. Each authors `.orchestra/plans/<session-id>/discovery/<service>.md` (feature surface, complexity estimates, ADR-worthy decisions). Read every report after last `SubagentStop`.
+2. Phase 2a — `EnterPlanMode`. Compose plan with reports as inputs. `## Features` enumerates discovered features DAG. `## Agent assignments` covers workspace-scope (`@architect`: SAD, business-invariants, workspace ADRs + diagrams) + per-service singletons (`@architect` for most, `@analyst` for `usecase.puml`) + per-feature reverse-pass spec (TDD → FRS → PRD sequential within feature, parallel across features at same DAG rank). Each per-feature row carries `reverse_authoring_mode` per `docs/README.md` provenance marker. `ExitPlanMode`.
+3. Phase 2b + 3 — Write `run-plan.md` locked; `TaskCreate × N`; `Agent × N` spawn cohort. Workspace artifacts first (single-writer sequential). Per-service singletons next. Per-feature reverse-pass DAG-rank-batched. Within feature: `@architect` → `@analyst` → `@product` sequential. `@product` writes `features.yaml` entry as part of feature closure.
+4. Phase 4 — Reverse-pass produces no source impl; Phase 4 trivially closes when last `@product` returns. Forward-chain follow-up runs as separate `/orchestra` invocation under same session-id.
+
+**Artifacts produced.**
+
+```
+.orchestra/plans/<session-id>/discovery/<service>.md             (one per service)
+.orchestra/plans/<session-id>/{run-plan.md, agent-tasks.md}
+docs/{SAD.md, business-invariants.md}
+docs/adr/ADR-<NNNN>-*.md                                          (when source-archaeology surfaces non-obvious decisions)
+docs/diagrams/{c4-context,c4-container,erd-logical,sd-*}.puml + *.svg
+docs/<service>/{<service>-BR-AC.md, <service>-openapi.yaml}       (or -asyncapi/-clientapi)
+docs/<service>/adr/ADR-<service>-<NNN>-*.md
+docs/<service>/diagrams/{c4-component,erd-logical,state-machine,usecase}.puml + *.svg
+docs/<service>/<feature-id>/{<feature-id>-PRD.md, -FRS.md, -TDD.md}
+docs/<service>/<feature-id>/diagrams/<feature-id>-sd-*.puml
+.orchestra/<service>/features.yaml                                (authored at the END by @product per feature)
+```
+
+**Edge cases.**
+
+- Workspace SAD container count < 2: `pre-write-check` `workspace-sad-container-floor` rejects; `@architect` re-authors with ≥2.
+- Per-feature `reverse_authoring_mode` classification: absent `docs/README.md` `generated_by: orchestra` marker pins every author to `re-author`. With marker, classify per-artifact.
+- Spawn brief discipline: describe what to look for, never prescribe what to find. "Verify whether ownership is enforced; if observed, lift to BR-AC. If absent, raise as divergence" — not "X-User-Id ownership matches order owner".
+- Source-only feature with no business-level meaning: `@product` flags during synthesis; DEADLOCK or clarification.
+- Plan rejection: Phase 2c targets missed service / wrong direction on feature.
+
+### S7 — brownfield, per-service reverse
+
+**Trigger.** `$1 = "code-to-spec"`, second token `service:<name>`, third token `--source=<path>`; preflight `mode: brownfield`. Forces `scope_level: per-service`.
+
+**Trace.**
+
+1. Phase 1 — Validate `--source=<path>` (REQUIRED; absolute or `cwd`-relative; leading `@` stripped; reject empty / non-existent dir). Validate `service:<name>` (reject `/`, `\`, whitespace, `..`, reserved). Bootstrap persists `scope_level: per-service` + `source_path` + `service_name`. Auto-promote check: if `workspace_kind: multi-repo` AND workspace `docs/SAD.md` absent → run S6 first (system-wide), then narrow. Spawn `@explorer` (single spawn — one service). Read discovery report.
+2. Phase 2a — `EnterPlanMode`. Plan narrowed to one service. `## Features` lists features discovered for this service. `## Agent assignments`: per-service singletons (no workspace SAD/ADRs/business-invariants) + per-feature reverse-pass spec. `## Risks + decisions` surfaces single-service scope + auto-promote flag if it fired. `ExitPlanMode`.
+3. Phase 2b + 3 — Write `run-plan.md` locked; `TaskCreate × N`; `Agent × N` spawn cohort. Per-service singletons first (single-writer sequential). Per-feature reverse-pass DAG-rank-batched; sequential `@architect` → `@analyst` → `@product` within feature.
+4. Phase 4 — Trivially closes (reverse-pass no source). Forward-chain follow-up as separate `/orchestra spec-to-code` invocation against the locked baseline.
+
+**Artifacts produced.**
+
+```
+.orchestra/plans/<session-id>/discovery/<service>.md
+.orchestra/plans/<session-id>/{run-plan.md, agent-tasks.md}
+docs/<service>/{<service>-BR-AC.md, <service>-openapi.yaml}       (or -asyncapi/-clientapi)
+docs/<service>/diagrams/{c4-component,erd-logical,state-machine,usecase}.puml + *.svg
+docs/<service>/<feature-id>/{<feature-id>-PRD.md, -FRS.md, -TDD.md}
+docs/<service>/<feature-id>/diagrams/<feature-id>-sd-*.puml
+.orchestra/<service>/{features.yaml, local.yaml}                  (local.yaml carries source_path)
+```
+
+NO workspace-level SAD, ADRs, business-invariants — those are S6 territory.
+
+**Edge cases.**
+
+- `--source=<path>` missing: halt with `[orchestra] --source=<path> required for code-to-spec service:<name>`. No spawn.
+- `--source=<path>` outside `<cwd>`: allowed (absolute paths); `@explorer` and downstream readers consume from resolved root.
+- Per-service run on multi-repo without workspace SAD: auto-promote fires at Phase 1; full S6 first, then narrow. Document in plan `## Risks + decisions`.
+- Single-repo with `service:<name>` token: allowed; treats single service as named. `--source` typically `./` or `./services/<name>/`.
+
+### S8 — `<intent>` router, greenfield
+
+**Trigger.** `$1` NOT one of `spec-to-code` / `code-to-spec` / empty; preflight `mode: greenfield` (`src/**` empty); `$ARGUMENTS` = freeform intent text.
+
+**Trace.**
+
+1. Phase 1 (extended for router) — Bootstrap. Three `AskUserQuestion` rounds BEFORE any agent spawn:
+   - Q1 — restate-intent. SEEDS from `$ARGUMENTS`. NEVER re-asked.
+   - Q2 — scope. Options derived from preflight + intent: which service / new vs existing feature / scope_level / autonomy override.
+   - Q3 — constraints. Tech, deadline, non-goals, parallel features.
+2. Three rounds completed → downstream agents observe `intent_floor: cleared` in spawn prompts; skip own intent-restate.
+3. Tech-vs-business classifier (before feature-id mint). `tech` (HIGH silent OR LOW/MEDIUM approved) → spawn implementer (`@backend` or `@frontend`) directly via single-row plan, no PRD/FRS/TDD. `business` → standard 4-phase.
+4. Route per `docs/` state: empty for target service → S2; some features locked → S3; many features locked + no impl → S4.
+
+Phases 2-4 follow the resolved sub-strategy.
+
+**Artifacts produced.** Same as resolved sub-strategy (S2 / S3 / S4 / tech path).
+
+**Edge cases.**
+
+- `$ARGUMENTS` is one word (e.g., `/orchestra refactor`): Q1 seed ambiguous; restate-intent surfaces tighter draft. 2-3 amend cycles within Q1 alone before Q2.
+- Intent maps to existing feature: Q2 surfaces "extend existing feature `<id>`" option. If chosen → S3 for that feature; do NOT mint new `<feature-id>`.
+- Intent maps to multi-feature change ("add audit logging across checkout and refund"): mint multiple feature-ids; S4.
+- Tech classifier returns LOW conf and user disagrees with default `business`: `AskUserQuestion(business | tech)` resolves before Phase 2a.
+
+### S9 — `<intent>` router, brownfield
+
+**Trigger.** `$1` NOT one of `spec-to-code` / `code-to-spec` / empty; preflight `mode: brownfield` (`src/**` present); `$ARGUMENTS` = freeform intent.
+
+S9 is a two-PlanMode-submission session: reverse-pass first, forward-chain second, both under the same `<session-id>`.
+
+**Trace.**
+
+1. Phase 1 reverse half — Workspace-kind-adaptive permission gate. Single `AskUserQuestion`:
+   - Multi-repo: "Reverse-pass first (document existing surface across services), then forward-chain against the locked baseline?"
+   - Single-repo: "Reverse-pass first (document existing service), then forward-chain?"
+   - `no` → abort with `[orchestra] reverse-then-forward declined; re-invoke with /orchestra spec-to-code to skip reverse`.
+2. Reverse routing: `workspace_kind: multi-repo` → S6 trace. `workspace_kind: single-repo` → S7 trace. Intent names ONE service → narrow to S7 with `--source=<path>` prompt if not cached.
+
+Phases 2a-4 of reverse half per S6 or S7 trace. PlanMode submission #1 covers reverse plan.
+
+3. After reverse-pass completes (Phase 4 trivially closes), main agent emits status line + `AskUserQuestion(continue | halt)` pause.
+4. Phase 1 forward half — Post-reverse confirmation 3× `AskUserQuestion`:
+   - Q1 — restate intent against locked baseline. SEEDS from original `$ARGUMENTS`.
+   - Q2 — scope: which feature(s)? New or extension?
+   - Q3 — constraints, autonomy, parallel work.
+5. Confidence floor cleared. Tech-vs-business classifier (same as S8).
+6. Forward routing: S2 / S3 / S4 trace per `docs/` state of targeted feature(s).
+
+Phases 2a-4 of forward half per resolved sub-strategy. PlanMode submission #2 covers forward plan. Both submissions share `.orchestra/plans/<session-id>/`; reverse discovery reports carry forward as forward-half Phase 2a inputs.
+
+**Artifacts produced.** Reverse-pass artifacts (S6/S7) + forward-chain artifacts (S2/S3/S4/tech path).
+
+**Edge cases.**
+
+- User declines reverse-pass: abort. Document via `[orchestra] reverse-then-forward declined`. User can re-invoke `/orchestra spec-to-code <intent>` to skip reverse.
+- Reverse-pass surfaces source contradictions: `@architect` writes DEADLOCK artifact. Pause; user resolves; re-invoke under same session-id.
+- Intent maps to feature absent from reverse-derived `features.yaml`: Q2 prompts "Add as new feature, or did reverse-pass miss it?" If miss → narrow re-run of S6/S7 against missed service. If new → mint new `<feature-id>` and proceed.
+- Forward chain encounters `ratify-spec` divergence on reverse-authored locked artifact: use `mcp__orchestra-utils__amend_locked_artifact` + `relock_artifact`. Reverse-pass origin does NOT exempt from `changelog-append-only` audit trail.
+- Mid-run external-state change (DB schema applied after reverse-pass TDD locked): main agent self-explores via Phase 2c-style targeted reads before forward-chain Phase 2a entry.
