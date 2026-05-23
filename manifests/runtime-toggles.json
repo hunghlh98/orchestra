@@ -110,6 +110,24 @@
       "description": "BR/AC discipline + pseudocode shaping consumed by @analyst when authoring <feature-id>-FRS.md from a locked PRD."
     },
     {
+      "module": "skill.clean-code",
+      "envVar": "ORCHESTRA_SKILL_CLEAN_CODE",
+      "default": "on",
+      "description": "Meaningful names + small functions + F.I.R.S.T. tests + code-smell heuristics consumed by @backend (authoring) and @reviewer (S-REVIEW-001 scoring)."
+    },
+    {
+      "module": "skill.clean-architecture",
+      "envVar": "ORCHESTRA_SKILL_CLEAN_ARCHITECTURE",
+      "default": "on",
+      "description": "Dependency-Rule layering (Entities / Use Cases / Adapters / Frameworks) consumed by @architect for SAD container + TDD component layout, @backend for write-side conventions, @reviewer for layering-violation scoring."
+    },
+    {
+      "module": "skill.commit-message",
+      "envVar": "ORCHESTRA_SKILL_COMMIT_MESSAGE",
+      "default": "on",
+      "description": "Conventional Commits 1.0.0 message authoring with mandatory AI Co-Authored-By trailer; consumed by the dispatcher at chain closure to draft the commit message."
+    },
+    {
       "module": "config.metrics-cost-banner",
       "envVar": "ORCHESTRA_METRICS_COST_BANNER",
       "default": "off",

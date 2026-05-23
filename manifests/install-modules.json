@@ -128,6 +128,27 @@
       "stability": "stable"
     },
     {
+      "name": "skill.clean-code",
+      "kind": "skill",
+      "path": "skills/clean-code/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.clean-architecture",
+      "kind": "skill",
+      "path": "skills/clean-architecture/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "skill.commit-message",
+      "kind": "skill",
+      "path": "skills/commit-message/SKILL.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
       "name": "agent.product",
       "kind": "agent",
       "path": "agents/product.md",
