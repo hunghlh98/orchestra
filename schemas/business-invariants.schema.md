@@ -33,8 +33,8 @@ status: draft | locked
 reverse_authoring_mode: cite-as-is | copy-and-modify | re-author    # REQUIRED when code-to-spec authored
 readers:
   - "@product"
+  - "@analyst"
   - "@architect"
-  - "@lead"
   - "@backend"
   - "@frontend"
   - "@test-author"

@@ -1,6 +1,6 @@
 # OpenAPI contract patterns — full examples
 
-Loaded by `@lead` when authoring `<feature-id>-openapi.yaml` or `<feature-id>-clientapi.yaml`. Full YAML examples for producer + consumer + stability annotation.
+Loaded by `@architect` when authoring `<feature-id>-openapi.yaml` or `<feature-id>-clientapi.yaml`. Full YAML examples for producer + consumer + stability annotation.
 
 ## Producer openapi.yaml (full example)
 
@@ -11,7 +11,7 @@ Loaded by `@lead` when authoring `<feature-id>-openapi.yaml` or `<feature-id>-cl
 #   status: draft
 #   readers:
 #     - "@architect"
-#     - "@lead"
+#     - "@architect"
 #     - "@backend"
 #     - "@frontend"
 #     - "@test-author"
@@ -20,7 +20,7 @@ Loaded by `@lead` when authoring `<feature-id>-openapi.yaml` or `<feature-id>-cl
 #     - "@reviewer"
 #   sections:
 #     S-API-001:
-#       writer: "@lead"
+#       writer: "@architect"
 #       status: in_progress
 openapi: 3.0.3
 info:
@@ -56,7 +56,7 @@ Set frontmatter `sections.S-API-001.status: locked` after body is final. `@test-
 #   status: draft
 #   readers:
 #     - "@architect"
-#     - "@lead"
+#     - "@architect"
 #     - "@backend"
 #     - "@test-author"
 #     - "@test-runner"
@@ -64,7 +64,7 @@ Set frontmatter `sections.S-API-001.status: locked` after body is final. `@test-
 #     - "@reviewer"
 #   sections:
 #     S-CLIENT-API-001:
-#       writer: "@lead"
+#       writer: "@architect"
 #       status: in_progress
 openapi: 3.0.3
 info:

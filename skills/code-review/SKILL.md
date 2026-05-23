@@ -14,7 +14,7 @@ Grades a code change with explicit severity tagging. `@reviewer` invokes after `
 - Diff is staged or committed and ready for grading.
 - `@evaluator` PASS came back too fast and you want a sanity pass.
 
-Skip for design review (`@product` / `@lead`'s domain) or spec verification (`@evaluator`'s domain). This skill grades *implementation*.
+Skip for design review (`@product` / `@architect`'s domain) or spec verification (`@evaluator`'s domain). This skill grades *implementation*.
 
 ## Approach
 
@@ -91,7 +91,7 @@ A miss is **Major** unless data-loss-adjacent (then **Critical**).
 | Spec clarity | upstream PRD / openapi `description:` criteria concrete |
 | Evaluator agreement | `@evaluator`'s TSR verdict aligns with code suggestion |
 
-Below 80% → `rev_verdict: PENDING`. Below 60% → `PENDING` plus request `@lead` re-spec round.
+Below 80% → `rev_verdict: PENDING`. Below 60% → `PENDING` plus request a dispatcher-led re-spec round.
 
 ### Step 7 — Write reviewer section of `<feature-id>-TSR.md`
 
@@ -129,7 +129,7 @@ Set frontmatter `rev_verdict` + `rev_round` (current iteration). Set `sections.S
 
 ## When to escalate
 
-- Confidence <60% → `pending` + request `@lead` re-spec.
+- Confidence <60% → `pending` + request a dispatcher-led re-spec.
 - Diff >1000 LOC AND lacks tests → `REQUEST_CHANGES` with "split this PR" guidance.
 - 3 consecutive REQUEST_CHANGES → DEADLOCK.
 

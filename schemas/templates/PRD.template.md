@@ -31,4 +31,4 @@ version: 1.0.0
 
 ## Open Questions <a id="S-OPEN-001"></a>
 
-<!-- FILL: Numbered list of unresolved decisions. Items that warrant ADRs MUST be flagged here for @lead. -->
+<!-- FILL: Numbered list of unresolved decisions. Items that warrant ADRs MUST be flagged here for @architect. -->

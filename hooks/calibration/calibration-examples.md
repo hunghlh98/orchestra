@@ -38,7 +38,7 @@ A criterion is graded against its CONTRACT-defined `weight:` (sum across all cri
 - Probes ran but returned ambiguous evidence (e.g., 200 with empty body, criterion under-specified).
 - Confidence below 80% even after re-investigation.
 
-`@evaluator` returns `pending`, never guesses. The `@reviewer` and `@lead` then decide whether to re-spec the criterion or accept the ambiguity.
+`@evaluator` returns `pending`, never guesses. The `@reviewer` and the dispatcher then decide whether to re-spec the criterion or accept the ambiguity.
 
 ---
 

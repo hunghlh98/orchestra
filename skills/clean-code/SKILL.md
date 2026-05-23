@@ -16,7 +16,7 @@ A disciplined approach to writing code that communicates intent, minimizes surpr
 
 - `@backend` / `@frontend` authoring or modifying source under `src/main/**` or `src/test/**`.
 - `@reviewer` grading `S-REVIEW-001` — score 0–10 per "Scoring" rubric.
-- `@lead` evaluating TASKS row complexity (long functions, deep nesting → split into smaller story-points).
+- The dispatcher evaluating TASKS row complexity (long functions, deep nesting → split into smaller story-points).
 
 Skip when reviewing pure config (`.yml`, `.json`), generated code, or build files.
 

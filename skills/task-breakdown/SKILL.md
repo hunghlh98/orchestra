@@ -1,19 +1,19 @@
 ---
 name: task-breakdown
-description: "Decomposes intent into a task graph with story-point estimates and agent assignments. Use when @lead routes a feature."
+description: "Decomposes intent into a task graph with story-point estimates and agent assignments. Used by the dispatcher in Phase 2 Plan body authoring."
 origin: orchestra
 ---
 
 # task-breakdown
 
-Turns a confirmed intent (PRD or natural-language request) into a directed acyclic task graph: each task has an owner agent, a story-point estimate, blocking dependencies, and exit criteria. `@lead` invokes when classifying a routed intent into the appropriate execution pattern.
+Turns a confirmed intent (PRD or natural-language request) into a directed acyclic task graph: each task has an owner agent, a story-point estimate, blocking dependencies, and exit criteria. The dispatcher invokes when classifying a routed intent into the appropriate execution pattern.
 
 ## When to use
 
-- `@lead` has received a feature, refactor, or template intent classified per the routing taxonomy.
+- The dispatcher has received a feature, refactor, or template intent classified per the routing taxonomy.
 - An existing `docs/<feature-id>/<feature-id>-PRD.md` or `<feature-id>-FRS.md` needs decomposing into TDD-bound tasks.
 - A sprint pull (`/orchestra sprint --size N`) needs the next N issues converted into a task graph.
-- `@product` or `@lead` is sizing a brownfield migration and needs to estimate before negotiating with the user.
+- `@product` or the dispatcher is sizing a brownfield migration and needs to estimate before negotiating with the user.
 
 ## Approach
 
@@ -34,7 +34,7 @@ One owner per task; cross-tier handoffs become explicit edges.
 | Backend code/tests | `@backend` writes; `@evaluator` runs verdict |
 | Frontend code/tests | `@frontend` writes; `@evaluator` runs verdict |
 | Test plan / fuzz inputs | `@test-author` writes plan rows; `@test-runner` fills cells + locks; `@evaluator` runs verdict |
-| PRD / FRS / SAD / CONTRACT | `@product` or `@lead` writes |
+| PRD / FRS / SAD / CONTRACT | `@product` (PRD), `@analyst` (FRS), `@architect` (SAD / CONTRACT) writes |
 | Code review | `@reviewer` |
 
 ### Step 3 — Story-point estimate
@@ -111,13 +111,13 @@ Initial Status is `pending` for every row. Owning agents flip Status as work pro
 
 ## When to escalate
 
-- Estimate uncertainty >2 SP for any task ("could be 3 or 5") → `@lead` flags this and asks `@product` for a re-spec round (Pattern B).
+- Estimate uncertainty >2 SP for any task ("could be 3 or 5") → the dispatcher flags this and asks `@product` for a re-spec round (Pattern B).
 - Critical path > 1.5× sprint capacity → don't decompose further; surface to user with "trim or extend?" question.
 - Task can't be assigned to a current agent role → flag as "needs-future-specialist" and defer.
 
 ### Step 7 — Diagnose autonomy
 
-When `@lead` is undecided whether to push back to the user for re-spec or proceed with the task graph, run the autonomy diagnostic at `references/autonomy-diagnostic.md`. Four signals (estimate uncertainty, criteria clarity, owner availability, sprint slack) score each task graph as proceed / spec-revision / surface-to-user.
+When the dispatcher is undecided whether to push back to the user for re-spec or proceed with the task graph, run the autonomy diagnostic at `references/autonomy-diagnostic.md`. Four signals (estimate uncertainty, criteria clarity, owner availability, sprint slack) score each task graph as proceed / spec-revision / surface-to-user.
 
 ## References
 
@@ -131,7 +131,7 @@ User: *"Add a `/v1/users/:id/transfer` endpoint that records to the ledger and e
 
 | ID | Owner | SP | Blocks | Blocked by | Exit | Status |
 |---|---|---|---|---|---|---|
-| T-001 | @lead | 1 | T-002 | — | `docs/001-transfer/001-transfer-openapi.yaml` written with 4 criteria | pending |
+| T-001 | @architect | 1 | T-002 | — | `docs/001-transfer/001-transfer-openapi.yaml` written with 4 criteria | pending |
 | T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit | pending |
 | T-003 | @test-author | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
 | T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic | pending |

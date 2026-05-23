@@ -1,10 +1,10 @@
 # Autonomy Diagnostic (5-Q + 3-axis decomposition)
 
-> Reference loaded by `@lead` on first spawn for a new feature_id when classifying the autonomy level for a `/orchestra <natural language>` run. Surfaced as the suggested tag at PAUSE-1; the user accepts or overrides. Suggestion-only — the diagnostic never changes the resolved level without user assent.
+> Reference loaded by `the dispatcher` on first spawn for a new feature_id when classifying the autonomy level for a `/orchestra <natural language>` run. Surfaced as the suggested tag at PAUSE-1; the user accepts or overrides. Suggestion-only — the diagnostic never changes the resolved level without user assent.
 >
-> Filed under `skills/task-breakdown/` to keep autonomy classification co-located with `@lead`'s existing skill orbit. Topical fit is imperfect — this is a `@lead` diagnostic, not a `task-breakdown` resource — but co-location avoids adding a new skill description to the always-loaded metadata layer.
+> Filed under `skills/task-breakdown/` to keep autonomy classification co-located with `the dispatcher`'s existing skill orbit. Topical fit is imperfect — this is a `the dispatcher` diagnostic, not a `task-breakdown` resource — but co-location avoids adding a new skill description to the always-loaded metadata layer.
 
-## When `@lead` Reads this file
+## When `the dispatcher` Reads this file
 
 - On first spawn for a new feature_id (no prior `intent.yaml` recorded): Read this file before issuing PAUSE-1.
 - On subsequent spawns within the same feature_id: skip — autonomy was already classified at PAUSE-1; the level is locked in `intent.yaml` for the duration.
@@ -34,7 +34,7 @@ The Consultant inversion is real: at `OPTION_SYNTHESIS`, execution returns to th
 
 ## Resolved precedence
 
-`--autonomy <tag>` CLI flag > `local.yaml.autonomy.level` > hard-coded `DRAFT_AND_GATE`. If `@lead`'s suggested tag differs from the resolved default, surface it at PAUSE-1 alongside intent/confidence/pattern.
+`--autonomy <tag>` CLI flag > `local.yaml.autonomy.level` > hard-coded `DRAFT_AND_GATE`. If `the dispatcher`'s suggested tag differs from the resolved default, surface it at PAUSE-1 alongside intent/confidence/pattern.
 
 ## Worked example
 
@@ -44,4 +44,4 @@ The Consultant inversion is real: at `OPTION_SYNTHESIS`, execution returns to th
 
 ## Backstop (R-2 mitigation)
 
-If `@lead` does NOT Read this file on first spawn (e.g., context was compacted between dispatcher → spawn), default the resolved level to `DRAFT_AND_GATE` and log a warning event `autonomy.diagnostic.skipped` to `events.jsonl`. The user can still override via `--autonomy <tag>` CLI flag at the next `/orchestra` invocation.
+If `the dispatcher` does NOT Read this file on first spawn (e.g., context was compacted between dispatcher → spawn), default the resolved level to `DRAFT_AND_GATE` and log a warning event `autonomy.diagnostic.skipped` to `events.jsonl`. The user can still override via `--autonomy <tag>` CLI flag at the next `/orchestra` invocation.

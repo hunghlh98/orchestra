@@ -60,7 +60,7 @@ Both tables MAY be empty (header rows only). `revision: 1` at emission with zero
 1. **Bootstrap.** First ADR-acceptance in the workspace triggers emission of the file with the accepting row appended. No empty-shell pre-creation.
 2. **Append.** On every `proposed → accepted` transition, `@architect` appends the row to the correct table (`S-GLOBAL-001` or `S-SERVICES-001`) and bumps `revision`.
 3. **Supersede.** On `accepted → superseded`, update the row in place (Status column) and bump `revision`. The row stays.
-4. **Read.** `@lead` / `@product` / implementer tiers locate accepted ADRs from this index, then read the ADR body at `<context_path>/docs/adr/...` (or `<context_path>/docs/<service_name>/adr/...`). The index is a discovery / overview surface; the ADR body is authoritative.
+4. **Read.** `@architect` / `@product` / implementer tiers locate accepted ADRs from this index, then read the ADR body at `<context_path>/docs/adr/...` (or `<context_path>/docs/<service_name>/adr/...`). The index is a discovery / overview surface; the ADR body is authoritative.
 
 ## Validation
 

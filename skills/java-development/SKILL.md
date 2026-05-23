@@ -11,7 +11,7 @@ Java + Spring code intelligence and conventions. Two sides:
 - **Read-side**: caller graphs, `@Transactional` boundary scans, JPA entity impact, Spring injection sites — used before changing existing code to estimate blast radius.
 - **Write-side**: coding style, patterns, security, testing conventions — used while authoring or modifying code.
 
-`@backend` invokes this skill when `local.yaml.primary_language == "java"` before either reading-for-impact or authoring code. `@lead` invokes for TDD `S-CONFIG-001` row inventory.
+`@backend` invokes this skill when `local.yaml.primary_language == "java"` before either reading-for-impact or authoring code. `@architect` invokes for TDD `S-CONFIG-001` row inventory.
 
 ## When to use
 
@@ -102,7 +102,7 @@ Full write-side conventions (style / patterns / security / testing with Good/Bad
 
 ## TDD `S-CONFIG-001` rows (Java/Spring)
 
-Invoked when `@lead` is authoring `<feature-id>-TDD.md`. `S-CONFIG-001` is canonical home for deployable's stack-shape (NOT PRD goals). Walk `src/main/resources/application.yml` + `pom.xml` and record EVERY row below explicitly. Mark dependency scope (`production` / `test-only` / `latent — no callsite`) for every persistence + RPC framework.
+Invoked when `@architect` is authoring `<feature-id>-TDD.md`. `S-CONFIG-001` is canonical home for deployable's stack-shape (NOT PRD goals). Walk `src/main/resources/application.yml` + `pom.xml` and record EVERY row below explicitly. Mark dependency scope (`production` / `test-only` / `latent — no callsite`) for every persistence + RPC framework.
 
 Required rows:
 

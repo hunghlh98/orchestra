@@ -6,7 +6,7 @@
 
 ## Provenance contract
 
-Every file under `docs/` carries frontmatter declaring `generated_by: orchestra` and a `status:` of `draft` or `locked`. Locked artifacts are cited as-is by future reverse-pass runs (`reverse_authoring_mode: cite-as-is`). Draft artifacts may be copy-and-modified (`reverse_authoring_mode: copy-and-modify`). Files lacking this frontmatter signal pre-orchestra state and trigger full re-authoring (`reverse_authoring_mode: re-author`). This `README.md` is the load-bearing marker for that classification — `@product`, `@architect`, and `@lead` read its `generated_by: orchestra` field to decide which path applies.
+Every file under `docs/` carries frontmatter declaring `generated_by: orchestra` and a `status:` of `draft` or `locked`. Locked artifacts are cited as-is by future reverse-pass runs (`reverse_authoring_mode: cite-as-is`). Draft artifacts may be copy-and-modified (`reverse_authoring_mode: copy-and-modify`). Files lacking this frontmatter signal pre-orchestra state and trigger full re-authoring (`reverse_authoring_mode: re-author`). This `README.md` is the load-bearing marker for that classification — `@product`, `@architect`, and `@analyst` read its `generated_by: orchestra` field to decide which path applies.
 
 ## Layout
 

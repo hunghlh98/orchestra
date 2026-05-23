@@ -14,7 +14,7 @@ Paths: per-feature prose in `docs/<service_name>/<feature-id>/`, ADRs flat in `d
 
 ## feature {#feature}
 
-**Agents (in order):** `@product` → `@architect` → `@lead` → `@backend` / `@frontend` / `@test-author` (parallel) → `@test-runner` → `@evaluator` → `@reviewer`
+**Agents (in order):** `@product` → `@architect` → dispatcher (Phase 2 Plan body) → `@backend` / `@frontend` / `@test-author` (parallel) → `@test-runner` → `@evaluator` → `@reviewer`
 
 **Artifact whitelist (full set):**
 
@@ -34,7 +34,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 ## hotfix {#hotfix}
 
-**Agents (in order):** `@lead` → `@backend` / `@frontend` → `@test-runner` → `@evaluator`
+**Agents (in order):** dispatcher (Phase 2 Plan body) → `@backend` / `@frontend` → `@test-runner` → `@evaluator`
 
 **Artifact whitelist:**
 
@@ -47,7 +47,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 ## template {#template}
 
-**Agents (in order):** `@product` (intent triage only) → `@lead` → `@backend` / `@frontend` → `@test-author` + `@test-runner` → `@evaluator` → `@reviewer`
+**Agents (in order):** `@product` (intent triage only) → dispatcher (Phase 2 Plan body) → `@backend` / `@frontend` → `@test-author` + `@test-runner` → `@evaluator` → `@reviewer`
 
 **Artifact whitelist:**
 
@@ -61,7 +61,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 ## refactor {#refactor}
 
-**Agents (in order):** `@reviewer` (pre-impl assessment) → `@lead` (TDD update) → `@backend` / `@frontend` → `@test-runner` → `@evaluator`
+**Agents (in order):** `@reviewer` (pre-impl assessment) → `@architect` (TDD update) → `@backend` / `@frontend` → `@test-runner` → `@evaluator`
 
 **Artifact whitelist:**
 
@@ -83,7 +83,7 @@ This is the only intent that produces the full SDLC artifact set.
 - The doc files themselves (whatever the user asked for — README updates, ADR additions outside a feature, rule docs, etc.)
 - `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending`)
 
-**Excluded:** PRD, FRS, TDD, openapi, TASKS, BR-AC. `@product` triages without authoring narrative. `@lead` MUST refuse this route — if spawned, write `<feature-id>-ESCALATE-<slug>.md` and end the turn.
+**Excluded:** PRD, FRS, TDD, openapi, TASKS, BR-AC. `@product` triages without authoring narrative. The dispatcher MUST refuse this route — if spawned downstream, write `<feature-id>-ESCALATE-<slug>.md` and end the turn.
 
 ## review-only {#review-only}
 
@@ -93,7 +93,7 @@ This is the only intent that produces the full SDLC artifact set.
 
 - `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (review half only — `S-EVAL-001` stays `pending` indefinitely)
 
-**Excluded:** PRD, FRS, TDD, openapi, TASKS, BR-AC. The user wants a review of existing work, not new work. `@lead` MUST refuse this route.
+**Excluded:** PRD, FRS, TDD, openapi, TASKS, BR-AC. The user wants a review of existing work, not new work. The dispatcher MUST refuse this route.
 
 ---
 

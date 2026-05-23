@@ -6,13 +6,13 @@ origin: orchestra-internal (structure adapted from .agents/skills/c4-architectur
 
 # c4-architecture
 
-Generates C4-model diagrams (Context / Container / Component / Deployment / Dynamic) in PlantUML via the C4-PlantUML stdlib. Invoked by `@architect` (L1/L2) and `@lead` (L3/L4 + Dynamic).
+Generates C4-model diagrams (Context / Container / Component / Deployment / Dynamic) in PlantUML via the C4-PlantUML stdlib. Invoked by `@architect` (L1/L2) and `@architect` (L3/L4 + Dynamic).
 
 ## When to use
 
 - `@architect` authoring `docs/SAD.md` — Context (L1) + Container (L2).
-- `@lead` authoring service-level singletons `docs/<service_name>/diagrams/c4-component.puml` + `c4-code.puml` (L3 + L4).
-- `@lead` authoring per-feature highlighted L1+L2 copies and intra-service sequence + physical ERD under `docs/<service_name>/<feature-id>/diagrams/`.
+- `@architect` authoring service-level singletons `docs/<service_name>/diagrams/c4-component.puml` + `c4-code.puml` (L3 + L4).
+- `@architect` authoring per-feature highlighted L1+L2 copies and intra-service sequence + physical ERD under `docs/<service_name>/<feature-id>/diagrams/`.
 
 ## Approach
 
@@ -249,8 +249,8 @@ Lift evidence into a paired markdown table at the tail of SAD `S-CONTAINERS-001`
 - `references/templates.md` — 6 quick-start fenced templates plus the highlight protocol for per-feature copies.
 - `references/c4-rules.md` — extended "what to avoid", framework-internals deep table, microservices ownership patterns, full element-syntax reference, styling and layout macros, zoom-continuity counter-examples.
 
-Output paths (system-level / service-level / per-feature) are owned by the calling agent — see `agents/architect.md` "Allowed surface" (system-level singletons) and `agents/lead.md` "Allowed-set / Outputs" (service-level singletons + per-feature copies).
+Output paths (system-level / service-level / per-feature) are owned by `@architect` — see `agents/architect.md` "Allowed surface" for the full system-level + service-level + per-feature output table.
 
 ## Worked example
 
-For a single feature in a fresh service, `@architect` authors `docs/diagrams/{c4-context,c4-container}.puml` (system singletons). `@lead` authors `docs/<service_name>/diagrams/{c4-component,c4-code}.puml` (service singletons) plus per-feature highlighted L1+L2 copies and `<feature-id>-seq-<usecase>.puml` / `<feature-id>-erd-physical.puml` under the feature's `diagrams/` folder. `post-write-puml` renders every `.svg`. Walk Step 6's checklist on each source; per-feature L1+L2 copies must differ from singletons ONLY in `UpdateElementStyle()` highlights.
+For a single feature in a fresh service, `@architect` authors `docs/diagrams/{c4-context,c4-container}.puml` (system singletons). `@architect` authors `docs/<service_name>/diagrams/{c4-component,c4-code}.puml` (service singletons) plus per-feature highlighted L1+L2 copies and `<feature-id>-seq-<usecase>.puml` / `<feature-id>-erd-physical.puml` under the feature's `diagrams/` folder. `post-write-puml` renders every `.svg`. Walk Step 6's checklist on each source; per-feature L1+L2 copies must differ from singletons ONLY in `UpdateElementStyle()` highlights.

@@ -148,7 +148,7 @@ verdict: PENDING                    # PENDING | PASS | FAIL | APPROVED | REQUEST
 reverse_authoring_mode: cite-as-is  # cite-as-is | copy-and-modify | re-author — REQUIRED when authored by code-to-spec; omitted on spec-to-code
 readers:
   - "@architect"
-  - "@lead"
+  - "@analyst"
 sections:
   S-VISION-001:
     writer: "@product"
@@ -159,7 +159,7 @@ sections:
 ---
 ```
 
-**Frontmatter grammar (frozen).** Block-style only. No flow style. No anchors / aliases. Indentation: 2 spaces per level. String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) MUST be JSON-quoted. Agent handles (`@product`, `@lead`) MUST be JSON-quoted because `@` is a YAML directive marker. The frontmatter parser is `hooks/lib/yaml-mini.js`'s `parse()`.
+**Frontmatter grammar (frozen).** Block-style only. No flow style. No anchors / aliases. Indentation: 2 spaces per level. String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) MUST be JSON-quoted. Agent handles (`@product`, `@architect`) MUST be JSON-quoted because `@` is a YAML directive marker. The frontmatter parser is `hooks/lib/yaml-mini.js`'s `parse()`.
 
 ### `status:` <a id="S-STATUS-001"></a>
 
@@ -261,7 +261,7 @@ Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section
 
 ## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
 
-Artifacts under `docs/` deliver decisions and contracts, not narrative. Two universal rules: **bullets over prose** (reserve paragraphs for reasoning that needs them) and **no orchestra plumbing in stakeholder bodies** (the chain is invisible — do not name `@product` / `@lead` / `@architect` / `@test-author` / `@test-runner` / `@evaluator` / `@reviewer` in PRD / FRS / SAD / TDD / ADR / TSR bodies; cross-references between consumer artifacts ARE fine). Per-agent writing-style rules (assertions vs descriptions, no preambles, no hedging, no restatements, persona naming) live in each authoring agent's `## Writing style` section — `agents/product.md`, `agents/architect.md`, `agents/lead.md`.
+Artifacts under `docs/` deliver decisions and contracts, not narrative. Two universal rules: **bullets over prose** (reserve paragraphs for reasoning that needs them) and **no orchestra plumbing in stakeholder bodies** (the chain is invisible — do not name `@product` / `@analyst` / `@architect` / `@test-author` / `@test-runner` / `@evaluator` / `@reviewer` in PRD / FRS / SAD / TDD / ADR / TSR bodies; cross-references between consumer artifacts ARE fine). Per-agent writing-style rules (assertions vs descriptions, no preambles, no hedging, no restatements, persona naming) live in each authoring agent's `## Writing style` section — `agents/product.md`, `agents/analyst.md`, `agents/architect.md`.
 
 ## Diagram bindings via `diagrams: [...]` relations array <a id="diagrams"></a>
 
@@ -458,7 +458,7 @@ generated_by: orchestra
 status: locked
 ```
 
-Authored on first `code-to-spec` run as classification beacon for future reverse-pass runs (`@product` / `@architect` / `@lead` read `generated_by: orchestra` to decide `cite-as-is` vs `re-author`). Body-grammar exempt (no `sections:` block).
+Authored on first `code-to-spec` run as classification beacon for future reverse-pass runs (`@product` / `@architect` / `@analyst` read `generated_by: orchestra` to decide `cite-as-is` vs `re-author`). Body-grammar exempt (no `sections:` block).
 
 **Authoring is owned by `mcp__orchestra-utils__docs_readme(context_path)`** — the tool pins the four-field frontmatter shape above and writes a canonical body from `hooks/references/docs-readme.template.md`. `@architect` MUST NOT author this file via `Write`; the MCP tool guarantees a uniform body across consumer installs and removes the improvisation surface that produced earlier defects (phantom anchors, wrong layout trees, non-enum `type:` values).
 

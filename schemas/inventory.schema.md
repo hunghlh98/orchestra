@@ -63,7 +63,7 @@ Required anchors:
 
 Per-service business shape (BRs, ACs, INVs) lives in the per-service BR-AC (`<context_path>/docs/<service_name>/<service_name>-BR-AC.md`) — NOT in inventory. Cross-service business invariants live in workspace `docs/business-invariants.md`. The `S-DECISIONS-001` `fold-into-BR-AC` and `fold-into-business-invariants` actions route legacy material into the matching artifact at `@architect`'s authoring time.
 
-Per-service feature lists live in the per-service run-plan (`<context_path>/.orchestra/<service_name>/run-plan.md`) `S-FEATURES-001` — authored by `@lead` after the workspace inventory is `user_gate: accepted`.
+Per-service feature lists live in the per-service run-plan (`<context_path>/.orchestra/<service_name>/run-plan.md`) `S-FEATURES-001` — authored by the dispatcher (Phase 2 Plan body) after the workspace inventory is `user_gate: accepted`.
 
 ## Validation
 

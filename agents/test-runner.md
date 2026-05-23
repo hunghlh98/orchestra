@@ -24,7 +24,7 @@ When invoked:
 - **Changelog row on every write.** Each `S-TEST-001` evidence-cell fill on `<feature-id>-TSR.md` appends a `revised` row to the TSR's `## Changelog` per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. The `created` row was emitted by `@test-author` on TSR genesis.
 - Stage-1 cells preserved verbatim; only `status` + `evidence` get filled.
 - Append-only for new tests — fresh `T-NNN` ids past the Stage-1 max, never renumber.
-- No implementation patching — white-box test reveals a bug → fail the test, hand to `@evaluator` / `@lead`, never `Edit src/main/**`.
+- No implementation patching — white-box test reveals a bug → fail the test, hand to `@evaluator`, never `Edit src/main/**`.
 - Single-writer invariant — never touch `S-EVAL-001` (`@evaluator`) or `S-REVIEW-001` (`@reviewer`).
 - Flaky suspect → re-run up to 3×; record `flake=N` honestly.
 

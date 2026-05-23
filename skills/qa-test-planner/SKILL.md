@@ -10,7 +10,7 @@ Designs the TSR test section (S-TEST-001): which black-box tests to author, what
 
 ## When to use
 
-- An `docs/<feature-id>/<feature-id>-openapi.yaml` has been written by `@lead` and you need a test plan that grades it.
+- An `docs/<feature-id>/<feature-id>-openapi.yaml` has been written by `@architect` and you need a test plan that grades it.
 - A bug or regression was reported and you're capturing the reproduction as an adversarial fuzz input.
 - You're sizing test scope for a new endpoint, migration, or refactor.
 
@@ -118,13 +118,13 @@ When `@architect`'s reverse-pass walks source and finds source behaviour diverge
 
 Path unclear → `AskUserQuestion`. Do not route DIV into ADR — half-implementations and accidental shapes fail ADR-worthiness gate 1.
 
-`@lead` (DIV resolution phase) iterates each unresolved row, picks Path A or B, and hands off via `subagent_type: orchestra:architect` with `task: div-resolution`, `div: DIV-<NNN>`, `proposed_path: ratify | correct`.
+The dispatcher (DIV resolution phase) iterates each unresolved row, picks Path A or B, and hands off via `subagent_type: orchestra:architect` with `task: div-resolution`, `div: DIV-<NNN>`, `proposed_path: ratify | correct`.
 
 ## When to escalate
 
-- A criterion is too vague to write a probe for → ask `@lead` to re-spec the criterion (Pattern B). Don't invent a probe and call it the test.
+- A criterion is too vague to write a probe for → ask the dispatcher to re-spec the criterion (Pattern B). Don't invent a probe and call it the test.
 - An adversarial input is impossible in the current environment (e.g., requires production data) → document the gap, flag for `@reviewer`.
-- A CONTRACT has fewer than 3 criteria total → likely under-specified; surface to `@lead` before writing the plan.
+- A CONTRACT has fewer than 3 criteria total → likely under-specified; surface to the dispatcher before writing the plan.
 
 ## References
 

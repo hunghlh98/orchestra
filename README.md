@@ -62,14 +62,14 @@ The router path runs three minimum `AskUserQuestion` rounds before any agent spa
 
 ### `/orchestra spec-to-code` — greenfield forward chain
 
-Empty repo. Dispatcher drives a 5-gate state machine; each gate fires one `AskUserQuestion` between agents. The parallel implementer fan-out gates on `TDD + openapi.yaml` lock.
+Empty repo. Dispatcher runs a 4-phase model (Discovery → Plan → Swarm → Convergence). The Plan body is composed in Phase 2 (chain manifest + TASKS graph + `run-plan.md`); native PlanMode submission via `ExitPlanMode` is the single user-facing approval gate between Phase 2 (Plan) and Phase 3 (Swarm). The parallel implementer fan-out gates on `TDD + openapi.yaml` lock.
 
 ```
  Business         BA Bridge      Architecture                Component        Boundary
  ─────────        ─────────      ───────────────             ──────────       ──────────────
  PRD       ──→    FRS     ──→    SAD ──→ ADR? ──→ TDD ──→    openapi.yaml ──→ TASKS + run-plan
- @product         @analyst       @architect                                   @lead
- + features.yaml                                                                  │ gate 5
+ @product         @analyst       @architect                                   dispatcher
+ + features.yaml                                                                  │ PlanMode
                                                                                   ▼
                                                           parallel:  @backend ‖ @frontend ‖ @test-author
                                                                                   │
@@ -80,7 +80,7 @@ Empty repo. Dispatcher drives a 5-gate state machine; each gate fires one `AskUs
                                                                               TSR (verdict locked)
 ```
 
-Five dispatcher-owned gates: tech/business confirmation (only on LOW/MEDIUM classifier confidence), PRD→FRS, FRS→TDD, TDD+openapi→impl, run-plan approval. `ADR?` opens only when a non-obvious system-affecting decision surfaces in PRD / FRS / TDD. `@frontend` is skipped on projects with no UI layer.
+One user-facing gate: native PlanMode submission (`ExitPlanMode`) between Phase 2 Plan and Phase 3 Swarm. Inside the Plan body the dispatcher composes the chain manifest, TASKS graph, and `run-plan.md`; the user reviews the rendered plan and approves or revises before any `Task`/`Agent` spawn. `ADR?` opens only when a non-obvious system-affecting decision surfaces in PRD / FRS / TDD. `@frontend` is skipped on projects with no UI layer.
 
 ### `/orchestra code-to-spec` — brownfield reverse chain
 
@@ -138,7 +138,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `@product` | Authors `<feature-id>-PRD.md` and the `features.yaml` manifest entry. Opens every spawn with "relates to existing feature?" AskUserQuestion. Flags ADR-worthy decisions for `@architect`. |
 | `@analyst` | Authors `<feature-id>-FRS.md` from a locked PRD. Owns the BR/AC/pseudocode bridge between business intent and technical design. |
 | `@architect` | Authors `SAD.md`, ADRs, workspace `business-invariants.md`, per-service BR-AC, C4 L1+L2+L3+L4, Logical ERD, Inter-service Sequence, per-feature TDD, per-feature `openapi.yaml`/`asyncapi.yaml`/`clientapi.yaml`. Brownfield: reads `src/**` to derive TDD + openapi. |
-| `@lead` | Orchestrator. Authors TASKS and `run-plan.md`. Spawns the parallel implementer fan-out on TDD+openapi lock; converges test-runner → evaluator + reviewer. |
+| `@explorer` | Surveys one service's source surface during brownfield Phase 1 Discovery. Authors `EXPLORER-REPORT-<service>.md` under `.orchestra/explorer/`; read-only on `src/**` (no writes outside its own report directory). |
 | `@backend` | Server-side implementer (endpoints, services, persistence, jobs). Writes source + unit tests under `services/<name>/src/`. |
 | `@frontend` | UI implementer (components, state, styles, accessibility). Ships all four states: loading / empty / error / success. |
 | `@test-author` | Spec-bound test author. Lays out black-box tests + TSR `S-TEST-001` plan rows from openapi + PRD + FRS only; no Bash, no `src/main/**` read. |
@@ -159,7 +159,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `java-development` | Java / Spring read-side intel (caller graphs, `@Transactional`, JPA impact) and write-side conventions. Invoked by `@architect` on Java projects (forward-chain TDD authoring + reverse-pass source-walk) and `@backend` for write-side conventions. |
 | `plantuml` | Generates PlantUML diagrams from text and converts `.puml` sources to PNG / SVG. |
 | `qa-test-planner` | Test-plan authoring with coverage strategy and adversarial fuzz inputs. Used by `@test-author` for TSR `S-TEST-001`. |
-| `task-breakdown` | Decomposes intent into a task graph with story-point estimates and agent assignments. Used by `@lead` when routing a feature. |
+| `task-breakdown` | Decomposes intent into a task graph with story-point estimates and agent assignments. Used by the dispatcher in Phase 2 Plan body authoring (task graph + per-spawn assignment). |
 | `write-contract` | Lifts PRD/FRS criteria into `<feature-id>-openapi.yaml` (producer endpoints) and `<feature-id>-clientapi.yaml` (consumer contracts on upstream). |
 
 ## Commands (1)

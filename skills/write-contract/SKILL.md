@@ -1,6 +1,6 @@
 ---
 name: write-contract
-description: "Lifts PRD/FRS criteria into <feature-id>-openapi.yaml (producer endpoints) and <feature-id>-clientapi.yaml (consumer contracts on upstream). Use when @lead binds spec to grading."
+description: "Lifts PRD/FRS criteria into <feature-id>-openapi.yaml (producer endpoints) and <feature-id>-clientapi.yaml (consumer contracts on upstream). Use when @architect binds spec to grading."
 origin: orchestra
 ---
 
@@ -8,7 +8,7 @@ origin: orchestra
 
 Produces TWO artifacts:
 
-- `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` — **producer contract**: endpoints this feature *publishes*. `@lead` writes; `@test-author` lifts criteria into TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
+- `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` — **producer contract**: endpoints this feature *publishes*. `@architect` writes; `@test-author` lifts criteria into TSR test plan; `@evaluator` grades each criterion PASS/FAIL.
 - `docs/<service_name>/<feature-id>/<feature-id>-clientapi.yaml` — **consumer contract**: the contract this feature *requires from upstream services it calls*. One file covers all outbound HTTP deps; `info.title: "client-contract: <upstream-service>"` (one document per upstream, or single multi-paths document with each route carrying `x-orchestra-upstream: <service>`). Authored when feature's diff has outbound HTTP callsites (`RestTemplate` / `WebClient` / Feign / `RestClient` / `HttpClient`).
 
 The contract IS the openapi document — no separate CONTRACT.md. Acceptance criteria live as prose in `description:` per operation/response. Critical criteria flagged inline. Probe DSL + grading rules live in `qa-test-planner` + `@evaluator`'s rubric.
@@ -72,7 +72,7 @@ Filename convention matches the `c4-architecture` skill's three-scope model.
 
 ## Probe DSL — quick reference
 
-This skill does not author probes — `qa-test-planner` does, into TSR `S-TEST-001`. But `@lead` should know what's machine-probable when writing `description:` prose:
+This skill does not author probes — `qa-test-planner` does, into TSR `S-TEST-001`. But `@architect` should know what's machine-probable when writing `description:` prose:
 
 | `tool:` | What it probes | Assertion shapes |
 |---|---|---|

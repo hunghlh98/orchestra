@@ -45,4 +45,4 @@ state_machine_count: 0
 
 ## Risks <a id="S-RISKS-001"></a>
 
-<!-- FILL: Bullet known risks. Each risk that warrants an ADR MUST be flagged here for @lead. -->
+<!-- FILL: Bullet known risks. Each risk that warrants an ADR MUST be flagged here for @architect. -->

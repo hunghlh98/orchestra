@@ -1,6 +1,6 @@
 ---
 name: clean-architecture
-description: Dependency-Rule layering (Entities / Use Cases / Adapters / Frameworks) for SAD container layout, TDD component layout, and code review scoring. Invoked by @architect, @lead, @backend, @reviewer.
+description: Dependency-Rule layering (Entities / Use Cases / Adapters / Frameworks) for SAD container layout, TDD component layout, and code review scoring. Invoked by @architect, @backend, @reviewer.
 origin: vendored from github.com/wondelai/skills@1.1.0 (MIT, Wondel.ai sp. z o.o.) — frontmatter trimmed for orchestra schema; body trimmed for orchestra surface; references/* unchanged.
 license: MIT
 metadata:
@@ -15,7 +15,7 @@ A disciplined approach to structuring software so business rules remain independ
 ## When to use
 
 - `@architect` authoring SAD `S-CONTAINERS-001` — container layout follows concentric circles.
-- `@lead` authoring TDD `S-COMPONENTS-001` + C4 L4 class diagram — layer cake IS the Dependency Rule made visible.
+- `@architect` authoring TDD `S-COMPONENTS-001` + C4 L4 class diagram — layer cake IS the Dependency Rule made visible.
 - `@backend` authoring source — controllers translate to use-case input; gateways implement repository interfaces.
 - `@reviewer` grading architectural fit on review.
 

@@ -53,8 +53,8 @@ Orchestra uses a **three-scope model** so chain artifacts reference diagrams by 
 | Scope | Path | Files | Owner |
 |---|---|---|---|
 | System singleton | `docs/diagrams/` | `c4-context.puml`, `c4-container.puml`, `erd-logical.puml`, `sequence-inter-<flow>.puml` | `@architect` |
-| Service singleton | `docs/<service_name>/diagrams/` | `c4-component.puml`, `c4-code.puml` (opt-in; ≥3 classes) | `@lead` |
-| Per-feature | `docs/<service_name>/<feature-id>/diagrams/` | `<feature-id>-{c4-context,c4-container,frs-usecase,state-business,sequence-intra-<usecase>,state-technical,erd-physical}.puml` | `@product` (frs-usecase, state-business) / `@lead` (others) |
+| Service singleton | `docs/<service_name>/diagrams/` | `c4-component.puml`, `c4-code.puml` (opt-in; ≥3 classes) | `@architect` |
+| Per-feature | `docs/<service_name>/<feature-id>/diagrams/` | `<feature-id>-{c4-context,c4-container,frs-usecase,state-business,sequence-intra-<usecase>,state-technical,erd-physical}.puml` | `@analyst` (frs-usecase, state-business) / `@architect` (others) |
 
 When a new feature changes a `Component()` / `Rel()` / class line in a service-level file, leave a `' #<feature-id>` PlantUML line comment above the changed line. Provenance lives in comments; rendered diagram stays uncluttered.
 
