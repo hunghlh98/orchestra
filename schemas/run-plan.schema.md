@@ -3,8 +3,8 @@ id: RUN-PLAN-SCHEMA
 title: orchestra run-plan.md frontmatter schema
 created: 2026-05-12
 status: draft
-revision: 2
-scope: shape of `<context_path>/.orchestra/<service_name>/run-plan.md`.
+revision: 3
+scope: shape of `<context_path>/.orchestra/plans/<session_id>/run-plan.md`.
 ---
 
 # orchestra run-plan.md schema
@@ -12,10 +12,12 @@ scope: shape of `<context_path>/.orchestra/<service_name>/run-plan.md`.
 ## Placement
 
 ```
-<context_path>/.orchestra/<service_name>/run-plan.md
+<context_path>/.orchestra/plans/<session_id>/run-plan.md
 ```
 
-One run-plan per service partition under `<context_path>/.orchestra/<service_name>/`.
+One run-plan per Claude Code session. `<session_id>` = Claude Code session-id, sourced from the `orchestra-preflight.js` hook's `<orchestra-preflight>` additional-context block (hook reads `input.session_id` from stdin). Plan scope is workspace-level — one plan covers all services + features in the session.
+
+Multi-`/orchestra`-per-session: same `<session_id>` reuses the dir; second invocation re-authors the plan with features appended. Hard escape to start a fresh run: `claude --fork-session`.
 
 ## Frontmatter
 
@@ -26,15 +28,14 @@ type: RUN-PLAN
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft | locked
-service_name: <string>
+session_id: <string>                       # = Claude Code session-id from preflight block
+direction: forward | reverse               # forward-chain (spec-to-code) or reverse-chain (code-to-spec)
 workspace_kind: single-repo | multi-repo
 context_path: <path>
 scope_level: system-wide | per-service
 primary_language: <string>
 framework: <string>
 auto_mode: true | false
-feature_framing: aggregate-cohesion | lifecycle-loop  # optional; defaults to aggregate-cohesion
-auto_promote_workspace_sad: true | false  # optional; defaults to false
 run_plan_status: drafted | approved | revision_requested
 revision_cycle: <integer ≥ 0>
 ---
@@ -43,36 +44,58 @@ revision_cycle: <integer ≥ 0>
 Invariants:
 - `run_plan_status: approved` ⇒ `status: locked`.
 - `auto_mode: true` ⇒ `run_plan_status: approved`.
-- `revision_cycle ≤ 3`; exceeding the cap escalates to `ESCALATE-<id>.md`.
-- `feature_framing` (optional): controls how `@lead`'s plan-mode walk groups entry points into `S-FEATURES-001` rows. Default `aggregate-cohesion` keeps the existing one-feature-per-aggregate-root collapse rule. Setting `lifecycle-loop` replaces it with the **Journey gate** from `commands/orchestra.md` `## Shared rules` — one feature per outcome category of the aggregate's terminal-state partition. Aggregate atomicity at the lock/transition layer stays unified across sibling lifecycle features via service-scope `<service_name>-BR-AC.md S-INVARIANTS-001`, NOT duplicated per feature.
-- `auto_promote_workspace_sad` (optional): set `true` by the dispatcher when the `code-to-spec` auto-promote rule fires (`multi-repo` + `per-service` + workspace `SAD.md` absent — see `commands/orchestra.md` "Auto-promote spawn brief"). `true` ⇒ `S-SCOPE-UPGRADE-001` anchor REQUIRED in body, declaring that SAD / C4 L1+L2 / `business-invariants.md` author at workspace scope (one System() box = the platform; every Service-Topology entry = a Container) even though `source_path` points at one service. The human reviewer reads this anchor before approving — it's the explicit handshake on scope upgrade.
+- `revision_cycle ≤ 3`; exceeding the cap escalates to `<context_path>/.orchestra/plans/<session_id>/run-plan-ESCALATE.md`.
+- `direction: reverse` ⇒ body's `## Agent assignments` MAY carry a top-level `discovery:` section listing `@explorer` reports; `direction: forward` ⇒ `discovery:` section absent.
+- `reverse_authoring_mode` field permitted on `## Agent assignments` rows only when `direction: reverse` AND target path is narrative (`.md`) or contract (`.yaml`). Diagrams (`.puml`) reject the field — reverse-pass always re-derives diagrams from source archaeology.
 
 ## Body grammar
 
-Required anchors:
+Required anchors (3):
 
-- `S-CONTEXT-001` — `## Context` — `| Field | Value |` table lifted from `system.yaml` + `local.yaml` (workspace_kind, context_path, service_name, scope_level, primary_language, framework).
-- `S-PHASES-001` — `## Phases` — `| Phase | Agents | Output anchors |`. Phase ∈ `discovery | spec-draft | verification | gate`.
-- `S-FEATURES-001` — `## Features` — `| Feature slug | Authoring agents | Artifacts | Source anchors | State-machine role |`. Column semantics:
-  - **Source anchors** — observable code anchors the feature derives from when reverse-authoring. Brownfield-mandatory; greenfield may use `—`. Anchors are described in prose (e.g., "order placement controller in the order service"), never as filesystem paths (`codebase-token-reject` gate enforces).
-  - **State-machine role** — `owner` (the feature owns a user-facing lifecycle authored as business-state PUML), `participant` (the feature contributes transitions but does not own them), or `—` (no lifecycle).
-- `S-GATES-001` — `## Gates` — `| Gate | Auto-passed under auto_mode | Preserved under auto_mode |`. **Preserved** lists structural-failure halts (allowed-set, diagram allowlist), reviewer `REQUEST_CHANGES`, schema-validation failures, `ESCALATE` / `DEADLOCK` emission.
-- `S-APPROVAL-001` — `## Approval` — `plan_status:` line carries the current `run_plan_status` value; on `revision_requested`, follow with `revision_notes:` listing user-requested changes.
+- `S-FEATURES-001` — `## Features` — DAG of features authored under this plan. Per-feature entry:
+  - `<feature-id>` — `<short-service-name>-<NNN>-<slug>` per `schemas/pipeline-artifact.schema.md` `#S-FEATURE-ID-FMT-001`.
+  - `classifier` — `business` | `tech`. Output of intent classification; informs which artifact slots populate.
+  - `depends_on` — list of feature-ids that must reach `verdict: PASS` before this feature spawns.
+  - `supersedes` — list of feature-ids being replaced (predecessor `status:` user-controlled).
+  - `artifact_slots` — for `business` features: per-feature `PRD`, `FRS`, `TDD` plus per-service single-writer touches (`<service>-openapi.yaml` / `asyncapi.yaml` / `clientapi.yaml`, `diagrams/c4-component.puml`, `diagrams/erd-logical.puml`, `diagrams/state-machine.puml`, `diagrams/usecase.puml` — only the singletons the feature mutates). Per-feature diagram surface = `sd-<journey>.puml` only. For `tech` features: implementation target only.
 
-Optional anchors:
+- `S-AGENT-ASSIGNMENTS-001` — `## Agent assignments` — YAML block mapping output paths to authoring subagents. Top-level keys:
+  - `discovery:` (REQUIRED on `direction: reverse`; OMITTED on `direction: forward`) — list of per-service `@explorer` reports. Row keys: `service`, `report_path`, `author`.
+  - `workspace:` (OMITTED on `scope_level: per-service`) — workspace-scope singletons. Row keys: `path`, `author`, `reverse_authoring_mode` (narrative/contract only, reverse only).
+  - `services:` — per-service singletons created on first service occurrence. Row keys: `service`, `artifacts: [{path, author, reverse_authoring_mode?}]`.
+  - `features:` — per-feature artifact mapping. Row keys: `feature`, `direction`, `classifier`, `depends_on`, `supersedes`, `spec_artifacts: [...]`, `diagram_artifacts: [...]` (sd-only), `service_singletons_touched: [...]` (deltas to per-service singletons; each row: `path`, `author`, `write_mode`, `reverse_authoring_mode?`), `impl_artifacts: [...]` (forward only), `convergence_artifacts: [...]` (forward only), `manifest: [...]`.
 
-- `S-CHAIN-PLAN-001` — `## Chain plan (narrative)` — prose execution sequence the user reads alongside `S-PHASES-001`. `@lead` authors when scope spans ≥3 features OR when the user signalled they want a narrative walkthrough in their intent.
-- `S-SCOPE-UPGRADE-001` — `## Scope upgrade` — REQUIRED when frontmatter `auto_promote_workspace_sad: true`; omitted otherwise. Body shape:
-  ```
-  | Field | Value |
-  | requested scope | per-service: <service_name> |
-  | upgraded scope  | workspace (multi-repo, system-wide) |
-  | trigger         | workspace SAD absent at <context_path>/docs/SAD.md |
-  | workspace pass artifacts | SAD.md, c4-context.puml, c4-container.puml, erd-logical.puml (when persistence exists), sequence-inter-<flow>.puml per cross-service journey, business-invariants.md, per-service BR-AC for every Service-Topology service, accepted ADRs |
-  | narrowing pass artifacts | per-feature {PRD, FRS, TDD, openapi.yaml} for <service_name> only |
-  ```
-  This anchor is the explicit handshake: workspace pass authors at platform scope (one System() box = the platform; siblings as Containers, not System_Ext), narrowing pass authors per-feature artifacts for the requested service only. `@lead` populates this anchor in the first run-plan draft when the dispatcher signals auto-promote.
+- `S-RISKS-001` — `## Risks + decisions` — up-front surfacing of: ADR-worthy decisions to author during the run; constraints from preflight (autonomy level, spawn mode, language stack); maximum revision cycles per gate (default 3); auto-mode behavior on plan approval; known unknowns to research mid-execution.
+
+## `write_mode` enum
+
+`service_singletons_touched` rows carry `write_mode:` declaring how the feature contributes to the singleton:
+
+| value | meaning | typical author |
+|---|---|---|
+| `append-endpoints` | New HTTP/event endpoints added to `<service>-openapi.yaml` / `asyncapi.yaml` / `clientapi.yaml` | `@architect` |
+| `append-components` | New components / dependencies added to `<service>/diagrams/c4-component.puml` | `@architect` |
+| `append-entities` | New entities / relationships added to `<service>/diagrams/erd-logical.puml` (persistence-touching features) | `@architect` |
+| `append-states` | New states / transitions added to `<service>/diagrams/state-machine.puml` (lifecycle-touching features) | `@architect` |
+| `append-usecases` | New end-user use cases added to `<service>/diagrams/usecase.puml` (end-user-visible features) | `@analyst` |
+
+Features that do NOT mutate a given singleton OMIT the row entirely. The `@architect` / `@analyst` performing the append reads the current singleton, computes the delta, merges, writes the whole file.
+
+## Single-writer surfaces
+
+Six per-service artifacts are single-writer — at most one `@architect` or `@analyst` may hold a write on the file at any moment:
+
+- `<context_path>/docs/<service>/<service>-openapi.yaml` (alt: `asyncapi.yaml` / `clientapi.yaml`)
+- `<context_path>/docs/<service>/diagrams/c4-component.puml`
+- `<context_path>/docs/<service>/diagrams/erd-logical.puml`
+- `<context_path>/docs/<service>/diagrams/state-machine.puml`
+- `<context_path>/docs/<service>/diagrams/usecase.puml`
+- `<context_path>/docs/<service>/<service>-BR-AC.md`
+
+Plus workspace singletons (`docs/SAD.md`, `docs/business-invariants.md`, `docs/diagrams/c4-context.puml`, `docs/diagrams/c4-container.puml`, `docs/diagrams/erd-logical.puml`).
+
+Concurrent features whose `service_singletons_touched` paths intersect MUST serialize at the authoring agent's spawn level. The main agent enforces by NOT batching parallel `Agent` spawns when intersection exists. The schema declares the constraint; execution-time enforcement lives in `commands/orchestra.md` (Phase 3 swarm batch rule).
 
 ## Validation
 
-`scripts/validate.js` registers `RUN-PLAN` in `REQUIRED_ANCHORS` and `SOFT_CAPS` (cap 250); structural-diff enforces anchor presence. The frontmatter invariants above are enforced by `validateLocalYamlContent` mirroring runs (since the same `auto_mode` / `run_plan_status` fields live in `local.yaml`).
+`scripts/lib/validate-artifacts.js` registers `RUN-PLAN` in `REQUIRED_ANCHORS` (3 anchors above) and `SOFT_CAPS` (cap 250). Structural-diff enforces anchor presence. Frontmatter invariants enforced by `validateLocalYamlContent` mirroring runs (since `auto_mode` / `run_plan_status` fields also live in `local.yaml`).

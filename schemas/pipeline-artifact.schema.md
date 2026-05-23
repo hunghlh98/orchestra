@@ -3,7 +3,7 @@ id: PIPELINE-SCHEMA
 title: orchestra Pipeline Artifact Frontmatter Schemas
 created: 2026-05-08
 status: draft
-revision: 8
+revision: 9
 scope: type-specific frontmatter shapes for every artifact authored by the orchestra agents.
 ---
 
@@ -23,7 +23,8 @@ Two project-side roots: `<project>/docs/` (durable stakeholder deliverables; PR-
 | Tier | Root | Contents |
 |---|---|---|
 | system | `<context_path>/docs/` | `README.md` (provenance marker), `SAD.md`, `business-invariants.md`, `adr/ADR-NNNN-<slug>.md`, `diagrams/*.puml` |
-| feature | `<context_path>/docs/<service_name>/` | `<service_name>-BR-AC.md`, `<feature-id>/<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-openapi.yaml`, `<feature-id>-asyncapi.yaml`, `<feature-id>-TSR.md` |
+| service | `<context_path>/docs/<service_name>/` | `<service_name>-BR-AC.md`, `<service_name>-openapi.yaml` (alt: `<service_name>-asyncapi.yaml` / `<service_name>-clientapi.yaml`), `diagrams/{c4-component,erd-logical,state-machine,usecase}.puml` |
+| feature | `<context_path>/docs/<service_name>/<feature-id>/` | `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-TSR.md`, `diagrams/<feature-id>-sd-<journey>.puml` |
 
 Every artifact path embeds the elected `service_name`. Single-repo workspaces still nest under `<context_path>/docs/<service_name>/`. `diagrams/` always nests under the matching tier's `docs/` root — bare `<context_path>/diagrams/` is forbidden.
 
@@ -64,27 +65,26 @@ The reverse pass authors `<context_path>/docs/README.md` on first run with front
 ├── business-invariants.md               ← workspace-grain BR/AC (cross-service)
 ├── adr/
 │   └── ADR-NNNN-<slug>.md               ← global flat numbering; ADRs accrete
-├── diagrams/                            ← system-level (each *.puml has paired *.svg)
-│   ├── c4-context.{puml,svg}
-│   ├── c4-container.{puml,svg}
-│   ├── erd-logical.{puml,svg}
-│   └── sequence-inter-<flow>.{puml,svg}
+├── diagrams/                            ← workspace-level (each *.puml has paired *.svg)
+│   ├── c4-context.{puml,svg}                          ← L1
+│   ├── c4-container.{puml,svg}                        ← L2
+│   ├── erd-logical.{puml,svg}                         ← workspace-grain ERD
+│   └── sd-<full-cross-service-journey>.{puml,svg}     ← one per cross-service journey
 └── <service_name>/                      ← per-service partition
-    ├── <service_name>-BR-AC.md          ← per-service BR + AC singleton
-    ├── diagrams/                        ← service-level (per-service code-to-spec)
-    │   └── erd-logical.{puml,svg}       ← walked-service schemas only
+    ├── <service_name>-BR-AC.md          ← per-service BR + AC singleton (single-writer)
+    ├── <service_name>-openapi.yaml      ← per-service HTTP contract (alt: -asyncapi.yaml | -clientapi.yaml); single-writer
+    ├── diagrams/                        ← per-service singletons (single-writer each)
+    │   ├── c4-component.{puml,svg}                    ← L3 component diagram
+    │   ├── erd-logical.{puml,svg}                     ← service-scope ERD
+    │   ├── state-machine.{puml,svg}                   ← lifecycle states across all features of the service
+    │   └── usecase.{puml,svg}                         ← end-user use cases across all features of the service
     └── <feature-id>/                    ← per-feature
         ├── <feature-id>-PRD.md
         ├── <feature-id>-FRS.md
         ├── <feature-id>-TDD.md
-        ├── <feature-id>-openapi.yaml    (or <feature-id>-asyncapi.yaml)
         ├── <feature-id>-TSR.md          (multi-writer)
-        └── diagrams/                    ← per-feature
-            ├── state-business.{puml,svg}
-            ├── sequence-intra-<usecase>.{puml,svg}
-            ├── c4-component.{puml,svg}
-            ├── state-technical.{puml,svg}    (if applicable)
-            └── erd-physical.{puml,svg}       (if schema touched)
+        └── diagrams/                    ← per-feature (sd-only; c4-component / erd-logical / state-machine / usecase live at service-scope above)
+            └── <feature-id>-sd-<journey>.{puml,svg}   ← one per Journey-gate outcome category
 ```
 
 ### `<project>/.orchestra/` (agent + plugin internals)
@@ -95,23 +95,21 @@ Workspace-global state at the `.orchestra/` root; per-service execution state pa
 <project>/.orchestra/
 ├── system.yaml                         ← workspace config (workspace_kind, context_path)
 ├── manifest.json                       ← idempotency registry
-├── events.jsonl                        ← event log
-├── metrics/                            ← per-role / per-phase token attribution
-│   ├── <run-id>.json
-│   ├── cost-by-phase.json
-│   └── runs/<run-id>.json              ← keyed by run_id
-└── <service_name>/                     ← per-service execution state
+├── plans/                              ← per-session workspace plans
+│   └── <session_id>/                   ← = Claude Code session-id from preflight
+│       ├── run-plan.md                                   ← unified PlanMode artifact (workspace-level)
+│       ├── discovery/                                    ← brownfield only
+│       │   └── <service>.md                              ← @explorer report per service (EXPLORER-REPORT type)
+│       ├── events.jsonl                                  ← metrics for this session
+│       └── tasks/<agent>/<feature-id>.md                 ← per-agent execution plan (PLAN type)
+└── <service_name>/                     ← per-service workspace-persistent state
     ├── local.yaml                                  ← service config
-    ├── run-plan.md                                 ← per-service feature list + execution sequence
-    ├── pipeline/                                   ← coordination root
-    │   ├── <run-id>-INCOMPLETE.md                  ← run-scoped parity probe (terminal state)
-    │   └── <feature-id>/
-    │       ├── intent.yaml                         ← routing decision (input to @lead)
-    │       ├── <feature-id>-TASKS.md               ← lead → implementer task breakdown
-    │       ├── <feature-id>-DEADLOCK-<slug>.md     ← transient
-    │       ├── <feature-id>-ESCALATE-<slug>.md     ← transient
-    │       └── <feature-id>-ESCALATE-ADR-<NNNN>.md ← ADR-trigger marker
-    └── tasks/<run-id>/<agent>/<feature-id>.md      ← per-agent execution plan (PLAN type)
+    ├── features.yaml                               ← intra-service feature DAG manifest (append-only)
+    └── pipeline/                                   ← coordination root
+        └── <feature-id>/
+            ├── <feature-id>-DEADLOCK-<slug>.md     ← transient
+            ├── <feature-id>-ESCALATE-<slug>.md     ← transient
+            └── <feature-id>-ESCALATE-ADR-<NNNN>.md ← ADR-trigger marker
 ```
 
 Type → folder map:
@@ -119,16 +117,21 @@ Type → folder map:
 | Type | Folder | Example | Notes |
 |---|---|---|---|
 | `PRD`, `FRS`, `TDD`, `TSR` | `docs/<service_name>/<feature-id>/` | `order-001-placement-PRD.md` | per-feature; filename = `<feature-id>-<TYPE>.md` |
-| `API` (openapi/asyncapi) | `docs/<service_name>/<feature-id>/` | `order-001-placement-openapi.yaml` | per-feature; filename = `<feature-id>-openapi.yaml` or `<feature-id>-asyncapi.yaml` |
-| `BR-AC` | `docs/<service_name>/` | `order-BR-AC.md` | per-service BR + AC singleton |
+| `API` (openapi/asyncapi/clientapi) | `docs/<service_name>/` | `order-openapi.yaml` | per-service singleton; single-writer; filename = `<service_name>-openapi.yaml` (or `-asyncapi.yaml` / `-clientapi.yaml`) |
+| `C4-COMPONENT` | `docs/<service_name>/diagrams/` | `c4-component.puml` | per-service singleton (L3); single-writer |
+| `ERD-LOGICAL` (service) | `docs/<service_name>/diagrams/` | `erd-logical.puml` | per-service singleton; single-writer |
+| `STATE-MACHINE` | `docs/<service_name>/diagrams/` | `state-machine.puml` | per-service singleton; merges business + technical state across all lifecycle features of the service; single-writer |
+| `USECASE` | `docs/<service_name>/diagrams/` | `usecase.puml` | per-service singleton; end-user use cases across all features of the service; single-writer; authored by `@analyst` |
+| `BR-AC` | `docs/<service_name>/` | `order-BR-AC.md` | per-service BR + AC singleton; single-writer |
 | `BUSINESS-INVARIANTS` | `docs/` | `business-invariants.md` | workspace-grain singleton; cross-service business rules |
-| `SAD` | `docs/` | `SAD.md` | system-level singleton |
+| `SAD` | `docs/` | `SAD.md` | workspace singleton |
 | `ADR` (global) | `docs/adr/` | `ADR-0001-use-sqlite.md` | affects ≥2 services; project-wide flat 4-digit numbering |
 | `ADR` (service) | `docs/<service_name>/adr/` | `ADR-order-001-use-outbox.md` | affects exactly one service; per-service 3-digit numbering |
 | `README` | `docs/` | `README.md` | provenance marker (`generated_by: orchestra`) |
-| `RUN-PLAN` | `.orchestra/<service_name>/` | `run-plan.md` | per-service singleton |
+| `RUN-PLAN` | `.orchestra/plans/<session_id>/` | `run-plan.md` | one per Claude Code session; workspace-level unified plan |
+| `EXPLORER-REPORT` | `.orchestra/plans/<session_id>/discovery/` | `order.md` | per-service discovery summary; brownfield only; filename = `<service>.md` |
 | `TASKS` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `order-001-placement-TASKS.md` | agent-internal |
-| `PLAN` | `.orchestra/<service_name>/tasks/<run-id>/<agent>/` | `order-001-placement.md` | per-agent execution plan |
+| `PLAN` | `.orchestra/plans/<session_id>/tasks/<agent>/` | `order-001-placement.md` | per-agent execution plan |
 | `ESCALATE`, `DEADLOCK`, `ESCALATE-ADR` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `order-001-placement-ESCALATE-spec-gap.md` | transient |
 | `INCOMPLETE` | `.orchestra/<service_name>/pipeline/` | `r2026-05-13T14-22-INCOMPLETE.md` | run-scoped |
 
@@ -137,7 +140,7 @@ Type → folder map:
 ```yaml
 ---
 id: <basename-without-extension>
-type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|README|TASKS|PLAN|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN>
+type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|PLAN|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT>
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                       # draft | locked
@@ -187,6 +190,8 @@ Set by code-to-spec authors. Three values reflect the per-artifact inspect+class
 
 `spec-to-code`-authored artifacts omit this field (forward chain has no prior existence to classify against).
 
+**Diagram exclusion.** Diagrams (`.puml`) OMIT the field even on reverse-pass. Reverse-pass always re-derives diagrams from source archaeology; the three-mode distinction (`cite-as-is` / `copy-and-modify` / `re-author`) does not apply to visual artifacts. Field permitted only on narrative artifacts (`.md`: SAD, business-invariants, BR-AC, PRD, FRS, TDD) and contract artifacts (`.yaml`: openapi, asyncapi, clientapi).
+
 ### `readers:` <a id="S-READERS-001"></a>
 
 List of agents authorized to read this artifact. **Soft enforcement** — prompt-level discipline only. The `pre-write-check.js` `readers-scope-warning` gate reads the target artifact's frontmatter at write time; a write whose calling agent isn't in `readers:` is logged as a non-blocking warning.
@@ -218,7 +223,7 @@ Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segm
 
 **Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in the body, and every `<a id>` in the body MUST have a matching key in `sections:`. `validate.js` flags either direction as a violation.
 
-**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md` (provenance marker), and per-agent `PLAN` files.
+**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md` (provenance marker), per-agent `PLAN` files, and `EXPLORER-REPORT` files under `.orchestra/plans/<session_id>/discovery/`.
 
 ### `## Changelog` (mandatory) <a id="changelog-block"></a>
 
@@ -252,7 +257,7 @@ Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section
 | fix-source closure | dispatcher | `fix-source` |
 | Full regenerate (rare; user-driven) | dispatcher | `regenerated` |
 
-**Carve-outs.** Same exemption set as the `sections:` block-grammar above: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md`, per-agent `PLAN` files. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
+**Carve-outs.** Same exemption set as the `sections:` block-grammar above: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md`, per-agent `PLAN` files, and `EXPLORER-REPORT` files. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
 
 ## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
 
@@ -266,9 +271,9 @@ Diagrams are sub-artifacts referenced via the parent's `diagrams:` frontmatter a
 
 | Parent | Diagram-id vocabulary |
 |---|---|
-| `SAD` | `c4-context`, `c4-container`, `erd-logical`, `sequence-inter-<flow>` (authored under `scope_level: system-wide` only) |
-| `BR-AC` | `erd-logical` (authored under `scope_level: per-service` only — walked-service schemas only) |
-| `TDD` | `c4-component`, `sequence-intra-<usecase>`, `state-business`, `state-technical`, `erd-physical` |
+| `SAD` | `c4-context`, `c4-container`, `erd-logical`, `sd-<full-cross-service-journey>` (authored under `scope_level: system-wide` only) |
+| `BR-AC` | `c4-component`, `erd-logical`, `state-machine`, `usecase` — per-service singletons; each binds back as its own typed artifact (`C4-COMPONENT` / `ERD-LOGICAL` / `STATE-MACHINE` / `USECASE`); single-writer |
+| `TDD` | `sd-<journey>` — per-feature only; structural / behavioral / requirements diagrams live at service-scope under BR-AC's singleton set |
 | `ADR` | `adr-status` (mandatory), `option-<A,B,C>` (optional sketches) |
 
 ## Type-specific frontmatter
@@ -288,7 +293,7 @@ PRD body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specif
 ```yaml
 prd: <feature-id>-PRD
 acceptance_criteria_count: <int>     # MUST equal S-AC-001 row count
-usecase_count: <int>                 # MUST equal state-business diagram actor-count
+usecase_count: <int>                 # MUST equal the use-case-rows this feature contributes to docs/<service_name>/diagrams/usecase.puml
 ```
 
 FRS body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specific identifiers (`codebase-token-reject` gate enforces).
@@ -297,30 +302,31 @@ FRS body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specif
 
 ```yaml
 sad_touched: true | false
-sequence_diagram_count: <int>
-state_machine_count: <int>
-schema_touched: true | false
+sequence_diagram_count: <int>            # MUST equal per-feature sd-<journey>.puml count
+service_singletons_touched:              # paths the feature appends to (see schemas/run-plan.schema.md write_mode enum)
+  - <service_name>-openapi.yaml          # if API endpoints added
+  - c4-component                         # if new components / dependencies introduced
+  - erd-logical                          # if persistence schema touched
+  - state-machine                        # if lifecycle states added
+  - usecase                              # if end-user use cases added (authored by @analyst)
 diagrams:
-  - c4-component
-  - sequence-intra-checkout
-  - state-business
-  - state-technical                  # when applicable
-  - erd-physical                     # when schema touched
+  - sd-<journey>                         # one per Journey-gate outcome category; only per-feature diagram surface
 ```
 
-### `<feature-id>-openapi.yaml` / `<feature-id>-asyncapi.yaml`
+Structural / behavioral / requirements diagrams (`c4-component`, `erd-logical`, `state-machine`, `usecase`) are per-service singletons, not per-feature. The TDD's `service_singletons_touched` enumerates which singletons the feature mutates; the actual diagram artifacts live at `<context_path>/docs/<service_name>/diagrams/*.puml`.
 
-OpenAPI/AsyncAPI document is the artifact body. Frontmatter contract lives in a top-of-file YAML comment block:
+### `<service_name>-openapi.yaml` / `<service_name>-asyncapi.yaml` / `<service_name>-clientapi.yaml`
+
+Per-service single-writer contract. OpenAPI/AsyncAPI/ClientAPI document is the artifact body; frontmatter contract lives in a top-of-file YAML comment block. Concurrent features touching the same service serialize at `@architect` spawn level; each feature's contribution is appended via `write_mode: append-endpoints` per `schemas/run-plan.schema.md`.
 
 ```yaml
 # orchestra:
-#   id: todo-001-api-openapi
+#   id: order-openapi
 #   type: API
 #   status: draft
 #   verdict: PENDING
 #   readers:
 #     - "@architect"
-#     - "@lead"
 #     - "@backend"
 #     - "@frontend"
 #     - "@test-author"
@@ -329,11 +335,11 @@ OpenAPI/AsyncAPI document is the artifact body. Frontmatter contract lives in a 
 #     - "@reviewer"
 #   sections:
 #     S-API-001:
-#       writer: "@lead"
+#       writer: "@architect"
 #       status: in_progress
 openapi: 3.0.3
 info:
-  title: Todo API
+  title: Order Service API
   description: One-line imperative summary.
   version: 1.0.0
 paths:
@@ -504,6 +510,34 @@ Body grammar (free-form, no `<a id>` anchors required):
 ```
 
 The agent body owns the `## Approach` section. The hook owns the `## Tasks` checklist sync.
+
+### `<service>.md` EXPLORER-REPORT (`.orchestra/plans/<session_id>/discovery/`)
+
+Per-service brownfield discovery summary. Authored by `@explorer` during Phase 1 — Discovery, one report per service in plan scope. Read by the main agent in Phase 2 — Plan to enumerate features in `## Features` and assign agents in `## Agent assignments`.
+
+```yaml
+id: <service>
+type: EXPLORER-REPORT
+service: <string>                       # the service this report covers
+session_id: <string>                    # = Claude Code session-id from preflight
+agent_role: "@explorer"
+subagent_session_id: <string>           # the spawn session-id; joins to events.jsonl
+created: <ISO-8601>
+status: locked                          # explorer reports are write-once
+```
+
+Required body anchors:
+
+- `S-FEATURES-DISCOVERED-001` — `## Features discovered` — `| Feature slug | Source anchors | Complexity | Persistence touched | Integrations touched |`. Per-row:
+  - `Feature slug` — proposed `<short-service-name>-<NNN>-<slug>` (main agent may rename in plan).
+  - `Source anchors` — prose anchors describing observable code surfaces (e.g., "order placement REST controller"). Anchors are described in prose, never as filesystem paths (`codebase-token-reject` gate enforces).
+  - `Complexity` — `low` | `medium` | `high` per `@explorer`'s rubric (defined in `agents/explorer.md`).
+  - `Persistence touched` — `true` | `false`. Drives `service_singletons_touched` planning for `erd-logical.puml`.
+  - `Integrations touched` — `true` | `false`. Drives ADR-candidate surfacing.
+
+- `S-ADR-CANDIDATES-001` — `## ADR candidates` — `| Decision | Found at | Rationale |`. Surfaced architectural decisions found in source archaeology that warrant ADR authoring in the forward chain. Empty table allowed (no candidates surfaced) — anchor still REQUIRED.
+
+Body-grammar exempt from `<a id>` ↔ `sections:` invariant (carve-out above) — anchors are conventional but `sections:` block is omitted because the report is write-once at the file level.
 
 ### `<feature-id>-ESCALATE-<slug>.md`, `<feature-id>-ESCALATE-ADR-<NNNN>.md`, `<feature-id>-DEADLOCK-<slug>.md`
 

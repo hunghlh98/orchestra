@@ -56,6 +56,9 @@ check(typeFromFilename("path/RELEASE-v0.1.0.md") === "RELEASE", `RELEASE-v0.1.0.
 check(typeFromFilename("path/RUNBOOK-v0.1.0.md") === "RUNBOOK", `RUNBOOK-v0.1.0.md → RUNBOOK`);
 check(typeFromFilename("path/001-NOPE.md") === null, `unknown type → null`);
 check(typeFromFilename("path/random.txt") === null, `unrelated file → null`);
+check(typeFromFilename("project/.orchestra/plans/s-abc/run-plan.md") === "RUN-PLAN", `plans/<session>/run-plan.md → RUN-PLAN`);
+check(typeFromFilename("project/.orchestra/plans/s-abc/discovery/order.md") === "EXPLORER-REPORT", `plans/<session>/discovery/<service>.md → EXPLORER-REPORT`);
+check(typeFromFilename("project\\.orchestra\\plans\\s-abc\\discovery\\order.md") === "EXPLORER-REPORT", `Windows-separator path also matches EXPLORER-REPORT`);
 
 // ---------- M11: missing-anchor (structural-diff) ----------
 console.log("M11 missing-anchor:");
@@ -135,19 +138,42 @@ console.log("M19 RELEASE-fold:");
   check(validateFoldCorrectness("RELEASE-v0.1.0.md", relBody, "RELEASE").length === 0, `inverse: RELEASE with announcement passes`);
 }
 
-// ---------- RUN-PLAN structural-diff (v4.1 #16, task 0.8) ----------
+// ---------- RUN-PLAN structural-diff (v5.3 unified plan body) ----------
 console.log("RUN-PLAN structural-diff:");
 {
-  // Clean RUN-PLAN body with all 5 required anchors passes.
+  // Clean RUN-PLAN body with all 3 required anchors passes.
   const body = bodyWith(REQUIRED_ANCHORS["RUN-PLAN"]);
   const errs = validateStructuralDiff("run-plan.md", body, "RUN-PLAN");
   check(errs.length === 0, `inverse: clean RUN-PLAN passes (errs=${JSON.stringify(errs)})`);
 
-  // Missing one anchor (S-APPROVAL-001) fails red.
-  const partial = bodyWith(["S-CONTEXT-001", "S-PHASES-001", "S-FEATURES-001", "S-GATES-001"]);
+  // Missing S-RISKS-001 fails red.
+  const partial = bodyWith(["S-FEATURES-001", "S-AGENT-ASSIGNMENTS-001"]);
   const errsMissing = validateStructuralDiff("run-plan.md", partial, "RUN-PLAN");
-  check(errsMissing.length === 1, `M-runplan: exactly 1 err on missing approval anchor`);
-  check(/missing-anchors=\[S-APPROVAL-001\]/.test(errsMissing[0] || ""), `M-runplan: names missing S-APPROVAL-001`);
+  check(errsMissing.length === 1, `M-runplan: exactly 1 err on missing risks anchor`);
+  check(/missing-anchors=\[S-RISKS-001\]/.test(errsMissing[0] || ""), `M-runplan: names missing S-RISKS-001`);
+}
+
+// ---------- EXPLORER-REPORT structural-diff (v5.3 brownfield discovery) ----------
+console.log("EXPLORER-REPORT structural-diff:");
+{
+  // Clean EXPLORER-REPORT body with both required anchors passes.
+  const body = bodyWith(REQUIRED_ANCHORS["EXPLORER-REPORT"]);
+  const errs = validateStructuralDiff(
+    "project/.orchestra/plans/s-abc/discovery/order.md",
+    body,
+    "EXPLORER-REPORT",
+  );
+  check(errs.length === 0, `inverse: clean EXPLORER-REPORT passes (errs=${JSON.stringify(errs)})`);
+
+  // Missing S-ADR-CANDIDATES-001 fails red.
+  const partial = bodyWith(["S-FEATURES-DISCOVERED-001"]);
+  const errsMissing = validateStructuralDiff(
+    "project/.orchestra/plans/s-abc/discovery/order.md",
+    partial,
+    "EXPLORER-REPORT",
+  );
+  check(errsMissing.length === 1, `M-explorer: exactly 1 err on missing adr-candidates anchor`);
+  check(/missing-anchors=\[S-ADR-CANDIDATES-001\]/.test(errsMissing[0] || ""), `M-explorer: names missing S-ADR-CANDIDATES-001`);
 }
 
 // ---------- TSR S-EVAL-001 row-id coverage (anti-duplication invariant) ----------

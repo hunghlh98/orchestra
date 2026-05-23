@@ -22,9 +22,10 @@ export const REQUIRED_ANCHORS = {
   RUNBOOK: ["S-OVERVIEW-001", "S-LIFECYCLE-001", "S-DEPLOY-001", "S-ROLLBACK-001", "S-HEALTH-001", "S-FAILURE-001", "S-LOGS-001", "S-ENVVARS-001"],
   ADR: ["S-STATUS-001", "S-CONTEXT-001", "S-DECISION-001", "S-CONSEQUENCES-001", "S-ALTERNATIVES-001"],
   INVENTORY: ["S-SCAN-001", "S-CLASSIFICATION-001", "S-DECISIONS-001", "S-REGEN-PLAN-001", "S-WARNINGS-001"],
-  "RUN-PLAN": ["S-CONTEXT-001", "S-PHASES-001", "S-FEATURES-001", "S-GATES-001", "S-APPROVAL-001"],
+  "RUN-PLAN": ["S-FEATURES-001", "S-AGENT-ASSIGNMENTS-001", "S-RISKS-001"],
   "BR-AC": ["S-BR-001", "S-AC-001", "S-INVARIANTS-001"],
   "BUSINESS-INVARIANTS": ["S-INVARIANTS-001"],
+  "EXPLORER-REPORT": ["S-FEATURES-DISCOVERED-001", "S-ADR-CANDIDATES-001"],
 };
 
 export const SOFT_CAPS = {
@@ -34,6 +35,7 @@ export const SOFT_CAPS = {
   "RUN-PLAN": 250,
   "BR-AC": 200,
   "BUSINESS-INVARIANTS": 150,
+  "EXPLORER-REPORT": 150,
 };
 
 // Filename patterns v2 .orchestra/ MUST NOT contain.
@@ -63,6 +65,9 @@ function extractAnchors(body) {
 }
 
 export function typeFromFilename(filePath) {
+  const normalized = filePath.replace(/\\/g, "/");
+  if (/\.orchestra\/plans\/[^/]+\/discovery\/[^/]+\.md$/.test(normalized)) return "EXPLORER-REPORT";
+  if (/\.orchestra\/plans\/[^/]+\/run-plan\.md$/.test(normalized)) return "RUN-PLAN";
   const base = basename(filePath);
   if (base === "SAD.md") return "SAD";
   if (base === "business-invariants.md") return "BUSINESS-INVARIANTS";
