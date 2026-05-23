@@ -15,7 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const agentsDir = resolve(root, "agents");
 
 const VALID_NAMES = new Set([
-  "product", "analyst", "architect", "lead", "backend", "frontend",
+  "product", "analyst", "architect", "explorer", "backend", "frontend",
   "test-author", "test-runner", "evaluator", "reviewer",
 ]);
 
@@ -30,8 +30,9 @@ const VALID_NAMES = new Set([
 // @test-runner gets Bash for project test-harness invocation.
 export const FORBIDDEN_TOOLS_PER_AGENT = {
   product:     ["Bash", "Edit", "MultiEdit"],
+  analyst:     ["Bash", "Edit", "MultiEdit"],
   architect:   ["Bash", "Edit", "MultiEdit"],
-  lead:        ["Bash", "Edit", "MultiEdit"],
+  explorer:    ["Edit", "MultiEdit"],
   evaluator:   ["Bash", "Edit", "MultiEdit"],
   reviewer:    ["Edit", "MultiEdit"],
   backend:     ["Bash"],
@@ -268,12 +269,12 @@ console.log("Mutation tests (validator must fail red on bad input):");
 {
   const bad = {
     fm: {
-      name: "lead", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
+      name: "explorer", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
       model: "claude-fictional-9000", context_mode: "1m", color: "blue",
     },
     body: "<example>x</example>",
   };
-  const errs = validateAgent("lead", bad);
+  const errs = validateAgent("explorer", bad);
   check(errs.some(e => /not in manifests\/known-models/.test(e)),
     `mutation: unknown model id flagged`);
 }
@@ -282,14 +283,14 @@ console.log("Mutation tests (validator must fail red on bad input):");
 {
   const bad = {
     fm: {
-      name: "lead", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
+      name: "explorer", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
       model: "sonnet", // sonnet only supports "default"
       context_mode: "1m",
       color: "blue",
     },
     body: "<example>x</example>",
   };
-  const errs = validateAgent("lead", bad);
+  const errs = validateAgent("explorer", bad);
   check(errs.some(e => /supportsContextMode/.test(e)),
     `mutation: context_mode mismatch flagged`);
 }

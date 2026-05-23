@@ -142,9 +142,9 @@
       "stability": "stable"
     },
     {
-      "name": "agent.lead",
+      "name": "agent.explorer",
       "kind": "agent",
-      "path": "agents/lead.md",
+      "path": "agents/explorer.md",
       "defaultEnabled": true,
       "stability": "stable"
     },
@@ -163,9 +163,16 @@
       "stability": "stable"
     },
     {
-      "name": "agent.test",
+      "name": "agent.test-author",
       "kind": "agent",
-      "path": "agents/test.md",
+      "path": "agents/test-author.md",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
+      "name": "agent.test-runner",
+      "kind": "agent",
+      "path": "agents/test-runner.md",
       "defaultEnabled": true,
       "stability": "stable"
     },

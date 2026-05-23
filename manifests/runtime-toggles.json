@@ -59,7 +59,7 @@
       "module": "skill.task-breakdown",
       "envVar": "ORCHESTRA_SKILL_TASK_BREAKDOWN",
       "default": "on",
-      "description": "Decomposition + SP estimation for @lead's task graph generation."
+      "description": "Decomposition + SP estimation for the main agent's Phase 2 — Plan body authoring (task graph + per-spawn assignments)."
     },
     {
       "module": "skill.code-review",
@@ -77,19 +77,19 @@
       "module": "skill.write-contract",
       "envVar": "ORCHESTRA_SKILL_WRITE_CONTRACT",
       "default": "on",
-      "description": "openapi description: schema + Probe DSL authoring guide consumed by @lead."
+      "description": "openapi/asyncapi/clientapi description: schema + Probe DSL authoring guide consumed by @architect for per-service contract singletons + per-feature endpoint append-mode."
     },
     {
       "module": "skill.c4-architecture",
       "envVar": "ORCHESTRA_SKILL_C4_ARCHITECTURE",
       "default": "on",
-      "description": "C4 L1+L2 + Logical ERD + Inter-service Sequence diagram authoring guide consumed by @architect."
+      "description": "C4 L1 (workspace context) + L2 (workspace container) + L3 (per-service component) + Logical ERD + per-service state-machine + cross-service/per-feature sequence diagram authoring guide consumed by @architect."
     },
     {
       "module": "skill.plantuml",
       "envVar": "ORCHESTRA_SKILL_PLANTUML",
       "default": "on",
-      "description": "PlantUML grammar + render-target authoring guide consumed by @architect, @lead."
+      "description": "PlantUML grammar + render-target authoring guide consumed by @architect (workspace + per-service diagrams + per-feature sd) and @analyst (per-service usecase.puml singleton)."
     },
     {
       "module": "skill.java-development",

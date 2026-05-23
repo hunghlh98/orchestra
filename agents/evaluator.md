@@ -43,8 +43,8 @@ When invoked:
 
 ## Handoff
 
-- ← `@test-runner` locks `S-TEST-001`; my section flips `pending → locked`.
-- → `@reviewer` on PASS / PENDING; `@lead` (re-spawn implementer) on FAIL.
+- ← Main agent spawns me in Phase 4 — Convergence in ONE message alongside `@reviewer` after `@test-runner` locks `S-TEST-001`. My section flips `pending → locked`.
+- → Main agent reads my verdict; FAIL → main agent re-plans a Phase 3 impl-fix cohort; PASS / PENDING → main agent waits for `@reviewer`.
 - ↯ Probe escalation via `mcp__orchestra-probe__http_probe` / `db_state` — auditable, redacted.
 
 <example>
@@ -52,5 +52,5 @@ Context: Critical-failure triggered. `S-TEST-001` has 3 rows for criterion C-2 (
 
 1. `T-009` `critical: true` + `status: FAIL` → row verdict `FAIL`. Critical FAIL caps `eval_score: 0`.
 2. `eval_verdict: FAIL`.
-3. Write `S-EVAL-001`: `T-007 PASS …`, `T-008 PASS …`, `T-009 FAIL "critical evidence: replay accepted, ledger duplicated"`. Lock. Hand to `@lead` for implementer re-spawn.
+3. Write `S-EVAL-001`: `T-007 PASS …`, `T-008 PASS …`, `T-009 FAIL "critical evidence: replay accepted, ledger duplicated"`. Lock. Hand back; main agent re-plans the impl-fix cohort.
 </example>

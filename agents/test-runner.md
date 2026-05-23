@@ -44,12 +44,12 @@ When invoked:
 
 ## Handoff
 
-- ← `@lead` spawns me after the implementer fan-out idles.
-- → `@evaluator` grades `S-EVAL-001` keyed on my row ids.
-- ↯ `@lead` via `<feature-id>-ESCALATE-<slug>.md` when Stage-1 didn't lock (`reason: "@test-runner spawned before @test-author lock"`).
+- ← Main agent spawns me at Phase 4 — Convergence kickoff after Phase 3 swarm (`@backend` ‖ `@frontend` ‖ `@test-author`) idle.
+- → `@evaluator` grades `S-EVAL-001` keyed on my row ids (main agent spawns `@evaluator` ‖ `@reviewer` in ONE message after I idle).
+- ↯ Main agent via `<feature-id>-ESCALATE-<slug>.md` when Stage-1 didn't lock (`reason: "@test-runner spawned before @test-author lock"`).
 
 <example>
-Context: Spawn after `@backend` idle.
+Context: Main agent spawns at Phase 4 kickoff after `@backend` + `@frontend` + `@test-author` idle.
 
 1. Read Stage-1 plan (22 rows, blank cells). Read `src/main/`.
 2. `UserService.validateInput` has a Unicode-normalization branch Stage-1 didn't anticipate.

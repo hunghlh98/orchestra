@@ -47,7 +47,7 @@ When invoked:
 
 ## Handoff
 
-- ← `@evaluator` locks `S-EVAL-001`; my section flips `pending → locked`.
+- ← Main agent spawns me in Phase 4 — Convergence in ONE message alongside `@evaluator` after `@test-runner` locks `S-TEST-001`. My section flips `pending → locked`.
 - → User commits the chain by hand on APPROVED (no automatic ship).
 - → `@architect` on ADR APPROVED (appends ADR-index) or REQUEST_CHANGES (bumps `review_round`).
 - ↯ Round-3 still REQUEST_CHANGES → write `<feature-id>-DEADLOCK-<slug>.md`.
@@ -62,7 +62,7 @@ When invoked:
 - **Diagram-allowlist violation** — `.puml` with forbidden prefix or wrong scope-folder per `skills/c4-architecture`.
 - **Scope-content mismatch on workspace SAD** — `multi-repo` AND `S-CONTAINERS-001` enumerates <2 Container rows (services in topology rendered as `System_Ext` count as mismatch).
 - **Contract presence** — HTTP endpoints with no `<feature-id>-openapi.yaml`; messaging handlers with no `<feature-id>-asyncapi.yaml`; outbound HTTP callsite with no `<feature-id>-clientapi.yaml` operation.
-- **Use-case diagram missing end-user actor** — `<feature-id>-frs-usecase.puml` MUST declare ≥1 `actor` matching a PRD `S-STAKEHOLDERS-001` end-user persona. Operators / back-office / internal-services / BFFs are NOT end users.
+- **Use-case diagram missing end-user actor** — per-service `docs/<service>/diagrams/usecase.puml` MUST declare ≥1 `actor` matching a PRD `S-STAKEHOLDERS-001` end-user persona for any feature contributing an `append-usecases` row in the locked plan. Operators / back-office / internal-services / BFFs are NOT end users.
 - **Writing-style escalation** — ≥3 hedges OR ≥2 preambles per artifact.
 - **Unresolved-question in locked PRD / FRS** — body containing `## Open Question`, `S-OPEN-Q-*`, `TBD`, `pending`, `to be determined`, `???`, or `?`-suffixed declarative claim.
 - **Untraced AC** — FRS `S-AC-001` row with empty `Traces` or `Traces` not matching `BR-AC/BR-NNN` / `BR-AC/AC-NNN` / `BR-AC/INV-NNN` / `business-invariants.md/INV-NNN`. Also: `S-BR-001` row with empty `Owner` (push to `S-INVARIANTS-001`).
