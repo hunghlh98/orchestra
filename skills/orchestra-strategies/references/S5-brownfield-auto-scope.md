@@ -8,12 +8,14 @@
 
 ## Trace
 
+This strategy is a scope-resolver. The heavy lifting is in the scope-narrowed strategy (S6 or S7).
+
 1. **Resolve scope from `workspace_kind`.**
    - `single-repo` → `scope_level: per-service` (auto; same as S7 minus explicit `service:<name>`).
    - `multi-repo` → `scope_level: system-wide` (same as S6).
-2. **Bootstrap.** Walk preflight `missing_fields`. For brownfield, the relevant fields are `workspace_kind`, `service_name`, `scope_level`, `source_path` (if `per-service`).
+2. **Bootstrap.** Walk preflight `missing_fields`. For brownfield, the relevant fields are `workspace_kind`, `service_name`, `scope_level`, `source_path` (only when `per-service`).
 3. **Persist** scope decision to `.orchestra/<service_name>/local.yaml`.
-4. **Hand off to S6 or S7** trace (this strategy is a scope-resolver; the heavy lifting is in the scope-narrowed strategy).
+4. **Hand off** to the S6 or S7 4-phase trace.
 
 ## Artifacts produced
 

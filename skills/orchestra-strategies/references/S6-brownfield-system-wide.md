@@ -8,51 +8,71 @@
 
 ## Trace
 
-1. **Bootstrap.** Confirm `workspace_kind: multi-repo`. Persist `scope_level: system-wide` to every per-service `local.yaml` (auto-create on first encounter).
-2. **Run-plan author.** Spawn `@lead` `task: run-plan-author`, `chain: reverse-pass`. Lead writes workspace-level run-plan with `S-FEATURES-001` listing every feature discovered across services.
-3. **Run-plan approval gate.** Main thread `EnterPlanMode` with run-plan body; `## Auto-mode notice` prepended. `ExitPlanMode` collects accept/reject.
-4. **Phase A — service-shell author.** Single-writer cohort. Spawn `@architect` `task: reverse-pass`, `pass: service-shell-author`. Writes:
-   - `docs/SAD.md` (workspace-level, `S-CONTAINERS-001` ≥2 containers).
-   - `docs/diagrams/c4-context.puml`, `c4-container.puml`, `erd-logical.puml`.
-   - `docs/business-invariants.md` (rules binding ≥2 services).
-   - Per-service `docs/<service>/<service>-BR-AC.md` (BR/AC scoped to one service).
-5. **Reverse-TDD review gate.** Main thread Reads SAD + container diagrams. Approve / re-author / halt.
-6. **Phase B — per-feature DAG-rank batched fan-out.** Main thread reads `features.yaml` (or derives from source surface). DAG-rank features. ONE message spawning `@architect` per rank-zero feature → writes per-feature TDD + openapi/asyncapi/clientapi + per-feature diagrams.
-7. **Reverse-TDD per-feature gate.** Per-feature review.
-8. **Spawn `@analyst`** (per feature) → derives FRS from TDD + openapi. Reverse-FRS gate.
-9. **Spawn `@product`** (per feature) → synthesizes PRD + writes the `features.yaml` entry. Reverse-PRD gate. Done.
-10. **No source touched.** `src/main/**`, `src/test/**`, and TSR all forbidden during reverse-pass.
+**Phase 1 — Discovery.**
+
+1. Confirm `workspace_kind: multi-repo`. Persist `scope_level: system-wide` to every per-service `local.yaml` (auto-create on first encounter).
+2. Enumerate services from build-manifest walk (or cached `local.yaml` entries).
+3. Spawn `@explorer` fan-out in ONE message — one spawn per service in scope. Each `@explorer` reads its service's `src/**` + manifests and authors `.orchestra/plans/<session-id>/discovery/<service>.md` (per-service feature surface, complexity estimates, ADR-worthy decisions surfaced).
+4. Read every discovery report after the last `SubagentStop` fires.
+
+**Phase 2a — Author.**
+
+5. Main agent `EnterPlanMode`. Reads discovery reports as inputs.
+6. Compose plan body. `## Features` enumerates features discovered across services (DAG by source-archaeology dependencies). `## Agent assignments` covers:
+   - Workspace-scope (`@architect`): `SAD.md`, `business-invariants.md`, workspace ADRs, `c4-context.puml`, `c4-container.puml`, workspace `erd-logical.puml`, cross-service `sd-*.puml`.
+   - Per-service singletons (`@architect` for most, `@analyst` for `usecase.puml`): `<service>-BR-AC.md`, `<service>-openapi.yaml` (or `asyncapi.yaml` / `clientapi.yaml`), `c4-component.puml`, `erd-logical.puml`, `state-machine.puml`, `usecase.puml`.
+   - Per-feature reverse-pass spec: TDD → FRS → PRD (sequential within feature; parallel across features at the same DAG rank).
+7. Each per-feature row carries `reverse_authoring_mode` (`re-author` / `copy-and-modify` / `cite-as-is`) per `docs/README.md` provenance marker. Absent marker pins every reverse-pass author to `re-author`.
+8. `ExitPlanMode`.
+
+═══ Turn boundary ═══
+
+**Phase 2b — Lock + Phase 3 — Swarm.**
+
+9. On approve, Write `run-plan.md` locked.
+10. `TaskCreate × N` per `## Agent assignments` row in ONE message.
+11. `Agent × N` spawn cohort. Workspace artifacts first (single-writer, sequential within workspace cohort). Per-service singletons next. Per-feature reverse-pass spec DAG-rank-batched: rank-zero features in parallel, then ranks 1, 2, ... as parents `TaskUpdate(completed)`.
+12. Within each feature: `@architect` → `@analyst` → `@product` strictly sequential. `@product` writes the `features.yaml` entry as part of feature closure.
+
+**Phase 4 — Convergence.**
+
+13. Reverse-pass produces no source impl. Phase 4 trivially completes when last `@product` returns. No `@test-runner` / `@evaluator` / `@reviewer` in reverse mode.
+14. Forward-chain `spec-to-code` follow-up (separate `/orchestra` invocation under same session-id) carries the full Phase 4 against the now-locked reverse-derived baseline.
 
 ## Artifacts produced
 
 ```
+.orchestra/plans/<session-id>/discovery/<service>.md              (one per service)
+.orchestra/plans/<session-id>/run-plan.md
+.orchestra/plans/<session-id>/agent-tasks.md
 docs/SAD.md
 docs/business-invariants.md
-docs/adr/ADR-<NNNN>-*.md                                            (when source-archaeology surfaces non-obvious decisions)
-docs/diagrams/c4-context.puml, c4-container.puml, erd-logical.puml, sequence-inter-*.puml
+docs/adr/ADR-<NNNN>-*.md                                          (when source-archaeology surfaces non-obvious decisions)
+docs/diagrams/c4-context.puml + c4-container.puml + erd-logical.puml + sd-*.puml + *.svg
 docs/<service>/<service>-BR-AC.md
+docs/<service>/<service>-openapi.yaml                             (or -asyncapi.yaml / -clientapi.yaml)
 docs/<service>/adr/ADR-<service>-<NNN>-*.md
-docs/<service>/diagrams/c4-component.puml (+ c4-code.puml when non-trivial), erd-logical.puml
+docs/<service>/diagrams/c4-component.puml + erd-logical.puml + state-machine.puml + usecase.puml + *.svg
 docs/<service>/<feature-id>/<feature-id>-PRD.md
 docs/<service>/<feature-id>/<feature-id>-FRS.md
 docs/<service>/<feature-id>/<feature-id>-TDD.md
-docs/<service>/<feature-id>/<feature-id>-openapi.yaml                (or -asyncapi.yaml, -clientapi.yaml)
-docs/<service>/<feature-id>/diagrams/*.puml
-.orchestra/<service>/features.yaml                                  (authored at the END by @product)
+docs/<service>/<feature-id>/diagrams/<feature-id>-sd-*.puml
+.orchestra/<service>/features.yaml                                (authored at the END by @product per feature)
 ```
 
 ## Edge cases
 
-- **Workspace SAD container count < 2.** `pre-write-check` `workspace-sad-container-floor` gate rejects. Re-author with ≥2 containers or escalate.
+- **Workspace SAD container count < 2.** `pre-write-check` `workspace-sad-container-floor` gate rejects. `@architect` re-authors with ≥2 containers.
 - **Per-feature `reverse_authoring_mode` classification.** If `docs/README.md` provenance marker absent or stale, every reverse-pass author pins to `re-author` (full rewrite). With marker, classify per-artifact: `cite-as-is` / `copy-and-modify` / `re-author`.
 - **Spawn brief discipline.** Reverse-pass briefs describe what to look for, never prescribe what to find. "Verify whether ownership is enforced; if observed, lift to BR-AC. If absent, raise as divergence" — not "X-User-Id ownership matches order owner".
 - **Source-only feature with no business-level meaning.** `@product` flags during synthesis. Returns DEADLOCK or asks for clarification.
+- **Plan rejection.** Phase 2c revision loop. Reject usually narrows: "missed service X" / "TDD pinned to wrong direction on feature Y". Main agent self-explores via targeted `Read`/`Grep` on hinted service; appends supplemental finding.
 
 ## Cross-references
 
-- `agents/architect.md` — Reverse-pass discipline (two-phase narrowing: phase A + phase B contract).
-- `agents/architect.md` — Spec-correctness audit (Java/Spring per-handler error contract).
+- `agents/explorer.md` — Phase 1 source-survey authoring contract.
+- `agents/architect.md` — Reverse-pass authoring contract (TDD derivation from source archaeology, per-handler error contract, persistence-shape priority).
 - `skills/c4-architecture/SKILL.md` — diagram authoring + arrow-evidence rule.
 - `skills/java-development/SKILL.md` — Spec-correctness match rules (when `primary_language: java`).
-- `commands/orchestra.md` — Algorithm payloads / code-to-spec (S5/S6/S7) reverse-pass.
+- `commands/orchestra.md` — Phase 3 brownfield ordering (`@architect` → `@analyst` → `@product` within feature; per-artifact `reverse_authoring_mode`).
 - `schemas/pipeline-artifact.schema.md` — frontmatter shapes for every reverse-pass artifact.

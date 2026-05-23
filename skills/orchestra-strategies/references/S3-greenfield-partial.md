@@ -12,31 +12,47 @@
 
 ## Trace
 
-1. **Trust locked frontmatter as-is.** Do NOT re-author any `status: locked` artifact via standard chain. Use `ratify-spec` path only on verification-phase divergence (see ratify-spec section in `commands/orchestra.md`).
-2. **Locate resume point.** Walk `docs/<service_name>/<feature-id>/` in chain order:
-   - PRD locked? → continue. PRD draft/absent? → spawn `@product`.
-   - FRS locked? → continue. FRS draft/absent? → spawn `@analyst`.
-   - TDD + contracts locked? → continue. TDD draft/absent? → spawn `@architect`.
-   - run-plan locked? → continue. run-plan draft/absent? → spawn `@lead`.
-   - Fan-out artifacts present? Inspect `services/<service_name>/src/`:
-     - Source + tests present + `S-TEST-001` locked? → continue to converge.
-     - Source partial / tests absent → spawn fan-out (missing implementers only).
-   - `S-EVAL-001` + `S-REVIEW-001` locked? → done.
-3. **Resume from first unlocked layer.** Spawn its owning agent. Then re-enter gate state machine from that point.
+**Phase 1 — Discovery.**
+
+1. Preflight + bootstrap. Read existing `.orchestra/<service_name>/features.yaml` + `local.yaml`. Feature-id already minted in prior run.
+2. Walk `docs/<service_name>/<feature-id>/` for current lock state:
+   - PRD locked? FRS locked? TDD + contracts locked? per-service singletons present? impl present? TSR `S-TEST-001` rows?
+3. Build resume-state map: `{ artifact_slot: present-locked | present-draft | absent }`.
+
+**Phase 2a — Author.**
+
+4. Main agent `EnterPlanMode`.
+5. Plan body's `## Agent assignments` lifts ONLY the absent / draft slots. Locked artifacts are inputs, not targets — they appear as references in `## Features`, not assignments. Lock state drives a per-slot classification: `cite-as-is` (locked + plugin-format), `copy-and-modify` (locked + format-drift), `re-author` (absent or draft + structural divergence).
+6. `## Risks + decisions` surfaces: partial-resume nature + which slots resume + ratify-spec path availability for any locked artifact that may need downstream amendment.
+7. `ExitPlanMode`.
+
+═══ Turn boundary ═══
+
+**Phase 2b — Lock + Phase 3 — Swarm.**
+
+8. On approve, Write `.orchestra/plans/<session-id>/run-plan.md` locked.
+9. `TaskCreate × N` where N = count of non-locked assignment rows ONLY. Locked artifacts get no `TaskCreate`.
+10. `Agent × N` spawn cohort — one per non-locked slot owner.
+11. Subagents read locked upstream artifacts as inputs, author assigned slot(s), `TaskUpdate(completed)` on close.
+12. `TaskList` verify Phase 3 completion.
+
+**Phase 4 — Convergence.**
+
+13. If implementation slots were authored in Phase 3, run `@test-runner` → `@evaluator` ‖ `@reviewer` → TSR. Otherwise (e.g., only spec slots resumed), Phase 4 trivially completes.
 
 ## Artifacts produced
 
-Same shape as S2; only the missing files are written. Locked files untouched.
+Same shape as S2; only the absent / draft files are written. Locked files untouched.
 
 ## Edge cases
 
-- **Locked artifact with stale content.** Reviewer flags during verification phase. Use `mcp__orchestra-utils__amend_locked_artifact` + `relock_artifact` (ratify-spec path). Never bypass via direct write — `pre-write-check` `locked-status-reject` gate rejects.
-- **Multiple features in `features.yaml`, partial locks across features.** Iterate per `<feature-id>` independently; each follows its own resume-from-unlocked-layer pattern.
-- **Source-side divergence from locked spec (Path = `fix-source`).** Write corrections to `src/**`; locked artifact untouched (no `## Changelog` row).
-- **`features.yaml` entry exists but `docs/<service_name>/<feature-id>/` empty.** Treat as S2 entry-point for that feature (PRD spawn).
+- **Locked artifact with stale content.** Reviewer flags during Phase 4. Use `mcp__orchestra-utils__amend_locked_artifact` + `relock_artifact` (ratify-spec path). Never bypass via direct `Write` — `pre-write-check` `locked-status-reject` gate rejects.
+- **Multiple features in `features.yaml`, partial locks across features.** Each feature gets its own row in `## Features` with its own non-locked-slot assignments. Phase 3 spawns the union across features in ONE cohort.
+- **Source-side divergence from locked spec (`fix-source` path).** Write corrections to `src/**` directly; locked artifact untouched (no `## Changelog` row).
+- **`features.yaml` entry exists but `docs/<service_name>/<feature-id>/` empty.** Treat as fresh feature; Phase 2a plan includes the full spec stack as `re-author` assignments.
+- **Plan-mode rejection on partial-resume.** Phase 2c revision loop. Reject comment usually names a missed slot or stale lock; targeted `Read` fills the gap.
 
 ## Cross-references
 
-- `commands/orchestra.md` — Chain state recovery (filesystem-state-to-next-action mapping).
-- `commands/orchestra.md` — ratify-spec on locked artifacts (divergence-resolution paths).
+- `commands/orchestra.md` — Phase 1 Discovery (resume-state walk); Phase 2 Plan (partial-resume slot enumeration); Ratify-spec on locked artifacts.
 - `schemas/pipeline-artifact.schema.md` — status / lock semantics / changelog grammar.

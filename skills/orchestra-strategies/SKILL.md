@@ -1,6 +1,6 @@
 ---
 name: orchestra-strategies
-description: "Walk-throughs for /orchestra strategies S1-S9. Invoke after classifying $1, or when user asks 'how does S<N> work', 'walk through code-to-spec', 'reverse-then-forward router trace'."
+description: "4-phase walk-throughs for /orchestra strategies S1-S9. Invoke after classifying $1, or when user asks 'how does S<N> work', 'walk through code-to-spec', 'reverse-then-forward router trace'."
 origin: orchestra
 ---
 
@@ -8,17 +8,17 @@ origin: orchestra
 
 On-demand walk-throughs for the 9 `/orchestra` dispatcher strategies. Each reference under `references/S<N>-*.md` carries preconditions, step-by-step trace, expected artifacts, and edge cases for one strategy.
 
-`commands/orchestra.md` declares the dispatcher contract (parse / strategy matrix / gates / runtime hooks). This skill elaborates the matrix — one file per row.
+`commands/orchestra.md` declares the dispatcher contract (parse / 4-phase model / PlanMode approval / runtime hooks). This skill elaborates each strategy row — one file per row.
 
 ## When to use
 
 Invoke this skill when:
 
-- Dispatching `/orchestra` and classification of `$1` + `docs/` + `src/**` resolves to a single strategy → read the matching `S<N>-*.md` before the first agent spawn.
+- Dispatching `/orchestra` and classification of `$1` + `docs/` + `src/**` resolves to a single strategy → read the matching `S<N>-*.md` before `EnterPlanMode`.
 - User asks `how does S<N> work`, `walk me through <strategy>`, `what fires after the preflight on a clean repo`, `explain the reverse-then-forward router`.
-- Auditing the dispatcher's behavior on a specific shape (e.g., locked partial-impl resume, multi-feature parallel fan-out).
+- Auditing the dispatcher's behavior on a specific shape (e.g., locked partial-impl resume, multi-feature parallel swarm).
 
-Skip this skill when the answer is in the `commands/orchestra.md` strategy table itself — the matrix carries the one-line summary; references add the trace.
+Skip this skill when the answer is in the `commands/orchestra.md` Phase 1-4 sections directly — the dispatcher carries the canonical contract; references add per-shape trace detail.
 
 ## References
 
