@@ -228,7 +228,7 @@ Agents and the dispatcher command have no env-var opt-out. Plugin manifest decla
 
 ### Required
 
-- Claude Code ≥ 2.0.42 (orchestra relies on prompt-based hooks, MCP slash commands, and schema-pinned frontmatter introduced in this baseline)
+- Claude Code ≥ 2.1.85 (orchestra relies on prompt-based hooks, MCP slash commands, schema-pinned frontmatter, and native `PlanMode` enforcement at the tool-permission layer; regression range `2.1.83` – `2.1.84` enforced `PlanMode` via `<system-reminder>` only and is known-unsafe — see [#39713](https://github.com/anthropics/claude-code/issues/39713))
 - Node.js 18+ on `$PATH` (Claude Code launches hook scripts and MCP servers with `node`; ESM imports under `mcp-servers/*.js` fail silently on older runtimes)
 
 ### Optional
