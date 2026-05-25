@@ -626,11 +626,11 @@ end
 
 ## Orchestra authoring discipline
 
-Two content rules apply to every sequence diagram authored under orchestra (`*-sd-*.puml`, `sequence-intra-*.puml`, `sequence-inter-*.puml`). The diagram source shows lifelines + messages; the rules below cover what reviewers also need.
+Apply two content rules to every sequence diagram authored under orchestra (`*-sd-*.puml`, `sequence-intra-*.puml`, `sequence-inter-*.puml`): an **Operations Summary** of infrastructure side-effects, and **`ref` block reuse** for shared sub-flows.
 
 ### Operations Summary tables
 
-Every sequence diagram ships an Operations Summary listing the six tables below when the flow touches the resource. The tables answer "what side-effects does this flow have on infrastructure?" so reviewers can audit cache TTLs, lock blast-radius, DB writes, and producer/consumer topology without re-reading the diagram syntax.
+List the six tables below when the flow touches the resource. Each table captures one class of infrastructure side-effect: cache TTLs (Redis), lock blast-radius (Locks), DB writes (Database Tables), producer/consumer topology (Kafka), state transitions (State machine), API surface (Endpoint Index).
 
 | Table | Columns |
 |---|---|
@@ -645,51 +645,49 @@ The `Marker` column (Redis Keys, Database Tables) carries `★SoT` for write-fai
 
 Placement — two surfaces:
 
-- **Sibling markdown** — `docs/<service_name>/<feature-id>/<feature-id>-sd-<seq>.puml` ships next to `<feature-id>-sd-<seq>-ops.md` carrying the six tables. Reviewers read this.
-- **In-diagram tail** — same six tables encoded inline as a `note over <first>, <last>` block at end of the `.puml`. Readers viewing the rendered `.svg` see them without leaving the diagram. Either surface satisfies the discipline; ship both when the audience splits between code reviewers (md) and stakeholder readers (svg).
+- **Sibling markdown** — `docs/<service_name>/<feature-id>/<feature-id>-sd-<seq>.puml` ships next to `<feature-id>-sd-<seq>-ops.md` carrying the six tables.
+- **In-diagram tail** — same six tables encoded inline as a `note over <first>, <last>` block at end of the `.puml`. Either surface satisfies the discipline; ship both when one audience consumes the markdown and another consumes the rendered `.svg`.
 
 Empty tables omitted; an absent table means "this flow does not touch that surface" — explicit not-applicable, not silent omission. When a table applies but is empty (e.g., feature touches Kafka but only as a consumer, no producer row), keep the header and write `_(none)_` in the body so readers know it was considered.
 
-> ⚠️ **Hypothetical example.** Never paste real production participant names, internal codenames, table names, or SoT-marked store names from your own systems into shipped diagrams or worked examples in this skill. The example below uses descriptive generic nouns to teach the table shape.
-
-Worked example for a hypothetical "transfer" sequence diagram:
+Worked example shape (domain-neutral; substitute your feature's nouns):
 
 ```markdown
-# transfer-001-sd-checkout — Operations Summary
+# widget-001-sd-create — Operations Summary
 
 ## Redis Keys
 | Key pattern | Purpose | TTL |
 |---|---|---|
-| `transfer:lock:{idempotency_key}` | Per-key idempotency guard | 60s |
-| `transfer:rate:{user_id}` | Per-user rate limit token bucket | 1h sliding |
+| `widget:lock:{widget_id}` | Per-widget create idempotency | 60s |
+| `widget:cache:{widget_id}` | Read-through cache for hot widgets | 5m |
 
 ## Kafka Topics
 | Topic | Producer | Consumer |
 |---|---|---|
-| `transfer.completed.v1` | transfer-service | ledger-projector, notification-service |
+| `widget.created.v1` | widget-service | search-indexer, audit-log-projector |
 
 ## Database Tables
 | Database | Table | Operation | Key Fields |
 |---|---|---|---|
-| ledger | transactions | INSERT | id, idempotency_key, amount, status |
-| ledger | balance_snapshots | UPDATE | user_id, balance, updated_at |
+| widgets | widgets | INSERT | id, name, status, created_at |
+| widgets | widget_audit | INSERT | id, widget_id, actor, action, at |
 
 ## Lock Patterns
 | Lock Key | Type | TTL | On Failure |
 |---|---|---|---|
-| `transfer:lock:{idempotency_key}` | Redis SET NX EX | 60s | 409 Conflict; client retries with same key |
+| `widget:lock:{widget_id}` | Redis SET NX EX | 60s | 409 Conflict; client retries with same id |
 
 ## State machine
 | States | Workflow |
 |---|---|
-| pending → authorized → captured → settled | Webhook on each transition; rollback path: any → reversed |
+| draft → active → archived | Transition on each accepted command; rollback path: any → invalidated |
 
 ## API endpoint Index
 | #ID | Caller | Callee | Method + Path | Contract File |
 |---|---|---|---|---|
-| 1 | client | transfer-service | POST /v1/transfers | transfer-001-openapi.yaml |
-| 2 | transfer-service | ledger-service | POST /internal/v1/postings | transfer-001-clientapi.yaml |
-| 3 | transfer-service | notification-service | (async) transfer.completed.v1 | transfer-001-asyncapi.yaml |
+| 1 | client | widget-service | POST /v1/widgets | widget-001-openapi.yaml |
+| 2 | widget-service | search-service | POST /internal/v1/index | widget-001-clientapi.yaml |
+| 3 | widget-service | audit-log-service | (async) widget.created.v1 | widget-001-asyncapi.yaml |
 ```
 
 ### `ref` block reuse for shared sub-flows
@@ -698,17 +696,12 @@ When a sub-flow recurs across two or more sequence diagrams, source-of-truth liv
 
 Reference syntax (embed in the citing diagram between the `@startuml` participants block and the calling step):
 
-> ⚠️ **Hypothetical example.** Participant aliases below are descriptive generics. Never paste real production participant names, internal codenames, or product flow names into shipped diagrams.
-
 ```
-ref over Caller, Cashier, OrderSvc, PaymentSvc, GatewaySvc, ProviderSvc, EventBus, FulfillmentSvc, AccountSvc
-  **SD-W17: Order Checkout (Sub-Flows 2–3)**
-  [5] Caller → Cashier.ConfirmPayment(...)
-  [6] Cashier → OrderSvc.CreateOrder → InventorySvc.createAppTransID
-  [7] Cashier → PaymentSvc.CreatePaymentIntent → GatewaySvc → ProviderSvc quick_pay
-  [8] ProviderSvc IPN → GatewaySvc → PaymentSvc → PaymentSuccess → OrderSvc PAID → OrderPaid
-  [9] FulfillmentSvc delivers → DeliverySuccess
-  [10] Caller consumes delivery_result
+ref over Caller, ServiceA, ServiceB
+  **SD-W17: Shared Sub-Flow (Sub-Flows 2–3)**
+  [5] Caller → ServiceA.HandleRequest
+  [6] ServiceA → ServiceB.PersistResult
+  [7] ServiceB → ServiceA.Ack → Caller.Done
 end ref
 ```
 
@@ -719,7 +712,7 @@ Rules:
 - Body steps reuse the SAME `[N]` step numbering as the canonical diagram. Do NOT renumber.
 - The canonical diagram MUST include a top-of-file `' SD-<id>` comment so `grep -rn 'SD-W17' docs/` resolves to one origin file.
 
-When `ref over` is impractical (citing diagram has more than ~6 participants, or the cited steps would clutter the body), use a `note over <participants>` pointer instead: `note over Caller, Cashier: see SD-W17 for sub-flows [5]-[10]`.
+When `ref over` is impractical (citing diagram has more than ~6 participants, or the cited steps would clutter the body), use a `note over <participants>` pointer instead: `note over Caller, ServiceA: see SD-W17 for sub-flows [5]-[7]`.
 
 ## Tips and Best Practices
 
