@@ -9,6 +9,19 @@
 //   locked-status-reject             — frontmatter `status: locked` rejects writes
 //   all-sections-locked-reject       — frontmatter `sections:` all-locked rejection
 //   readers-scope-warning            — frontmatter `readers:` allowlist warning (non-blocking)
+//
+// Crash + malformed-input semantics:
+//   This hook is defense-in-depth, NOT the single line of defense. Schema
+//   pins, MCP allowlists, and the agent prompts also gate writes; a hook
+//   crash must not brick the consumer's session. So on internal exception
+//   (parser bug, fs glitch) we exit 0 and log to stderr — the surrounding
+//   layers still enforce.
+//
+//   Stdin payload that is missing / oversized / malformed is treated as
+//   adversarial: we emit `permissionDecision: "ask"` so the user can
+//   eyeball the request before allowing it, rather than fail-open with
+//   exit 0. This blocks a hostile transcript from bypassing the gate by
+//   feeding a >1 MiB or non-JSON payload.
 
 import { existsSync, readFileSync } from "node:fs";
 import { parse as parseYaml } from "../lib/yaml-mini.js";
@@ -16,6 +29,7 @@ import {
   checkSecrets, checkChainCiteReject, checkCodebaseTokenReject, checkWorkspaceSadContainerFloor,
 } from "../lib/gate-d.js";
 import { checkChangelogAppendOnly } from "../lib/gate-f.js";
+import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_PRE_WRITE_CHECK";
 
@@ -26,11 +40,27 @@ if (process.env[NAME] === "off") {
 main();
 
 async function main() {
-  let stdin = "";
+  let stdin;
   try {
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) stdin += chunk;
-    const input = JSON.parse(stdin);
+    stdin = await readBoundedStdin();
+  } catch (err) {
+    process.stderr.write(`pre-write-check: stdin read failed (non-blocking): ${err.message}\n`);
+    process.exit(0);
+  }
+  if (stdin.overflow) {
+    process.stderr.write(`pre-write-check: stdin exceeded 1 MiB cap (${stdin.bytes} bytes) — emitting ask\n`);
+    emitAsk("stdin payload exceeded 1 MiB cap");
+    process.exit(0);
+  }
+  let input;
+  try {
+    input = JSON.parse(stdin.text);
+  } catch (err) {
+    process.stderr.write(`pre-write-check: malformed stdin (${err.message}) — emitting ask\n`);
+    emitAsk(`malformed stdin: ${err.message}`);
+    process.exit(0);
+  }
+  try {
     const filePath = input.tool_input?.file_path || "";
     const content = extractContent(input.tool_name, input.tool_input);
     if (!content) process.exit(0);
@@ -66,6 +96,16 @@ async function main() {
     process.stderr.write(`pre-write-check crashed: ${err.message}\n`);
     process.exit(0);
   }
+}
+
+function emitAsk(reason) {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "ask",
+      permissionDecisionReason: `pre-write-check: ${reason}`,
+    },
+  }));
 }
 
 function runLockedStatusReject(filePath, fm) {

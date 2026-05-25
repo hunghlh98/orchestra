@@ -12,6 +12,7 @@
 // dispatcher halts without this block.
 
 import { buildPreflightBlock, parseSourceFlag } from "../lib/preflight-detect.js";
+import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_PREFLIGHT";
 
@@ -22,10 +23,13 @@ if (process.env[NAME] === "off") {
 main();
 
 async function main() {
-  let stdin = "";
   try {
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) stdin += chunk;
+    const r = await readBoundedStdin();
+    if (r.overflow) {
+      process.stderr.write(`orchestra-preflight: stdin exceeded 1 MiB cap (${r.bytes} bytes) — skipping\n`);
+      process.exit(0);
+    }
+    const stdin = r.text;
     const input = stdin.trim() ? JSON.parse(stdin) : {};
     const prompt = String(input.prompt || input.user_message || "");
     if (!/^\/orchestra(?::orchestra)?(\s|$)/.test(prompt)) {

@@ -7,6 +7,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_VAL_CALIBRATION";
 
@@ -24,11 +25,14 @@ const CALIBRATION_PATH = resolve(
 main();
 
 async function main() {
-  let stdin = "";
   try {
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) stdin += chunk;
-    const input = JSON.parse(stdin);
+    const r = await readBoundedStdin();
+    if (r.overflow) {
+      process.stderr.write(`val-calibration: stdin exceeded 1 MiB cap (${r.bytes} bytes) — passthrough\n`);
+      passthrough();
+      process.exit(0);
+    }
+    const input = JSON.parse(r.text);
 
     // Accept both "Task" (legacy) and "Agent" (canonical) — Claude Code
     // renamed the subagent-spawn tool. Smoke #3 surfaced that the literal

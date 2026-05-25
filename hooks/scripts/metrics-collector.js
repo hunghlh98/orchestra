@@ -27,6 +27,7 @@ import {
   emitSubagentTokens, emitInsightsForSession,
   emitRunSummary, emitCostByPhase,
 } from "../lib/metrics-aggregators.js";
+import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_METRICS_COLLECTOR";
 
@@ -40,8 +41,12 @@ main();
 async function main() {
   let stdin = "";
   try {
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) stdin += chunk;
+    const r = await readBoundedStdin();
+    if (r.overflow) {
+      process.stderr.write(`metrics-collector: stdin exceeded 1 MiB cap (${r.bytes} bytes) — skipping\n`);
+      process.exit(0);
+    }
+    stdin = r.text;
     const input = JSON.parse(stdin);
 
     // Cold-start gate: no orchestra session has materialized in this project

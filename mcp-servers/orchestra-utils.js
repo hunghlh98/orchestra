@@ -934,8 +934,15 @@ export function relockArtifactImpl(args = {}) {
 
 // === MCP server (run only when this file is the entry point) ===
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isEntryPoint()) {
   startServer();
+}
+
+function isEntryPoint() {
+  if (!process.argv[1]) return false;
+  const here = fileURLToPath(import.meta.url);
+  const there = resolve(process.argv[1]);
+  return relative(here, there) === "";
 }
 
 function startServer() {
@@ -960,7 +967,9 @@ function handleMessage(line) {
   try { msg = JSON.parse(line); }
   catch { return reply(null, { error: { code: -32700, message: "Parse error" } }); }
   const { id, method, params } = msg;
+  const isNotification = id === undefined || id === null;
   if (method === "initialize") {
+    if (isNotification) return;
     reply(id, {
       result: {
         protocolVersion: "2024-11-05",
@@ -969,8 +978,10 @@ function handleMessage(line) {
       },
     });
   } else if (method === "tools/list") {
+    if (isNotification) return;
     reply(id, { result: { tools: TOOLS } });
   } else if (method === "tools/call") {
+    if (isNotification) return;
     try {
       const name = params?.name;
       const args = params?.arguments || {};
@@ -989,8 +1000,11 @@ function handleMessage(line) {
     } catch (err) {
       reply(id, { result: { isError: true, content: [{ type: "text", text: String(err.message || err) }] } });
     }
-  } else if (method === "notifications/initialized") {
-    // no-op
+  } else if (typeof method === "string" && method.startsWith("notifications/")) {
+    // JSON-RPC 2.0 §4.1 — notifications (id-less) get NO reply.
+    return;
+  } else if (isNotification) {
+    return;
   } else {
     reply(id, { error: { code: -32601, message: `Method not found: ${method}` } });
   }

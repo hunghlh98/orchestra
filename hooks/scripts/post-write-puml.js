@@ -19,6 +19,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, basename, join, extname } from "node:path";
 import { homedir } from "node:os";
 import { parse as parseYaml } from "../lib/yaml-mini.js";
+import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_POST_WRITE_PUML";
 
@@ -29,11 +30,13 @@ if (process.env[NAME] === "off") {
 main();
 
 async function main() {
-  let stdin = "";
   try {
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) stdin += chunk;
-    const input = JSON.parse(stdin);
+    const r = await readBoundedStdin();
+    if (r.overflow) {
+      process.stderr.write(`post-write-puml: stdin exceeded 1 MiB cap (${r.bytes} bytes) — skipping\n`);
+      process.exit(0);
+    }
+    const input = JSON.parse(r.text);
 
     const filePath = input?.tool_input?.file_path;
     if (typeof filePath !== "string" || !filePath.endsWith(".puml")) {

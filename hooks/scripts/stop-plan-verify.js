@@ -18,6 +18,7 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_STOP_PLAN_VERIFY";
 
@@ -25,9 +26,12 @@ main();
 
 async function main() {
   try {
-    let stdin = "";
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) stdin += chunk;
+    const r = await readBoundedStdin();
+    if (r.overflow) {
+      process.stderr.write(`stop-plan-verify: stdin exceeded 1 MiB cap (${r.bytes} bytes) — skipping\n`);
+      process.exit(0);
+    }
+    const stdin = r.text;
 
     if (process.env[NAME] === "off") process.exit(0);
 

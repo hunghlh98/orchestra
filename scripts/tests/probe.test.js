@@ -14,7 +14,11 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-import { httpProbeImpl, dbStateImpl, redact } from "../../mcp-servers/orchestra-probe.js";
+import {
+  httpProbeImpl, dbStateImpl, redact,
+  filterHeaders, resolveAndValidateHost, isPrivateOrLoopbackIp, validateDsnPath,
+  isSelectOnly,
+} from "../../mcp-servers/orchestra-probe.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 let passes = 0, failures = 0;
@@ -35,6 +39,9 @@ console.log("redact():");
 // ---------- http_probe round-trip ----------
 console.log("http_probe round-trip:");
 {
+  // Opt in to localhost for the loopback round-trip server; SSRF guard
+  // denies 127.0.0.1 by default.
+  process.env.ORCHESTRA_PROBE_ALLOW_LOCALHOST = "1";
   const server = createServer((req, res) => {
     if (req.url === "/echo") {
       res.writeHead(200, { "Content-Type": "text/plain" });
@@ -52,7 +59,7 @@ console.log("http_probe round-trip:");
   await new Promise(r => server.listen(0, "127.0.0.1", r));
   const port = server.address().port;
   try {
-    const r1 = await httpProbeImpl({ method: "GET", url: `http://127.0.0.1:${port}/echo` });
+    const r1 = await httpProbeImpl({ method: "GET", url: `http://127.0.0.1:${port}/echo`, headers: { "User-Agent": "orchestra-probe-test" } });
     check(r1.status === 200, `GET /echo: status 200 (got ${r1.status})`);
     check(r1.body === "hello world", `GET /echo: body matches`);
 
@@ -74,6 +81,7 @@ console.log("http_probe round-trip:");
     check(r3.truncated === true, `truncated flag set`);
   } finally {
     await new Promise(r => server.close(r));
+    delete process.env.ORCHESTRA_PROBE_ALLOW_LOCALHOST;
   }
 }
 
@@ -86,6 +94,9 @@ console.log("db_state sqlite3 + SELECT-only:");
     console.log("  SKIP: sqlite3 CLI not on PATH");
   } else {
     const tmp = mkdtempSync(join(tmpdir(), "orchestra-probe-"));
+    // /tmp lies outside cwd; opt in to abs DSN paths for the duration of
+    // the test. Restored in finally.
+    process.env.ORCHESTRA_PROBE_ALLOW_ABS_DSN = "1";
     try {
       const dbPath = join(tmp, "test.db");
       // Seed db
@@ -167,8 +178,89 @@ console.log("db_state sqlite3 + SELECT-only:");
       check(myDeferred, `mysql DSN: deferred-stub message`);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
+      delete process.env.ORCHESTRA_PROBE_ALLOW_ABS_DSN;
     }
   }
+}
+
+// ---------- SSRF guard ----------
+console.log("SSRF guard:");
+{
+  check(isPrivateOrLoopbackIp("127.0.0.1") === true, `127.0.0.1 denied`);
+  check(isPrivateOrLoopbackIp("169.254.169.254") === true, `AWS/GCP metadata 169.254.169.254 denied`);
+  check(isPrivateOrLoopbackIp("10.0.0.1") === true, `10/8 RFC1918 denied`);
+  check(isPrivateOrLoopbackIp("172.16.0.1") === true, `172.16/12 RFC1918 denied`);
+  check(isPrivateOrLoopbackIp("172.31.255.255") === true, `172.31 RFC1918 denied`);
+  check(isPrivateOrLoopbackIp("172.32.0.1") === false, `172.32 is public`);
+  check(isPrivateOrLoopbackIp("192.168.1.1") === true, `192.168/16 RFC1918 denied`);
+  check(isPrivateOrLoopbackIp("::1") === true, `IPv6 loopback denied`);
+  check(isPrivateOrLoopbackIp("fe80::1") === true, `IPv6 link-local denied`);
+  check(isPrivateOrLoopbackIp("8.8.8.8") === false, `8.8.8.8 is public`);
+
+  let rejected = false;
+  try { await resolveAndValidateHost("127.0.0.1"); }
+  catch (e) { rejected = /denylisted/.test(e.message); }
+  check(rejected, `http_probe rejects literal 127.0.0.1`);
+
+  let metaRejected = false;
+  try { await httpProbeImpl({ method: "GET", url: "http://169.254.169.254/latest/meta-data/" }); }
+  catch (e) { metaRejected = /denylisted/.test(e.message); }
+  check(metaRejected, `http_probe rejects AWS metadata endpoint`);
+}
+
+// ---------- Header allowlist ----------
+console.log("Header allowlist:");
+{
+  const ok = filterHeaders({ Authorization: "Bearer x", Accept: "application/json" });
+  check(ok.authorization === "Bearer x" && ok.accept === "application/json", `allowed headers pass through (lowercased)`);
+
+  let hostBlocked = false;
+  try { filterHeaders({ Host: "evil.example.com" }); }
+  catch (e) { hostBlocked = /not in allowlist/.test(e.message); }
+  check(hostBlocked, `Host header rejected`);
+
+  let customBlocked = false;
+  try { filterHeaders({ "X-Forwarded-For": "10.0.0.1" }); }
+  catch (e) { customBlocked = /not in allowlist/.test(e.message); }
+  check(customBlocked, `arbitrary X-* header rejected`);
+
+  let overBlocked = false;
+  try { filterHeaders({ Authorization: "x".repeat(10_000) }); }
+  catch (e) { overBlocked = /header bytes exceed/.test(e.message); }
+  check(overBlocked, `oversized header rejected`);
+}
+
+// ---------- DSN allowlist ----------
+console.log("DSN allowlist:");
+{
+  let absBlocked = false;
+  try { validateDsnPath("sqlite3:///etc/passwd"); }
+  catch (e) { absBlocked = /outside the working tree/.test(e.message); }
+  check(absBlocked, `sqlite3:///etc/passwd rejected outside cwd`);
+
+  let homeBlocked = false;
+  try { validateDsnPath("sqlite3:///Users/attacker/.zsh_history"); }
+  catch (e) { homeBlocked = /outside the working tree/.test(e.message); }
+  check(homeBlocked, `home-dir sqlite path rejected`);
+
+  // Relative path resolves inside cwd — should pass.
+  let relOk = true;
+  try { validateDsnPath("sqlite3://./test.db"); }
+  catch { relOk = false; }
+  check(relOk, `relative sqlite path under cwd allowed`);
+}
+
+// ---------- isSelectOnly comment-in-literal regression ----------
+console.log("isSelectOnly comment-in-literal regression:");
+{
+  check(isSelectOnly("SELECT 'a--b' FROM t") === true, `'a--b' literal not truncated`);
+  check(isSelectOnly("SELECT '/*x*/' FROM t") === true, `'/*x*/' literal not stripped`);
+  check(isSelectOnly("SELECT 'a;b' FROM t") === true, `';' inside literal not a separator`);
+  check(isSelectOnly("SELECT 1; DROP TABLE t") === false, `multi-statement still rejected`);
+  check(isSelectOnly("-- pre\nSELECT 1") === true, `leading -- comment still allowed`);
+  check(isSelectOnly("/* block */ SELECT 1") === true, `leading /* */ comment still allowed`);
+  check(isSelectOnly("INSERT INTO t VALUES (1)") === false, `INSERT still rejected`);
+  check(isSelectOnly("DROP TABLE t") === false, `DROP still rejected`);
 }
 
 // ---------- MCP smoke: probe tools/list over JSON-RPC stdio ----------
@@ -186,6 +278,42 @@ console.log("MCP protocol smoke:");
   try { parsed = JSON.parse(lines[0] || "{}"); }
   catch { parsed = {}; }
   check(Array.isArray(parsed?.result?.tools), `probe: tools/list returns array`);
+}
+
+// ---------- JSON-RPC notification handling (no reply for id-less calls) ----------
+console.log("JSON-RPC notification handling:");
+{
+  const probeServer = resolve(root, "mcp-servers/orchestra-probe.js");
+
+  // Notification (no id) — server must NOT reply at all.
+  const note = spawnSync("node", [probeServer], {
+    input: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n",
+    encoding: "utf8",
+    timeout: 2000,
+  });
+  const noteLines = (note.stdout || "").split("\n").filter(Boolean);
+  check(noteLines.length === 0, `notifications/initialized produces no reply (got ${noteLines.length} lines)`);
+
+  // Unknown method WITH id → -32601 reply.
+  const unknown = spawnSync("node", [probeServer], {
+    input: JSON.stringify({ jsonrpc: "2.0", id: 7, method: "tools/does-not-exist" }) + "\n",
+    encoding: "utf8",
+    timeout: 2000,
+  });
+  const unkLines = (unknown.stdout || "").split("\n").filter(Boolean);
+  let unkParsed;
+  try { unkParsed = JSON.parse(unkLines[0] || "{}"); }
+  catch { unkParsed = {}; }
+  check(unkParsed?.error?.code === -32601, `unknown method with id returns -32601`);
+
+  // Unknown method WITHOUT id → no reply (notification semantics).
+  const unkNote = spawnSync("node", [probeServer], {
+    input: JSON.stringify({ jsonrpc: "2.0", method: "tools/does-not-exist" }) + "\n",
+    encoding: "utf8",
+    timeout: 2000,
+  });
+  const unkNoteLines = (unkNote.stdout || "").split("\n").filter(Boolean);
+  check(unkNoteLines.length === 0, `unknown method without id produces no reply`);
 }
 
 if (failures > 0) {

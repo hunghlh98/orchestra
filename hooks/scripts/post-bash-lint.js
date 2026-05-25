@@ -3,6 +3,8 @@
 // Observer hook: detects source-modifying Bash commands and surfaces a
 // stderr finding. Exits 0 always.
 
+import { readBoundedStdin } from "../lib/stdin-bounded.js";
+
 const NAME = "ORCHESTRA_HOOK_POST_BASH_LINT";
 
 if (process.env[NAME] === "off") {
@@ -21,11 +23,13 @@ const SOURCE_MODIFYING_PATTERNS = [
 main();
 
 async function main() {
-  let stdin = "";
   try {
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) stdin += chunk;
-    const input = JSON.parse(stdin);
+    const r = await readBoundedStdin();
+    if (r.overflow) {
+      process.stderr.write(`post-bash-lint: stdin exceeded 1 MiB cap (${r.bytes} bytes) — skipping\n`);
+      process.exit(0);
+    }
+    const input = JSON.parse(r.text);
     const cmd = input?.tool_input?.command;
     if (typeof cmd !== "string") { process.exit(0); }
 

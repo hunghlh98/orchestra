@@ -17,6 +17,7 @@ import { findJustStoppedSubagentMeta, projectSubagentRows } from "../lib/plan-sy
 import {
   planPathFor, readOrInitPlan, upsertTaskRow, finalizeFrontmatter, writePlan,
 } from "../lib/plan-frontmatter.js";
+import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_AGENT_PLAN_SYNC";
 
@@ -24,9 +25,12 @@ main();
 
 async function main() {
   try {
-    let stdin = "";
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) stdin += chunk;
+    const r = await readBoundedStdin();
+    if (r.overflow) {
+      process.stderr.write(`agent-plan-sync: stdin exceeded 1 MiB cap (${r.bytes} bytes) — skipping\n`);
+      process.exit(0);
+    }
+    const stdin = r.text;
 
     if (process.env[NAME] === "off") process.exit(0);
 
