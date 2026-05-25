@@ -88,11 +88,10 @@ e. On `accepted`: append row to `<context_path>/.orchestra/inventory/adr/index.m
 
 ### Per-feature TDD anchor shape
 
-- **`S-COMPONENTS-001`** — feature-touched components reference per-service `c4-component.puml` element ids; `' #<feature-id>` line comment in `c4-component.puml` marks the element each feature mutates. No per-feature C4 copies.
-- **`S-ARCHITECTURE-001`** — pattern name + canonical reference; layer enumeration (owned + forbidden imports); compile-time enforcement (e.g., ArchUnit; `"none"` if absent); composition root.
-- **`S-DATA-001`** — see `skills/clean-architecture > ## 2. Entities and Use Cases > Persisted Entity Shape`.
+- **`S-COMPONENTS-001`** — references per-service `c4-component.puml` element ids; mark each feature's mutated element with `' #<feature-id>` comment. No per-feature C4 copies.
+- **`S-ARCHITECTURE-001`** — pattern name + reference; layer enumeration (owned + forbidden imports); compile-time enforcement (e.g., ArchUnit; `"none"` if absent); composition root.
 - **`S-STATE-001`** — references per-service `state-machine.puml`. Per-feature additions append via `append-states` write-mode; TDD row enumerates introduced states.
-- **`S-CONFIG-001`** — canonical home for deployable's stack-shape. Java/Spring: invoke `skills/java-development` for row inventory + callsite liveness. Other stacks: build tool + runtime + run commands + every persistence / messaging / cache / resilience dep with scope tag. Persistence services MUST carry `migration_tool` row + migration dir + version-table; steady-state `ddl-auto: validate` only.
+- **`S-DATA-001`** / **`S-CONFIG-001`** — shape delegated to `skills/clean-architecture > Persisted Entity Shape` and `skills/java-development > S-CONFIG-001 rows`. Persistence services carry `migration_tool` + migration dir + version-table; steady-state `ddl-auto: validate`.
 
 ### Reverse-pass discipline
 
