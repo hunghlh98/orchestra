@@ -123,6 +123,25 @@ Set frontmatter `rev_verdict` + `rev_round` (current iteration). Set `sections.S
 - ADR-<NNNN>-<slug>: <APPROVED|REQUEST_CHANGES> — <one-line rationale>
 ```
 
+## Structural failures
+
+These checks auto-flip `rev_verdict: REQUEST_CHANGES` regardless of severity tally and bypass `auto_mode: true`. They are the closed set of pipeline-level invariants `@reviewer` enforces in addition to the per-language severity rubric.
+
+- **Allowed-set violation** — artifact written outside the owning agent's allowed-set.
+- **Diagram-allowlist violation** — `.puml` with forbidden prefix or wrong scope-folder per `skills/c4-architecture`.
+- **Scope-content mismatch on workspace SAD** — `multi-repo` AND `S-CONTAINERS-001` enumerates <2 Container rows (services in topology rendered as `System_Ext` count as mismatch).
+- **Contract presence** — HTTP endpoints with no `<feature-id>-openapi.yaml`; messaging handlers with no `<feature-id>-asyncapi.yaml`; outbound HTTP callsite with no `<feature-id>-clientapi.yaml` operation.
+- **Use-case diagram missing end-user actor** — per-service `docs/<service>/diagrams/usecase.puml` MUST declare ≥1 `actor` matching a PRD `S-STAKEHOLDERS-001` end-user persona for any feature contributing an `append-usecases` row in the locked plan. Operators / back-office / internal-services / BFFs are NOT end users.
+- **Writing-style escalation** — ≥3 hedges OR ≥2 preambles per artifact (per `agents/architect.md > ## Writing style` and equivalents on other authoring agents).
+- **Unresolved-question in locked PRD / FRS** — body containing `## Open Question`, `S-OPEN-Q-*`, `TBD`, `pending`, `to be determined`, `???`, or `?`-suffixed declarative claim.
+- **Untraced AC** — FRS `S-AC-001` row with empty `Traces` or `Traces` not matching `BR-AC/BR-NNN` / `BR-AC/AC-NNN` / `BR-AC/INV-NNN` / `business-invariants.md/INV-NNN`. Also: `S-BR-001` row with empty `Owner` (push to `S-INVARIANTS-001`).
+- **Feature attribution in BR-AC body** — row referencing `<feature-id>` (`#order-001-checkout`, `added by feature N`). Push to feature TDD / FRS / openapi.
+- **Tech leakage in PRD / FRS** — locked body containing implementation-only tokens per the PRD surface-discipline denylist.
+- **Unworthy ADR** — `status: proposed` failing any of the three worthiness gates per `skills/c4-architecture > Step 9 — ADR-worthiness gates`. Reverse-pass DIV rows arriving as ADR proposals are always unworthy.
+- **Entity-schema parity** — ghost column (entity declares, DB lacks) or orphan column (DB has, entity lacks) inconsistent with `S-DATA-001` ownership.
+- **Missing cross-process observability** — outbound HTTP / Kafka publish / Kafka consumer without INFO log on receipt + outcome.
+- **src/ purity** — chain-artifact anchor cite (PRD / FRS / TDD / openapi / TSR / FR-N / AC-N / S-XXX-NNN / ADR-NNNN) in `src/**` (`chain-cite-reject` gate misfired or disabled — investigate).
+
 ## Circuit breaker
 
 3 consecutive `REQUEST_CHANGES` rounds → write `<feature-id>-DEADLOCK-<slug>.md`, escalate to user. Implementer is not converging; further iterations are negative-EV.
