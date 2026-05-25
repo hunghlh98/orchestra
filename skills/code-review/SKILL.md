@@ -44,6 +44,8 @@ Three rules apply to every diff regardless of language:
 2. **Surgical changes.** Every changed line should trace directly to the task. Adjacent comments, unrelated formatting, "improvements" on neighboring code — flag as Major (out-of-scope).
 3. **Minimum surface.** Speculative abstractions, single-use helpers wrapped in factory patterns, configurability nobody asked for — flag as Major. The bar is "minimum that solves the problem".
 
+Naming / function-shape / smell heuristics: delegate to `clean-code` skill. Layer fit (Dependency Rule, adapter direction, framework leakage into entities): delegate to `clean-architecture` skill. Both skills hold the canonical rubric; this skill grades against it.
+
 ### Step 3 — Run the checklist gates
 
 **Universal gates (every file):**
@@ -157,3 +159,5 @@ These checks auto-flip `rev_verdict: REQUEST_CHANGES` regardless of severity tal
 
 - `references/severity-rubric.md` — extended examples per severity level + edge cases.
 - `references/language-checklists.md` — generic per-language checks (Java/TS/Python/Go/Rust/SQL); canonical convention sets live in the per-language `*-development` skills.
+- `skills/clean-code/SKILL.md` — meaningful names, F.I.R.S.T. tests, 22 code-smell heuristics. Canonical rubric for Step 2 surgical-change discipline and Step 3 per-language idiom gates.
+- `skills/clean-architecture/SKILL.md` — Dependency-Rule layering, adapter direction, framework leakage. Canonical rubric for "structural failure: layer mismatch" findings.

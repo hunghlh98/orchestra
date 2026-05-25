@@ -69,7 +69,7 @@ Every operation in `openapi.yaml` / `clientapi.yaml` / `asyncapi.yaml` (channel 
 
 For each `CRITICAL:` criterion (and any complex multi-component flow), author a sequence diagram at `docs/<service_name>/<feature-id>/diagrams/<feature-id>-sequence-intra-<usecase>.puml`. The `post-write-puml` hook renders each `.puml` to a paired `.svg`. Embed via `![<usecase>](diagrams/<feature-id>-sequence-intra-<usecase>.svg)` in the corresponding TDD section, NOT in the openapi (YAML can't embed images).
 
-Filename convention matches the `c4-architecture` skill's three-scope model.
+Filename convention matches the `c4-architecture` skill's three-scope model. Operations Summary discipline (Redis keys / Kafka topics / DB tables / lock patterns / state machine / API endpoint index) + `ref over` reuse for shared sub-flows: `skills/plantuml/SKILL.md > ## Sequence diagrams — authoring discipline`.
 
 ## Probe DSL — quick reference
 

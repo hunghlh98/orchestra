@@ -139,7 +139,7 @@ Required rows:
 
 ## Spec-correctness match rules (reverse-pass audit)
 
-Invoked by `@architect`'s post-pass spec-correctness audit after `task: feature-narrowing` deliverables close. For each sampled endpoint / channel / outbound operation, match the spec field against the Spring call site:
+Invoked by `@architect`'s post-pass spec-correctness audit after `task: feature-narrowing` deliverables close. For each sampled endpoint / channel / outbound operation, match the spec field against the Spring call site. The spec-field semantics (what `paths.<route>.<method>.requestBody.content.application/json.schema` means, what `channels.<topic>.publish.message.payload` covers, what `x-orchestra-stability:` flags) live in `skills/write-contract/SKILL.md`. The Spring-side matchers below are Java-specific and live here.
 
 **openapi.yaml** — sampled endpoints:
 

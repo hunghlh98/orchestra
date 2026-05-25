@@ -70,23 +70,7 @@ Longest dependency chain by SP sum is the critical path. Total sprint duration â
 
 ### Step 6 â€” Write the task graph
 
-Author `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`. Frontmatter carries `status:` / `verdict:` / `readers:` / `sections:` per `schemas/pipeline-artifact.schema.md`. Body anchors `S-DAG-001` and `S-TASKS-001`; embed the DAG via `![]()` against `diagrams/tasks-dag.svg` (the `post-write-puml` hook renders the `.svg` from a paired `.puml` source).
-
-Frontmatter:
-
-```yaml
----
-id: <feature-id>-TASKS
-type: TASKS
-created: <ISO-8601>
-revision: 1
-task_graph_node_count: <int>
-estimated_sp: <int>
-tasks_pending: <int>
-tasks_in_progress: 0
-tasks_done: 0
----
-```
+Author `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`. Frontmatter shape + required keys (`type: TASKS`, `task_graph_node_count`, `estimated_sp`, `tasks_pending` / `tasks_in_progress` / `tasks_done` counters) per `schemas/pipeline-artifact.schema.md` TASKS-typed frontmatter spec. Body anchors `S-DAG-001` and `S-TASKS-001`; embed the DAG via `![]()` against `diagrams/tasks-dag.svg` (the `post-write-puml` hook renders the `.svg` from a paired `.puml` source).
 
 Body:
 
