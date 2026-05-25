@@ -2,6 +2,7 @@
 name: plantuml
 description: "PlantUML diagram authoring across 19 diagram types (sequence, class, activity, state, ER, Gantt, component, use-case, mindmap, etc.) plus orchestra-specific three-scope filename conventions (system / service / per-feature) and a sequence-diagram Operations Summary discipline (Redis, Kafka, DB-tables, lock-patterns, state-machine, endpoint-index). Use when any agent writes a .puml source. C4-shaped diagrams go through c4-architecture, which wraps this skill."
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill
+disable-model-invocation: true
 origin: SpillwaveSolutions/plantuml@MIT (cloned for orchestra; examples/ trimmed)
 ---
 

@@ -2,6 +2,7 @@
 name: qa-test-planner
 description: "Test-plan authoring with 7-axis coverage strategy (happy / boundary / error / idempotency / adversarial / cross-process-boundary / manual) plus an 8-pattern adversarial fuzz-input catalog (replay, malformed JSON, SQL injection, oversized body, race, wrong content-type, auth bypass, timeout). Use when @test-author writes TSR S-TEST-001 rows from a locked openapi, or when @test-runner fills status + evidence cells in place."
 allowed-tools: Read, Write, Edit, Glob, Grep, Skill
+disable-model-invocation: true
 origin: orchestra
 ---
 

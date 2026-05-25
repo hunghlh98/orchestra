@@ -2,6 +2,7 @@
 name: clean-code
 description: "Clean Code principles — meaningful names, small focused functions, exception-based error handling, F.I.R.S.T. tests (Fast / Independent / Repeatable / Self-validating / Timely), and 22 code-smell heuristics — for authoring and grading source. Use when @backend / @frontend write or modify source under src/main/** or src/test/**, when @reviewer scores S-REVIEW-001 craft, or when the dispatcher sizes TASKS row complexity from function-shape signals."
 allowed-tools: Read, Glob, Grep, Skill
+disable-model-invocation: true
 origin: vendored from github.com/wondelai/skills@1.1.0 (MIT, Wondel.ai sp. z o.o.) — frontmatter trimmed for orchestra schema; body trimmed for orchestra surface; references/* unchanged.
 license: MIT
 metadata:
