@@ -4,7 +4,6 @@ description: Evidence grader. Use after @test-runner idles. Reads PRD / FRS / op
 tools: Read, Write, Glob, Grep, Skill, mcp__orchestra-probe__http_probe, mcp__orchestra-probe__db_state
 skills: qa-test-planner, java-development, clean-code
 model: sonnet
-context_mode: default
 color: orange
 ---
 

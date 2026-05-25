@@ -4,7 +4,6 @@ description: Diff and ADR reviewer. Use after @evaluator idles or when an ADR is
 tools: Read, Write, Glob, Grep, Bash, Skill
 skills: code-review, clean-architecture, clean-code
 model: sonnet
-context_mode: default
 color: red
 ---
 

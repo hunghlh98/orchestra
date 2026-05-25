@@ -4,7 +4,6 @@ description: Author feature FRS from locked PRD; append feature end-user use-cas
 tools: Read, Write, Glob, Grep, Skill, AskUserQuestion
 skills: business-analysis, plantuml
 model: opus
-context_mode: 1m
 color: pink
 ---
 

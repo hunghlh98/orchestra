@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // scripts/tests/agents.test.js
 // Full agent-frontmatter validation.
-// 7 checks: frontmatter shape, name in valid set, description ≤30 words,
-// per-role tools/denylist surface, model id known, context_mode supported,
-// ≥1 <example>. Plus mutation-test fixtures: missing model fails red;
-// forbidden tool in role allowlist fails red; over-restrictive denylist
-// fails red.
+// 6 checks: frontmatter shape, name in valid set, description ≤30 words,
+// per-role tools/denylist surface, model id known, ≥1 <example>. Plus
+// mutation-test fixtures: missing model fails red; forbidden tool in
+// role allowlist fails red; over-restrictive denylist fails red.
 
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -41,7 +40,7 @@ export const FORBIDDEN_TOOLS_PER_AGENT = {
   "test-runner": [],
 };
 
-const REQUIRED_KEYS = ["name", "description", "model", "context_mode", "color"];
+const REQUIRED_KEYS = ["name", "description", "model", "color"];
 
 const knownModels = JSON.parse(
   readFileSync(resolve(root, "manifests/known-models.json"), "utf8")
@@ -99,7 +98,7 @@ function readAgentFile(path) {
   return { fm, body };
 }
 
-// === Validation: 7 checks per agent ===
+// === Validation: 6 checks per agent ===
 
 export function validateAgent(name, parsed) {
   const errors = [];
@@ -156,15 +155,7 @@ export function validateAgent(name, parsed) {
     errors.push(`model '${fm.model}' not in manifests/known-models.json`);
   }
 
-  // Check 6: context_mode supported by the model
-  const modelDef = MODEL_BY_ID.get(fm.model);
-  if (modelDef && !modelDef.supportsContextMode.includes(fm.context_mode)) {
-    errors.push(
-      `context_mode '${fm.context_mode}' not in ${fm.model}.supportsContextMode (${modelDef.supportsContextMode.join(",")})`
-    );
-  }
-
-  // Check 7: body has ≥1 <example>...</example> block
+  // Check 6: body has ≥1 <example>...</example> block
   if (!/<example>[\s\S]*?<\/example>/.test(body)) {
     errors.push("body has no <example>...</example> block");
   }
@@ -193,7 +184,7 @@ for (const file of files) {
   const parsed = readAgentFile(join(agentsDir, file));
   const errs = validateAgent(name, parsed);
   if (errs.length === 0) {
-    check(true, `agents/${file}: 7 checks passed`);
+    check(true, `agents/${file}: 6 checks passed`);
   } else {
     for (const e of errs) check(false, `agents/${file}: ${e}`);
   }
@@ -207,7 +198,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
   const bad = {
     fm: {
       name: "product", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
-      context_mode: "1m", color: "purple",
+      color: "purple",
       // model intentionally missing
     },
     body: "<example>x</example>",
@@ -223,7 +214,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
     fm: {
       name: "product", description: "ok",
       tools: ["Read", "Grep", "Glob", "Write", "Bash"],
-      model: "opus", context_mode: "1m", color: "purple",
+      model: "opus", color: "purple",
     },
     body: "<example>x</example>",
   };
@@ -240,7 +231,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
       name: "reviewer", description: "ok",
       disallowedTools: ["Edit", "MultiEdit"],
       tools: ["Read", "Grep", "Glob", "Skill"],
-      model: "sonnet", context_mode: "default", color: "red",
+      model: "sonnet", color: "red",
     },
     body: "<example>x</example>",
   };
@@ -256,7 +247,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
     fm: {
       name: "test-author", description: "ok",
       tools: ["Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Skill", "Bash"],
-      model: "sonnet", context_mode: "default", color: "yellow",
+      model: "sonnet", color: "yellow",
     },
     body: "<example>x</example>",
   };
@@ -270,7 +261,7 @@ console.log("Mutation tests (validator must fail red on bad input):");
   const bad = {
     fm: {
       name: "explorer", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
-      model: "claude-fictional-9000", context_mode: "1m", color: "blue",
+      model: "claude-fictional-9000", color: "blue",
     },
     body: "<example>x</example>",
   };
@@ -279,28 +270,12 @@ console.log("Mutation tests (validator must fail red on bad input):");
     `mutation: unknown model id flagged`);
 }
 
-// Fixture 4: context_mode not in model's supportsContextMode
-{
-  const bad = {
-    fm: {
-      name: "explorer", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
-      model: "sonnet", // sonnet only supports "default"
-      context_mode: "1m",
-      color: "blue",
-    },
-    body: "<example>x</example>",
-  };
-  const errs = validateAgent("explorer", bad);
-  check(errs.some(e => /supportsContextMode/.test(e)),
-    `mutation: context_mode mismatch flagged`);
-}
-
-// Fixture 5: missing <example> block
+// Fixture 4: missing <example> block
 {
   const bad = {
     fm: {
       name: "product", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
-      model: "opus", context_mode: "1m", color: "purple",
+      model: "opus", color: "purple",
     },
     body: "no example block here, just prose.",
   };
@@ -309,14 +284,14 @@ console.log("Mutation tests (validator must fail red on bad input):");
     `mutation: missing <example> block flagged`);
 }
 
-// Fixture 6: description >30 words
+// Fixture 5: description >30 words
 {
   const longDesc = Array.from({ length: 35 }, (_, i) => `word${i}`).join(" ");
   const bad = {
     fm: {
       name: "product", description: longDesc,
       tools: ["Read", "Grep", "Glob", "Write"],
-      model: "opus", context_mode: "1m", color: "purple",
+      model: "opus", color: "purple",
     },
     body: "<example>x</example>",
   };
@@ -325,12 +300,12 @@ console.log("Mutation tests (validator must fail red on bad input):");
     `mutation: description >30 words flagged`);
 }
 
-// Fixture 7: name not in valid set
+// Fixture 6: name not in valid set
 {
   const bad = {
     fm: {
       name: "wizard", description: "ok", tools: ["Read", "Grep", "Glob", "Write"],
-      model: "opus", context_mode: "1m", color: "purple",
+      model: "opus", color: "purple",
     },
     body: "<example>x</example>",
   };
@@ -345,12 +320,12 @@ console.log("Mutation tests (validator must fail red on bad input):");
     fm: {
       name: "product", description: "fine and short",
       tools: ["Read", "Grep", "Glob", "Write"],
-      model: "opus", context_mode: "1m", color: "purple",
+      model: "opus", color: "purple",
     },
     body: "<example>Context: x. User invokes: y. Action: z.</example>",
   };
   const errs = validateAgent("product", ok);
-  check(errs.length === 0, `inverse sanity: clean fixture passes 7 checks`);
+  check(errs.length === 0, `inverse sanity: clean fixture passes 6 checks`);
 }
 
 if (failures > 0) {

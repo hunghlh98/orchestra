@@ -4,7 +4,6 @@ description: Use after TDD lock to author black-box tests from openapi + PRD + F
 tools: Read, Write, Edit, MultiEdit, Glob, Grep, Skill
 skills: qa-test-planner
 model: sonnet
-context_mode: default
 color: yellow
 ---
 

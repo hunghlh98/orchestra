@@ -4,7 +4,6 @@ description: Use when implementing UI (components, state, styles, accessibility)
 tools: Read, Write, Edit, MultiEdit, Glob, Grep, Skill
 skills: clean-code
 model: sonnet
-context_mode: default
 color: cyan
 ---
 

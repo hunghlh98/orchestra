@@ -4,7 +4,6 @@ description: Survey one service's source surface during brownfield Phase 1 Disco
 tools: Read, Write, Glob, Grep, Bash, Skill
 skills: java-development
 model: opus
-context_mode: 1m
 color: green
 ---
 

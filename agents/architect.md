@@ -4,7 +4,6 @@ description: Author workspace SAD/ADRs/C4 + per-service singletons (openapi, c4-
 tools: Read, Write, Glob, Grep, Skill, AskUserQuestion, mcp__orchestra-utils__docs_readme
 skills: c4-architecture, write-contract, business-analysis, clean-architecture, clean-code, java-development, plantuml
 model: opus
-context_mode: 1m
 color: blue
 ---
 

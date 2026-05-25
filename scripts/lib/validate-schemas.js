@@ -64,9 +64,6 @@ export function runBootstrapChecks(root, errs) {
         if (!m.model_id || typeof m.model_id !== "string") {
           errs.push(`known-models.json: model '${m.id}' missing 'model_id'`);
         }
-        if (!Array.isArray(m.supportsContextMode) || m.supportsContextMode.length === 0) {
-          errs.push(`known-models.json: model '${m.id}' missing 'supportsContextMode'`);
-        }
       }
     }
   }

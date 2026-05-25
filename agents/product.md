@@ -4,7 +4,6 @@ description: Use when turning user intent into a confirmed PRD + features.yaml m
 tools: Read, Write, Glob, Grep, Skill, AskUserQuestion, mcp__orchestra-utils__upsert_features_yaml
 skills: business-analysis
 model: opus
-context_mode: 1m
 color: purple
 ---
 

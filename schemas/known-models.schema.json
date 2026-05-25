@@ -17,7 +17,7 @@
   "$defs": {
     "model": {
       "type": "object",
-      "required": ["id", "model_id", "supportsContextMode"],
+      "required": ["id", "model_id"],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -28,12 +28,7 @@
           "type": "string",
           "description": "Fully-qualified Anthropic model id accepted by the API."
         },
-        "default": { "type": "boolean" },
-        "supportsContextMode": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "enum": ["default", "1m"] }
-        }
+        "default": { "type": "boolean" }
       }
     }
   }

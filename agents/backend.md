@@ -4,7 +4,6 @@ description: Use when implementing server-side code (endpoints, services, persis
 tools: Read, Write, Edit, MultiEdit, Glob, Grep, Skill
 skills: java-development, clean-architecture, clean-code
 model: sonnet
-context_mode: default
 color: green
 ---
 

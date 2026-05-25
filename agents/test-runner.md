@@ -4,7 +4,6 @@ description: Use after @test-author idles. Reads src/main, adds white-box + edge
 tools: Read, Write, Edit, MultiEdit, Glob, Grep, Bash, Skill
 skills: qa-test-planner, clean-code
 model: sonnet
-context_mode: default
 color: yellow
 ---
 
