@@ -47,35 +47,9 @@ python scripts/check_setup.py
 
 Universal elements (delimiters, comments, notes, metadata): `references/common_format.md`. Modern styling: `references/styling_guide.md`.
 
-### Step 2 — Author the .puml file using fixed-name conventions
+### Step 2 — Author the .puml file using orchestra conventions
 
-Orchestra uses a **three-scope model** so chain artifacts reference diagrams by stable name. System-level singletons live under `docs/diagrams/`; service-level singletons live under `docs/<service_name>/diagrams/`; per-feature copies (system L1+L2 with feature-touched elements highlighted) live under `docs/<service_name>/<feature-id>/diagrams/` with `<feature-id>-` filename prefix.
-
-| Scope | Path | Files | Owner |
-|---|---|---|---|
-| System singleton | `docs/diagrams/` | `c4-context.puml`, `c4-container.puml`, `erd-logical.puml`, `sequence-inter-<flow>.puml` | `@architect` |
-| Service singleton | `docs/<service_name>/diagrams/` | `c4-component.puml`, `c4-code.puml` (opt-in; ≥3 classes) | `@architect` |
-| Per-feature | `docs/<service_name>/<feature-id>/diagrams/` | `<feature-id>-{c4-context,c4-container,frs-usecase,state-business,sequence-intra-<usecase>,state-technical,erd-physical}.puml` | `@analyst` (frs-usecase, state-business) / `@architect` (others) |
-
-When a new feature changes a `Component()` / `Rel()` / class line in a service-level file, leave a `' #<feature-id>` PlantUML line comment above the changed line. Provenance lives in comments; rendered diagram stays uncluttered.
-
-Per-feature L1+L2 copies differ from system singletons ONLY in styling (`UpdateElementStyle()` / `UpdateRelStyle()` highlights) — never in element identity. NO per-feature L3/L4 copies; service-level L3+L4 carry feature provenance via `' #<feature-id>` line comments.
-
-### Step 2a — Filename allowlist (enforced)
-
-Forbidden by default: `AD-*` (activity), `SAGA-*`, `SD-*` (use `sequence-inter-<flow>.puml` / `<feature-id>-sequence-intra-<usecase>.puml`), `ERD-*` (use `erd-logical.puml` / `<feature-id>-erd-physical.puml`), `C2-*` / `C3-*` short-hands, ad-hoc `*-overview.puml` / `*-architecture.puml`, and **any L3/L4 file outside the service's own `diagrams/` folder**.
-
-Supplementary diagrams outside allowlist require `--enable-supplementary-diagrams` AND a stated rationale in the relevant ADR or TDD section. Reviewer flags any other prefix as structural failure.
-
-### Step 2b — C3 is not a class diagram
-
-C3 (component) diagrams describe service-internal *components*, not Java classes. Caps when authoring `c4-component.puml`:
-
-- 5–10 components per service. More than 10 → split the service into containers at L2 first.
-- Label by responsibility (`OrderValidator`, `PaymentDispatcher`), not Java class name (`OrderServiceImpl`).
-- No methods, no fields, no parameter lists in C3.
-- Internal class structure belongs in TDD prose or in C4 L4 (when service warrants L4).
-- L4 (code-level) is opt-in only: code-to-spec reverse-pass defaults OFF unless TDD justifies L4 in `S-COMPONENTS-001`.
+Full rules (three-scope filename model, per-feature highlight rule, filename allowlist, C3-not-class-diagram caps, two-folder rule): `references/orchestra-conventions.md`.
 
 ### Step 3 — Render is hook-enforced (do not run conversion manually)
 
