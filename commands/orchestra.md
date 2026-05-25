@@ -158,10 +158,6 @@ R4. **Recompose** plan body inline (still in plan mode). Incorporate new evidenc
 
 R5. **Re-submit** via `ExitPlanMode({plan: <revised body>})`. Turn ends; approval-signal evaluation repeats per the Phase 2a turn-boundary block above.
 
-**Why self-explore, not subagent respawn.** Reject feedback narrows scope; subagent context isolation does not pay for itself on narrow gaps. Respawn reserved for blank-slate Phase 1.
-
-**Why supplemental-cycle-`<N>`.md, not in-place mutation.** Audit trail. Each cycle's new evidence is a distinct artifact reviewable post-run.
-
 **Cycle == 3 still rejected → DEADLOCK.** Main agent Writes `.orchestra/plans/<session-id>/run-plan-DEADLOCK.md` containing: (a) original plan body; (b) per-cycle reject comment + supplemental evidence; (c) summary of unresolved cause. Ends turn. User takes over (manual triage, plan revision in a fresh session via `claude --fork-session`).
 
 ## Phase 3 — Swarm (Turn 2, default mode, same turn as Phase 2b Lock)
@@ -199,14 +195,12 @@ For forward chain:
 
 ## Ratify-spec on locked artifacts
 
-Verification-phase divergences resolve two ways:
+Two resolutions for verification-phase divergence:
 
-- **`ratify-spec`** — artifact's invariant was correct but locked; main thread unlocks via `mcp__orchestra-utils__amend_locked_artifact(context_path, target_path, revision_notes)` (flips `status: locked → revision_requested`, appends `- <ISO-8601> | unlocked by dispatcher | <revision_notes>` to `## Changelog`). Re-spawn original authoring agent with `task: ratify-spec-amend` and revision notes lifted into brief. Agent re-authors the now-unlocked artifact, appends `- <ISO-8601> | ratify-spec-amend by @<agent> | <amendment summary>` row as part of `Write`. Main thread re-locks via `mcp__orchestra-utils__relock_artifact(context_path, target_path, amendment_summary)` (verifies last row is `ratify-spec-amend`, flips `revision_requested → locked`, appends `- <ISO-8601> | re-locked by dispatcher | <amendment_summary>` row).
-- **`fix-source`** — source diverged from a still-correct spec; main thread writes corrections to `src/**`; artifact stays untouched (no `## Changelog` row appended).
+- **`ratify-spec`** — invariant correct, artifact locked. Unlock → re-author → re-lock via `mcp__orchestra-utils__amend_locked_artifact` + `relock_artifact`. Producer-mapping + row format + append-only contract: `schemas/pipeline-artifact.schema.md#changelog-block`.
+- **`fix-source`** — source diverged from a still-correct spec; main thread writes corrections to `src/**`; artifact stays untouched.
 
-Net audit trail per ratify-spec cycle: three new rows (`unlocked`, `ratify-spec-amend`, `re-locked`). `pre-write-check.js` `changelog-append-only` rejects any `Write` that mutates / removes / reorders existing rows.
-
-**Portability contract.** Every artifact under `docs/**/*.md` carries domain rules ONLY — no `src/**` path tokens, commit SHAs, branch names, repo URLs. PRD/FRS additionally carry no fenced code blocks. `pre-write-check.js` `codebase-token-reject` enforces. Inline backtick spans always allowed.
+**Portability contract.** `docs/**/*.md` carries domain rules only — no `src/**` paths, commit SHAs, branch names, repo URLs; PRD/FRS additionally no fenced code blocks. Shape: `schemas/pipeline-artifact.schema.md#link-discipline`. Enforced by `hooks/scripts/pre-write-check.js codebase-token-reject`.
 
 ## Folder layout
 
@@ -240,11 +234,8 @@ Every `Agent({...})` call MUST prepend `phase: <name>` on its own line. Canonica
 
 ### Parallel-spawn discipline
 
-Cohort of N agents at the same `phase:` with no read-dependency MUST emit ALL `Agent({...})` calls in ONE assistant message. Before spawning, count: are there N>1 agents at the same `phase:` with no read-dependency? If yes → ONE message with N tool-use blocks. Staggered spawns surface as `cohort.spawn.staggered` warnings in `metrics-collector`.
-
-Tool-call batching = one message with N tool-use blocks. Not N messages each with one block.
-
-Same rule applies to `TaskCreate` emission at Phase 2b: N independent `TaskCreate` calls = ONE message.
+- Cohort of N agents at the same `phase:` with no read-dependency emit ONE assistant message with N `Agent({...})` blocks. Staggered emission warns as `cohort.spawn.staggered` in `metrics-collector`.
+- Same rule for `TaskCreate` at Phase 2b: N independent calls = ONE message.
 
 ### Spawn brief discipline
 
@@ -255,13 +246,7 @@ Spawn briefs describe what to look for, not what to find. Prescriptive findings 
 
 ### Preconditions surfaced in run-plan `## Risks + decisions`
 
-Lift applicable bullets pre-approval:
-
-- Spawn briefs describe, never prescribe.
-- `ratify-spec` on locked artifacts requires `mcp__orchestra-utils__amend_locked_artifact` + `relock_artifact` (sibling tools; emit matching `unlocked` / `re-locked` row in same write that flips `status:`). Surface up-front if reverse-pass likely raises divergences.
-- Single-writer surfaces stay serial.
-- Cohort spawns emit ONE message.
-- Phase 2 revision cap is 3; 4th rejection writes `run-plan-DEADLOCK.md`.
+Lift relevant Invariants (top of this file) into the plan body's `## Risks + decisions` pre-approval.
 
 ### Status output
 

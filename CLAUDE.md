@@ -154,7 +154,7 @@ Why commit-derived: hand-authoring duplicates work the commit log already encode
 
 ## Audit-trail conformance (maintainer contract)
 
-**Scope of this section**: maintainer obligation when authoring or modifying consumer-shipped surfaces (`agents/`, `commands/`, `hooks/`, `mcp-servers/`) that produce or mutate consumer-project chain artifacts. Body-grammar canonical home: `schemas/pipeline-artifact.schema.md` — when the schema's `## Changelog` block-grammar exists, this maintainer rule cites it. Until then (PR 1 lands the schema body-grammar), the rule is "ensure your consumer-surface edit conforms to the contract once the schema lands; do not introduce silent locked-artifact mutations".
+**Scope of this section**: maintainer obligation when authoring or modifying consumer-shipped surfaces (`agents/`, `commands/`, `hooks/`, `mcp-servers/`) that produce or mutate consumer-project chain artifacts. Body-grammar canonical home: `schemas/pipeline-artifact.schema.md#changelog-block` — this maintainer rule cites it; conformance check at consumer-surface edit time per the producer table below.
 
 ### Why this is a dev-surface contract, not a consumer-CLAUDE.md rule
 
