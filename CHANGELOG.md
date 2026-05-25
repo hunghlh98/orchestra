@@ -4,6 +4,24 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.5] — 2026-05-25
+
+Patch release. Follow-on audit pass — eliminates an invented YAML extension (`context_mode`) and its schema/test/manifest ecosystem, drops a consumer-opinion-leak skill, dedupes a known "mirror" maintenance hazard between MCP server and dev scripts, and tightens skill auto-trigger behavior. No new behavior.
+
+### Fixed
+
+- **Five knowledge skills now opt out of Claude's autonomous trigger.** `clean-architecture`, `clean-code`, `java-development`, `qa-test-planner`, `plantuml` lacked `disable-model-invocation: true` despite being 100% agent-invoked (loaded via each agent's `skills:` frontmatter). Description-string keywords ("clean up", "java", "diagram") were partial-matching unrelated user prompts and bloating context. Brings parity with the five sibling navigation/knowledge skills that already carried the field.
+
+### Changed
+
+- **`context_mode` cleanly removed (14-file teardown).** The field was an orchestra-invented YAML extension absent from Claude Code's 16-field subagent spec (`name`, `description`, `tools`, `disallowedTools`, `model`, `permissionMode`, `maxTurns`, `skills`, `mcpServers`, `hooks`, `memory`, `background`, `effort`, `isolation`, `color`, `initialPrompt`) and silently ignored by the runtime. Removal cost 14 edits and -46 LOC because the field had grown its own ecosystem: `manifests/known-models.json > supportsContextMode`, `schemas/known-models.schema.json` required field, `scripts/lib/validate-schemas.js > supportsContextMode` validator, and `scripts/tests/agents.test.js` REQUIRED_KEY + dedicated mutation fixture (Check 6 / Fixture 4). All 10 agents are now 100% spec-compliant. Audit signal codified in [[validate-yaml-extensions-upstream-first]] memory.
+- **`skills/commit-message` dropped (consumer-opinion leak).** Consumers define their own commit conventions; shipping orchestra's preferred form auto-triggered on consumer prompts and overrode their existing rules. `CLAUDE.md` + `README.md` updated to cite [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) directly. README skill count 11 → 10. Codified in [[no-opinion-leak-via-consumer-skills]] memory.
+- **`hooks/lib/validate-yaml.js` new shared module.** `validateLocalYamlContent` + `validateSystemYamlContent` + `VALID_AUTONOMY_LEVELS` / `VALID_RUN_PLAN_STATUS` / `VALID_WORKSPACE_KINDS` extracted from `mcp-servers/orchestra-utils.js` (was inline with a "mirror scripts/validate.js:224-272" comment that admitted the maintenance hazard) and from `scripts/lib/validate-schemas.js` (now a thin re-export of the canonical module). Net -36 LOC; surface-discipline preserved — shared module lives in `hooks/lib/` (consumer surface), not `scripts/` (dev-only), because `mcp-servers/` ships and cannot import dev-only code.
+- **`agents/architect.md > Per-feature TDD anchor shape` collapsed.** Two pure-delegating bullets (`S-DATA-001` → `clean-architecture > Persisted Entity Shape`, `S-CONFIG-001` → `java-development > S-CONFIG-001 rows`) merged into one navigation line (135 → 133 LOC). Orchestra-specific anchors (`S-COMPONENTS-001`, `S-ARCHITECTURE-001`, `S-STATE-001`) retain convention text since no canonical skill home exists.
+- **`schemas/pipeline-artifact.schema.md > Frontmatter grammar (frozen)` expanded.** Adds explicit non-goals matching `hooks/lib/yaml-mini.js` parser behavior 1:1 — block scalars (`|` / `>`), tags (`!!`), in-block multi-doc separators (`---` / `...`), key shape restriction (`[a-zA-Z][a-zA-Z0-9_-]*`; no dots / whitespace), scalar type closure (null / bool / int / quoted-string only; no float literals), caller contract (callers pass the already-sliced inner block, no `---` fences).
+- **`commands/orchestra.md` hook-table cell tightened.** The `stop-plan-verify` row collapsed multi-paragraph restatement of the silent-approval gate into a one-line "per Invariants" cite, per "fold up, don't sprinkle" — the Invariants section above the table already carries the rule.
+- **`.gitignore` augmented.** Added `.claude/audit/` and `.claude/temp/` scratch directories.
+
 ## [5.2.4] — 2026-05-25
 
 Patch release. Post-audit cleanup arc (`code-reviews/audit-2026-05-25.html`) — hook security fixes, dispatcher-only skill auto-trigger demotion, maintainer-doc fold-up, hook test-gap backfill. No new behavior; defense-in-depth + context-load reduction.
