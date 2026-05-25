@@ -325,7 +325,7 @@ Tool surface splits by call-readiness:
 | `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-*\|TaskCreate\|TaskUpdate / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl`. Groups by `session_id`. |
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher + `locked-status-reject` + `all-sections-locked-reject` + `readers-scope-warning` + `chain-cite-reject` + `codebase-token-reject` + `workspace-sad-container-floor` + `changelog-append-only`. |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts. |
-| `stop-plan-verify` | Stop | Silent-approval gate. Scans the just-ended main-agent turn; an `ExitPlanMode` tool call followed by `Task` / `Agent` in the SAME turn returns `decision: "block"` with a structured reason. Mitigates the silent-approval shape where the model receives `"User has approved"` with no UI interaction. |
+| `stop-plan-verify` | Stop | Silent-approval gate per Invariants. Returns `decision: "block"` when `ExitPlanMode` is followed by `Task` / `Agent` in the same turn. |
 | `agent-plan-sync` | SubagentStop | Projects each subagent's `TaskCreate` / `TaskUpdate` activity from its transcript into the session-level ledger at `.orchestra/plans/<session-id>/agent-tasks.md`. Single writer; subagents never touch the file. |
 | `post-bash-lint` | PostToolUse:Bash | Surfaces source-modifying Bash to stderr (observer; never blocks). |
 | `post-write-puml` | PostToolUse:Write\|Edit\|MultiEdit | Renders `.puml` → `.svg` via plantuml CLI. Warns when sibling SAD/TDD frontmatter `diagrams: [...]` omits the rendered name. |

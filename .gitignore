@@ -24,6 +24,12 @@ docs/aggregated-metrics.html
 # DRIFT-REPORT.md, SUMMARY-*.md, and any other generated outputs).
 .claude/.orchestra/
 
+# Audit / temp scratch — derivative outputs from /audit-* skills and
+# audit subagents (per-component JSON, aggregate MD, HTML reports).
+# Regenerate; do not commit.
+.claude/audit/
+.claude/temp/
+
 # mcp-servers/ allow-list. Only the two shipped MCP servers are tracked;
 # anything else under mcp-servers/ is accidental and must not be packaged.
 mcp-servers/*
