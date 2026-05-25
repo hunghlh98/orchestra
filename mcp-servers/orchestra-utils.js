@@ -29,6 +29,10 @@ import { fileURLToPath } from "node:url";
 
 import { parse as parseYaml, serialize as serializeYaml } from "../hooks/lib/yaml-mini.js";
 import { safeRead, safeWrite } from "../hooks/lib/safe-fs.js";
+import {
+  validateLocalYamlContent,
+  validateSystemYamlContent,
+} from "../hooks/lib/validate-yaml.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -76,19 +80,9 @@ function rejectUnknownArgs(args, allowed, toolName) {
   }
 }
 
-// === Schema validators (inline; mirror scripts/validate.js:224-272) ===
-// Inline rather than imported because validate.js has a top-level main-walk
-// + stdout report that runs on import and would pollute this MCP server's
-// stdout (JSON-RPC channel). The schemas are the single source of truth;
-// both this file and scripts/validate.js project them identically and CI
-// would catch drift via the existing mutation suite at validate.js:741-900.
-
-const VALID_AUTONOMY_LEVELS = [
-  "EXECUTION_ONLY", "JOINT_PROCESSING", "OPTION_SYNTHESIS",
-  "DRAFT_AND_GATE", "FULL_AUTONOMY",
-];
-const VALID_RUN_PLAN_STATUS = ["drafted", "approved", "revision_requested"];
-const VALID_WORKSPACE_KINDS = ["single-repo", "multi-repo"];
+// Schema allowlists for features.yaml / local.yaml / system.yaml validators.
+// Loaded once at module init from the canonical JSON schemas; passed into the
+// shared validators (hooks/lib/validate-yaml.js) via opts.allowlist.
 
 function loadAllowlist(schemaRelPath) {
   try {
@@ -101,32 +95,6 @@ function loadAllowlist(schemaRelPath) {
 
 const LOCAL_ALLOWLIST = loadAllowlist("schemas/local.schema.json");
 const SYSTEM_ALLOWLIST = loadAllowlist("schemas/system.schema.json");
-
-function validateLocalYamlContent(relPath, raw) {
-  const errs = [];
-  let parsed;
-  try { parsed = parseYaml(raw); }
-  catch (e) { errs.push(`${relPath}: parse error: ${e.message}`); return errs; }
-  if (!parsed || typeof parsed !== "object") return errs;
-  if (LOCAL_ALLOWLIST.size > 0) {
-    for (const k of Object.keys(parsed)) {
-      if (!LOCAL_ALLOWLIST.has(k)) {
-        errs.push(`${relPath}: unknown top-level field '${k}' (not in schemas/local.schema.json allowlist)`);
-      }
-    }
-  }
-  if (parsed.autonomy && parsed.autonomy.level &&
-      !VALID_AUTONOMY_LEVELS.includes(parsed.autonomy.level)) {
-    errs.push(`${relPath}: autonomy.level '${parsed.autonomy.level}' not in ${VALID_AUTONOMY_LEVELS.join("|")}`);
-  }
-  if (parsed.run_plan_status !== undefined && !VALID_RUN_PLAN_STATUS.includes(parsed.run_plan_status)) {
-    errs.push(`${relPath}: run_plan_status '${parsed.run_plan_status}' not in ${VALID_RUN_PLAN_STATUS.join("|")}`);
-  }
-  if (parsed.auto_mode === true && parsed.run_plan_status !== "approved") {
-    errs.push(`${relPath}: auto_mode:true requires run_plan_status:approved (got ${JSON.stringify(parsed.run_plan_status)})`);
-  }
-  return errs;
-}
 
 function validateFeatureShape(f) {
   // yaml-mini drops empty arrays as null on serialize; tolerate null as empty for depends_on / supersedes.
@@ -223,25 +191,6 @@ function detectFeaturesCycle(features) {
     }
   }
   return null;
-}
-
-function validateSystemYamlContent(relPath, raw) {
-  const errs = [];
-  let parsed;
-  try { parsed = parseYaml(raw); }
-  catch (e) { errs.push(`${relPath}: parse error: ${e.message}`); return errs; }
-  if (!parsed || typeof parsed !== "object") return errs;
-  if (SYSTEM_ALLOWLIST.size > 0) {
-    for (const k of Object.keys(parsed)) {
-      if (!SYSTEM_ALLOWLIST.has(k)) {
-        errs.push(`${relPath}: unknown top-level field '${k}' (not in schemas/system.schema.json allowlist)`);
-      }
-    }
-  }
-  if (parsed.workspace_kind !== undefined && !VALID_WORKSPACE_KINDS.includes(parsed.workspace_kind)) {
-    errs.push(`${relPath}: workspace_kind '${parsed.workspace_kind}' not in ${VALID_WORKSPACE_KINDS.join("|")}`);
-  }
-  return errs;
 }
 
 // === Tool schemas ===
@@ -474,7 +423,7 @@ export function writeSystemYamlImpl(args = {}) {
   const target = join(resolvedDir, ".orchestra", "system.yaml");
   const relPath = relative(process.cwd(), target) || "system.yaml";
 
-  const errs = validateSystemYamlContent(relPath, yamlText);
+  const errs = validateSystemYamlContent(relPath, yamlText, { allowlist: SYSTEM_ALLOWLIST });
   if (errs.length > 0) {
     throw new Error("write_system_yaml: schema validation failed: " + errs.join("; "));
   }
@@ -539,7 +488,7 @@ export function upsertLocalYamlImpl(args = {}) {
 
   const yamlText = serializeYaml(merged) + "\n";
   const relPath = relative(process.cwd(), target) || "local.yaml";
-  const errs = validateLocalYamlContent(relPath, yamlText);
+  const errs = validateLocalYamlContent(relPath, yamlText, { allowlist: LOCAL_ALLOWLIST });
   if (errs.length > 0) {
     throw new Error("upsert_local_yaml: schema validation failed: " + errs.join("; "));
   }

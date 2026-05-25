@@ -7,6 +7,7 @@ Internal ESM modules consumed by `hooks/scripts/*.js`. Ship to consumers as part
 | Module | Purpose | Consumers |
 |---|---|---|
 | `yaml-mini.js` | Minimal YAML parser/serializer (frontmatter shape, no doc tags / anchors / complex types). | `agent-plan-sync.js`, `pre-write-check.js`, MCP servers |
+| `validate-yaml.js` | Pure content validators for `local.yaml` / `system.yaml` (`VALID_AUTONOMY_LEVELS`, `VALID_RUN_PLAN_STATUS`, `VALID_WORKSPACE_KINDS`, `validateLocalYamlContent`, `validateSystemYamlContent`). Allowlist passed in via `opts.allowlist`. | `mcp__orchestra-utils__write_system_yaml/upsert_local_yaml`, `scripts/lib/validate-schemas.js` |
 | `safe-fs.js` | Atomic file write helpers (write-to-temp, rename, fsync). Prevents partial writes on crash. | `agent-plan-sync.js`, `metrics-collector.js`, `metrics-aggregators.js`, `redaction.js` |
 | `rate-card.js` | Token / API cost lookup table for `known-models.schema.json` models. Cents-per-Mtoken. | `metrics-aggregators.js` |
 | `bootstrap-consumer-claude-md.js` | Splices the orchestra section into consumer's `<context_path>/CLAUDE.md`. | `mcp__orchestra-utils__claude_md` |
