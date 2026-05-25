@@ -1,6 +1,6 @@
 # hooks/lib — shared hook utilities
 
-Internal modules consumed by `hooks/scripts/*.js`. Ship to consumers as part of the plugin install.
+Internal ESM modules consumed by `hooks/scripts/*.js`. Ship to consumers as part of the plugin install.
 
 ## Module index
 
@@ -21,6 +21,7 @@ Internal modules consumed by `hooks/scripts/*.js`. Ship to consumers as part of 
 | `gate-d.js` | Pure gate matchers returning `{gate, message}` on hit (`checkSecrets`, `checkChainCiteReject`, `checkCodebaseTokenReject`, `checkWorkspaceSadContainerFloor`). | `pre-write-check.js` |
 | `gate-f.js` | Changelog append-only enforcement (`checkChangelogAppendOnly`, `parseChangelogRows`). | `pre-write-check.js` |
 | `preflight-detect.js` | `/orchestra` preflight detection + block builder (`buildPreflightBlock`, `parseSourceFlag`). | `orchestra-preflight.js` |
+| `stdin-bounded.js` | Bounded stdin reader (1 MiB hard cap) shared across hook scripts. Returns `{text, bytes, overflow}`. | every hook script |
 
 ## Stability contract
 
@@ -28,20 +29,19 @@ These modules are **consumer surface**. Breaking changes require:
 
 1. SemVer MAJOR bump (per `CLAUDE.md` release workflow).
 2. CHANGELOG `### Breaking` entry citing the affected module + migration path.
-3. Audit every consumer of the module (`grep -rn "require.*hooks/lib/<name>" hooks/scripts/ mcp-servers/`) before merge.
+3. Audit every consumer of the module (`grep -rn "from \"../lib/<name>\"" hooks/ mcp-servers/`) before merge.
 
 Function signatures and exported names are part of the public contract. Internal helpers (not exported) may change freely.
 
 ## Authoring rules
 
+- **ESM.** `import` / `export` only; CommonJS (`require` / `module.exports`) is not used in this tree. Hook scripts and MCP servers consume these modules via static ESM imports.
 - **Pure functions where possible.** Side effects (filesystem, network, env reads) only when the function's name announces it.
 - **No `process.exit()` from lib code.** Throw or return; let the calling hook decide exit codes.
 - **No `console.log` in lib code.** Hooks own stdout/stderr emission so the hook contract (decision control via stderr) stays predictable.
-- **CommonJS modules.** Match the surrounding hook style; ESM not enabled here.
 
 ## Adding a new module
 
-1. Author at `hooks/lib/<name>.js`. Single export-block at the bottom: `module.exports = { fn1, fn2 }`.
+1. Author at `hooks/lib/<name>.js`. Use named exports (`export function` / `export const`); avoid a single default-export bag.
 2. Add a row to the Module index above with purpose + consumer list.
-3. Add a test in `scripts/tests/hooks.test.js` for any non-trivial logic.
-4. Run `npm test` before commit.
+3. Update `Stability contract` if the module's exports become part of consumer-observable behaviour.
