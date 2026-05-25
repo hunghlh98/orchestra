@@ -501,6 +501,8 @@ Alice -> Bob : Continue with main flow
 @enduml
 ```
 
+For the orchestra reuse convention (canonical `SD-<id>` naming, step-number reuse, `grep` marker, `note over` fallback), see § Orchestra authoring discipline near the end of this file.
+
 ### Numbered Messages
 
 ```puml
@@ -621,6 +623,103 @@ else Password Invalid
 end
 @enduml
 ```
+
+## Orchestra authoring discipline
+
+Two content rules apply to every sequence diagram authored under orchestra (`*-sd-*.puml`, `sequence-intra-*.puml`, `sequence-inter-*.puml`). The diagram source shows lifelines + messages; the rules below cover what reviewers also need.
+
+### Operations Summary tables
+
+Every sequence diagram ships an Operations Summary listing the six tables below when the flow touches the resource. The tables answer "what side-effects does this flow have on infrastructure?" so reviewers can audit cache TTLs, lock blast-radius, DB writes, and producer/consumer topology without re-reading the diagram syntax.
+
+| Table | Columns |
+|---|---|
+| Redis Keys | Key pattern · Purpose · TTL · Marker |
+| Kafka Topics | Topic · Producer · Consumer |
+| Database Tables | Database · Table · Operation · Key Fields · Marker |
+| Lock Patterns | Lock Key · Type · TTL · On Failure |
+| State machine | States · Workflow |
+| API endpoint Index | #ID · Caller · Callee · Method + Path · Contract File |
+
+The `Marker` column (Redis Keys, Database Tables) carries `★SoT` for write-failure-blocks-flow stores and `◇Best-effort` for failure-logged-not-blocking stores; omit the column when the diagram doesn't ship SoT-marked `hnote`s.
+
+Placement — two surfaces:
+
+- **Sibling markdown** — `docs/<service_name>/<feature-id>/<feature-id>-sd-<seq>.puml` ships next to `<feature-id>-sd-<seq>-ops.md` carrying the six tables. Reviewers read this.
+- **In-diagram tail** — same six tables encoded inline as a `note over <first>, <last>` block at end of the `.puml`. Readers viewing the rendered `.svg` see them without leaving the diagram. Either surface satisfies the discipline; ship both when the audience splits between code reviewers (md) and stakeholder readers (svg).
+
+Empty tables omitted; an absent table means "this flow does not touch that surface" — explicit not-applicable, not silent omission. When a table applies but is empty (e.g., feature touches Kafka but only as a consumer, no producer row), keep the header and write `_(none)_` in the body so readers know it was considered.
+
+> ⚠️ **Hypothetical example.** Never paste real production participant names, internal codenames, table names, or SoT-marked store names from your own systems into shipped diagrams or worked examples in this skill. The example below uses descriptive generic nouns to teach the table shape.
+
+Worked example for a hypothetical "transfer" sequence diagram:
+
+```markdown
+# transfer-001-sd-checkout — Operations Summary
+
+## Redis Keys
+| Key pattern | Purpose | TTL |
+|---|---|---|
+| `transfer:lock:{idempotency_key}` | Per-key idempotency guard | 60s |
+| `transfer:rate:{user_id}` | Per-user rate limit token bucket | 1h sliding |
+
+## Kafka Topics
+| Topic | Producer | Consumer |
+|---|---|---|
+| `transfer.completed.v1` | transfer-service | ledger-projector, notification-service |
+
+## Database Tables
+| Database | Table | Operation | Key Fields |
+|---|---|---|---|
+| ledger | transactions | INSERT | id, idempotency_key, amount, status |
+| ledger | balance_snapshots | UPDATE | user_id, balance, updated_at |
+
+## Lock Patterns
+| Lock Key | Type | TTL | On Failure |
+|---|---|---|---|
+| `transfer:lock:{idempotency_key}` | Redis SET NX EX | 60s | 409 Conflict; client retries with same key |
+
+## State machine
+| States | Workflow |
+|---|---|
+| pending → authorized → captured → settled | Webhook on each transition; rollback path: any → reversed |
+
+## API endpoint Index
+| #ID | Caller | Callee | Method + Path | Contract File |
+|---|---|---|---|---|
+| 1 | client | transfer-service | POST /v1/transfers | transfer-001-openapi.yaml |
+| 2 | transfer-service | ledger-service | POST /internal/v1/postings | transfer-001-clientapi.yaml |
+| 3 | transfer-service | notification-service | (async) transfer.completed.v1 | transfer-001-asyncapi.yaml |
+```
+
+### `ref` block reuse for shared sub-flows
+
+When a sub-flow recurs across two or more sequence diagrams, source-of-truth lives in ONE diagram with a canonical name `SD-<id>: <Diagram Name>`. Other diagrams cite it via PlantUML's `ref over <participants>` block carrying a short title + step-range body. Removes copy-paste duplication and keeps cited steps single-edit.
+
+Reference syntax (embed in the citing diagram between the `@startuml` participants block and the calling step):
+
+> ⚠️ **Hypothetical example.** Participant aliases below are descriptive generics. Never paste real production participant names, internal codenames, or product flow names into shipped diagrams.
+
+```
+ref over Caller, Cashier, OrderSvc, PaymentSvc, GatewaySvc, ProviderSvc, EventBus, FulfillmentSvc, AccountSvc
+  **SD-W17: Order Checkout (Sub-Flows 2–3)**
+  [5] Caller → Cashier.ConfirmPayment(...)
+  [6] Cashier → OrderSvc.CreateOrder → InventorySvc.createAppTransID
+  [7] Cashier → PaymentSvc.CreatePaymentIntent → GatewaySvc → ProviderSvc quick_pay
+  [8] ProviderSvc IPN → GatewaySvc → PaymentSvc → PaymentSuccess → OrderSvc PAID → OrderPaid
+  [9] FulfillmentSvc delivers → DeliverySuccess
+  [10] Caller consumes delivery_result
+end ref
+```
+
+Rules:
+
+- Participants listed in `ref over` MUST appear in the citing diagram's `participant` / `actor` declarations (PlantUML stdlib requires lifeline binding for `ref over`).
+- Title line uses `**SD-<id>: <Diagram Name> (<sub-flow range>)**` — bold, sub-flow range in parentheses when only part of the referenced diagram applies.
+- Body steps reuse the SAME `[N]` step numbering as the canonical diagram. Do NOT renumber.
+- The canonical diagram MUST include a top-of-file `' SD-<id>` comment so `grep -rn 'SD-W17' docs/` resolves to one origin file.
+
+When `ref over` is impractical (citing diagram has more than ~6 participants, or the cited steps would clutter the body), use a `note over <participants>` pointer instead: `note over Caller, Cashier: see SD-W17 for sub-flows [5]-[10]`.
 
 ## Tips and Best Practices
 
