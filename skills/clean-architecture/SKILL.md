@@ -63,6 +63,21 @@ Entities encapsulate enterprise-wide business rules — the most general rules t
 
 See: [references/entities-use-cases.md](references/entities-use-cases.md)
 
+#### Persisted Entity Shape (orchestra TDD `S-DATA-001`)
+
+Invoked by `@architect` when authoring TDD `S-DATA-001` rows. One row per persisted entity. Required columns:
+
+| Column | Content |
+|---|---|
+| **Entity name** | Aggregate-root class as named in the source / spec |
+| **Table** | Physical table name |
+| **Ownership** | `owned` (this service is system-of-record) OR `cross-service:<owning-service>` |
+| **Persisted-column list** | Every column: name + type + nullability |
+| **Sentinel values** | Every `"(none)"` / `"(initial)"` / `"(unset)"` lifecycle label |
+| **Port methods** | Grouped by intent: `create` / `transition` / `query` |
+
+`cross-service` entities forbid local field invention — read shape via the owning service's API; drop the local `@Entity` if the table belongs elsewhere. Missing column list OR missing sentinel OR overloaded `save()` covering both genesis + transition contexts = TDD defect; `@evaluator` returns `eval_verdict: FAIL` with reason `spec-completeness`.
+
 ### 3. Interface Adapters and Frameworks
 
 Interface Adapters convert data between the format convenient for Use Cases/Entities and the format required by external agencies. Frameworks and Drivers are the outermost layer — glue code connecting to the outside world.

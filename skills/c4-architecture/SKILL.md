@@ -232,7 +232,17 @@ Every `Rel(...)` between containers in a workspace-scope `c4-container.puml` MUS
 
 Lift evidence into a paired markdown table at the tail of SAD `S-CONTAINERS-001` — columns `source-container | dest-container | evidence file:line | relationship type`. Arrows without source evidence are dropped from the diagram. Referenced HLDs / external design docs do NOT count as evidence — they are reference-only.
 
-### Step 9 — SAD/TDD lock-gate enforcement
+### Step 9 — ADR-worthiness gates
+
+Invoked by `@architect` BEFORE opening an ADR (forward-chain ESCALATE-ADR trigger or self-trigger mid-TDD), and by `@reviewer` retroactively when grading a diff that introduces a system-affecting decision lacking an ADR. ALL three gates must pass; any fail → inline decision in PRD / FRS / TDD body, never an ADR.
+
+1. **Multiple-option fingerprint** — ≥2 named alternatives realistically on the table (evidenced by source comment / commit / external spec / prior ADR / explicit product framing). Framework defaults fail. Fail → `AskUserQuestion` or pick obvious option inline.
+2. **Cross-cutting consequence** — reversing forces changes across ≥2 components OR services. Local conventions fail. Fail → inline PRD / FRS / TDD body decision.
+3. **Hard-to-reverse stakes** — choice carries ≥1 of: external-contract impact, data-shape migration, cross-team sign-off, production-behaviour change. Fail → `AskUserQuestion` + document in PRD / FRS body.
+
+Brownfield reverse-pass: half-implementations + accidental shapes fail gate 1 → route to BR-AC `S-INVARIANTS-001` via `ratify-spec`, NOT an ADR. Reverse-pass DIV rows arriving as ADR proposals are always unworthy.
+
+### Step 10 — SAD/TDD lock-gate enforcement
 
 **SAD lock-gate (c4-context mandatory).** SAD `status: locked` is denied unless BOTH `<context_path>/docs/diagrams/c4-context.puml` AND `c4-container.puml` exist. The context diagram carries one `System(...)` box for the workspace under design, every external `Person` / `System_Ext` the workspace touches, and nothing else (per `### Step 1c`). Reverse-pass authoring routinely skips context.puml when the container topology "feels obvious from `src/**`" — this gate stops that failure mode.
 

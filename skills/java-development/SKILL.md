@@ -92,6 +92,21 @@ rg -n -t java 'public\s+\w+\([^)]*\bTransferService\s+\w+' src/
 rg -n -t java '@Qualifier\s*\(\s*"transfer\w+"\s*\)' src/
 ```
 
+### Persistence shape priority (reverse-pass)
+
+Invoked by `@architect` during reverse-pass source-walk of a Java/Spring service. Read sources in PRIORITY ORDER — higher rows are canonical when they conflict with lower rows:
+
+1. **`src/main/resources/db/migration/V*.sql` (Flyway)** OR **`db/changelog/*.xml` (Liquibase)** when present — canonical schema.
+2. **Entity classes (`@Entity`)** — fallback when migrations absent.
+
+**Entity-table parity check.** Walk each entity against the resolved schema:
+
+- **Ghost column** — entity declares a field with `@Column` that no migration creates. Open a `DIV-NNN` row.
+- **Orphan column** — migration creates a column the entity does not map. Open a separate `DIV-NNN` row.
+- **Cross-service table** — entity maps a table owned by another service. Drop the local `@Entity` via `fix-source` and write `DEFECT-cross-service-entity-<slug>.md`.
+
+Each ghost / orphan opens its OWN `DIV-NNN` (do not bundle).
+
 ---
 
 ## Write-side: conventions
