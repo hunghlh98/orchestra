@@ -2,6 +2,7 @@
 name: test-author
 description: Use after TDD lock to author black-box tests from openapi + PRD + FRS only. src/main never read; Bash denied. Fills S-TEST-001 plan rows (status + evidence blank).
 tools: Read, Write, Edit, MultiEdit, Glob, Grep, Skill
+skills: qa-test-planner
 model: sonnet
 context_mode: default
 color: yellow

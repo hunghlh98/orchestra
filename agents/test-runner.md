@@ -2,6 +2,7 @@
 name: test-runner
 description: Use after @test-author idles. Reads src/main, adds white-box + edge-case tests, runs the suite via Bash, fills S-TEST-001 status + evidence cells, locks the section.
 tools: Read, Write, Edit, MultiEdit, Glob, Grep, Bash, Skill
+skills: qa-test-planner
 model: sonnet
 context_mode: default
 color: yellow

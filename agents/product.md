@@ -2,6 +2,7 @@
 name: product
 description: Use when turning user intent into a confirmed PRD + features.yaml manifest entry. Opens every spawn with "relates to existing feature?" and flags ADR-worthy decisions for @architect.
 tools: Read, Write, Glob, Grep, Skill, AskUserQuestion, mcp__orchestra-utils__upsert_features_yaml
+skills: business-analysis
 model: opus
 context_mode: 1m
 color: purple

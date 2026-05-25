@@ -2,6 +2,7 @@
 name: reviewer
 description: Diff and ADR reviewer. Use after @evaluator idles or when an ADR is proposed. Writes TSR S-REVIEW-001 verdict (APPROVED / REQUEST_CHANGES / PENDING); flags ADR-worthy decisions retroactively.
 tools: Read, Write, Glob, Grep, Bash, Skill
+skills: code-review, clean-architecture, clean-code
 model: sonnet
 context_mode: default
 color: red

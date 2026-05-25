@@ -2,6 +2,7 @@
 name: evaluator
 description: Evidence grader. Use after @test-runner idles. Reads PRD / FRS / openapi / TSR S-TEST-001 evidence and writes S-EVAL-001 (PASS / FAIL / PENDING per row). Strict read-only on src/.
 tools: Read, Write, Glob, Grep, Skill, mcp__orchestra-probe__http_probe, mcp__orchestra-probe__db_state
+skills: qa-test-planner, java-development, clean-code
 model: sonnet
 context_mode: default
 color: orange

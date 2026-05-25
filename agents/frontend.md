@@ -2,6 +2,7 @@
 name: frontend
 description: Use when implementing UI (components, state, styles, accessibility) for a feature with a locked TDD + openapi. Ships all four states (loading/empty/error/success). Skipped when no UI layer.
 tools: Read, Write, Edit, MultiEdit, Glob, Grep, Skill
+skills: clean-code
 model: sonnet
 context_mode: default
 color: cyan
