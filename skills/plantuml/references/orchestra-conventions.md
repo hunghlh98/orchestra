@@ -34,7 +34,7 @@ Forbidden by default:
 - Ad-hoc `*-overview.puml` / `*-architecture.puml`
 - **Any L3 / L4 file outside the service's own `diagrams/` folder**
 
-Supplementary diagrams outside the allowlist require `--enable-supplementary-diagrams` AND a stated rationale in the relevant ADR or TDD section. Reviewer flags any other prefix as a structural failure.
+Supplementary diagrams outside the allowlist require `--enable-supplementary-diagrams` AND a stated rationale in the relevant ADR or TDD section. Any other prefix is a structural failure; pick from the allowlist or set the flag.
 
 ## C3 (component) is not a class diagram
 

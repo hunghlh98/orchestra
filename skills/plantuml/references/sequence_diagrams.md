@@ -266,7 +266,7 @@ Callee --> Caller : 201 { orderId, status }
 Publisher ->> Bus : OrderCreated { orderId, userId }
 
 ' Long parameter lists — wrap with \n inside the label string
-Caller -> Callee : CreatePaymentIntent(\n  userId, clientId, appId,\n  paymentGatewayID, paymentPartnerID,\n  pmcID, providerID, serverId, roleId)
+Caller -> Callee : LongMethodCall(\n  paramA, paramB, paramC,\n  paramD, paramE, paramF,\n  paramG, paramH, paramI)
 
 ' Failure-class response
 Callee --> Caller : 402 { errorCode, reason }
@@ -381,13 +381,13 @@ end
 
 ### Critical (Protected Region)
 
-`critical` marks a region that must not be interrupted (atomic settlement, transactional bracket). Optional fallback branches use `else` like `alt`.
+`critical` marks a region that must not be interrupted (atomic write pair, transactional bracket). Optional fallback branches use `else` like `alt`.
 
 ```puml
 @startuml
-critical Atomic settlement
-    PaymentEngine -> Wallet : Debit
-    PaymentEngine -> Ledger : Credit
+critical Atomic write pair
+    ServiceA -> StoreA : WriteA
+    ServiceA -> StoreB : WriteB
 end
 @enduml
 ```
@@ -550,12 +550,12 @@ Caller -> Callee : [1] ValidateInput
 Callee -> Store  : [2] LoadProfile
 
 ' Compensation / saga reversal markers — reverse order from the forward path
-PaymentEngine -> Wallet : [Comp-3] RefundCredit
-PaymentEngine -> Order  : [Comp-2] MarkCancelled
+ServiceA -> StoreA : [Comp-3] RevertA
+ServiceA -> StoreB : [Comp-2] RevertB
 @enduml
 ```
 
-`[Comp-N]` is the same mechanism with a convention overlay for compensation / saga-reversal paths — the number mirrors the forward step it undoes, so a forward `[3] Debit` pairs with a reverse `[Comp-3] Credit`.
+`[Comp-N]` is the same mechanism with a convention overlay for compensation / saga-reversal paths — the number mirrors the forward step it undoes, so a forward `[3] WriteA` pairs with a reverse `[Comp-3] RevertA`.
 
 For pointing at a sub-flow that lives in a separate `.puml`, use `ref over` (see *Reference to Other Diagrams* above) — keeps the current diagram from inlining 30 steps of a tangential branch.
 
@@ -727,16 +727,16 @@ When `ref over` is impractical (citing diagram has more than ~6 participants, or
     - `->>` (open) — fire-and-forget (event publish / one-way notification); no response arrow
     - `->x` — crash or network-level failure (no response possible)
 8. **Autonumber for complex flows** - Easier to reference in discussions
-9. **Failure-path discipline** - In `alt`, success branch first, then `else` per error category. Label `else` branches by acceptance-criterion ID where the diagram traces to an FRS row (`else AC-014: payment declined`).
+9. **Failure-path discipline** - In `alt`, success branch first, then `else` per error category. Label `else` branches by acceptance-criterion ID where the diagram traces to an FRS row (`else AC-014: input rejected`).
 
 ## Common Use Cases
 
-- **API interactions** - RESTful, gRPC, SOAP protocols
-- **Authentication flows** - OAuth, SAML, JWT
-- **Transaction processing** - Payment, order processing
-- **Microservice communication** - Service-to-service calls
-- **Database transactions** - Query sequences, ACID operations
-- **Error handling** - Retry logic, fallback mechanisms
+- **API interactions** - RESTful, gRPC, or message-based protocols
+- **Authentication flows** - multi-step credential exchanges
+- **Multi-service transactions** - distributed writes with compensation
+- **Microservice communication** - service-to-service calls
+- **Database transactions** - query sequences, ACID operations
+- **Error handling** - retry logic, fallback mechanisms
 
 ## Conversion to Images
 
