@@ -146,7 +146,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `@evaluator` | Evidence grader. Reads PRD / FRS / openapi / TSR `S-TEST-001` and writes `S-EVAL-001` (PASS / FAIL / PENDING per row). Strict read-only. |
 | `@reviewer` | Diff and ADR reviewer. Writes TSR `S-REVIEW-001` verdict (APPROVED / REQUEST_CHANGES / PENDING); flags ADR-worthy decisions retroactively. |
 
-## Skills (11)
+## Skills (10)
 
 | Skill | Purpose |
 | --- | --- |
@@ -155,7 +155,6 @@ Emits the Usage block above. No chain, no agent spawn.
 | `clean-architecture` | Dependency-Rule layering (Entities / Use Cases / Adapters / Frameworks) for SAD container layout, TDD components, and review scoring. |
 | `clean-code` | Meaningful names, small functions, exception-based errors, F.I.R.S.T. tests, code-smell heuristics for authoring and review. |
 | `code-review` | Severity-graded checklists for correctness, idioms, performance, security — used by `@reviewer`. |
-| `commit-message` | Authors a Conventional Commits 1.0.0 commit message with the mandatory AI Co-Authored-By trailer. |
 | `java-development` | Java / Spring read-side intel (caller graphs, `@Transactional`, JPA impact) and write-side conventions. Invoked by `@architect` on Java projects (forward-chain TDD authoring + reverse-pass source-walk) and `@backend` for write-side conventions. |
 | `plantuml` | Generates PlantUML diagrams from text and converts `.puml` sources to PNG / SVG. |
 | `qa-test-planner` | Test-plan authoring with coverage strategy and adversarial fuzz inputs. Used by `@test-author` for TSR `S-TEST-001`. |

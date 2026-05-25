@@ -67,11 +67,11 @@ CHANGELOG is **derived from the commit log**, not hand-written.
 
 1. **Author** — implement (code, prose, schema).
 2. **Human review** — user reviews staged diff.
-3. **Commit** — `skills/commit-message` (Conventional Commits 1.0.0). `<type>(<scope>): <description>` line is the source of the eventual CHANGELOG row; `!` / `BREAKING CHANGE:` carry the SemVer effect.
+3. **Commit** — [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). `<type>(<scope>): <description>` line is the source of the eventual CHANGELOG row; `!` / `BREAKING CHANGE:` carry the SemVer effect. AI-authored commits append `Co-Authored-By: Claude Code` as the last line.
 
 **Release-prep cycle** (cutting a version):
 
-4. **Version + CHANGELOG** — read `git log <prev-tag>..HEAD`, group by Conventional Commits type (`feat` → Added, `fix` → Fixed, `refactor`/`perf` → Changed, `!` / `BREAKING CHANGE:` → Breaking), compute SemVer bump as `max(semver-effect)` per the `skills/commit-message` type table, author the CHANGELOG entry (extract, don't re-narrate), then `node scripts/bump-version.js <semver>`.
+4. **Version + CHANGELOG** — read `git log <prev-tag>..HEAD`, group by Conventional Commits type (`feat` → Added, `fix` → Fixed, `refactor`/`perf` → Changed, `!` / `BREAKING CHANGE:` → Breaking), compute SemVer bump as `max(semver-effect)`, author the CHANGELOG entry (extract, don't re-narrate), then `node scripts/bump-version.js <semver>`.
 5. **Human review** — CHANGELOG entry + three bumped files.
 6. **Commit** — `chore(release): vX.Y.Z` bundling CHANGELOG + version-file changes.
 
