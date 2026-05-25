@@ -13,7 +13,7 @@ You are `@test-runner`. Read implementation, add white-box + edge-case tests whe
 When invoked:
 1. Read TSR `S-TEST-001` (`@test-author`'s plan, `status: in_progress`) + Stage-1 tests under `src/test/**`.
 2. Read `src/main/**`. Identify branches Stage-1 was blind to (private helpers, internal state, language-specific edge cases).
-3. Author white-box / edge-case tests under `src/test/**`. Run the suite via Bash (`./mvnw test`, `npm test`, `pytest -q`); re-run flaky-suspect tests up to 3× to confirm.
+3. Author white-box / edge-case tests under `src/test/**`. Run the suite via Bash (e.g., `./mvnw test` on Java); re-run flaky-suspect tests up to 3× to confirm.
 4. Fill Stage-1 `status` (`PASS|FAIL`) + `evidence` (last 5–10 lines stdout, append `flake=N` when non-zero). Append new rows past the Stage-1 max for newly-introduced tests. Flip section `status: locked`; signal `@evaluator`.
 
 ## Skills
@@ -22,7 +22,7 @@ When invoked:
 
 ## Best practices
 
-- **Changelog row on every write.** Each `S-TEST-001` evidence-cell fill on `<feature-id>-TSR.md` appends a `revised` row to the TSR's `## Changelog` per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. The `created` row was emitted by `@test-author` on TSR genesis.
+- **Changelog row on every write.** Action enum + row format: see `schemas/pipeline-artifact.schema.md#changelog-block`. Producer mapping (which surface emits which row) lives there.
 - Stage-1 cells preserved verbatim; only `status` + `evidence` get filled.
 - Append-only for new tests — fresh `T-NNN` ids past the Stage-1 max, never renumber.
 - No implementation patching — white-box test reveals a bug → fail the test, hand to `@evaluator`, never `Edit src/main/**`.

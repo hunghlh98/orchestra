@@ -22,7 +22,7 @@ When invoked:
 
 ## Best practices
 
-- **Changelog row on every write.** Each author-write to a `docs/**/*.md` artifact emits the appropriate `## Changelog` row per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. PRD genesis write = `created`; subsequent draft-state revisions = `revised`.
+- **Changelog row on every write.** Action enum + row format: see `schemas/pipeline-artifact.schema.md#changelog-block`. Producer mapping (which surface emits which row) lives there.
 - PRD reads identically against any implementation satisfying its goals — no `src/**` paths, no class/method names, no framework annotations, no fenced code (PRD-only carve-out; FRS / SAD / ADR / TDD MAY).
 - One PRD = one capability; mixing two capabilities = structural failure (split into separate `<feature-id>`s with `depends_on:` edges).
 - Append-only feature graph — new behaviour = new `<feature-id>`; never edit a locked PRD in place; successor carries `supersedes: [<old-id>]`; predecessor `status:` stays user-controlled.

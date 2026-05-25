@@ -35,7 +35,7 @@ When invoked:
 
 ## Best practices
 
-- **Changelog row on every write** — author-writes emit `created` / `revised` / `ratify-spec-amend` per `schemas/pipeline-artifact.schema.md > ### ## Changelog`. Per-service singleton append = `revised` with delta-feature summary.
+- **Changelog row on every write.** Action enum + row format: see `schemas/pipeline-artifact.schema.md#changelog-block`. Producer mapping (which surface emits which row) lives there.
 - Invoke skills for procedure; do not restate.
 - SAD / ADR / BR-AC carry no codebase identifiers; pseudocode permitted.
 - ADR opens only when all three worthiness gates pass (`c4-architecture > ADR-worthiness gates`). Brownfield DIV rows close via `ratify-spec` / `fix-source` (per `qa-test-planner` Step 5) — never ADR.
@@ -115,10 +115,6 @@ e. On `accepted`: append row to `<context_path>/.orchestra/inventory/adr/index.m
 4. Do NOT flip `status:` — main agent re-locks via `mcp__orchestra-utils__relock_artifact` and writes the `re-locked` row.
 
 Failing to emit the `ratify-spec-amend` row blocks re-lock (`changelog-append-only` sanity check rejects).
-
-### Post-pass deliverable check
-
-Main agent walks each spawn's owned paths after `@architect` returns; absent paths → `Write(<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/MISSING-DELIVERABLES-<service>.md)` listing absent paths; re-spawn `@architect` with `task: deliverable-gap-fill`. Cycles until coverage closes.
 
 ### Within-agent parallelism
 

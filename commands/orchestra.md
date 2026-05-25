@@ -185,6 +185,8 @@ Main agent has full tool access post-approval. Same turn as Phase 2b.
 
 `docs/README.md` `generated_by: orchestra` provenance marker (read by `orchestra-preflight`) decides eligibility — absent marker pins every reverse-pass author to `re-author`. `spec-to-code`-authored artifacts omit the field; the forward chain has no prior state to classify against.
 
+**Post-pass deliverable check.** Main agent walks each spawn's owned paths (lifted from the locked plan's `## Agent assignments`) after the subagent returns. Absent paths → `Write(<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/MISSING-DELIVERABLES-<service>.md)` listing the absent paths; re-spawn the same `subagent_type` with `task: deliverable-gap-fill` and the absent-path list. Cycles until coverage closes or the gap-fill spawn returns ESCALATE.
+
 ## Phase 4 — Convergence (forward chain only)
 
 Reverse-pass produces no source impl; no convergence in reverse mode. Phase 4 trivially completes when last `@product` returns. Forward-chain `spec-to-code` follow-up against the locked reverse-derived baseline carries the full convergence.
