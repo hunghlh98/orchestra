@@ -159,7 +159,7 @@ sections:
 ---
 ```
 
-**Frontmatter grammar (frozen).** Block-style only. No flow style. No anchors / aliases. Indentation: 2 spaces per level. String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) MUST be JSON-quoted. Agent handles (`@product`, `@architect`) MUST be JSON-quoted because `@` is a YAML directive marker. The frontmatter parser is `hooks/lib/yaml-mini.js`'s `parse()`.
+**Frontmatter grammar (frozen).** Block-style only. No flow style (`{}`, `[]`), no anchors / aliases (`&`, `*`), no tags (`!!`), no in-block multi-doc separators (`---` / `...`), no block scalars (`|`, `>`). Indentation: 2 spaces per level. Keys: `[a-zA-Z][a-zA-Z0-9_-]*` only (no dots, no whitespace). Scalar types: `null` / `~`, `true` / `false`, signed integers, JSON-quoted strings — no float literals (write as quoted strings). String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) MUST be JSON-quoted. Agent handles (`@product`, `@architect`) MUST be JSON-quoted because `@` is a YAML directive marker. Callers pass the already-sliced inner block (no `---` fences). The frontmatter parser is `hooks/lib/yaml-mini.js`'s `parse()`.
 
 ### `status:` <a id="S-STATUS-001"></a>
 
