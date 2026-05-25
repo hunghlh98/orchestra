@@ -56,7 +56,7 @@ Bug shape: a method assumes its caller will manage the transaction, but the call
 
 ```bash
 # Methods annotated @Transactional (boundary owners)
-rg -n -t java '@Transactional(?:\([^)]*\))?\s*$\n(?:\s*public|\s*private|\s*protected)' src/ -A 1
+rg -nU --multiline-dotall -t java '@Transactional(?:\([^)]*\))?\s*$\n(?:\s*public|\s*private|\s*protected)' src/ -A 1
 ```
 
 Deep-dive (propagation analysis, output-summary shape, refactor scans): `references/transactional-impact.md`.

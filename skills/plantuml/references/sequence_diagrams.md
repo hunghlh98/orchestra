@@ -501,7 +501,7 @@ Alice -> Bob : Continue with main flow
 @enduml
 ```
 
-For the orchestra reuse convention (canonical `SD-<id>` naming, step-number reuse, `grep` marker, `note over` fallback), see § Orchestra authoring discipline near the end of this file.
+For the orchestra reuse convention (canonical `SD-<id>` naming, step-number reuse, `grep` marker, `note over` fallback), see the "Orchestra authoring discipline" section near the end of this file.
 
 ### Numbered Messages
 

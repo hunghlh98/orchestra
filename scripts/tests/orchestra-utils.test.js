@@ -83,11 +83,10 @@ withTmp(tmp => {
   catch (e) { pathEsc = /escapes cwd/.test(e.message); }
   check(pathEsc, "rejects context_path '..' escape");
 
-  // Re-write overwrites cleanly with new status
-  const out2 = writeSystemYamlImpl({ context_path: ".", workspace_kind: "multi-repo", status: "locked" });
+  // Re-write overwrites cleanly with new workspace_kind
+  const out2 = writeSystemYamlImpl({ context_path: ".", workspace_kind: "multi-repo" });
   const body2 = readFileSync(out2.path, "utf8");
   check(/workspace_kind: multi-repo/.test(body2), `overwrite: new workspace_kind`);
-  check(/status: locked/.test(body2), `overwrite: status persisted`);
 });
 
 // ---------- write_system_yaml: symlink reject ----------
@@ -112,7 +111,6 @@ withTmp(tmp => {
     framework: "spring-boot",
     autonomy: { level: "DRAFT_AND_GATE", resolved_by: "default" },
     spawn_mode: "subagent",
-    status: "draft",
   });
   check(out.mode === "created", `mode='created' on fresh write (got ${out.mode})`);
   const body = readFileSync(join(tmp, ".orchestra", "order", "local.yaml"), "utf8");
@@ -130,7 +128,6 @@ withTmp(tmp => {
     service_name: "order",
     scope_level: "per-service",
     autonomy: { level: "DRAFT_AND_GATE", resolved_by: "default" },
-    status: "draft",
   });
   // Patch only auto_mode + run_plan_status. autonomy should be preserved.
   const out = upsertLocalYamlImpl({
@@ -138,13 +135,11 @@ withTmp(tmp => {
     service_name: "order",
     auto_mode: true,
     run_plan_status: "approved",
-    status: "locked",
   });
   check(out.mode === "patched", `mode='patched' on second write (got ${out.mode})`);
   const body = readFileSync(out.path, "utf8");
   check(/auto_mode: true/.test(body), "patch added auto_mode");
   check(/run_plan_status: approved/.test(body), "patch added run_plan_status");
-  check(/status: locked/.test(body), "patch flipped status to locked");
   check(/scope_level: per-service/.test(body), "patch preserved scope_level");
   check(/level: DRAFT_AND_GATE/.test(body), "patch preserved autonomy.level");
   check(/resolved_by: default/.test(body), "patch preserved autonomy.resolved_by");
@@ -221,7 +216,7 @@ withTmp(tmp => {
   mkdirSync(join(tmp, ".orchestra", "order"), { recursive: true });
   writeFileSync(join(tmp, ".orchestra", "order", "local.yaml"), "!!not-a-valid-yaml-key-line\n");
   let rejected = false;
-  try { upsertLocalYamlImpl({ context_path: ".", service_name: "order", status: "draft" }); }
+  try { upsertLocalYamlImpl({ context_path: ".", service_name: "order", scope_level: "per-service" }); }
   catch (e) { rejected = /malformed|refusing to overwrite/.test(e.message); }
   check(rejected, "refuses to overwrite malformed existing local.yaml");
 });

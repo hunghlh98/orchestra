@@ -1,7 +1,8 @@
 ---
 name: task-breakdown
-description: "Decompose an intent (PRD / FRS / freeform request) into a directed acyclic task graph where every node carries an owner agent, a story-point estimate, blocking dependencies, and exit criteria. Use when the dispatcher composes the Phase 2 Plan body, when a feature needs decomposing into TDD-bound tasks, when a sprint pull needs N issues converted, or when @product sizes a brownfield migration before user negotiation."
+description: "Dispatcher-only — decomposes a locked PRD/FRS into a DAG of TDD-bound tasks (owner agent, story points, dependencies, exit criteria) for the Phase 2 Plan body."
 allowed-tools: Read, Write, Edit, Glob, Grep, Skill
+disable-model-invocation: true
 origin: orchestra
 ---
 
@@ -11,10 +12,8 @@ Turns a confirmed intent (PRD or natural-language request) into a directed acycl
 
 ## When to use
 
-- The dispatcher has received a feature, refactor, or template intent classified per the routing taxonomy.
-- An existing `docs/<feature-id>/<feature-id>-PRD.md` or `<feature-id>-FRS.md` needs decomposing into TDD-bound tasks.
-- A sprint pull (`/orchestra sprint --size N`) needs the next N issues converted into a task graph.
-- `@product` or the dispatcher is sizing a brownfield migration and needs to estimate before negotiating with the user.
+- The dispatcher composes the Phase 2 Plan body and needs the task DAG for a locked PRD/FRS.
+- An existing `docs/<service_name>/<feature-id>/<feature-id>-PRD.md` or `<feature-id>-FRS.md` needs decomposing into TDD-bound tasks.
 
 ## Approach
 
@@ -62,7 +61,7 @@ Edges are unidirectional: `A → B` means B starts after A completes.
 - **Verdict → review** — `@evaluator` PASS → `@reviewer` task.
 - **Review → commit** — `@reviewer` APPROVED → user commits by hand (manual; not a task-graph node).
 
-Avoid implicit ordering ("backend ships before frontend by tradition"). Make every dependency explicit so the wave team (Pattern C) can parallelize correctly.
+Avoid implicit ordering ("backend ships before frontend by tradition"). Make every dependency explicit so parallel implementer-tier tasks fan out correctly.
 
 ### Step 5 — Identify the critical path
 
@@ -92,35 +91,33 @@ Body:
 
 Author the DAG `.puml` source at `diagrams/tasks-dag.puml` (PlantUML activity-diagram shape: nodes for each T-NNN, edges for dependencies, swimlanes optional per owner). Invoke `/plantuml` to render to `.svg`.
 
-Initial Status is `pending` for every row. Owning agents flip Status as work progresses per `schemas/pipeline-artifact.schema.md` TASKS-<id> rules: implementer-tier (`@backend`, `@frontend`) self-reports `pending → in_progress → done`; read-only-tier (`@evaluator`, `@reviewer`) status is derived from TSR frontmatter (`eval_verdict`, `rev_verdict`) and rows stay `pending` in TASKS.md. Lockfile entry for `S-TASKS-001` carries `confirmed: false` so the drift validator skips inevitable mutations.
-
-## When to escalate
-
-- Estimate uncertainty >2 SP for any task ("could be 3 or 5") → the dispatcher flags this and asks `@product` for a re-spec round (Pattern B).
-- Critical path > 1.5× sprint capacity → don't decompose further; surface to user with "trim or extend?" question.
-- Task can't be assigned to a current agent role → flag as "needs-future-specialist" and defer.
+Initial Status is `pending` for every row. Status-transition rules per `schemas/pipeline-artifact.schema.md` TASKS-typed frontmatter spec.
 
 ### Step 7 — Diagnose autonomy
 
 When the dispatcher is undecided whether to push back to the user for re-spec or proceed with the task graph, run the autonomy diagnostic at `references/autonomy-diagnostic.md`. Four signals (estimate uncertainty, criteria clarity, owner availability, sprint slack) score each task graph as proceed / spec-revision / surface-to-user.
 
+## When to escalate
+
+- Estimate uncertainty >2 SP for any task ("could be 3 or 5") → re-spec round before decomposing.
+- Critical path > 1.5× sprint capacity → surface to user with "trim or extend?" question.
+- Task can't be assigned to a current agent role → flag as "needs-future-specialist" and defer.
+
 ## References
 
 - `references/autonomy-diagnostic.md` — 4-signal diagnostic for proceed vs. push-back decisions.
-- `references/sp-matrix.md` — extended SP rubric with anchored examples per language and per task shape.
-- `references/decomposition-patterns.md` — common task-cluster patterns (CRUD endpoint, migration, refactor) ready to clone.
 
 ## Worked example
 
-User: *"Add a `/v1/users/:id/transfer` endpoint that records to the ledger and emits an event."*
+User: *"Add a `/v1/users/:id/transfer` endpoint that records to the ledger and emits an event."* Service name `ledger`; feature id `ledger-001-transfer`.
 
 | ID | Owner | SP | Blocks | Blocked by | Exit | Status |
 |---|---|---|---|---|---|---|
-| T-001 | @architect | 1 | T-002 | — | `docs/001-transfer/001-transfer-openapi.yaml` written with 4 criteria | pending |
+| T-001 | @architect | 1 | T-002 | — | `docs/ledger/ledger-001-transfer/ledger-001-transfer-openapi.yaml` written with 4 criteria | pending |
 | T-002 | @backend | 3 | T-005 | T-001 | endpoint impl + ledger write + event emit | pending |
 | T-003 | @test-author | 2 | T-005 | T-001 | adversarial fuzz: replay, double-debit, malformed body | pending |
 | T-004 | @backend | 2 | T-005 | T-001 | unit tests for ledger logic | pending |
-| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `docs/001-transfer/001-transfer-TSR.md S-EVAL-001`: all 4 criteria PASS | pending |
-| T-006 | @reviewer | 2 | — | T-005 | `docs/001-transfer/001-transfer-TSR.md S-REVIEW-001`: APPROVED | pending |
+| T-005 | @evaluator | 2 | T-006 | T-002, T-003, T-004 | `S-EVAL-001`: all 4 criteria PASS | pending |
+| T-006 | @reviewer | 2 | — | T-005 | `S-REVIEW-001`: APPROVED | pending |
 
 Total: 12 SP. Critical path: T-001 → T-002 → T-005 → T-006 = 8 SP. Parallelism on T-002 / T-003 / T-004 saves 4 SP wall time.

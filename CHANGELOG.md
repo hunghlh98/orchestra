@@ -4,6 +4,37 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.4] — 2026-05-25
+
+Patch release. Post-audit cleanup arc (`code-reviews/audit-2026-05-25.html`) — hook security fixes, dispatcher-only skill auto-trigger demotion, maintainer-doc fold-up, hook test-gap backfill. No new behavior; defense-in-depth + context-load reduction.
+
+### Fixed
+
+- **`pre-write-check.js > extractContent` Edit/MultiEdit gap.** The `chain-cite-reject` / secret / codebase-token gates scanned only `new_string`; a cite already present in `old_string` (retention scan) silently passed. `extractContent` now concatenates both sides for `Edit` and walks every `edits[]` pair for `MultiEdit`. Outer `try/catch` emits `permissionDecision: "ask"` instead of fail-open on parser crash.
+- **`val-calibration.js` idempotency guard.** Re-invocation on a prompt already wrapped with `<calibration-anchor>` would stack a second anchor (replay / nested-spawn shape). Now early-exits with passthrough when the prompt begins with the anchor sentinel. Opt-out branch gains `drainAndPassthrough()` so the upstream writer never sees EPIPE.
+- **`scripts/tests/orchestra-utils.test.js` schema drift.** Three test fixtures + one assertion still wrote `status:` into `system.yaml` / `local.yaml` — the field was removed from both schemas in v5.2.3 (`schemas/{local,system}.schema.json`) but the tests weren't re-aligned; baseline `npm test` was red. Fixtures now use only allowed fields.
+- **`skills/plantuml/SKILL.md` + `references/sequence_diagrams.md` leaky `§` cite.** Two intra-skill section references used the `§` glyph which the dev-surface `§`-anchor validator rejected. Replaced with markdown-anchor-style phrasing.
+- **`skills/c4-architecture/SKILL.md` phantom heading cites.** Two cites pointed at headings that no longer exist: `plantuml/SKILL.md > ## Sequence diagrams — Operations Summary tables` → `## Sequence diagrams — authoring discipline`; `agents/architect.md "Allowed surface"` → `agents/architect.md > ## Deliverables`.
+- **`skills/java-development/SKILL.md` + `references/transactional-impact.md` rg multiline gap.** The `@Transactional` boundary-scan regex spans annotation + method signature across newlines; default `rg` mode terminates patterns at `\n` so the scan silently returned zero matches. Added `-U --multiline-dotall` flags to both call sites.
+- **`skills/commit-message/SKILL.md` + `references/types.md` AI trailer drift.** Worked examples carried six instances of `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`; Anthropic guidance is the literal `Co-Authored-By: Claude Code` (no model name, no version, no email). SKILL body + 6 worked examples + rationale paragraph realigned.
+
+### Changed
+
+- **Dispatcher-only skills demoted to manual-only.** `business-analysis`, `c4-architecture`, `code-review`, `write-contract`, `task-breakdown` now carry `disable-model-invocation: true` — these are 100% agent-invoked (`@analyst`, `@architect`, `@reviewer`) and never user-direct. Removes their `description:` strings from Claude Code's auto-trigger matcher, cutting context bloat on every unrelated prompt that previously partial-matched "review" / "contract" / "rule" keywords.
+- **`agents/evaluator.md` + `agents/reviewer.md` tools tightened.** Dropped `Edit, MultiEdit` from both — the validator's per-role forbidden-tool table treats both as CI-enforced read-only graders; their `Write` is reserved for fresh TSR-section authoring (`S-EVAL-001`, `S-REVIEW-001`), never in-place patching. Generator/evaluator separation preserved.
+- **`agents/test-runner.md` skill set.** `qa-test-planner, java-development` → `qa-test-planner, clean-code`; runner already invokes Bash + Read paths that need clean-code's F.I.R.S.T. discipline more than full Java write-side guidance.
+- **`agents/backend.md` skill alignment.** `<primary_language>-development` token expanded to literal `java-development` at both load + invocation sites (matches `MEMORY.md > orchestra-java-focus`).
+- **`CLAUDE.md` fold-up.** 251 → 156 lines (39% reduction). Dropped duplicate `### Why` / `### How to apply` exposition under `## Two surfaces` and `## No version stamps` (the canonical `## Rules` bullets already encode them); compressed `## Audit-trail conformance` to producer table only; preserved surface inventory, fix-shape examples, release workflow, R1-R14 quick map, three-layer architecture summary, and the auto-managed `<!-- orchestra:start -->` splice block.
+
+### Added
+
+- **4 hook regression tests** under `scripts/tests/` — `pre-write-check.test.js` (Edit/MultiEdit retention scan on chain-cite-reject), `val-calibration.test.js` (idempotency anchor guard), `orchestra-preflight.test.js` (`/orchestra` prompt → preflight block emission), `post-write-puml.test.js` (observer-contract: never blocks). All four registered in `package.json > test` chain.
+- **`skills/qa-test-planner/references/`** — `coverage-strategies.md` (7-axis worked examples per feature shape) + `fuzz-input-patterns.md` (8-pattern adversarial input catalog). Resolves the SKILL's prior phantom references.
+
+### Removed
+
+- **Dead plantuml workflow surfaces.** `skills/plantuml/scripts/resilient_processor.py` (638 LOC), `skills/plantuml/scripts/extract_and_convert_puml.py` (196 LOC), `skills/plantuml/references/workflows/resilient-execution-guide.md` (294 LOC). No SKILL.md cite; the resilient-execution surface has not been load-bearing in the orchestra plugin since the upstream-clone trim in v2.0.0.
+
 ## [5.2.3] — 2026-05-25
 
 Patch release. Closes the 2026-05-23 master-audit remediation arc (`code-reviews/audit-2026-05-23.html`) across 6 surfaces — security, templates, three-layer architecture, schemas, skills, agents, hooks, command, memory. 14 commits land as 8 grouped PRs. No new behavior; defense-in-depth + fold-up + cite-don't-restate hygiene throughout.

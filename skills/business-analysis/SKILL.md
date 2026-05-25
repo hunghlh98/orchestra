@@ -2,6 +2,7 @@
 name: business-analysis
 description: "Business-rule (BR) and acceptance-criteria (AC) authoring discipline with pseudocode shaping for sharpening ambiguous criteria. Use when @analyst drafts <feature-id>-FRS.md S-FR-001 / S-AC-001 from a locked PRD, when a surfaced rule needs sorting (feature-grain AC vs service-grain BR-AC ESCALATE), or when reverse-pass derives AC rows from architect's TDD + openapi."
 allowed-tools: Read, Glob, Grep, Skill
+disable-model-invocation: true
 origin: orchestra
 ---
 

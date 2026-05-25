@@ -2,6 +2,7 @@
 name: c4-architecture
 description: "C4-model architecture diagrams (Context L1 / Container L2 / Component L3 / Code L4 / Dynamic / Deployment) authored via the PlantUML C4-PlantUML stdlib with zoom-continuity enforcement and SAD-scope routing (workspace vs service). Use when @architect authors SAD c4-context.puml / c4-container.puml, service-level c4-component.puml / c4-code.puml singletons, or per-feature highlighted L1+L2 copies. Bundles ADR-worthiness gates."
 allowed-tools: Read, Glob, Grep, Skill
+disable-model-invocation: true
 origin: orchestra-internal (structure adapted from .agents/skills/c4-architecture; output rewritten Mermaid → C4-PlantUML stdlib)
 ---
 
@@ -157,7 +158,7 @@ Example: `hnote over ORD #Salmon : Redis SET ORDER_CACHE_{orderId}\nTTL=30d | �
 
 **Block conventions.** `group ... end` for ≥3-step sub-flows. `opt ... end` for conditional branches keyed off a single boolean. `alt ... else ... end` for mutually exclusive paths (success branch first; every failure branch label cites the governing `AC-NNN` row). `par ... end` for parallel event-consumer fan-out.
 
-**Tail — Data Store Operations Summary.** Single `note over <first>, <last>` block at end of diagram enumerating every persistence operation reached. Table list + column shapes are canonical in `skills/plantuml/SKILL.md > ## Sequence diagrams — Operations Summary tables`. When the diagram ships an `hnote`-marked persistence row, mirror the `★SoT` / `◇Best-effort` Marker in the corresponding tail-block row. Omit any sub-table whose store the diagram does not touch.
+**Tail — Data Store Operations Summary.** Single `note over <first>, <last>` block at end of diagram enumerating every persistence operation reached. Table list + column shapes are canonical in `skills/plantuml/SKILL.md > ## Sequence diagrams — authoring discipline`. When the diagram ships an `hnote`-marked persistence row, mirror the `★SoT` / `◇Best-effort` Marker in the corresponding tail-block row. Omit any sub-table whose store the diagram does not touch.
 
 **Tail — Legend.** Bottom `legend bottom` block carrying:
 
@@ -235,7 +236,7 @@ Brownfield reverse-pass: half-implementations + accidental shapes fail gate 1 �
 - `references/templates.md` — 6 quick-start fenced templates plus the highlight protocol for per-feature copies.
 - `references/c4-rules.md` — extended "what to avoid", framework-internals deep table, microservices ownership patterns, full element-syntax reference, styling and layout macros, zoom-continuity counter-examples.
 
-Output paths (system-level / service-level / per-feature) are owned by `@architect` — see `agents/architect.md` "Allowed surface" for the full system-level + service-level + per-feature output table.
+Output paths (system-level / service-level / per-feature) are owned by `@architect` — see `agents/architect.md` `## Deliverables` for the full output table.
 
 ## Worked example
 

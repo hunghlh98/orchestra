@@ -93,7 +93,8 @@ async function main() {
 
     process.exit(0);
   } catch (err) {
-    process.stderr.write(`pre-write-check crashed: ${err.message}\n`);
+    process.stderr.write(`pre-write-check crashed (emitting ask): ${err.message}\n`);
+    emitAsk(`internal exception: ${err.message}`);
     process.exit(0);
   }
 }
@@ -167,9 +168,17 @@ function parseYamlSafely(yaml) {
 function extractContent(toolName, toolInput) {
   if (!toolInput) return "";
   if (toolName === "Write") return toolInput.content || "";
-  if (toolName === "Edit") return toolInput.new_string || "";
+  // For Edit/MultiEdit, scan both old_string and new_string so violations
+  // already present in the file are not bypassed by a benign edit. The
+  // chain-cite-reject gate must see citations regardless of which side they
+  // sit on.
+  if (toolName === "Edit") {
+    return `${toolInput.old_string || ""}\n${toolInput.new_string || ""}`;
+  }
   if (toolName === "MultiEdit") {
-    return (toolInput.edits || []).map(e => e?.new_string || "").join("\n");
+    return (toolInput.edits || [])
+      .map(e => `${e?.old_string || ""}\n${e?.new_string || ""}`)
+      .join("\n");
   }
   return "";
 }

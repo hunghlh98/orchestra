@@ -71,7 +71,7 @@ After the hook produces the `.svg`, the owning markdown must contain `![<alt>](d
 
 Apply two content rules when authoring an orchestra sequence diagram: a six-table **Operations Summary** (Redis Keys · Kafka Topics · Database Tables · Lock Patterns · State machine · API endpoint Index) listing infrastructure side-effects of the flow, and **`ref` block reuse** with canonical `SD-<id>` naming for sub-flows that recur across diagrams.
 
-Full discipline — table schemas, `★SoT` / `◇Best-effort` Marker convention, two-surface placement (sibling `-ops.md` + in-diagram `note over` tail), four enforcement rules for `ref over`, fallback to `note over` pointer, worked example — in `references/sequence_diagrams.md > § Orchestra authoring discipline`.
+Full discipline — table schemas, `★SoT` / `◇Best-effort` Marker convention, two-surface placement (sibling `-ops.md` + in-diagram `note over` tail), four enforcement rules for `ref over`, fallback to `note over` pointer, worked example — in `references/sequence_diagrams.md` under "Orchestra authoring discipline".
 
 ## Conversion scripts — manual fallback
 

@@ -12,8 +12,7 @@ import { readBoundedStdin } from "../lib/stdin-bounded.js";
 const NAME = "ORCHESTRA_HOOK_VAL_CALIBRATION";
 
 if (process.env[NAME] === "off") {
-  passthrough();
-  process.exit(0);
+  drainAndPassthrough();
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -52,6 +51,14 @@ async function main() {
 
     const calibration = readFileSync(CALIBRATION_PATH, "utf8");
     const originalPrompt = input.tool_input?.prompt || "";
+
+    // Idempotency: do not re-wrap a prompt that already carries the anchor.
+    // Re-spawn / replay / nested invocation would otherwise stack anchors.
+    if (originalPrompt.startsWith("<calibration-anchor>")) {
+      passthrough();
+      process.exit(0);
+    }
+
     const newPrompt =
       `<calibration-anchor>\n${calibration.trim()}\n</calibration-anchor>\n\n${originalPrompt}`;
 
@@ -77,4 +84,11 @@ function passthrough() {
       permissionDecision: "allow",
     },
   }));
+}
+
+async function drainAndPassthrough() {
+  // Drain stdin in the opt-out branch so the upstream writer never sees EPIPE.
+  try { await readBoundedStdin(); } catch { /* ignore */ }
+  passthrough();
+  process.exit(0);
 }

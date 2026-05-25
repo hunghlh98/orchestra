@@ -11,7 +11,7 @@ Designs the TSR test section (S-TEST-001): which black-box tests to author, what
 
 ## When to use
 
-- An `docs/<feature-id>/<feature-id>-openapi.yaml` has been written by `@architect` and you need a test plan that grades it.
+- An `docs/<service_name>/<feature-id>/<feature-id>-openapi.yaml` has been written by `@architect` and you need a test plan that grades it.
 - A bug or regression was reported and you're capturing the reproduction as an adversarial fuzz input.
 - You're sizing test scope for a new endpoint, migration, or refactor.
 
@@ -49,7 +49,7 @@ probes:
 
 ### Step 2 — Coverage strategy
 
-Cover 7 canonical axes for every feature (matches `agents/test-author.md` canonical list):
+Cover 7 canonical axes for every feature:
 
 | Axis | What to probe |
 |---|---|
@@ -80,7 +80,7 @@ Each adversarial input is a probe with an explicit `expected_result` of "handled
 
 ### Step 4 — Fill TSR `S-TEST-001`
 
-Read `docs/<feature-id>/<feature-id>-TSR.md` (dispatcher-scaffolded shell). Fill the `S-TEST-001` section with the row table; leave `sections.S-TEST-001.status: in_progress` after the `@test-author` write (`@test-runner` will fill the `status` + `evidence` cells and flip to `locked`).
+Read `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` (dispatcher-scaffolded shell). Fill the `S-TEST-001` section with the row table; leave `sections.S-TEST-001.status: in_progress` after the `@test-author` write (`@test-runner` will fill the `status` + `evidence` cells and flip to `locked`).
 
 TEST is not a separate artifact — plan + results both live in `S-TEST-001` as a single table. Probe DSL lives in `<feature-id>-openapi.yaml` `description:` fields (reference openapi criteria by id; don't re-state). `@evaluator` later writes `S-EVAL-001` keyed on `S-TEST-001` row ids; `@reviewer` writes `S-REVIEW-001` (with ADR-review subsection when ADRs touched).
 
@@ -103,7 +103,7 @@ Row shape (single table — `@test-author` leaves `status` + `evidence` empty; `
 
 ### Step 5 — DIV resolution (brownfield reverse-pass)
 
-When `@architect`'s reverse-pass walks source and finds source behaviour diverges from the regenerated spec, the divergence rides in `<feature-id>-TSR.md` `S-DIVERGENCES-001` BEFORE TSR locks. Row shape:
+When `@architect`'s reverse-pass walks source and finds source behaviour diverges from the regenerated spec, the divergence rides in `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` `S-DIVERGENCES-001` BEFORE TSR locks. Row shape:
 
 ```
 | ID      | UC slug         | Where           | Finding                                                   | Guard test ID |
@@ -134,7 +134,7 @@ The dispatcher (DIV resolution phase) iterates each unresolved row, picks Path A
 
 ## Worked example
 
-`docs/001-transfer/001-transfer-openapi.yaml` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test-author` builds:
+`docs/ledger/ledger-001-transfer/ledger-001-transfer-openapi.yaml` has 3 criteria: `transfer.persists`, `transfer.emits_event`, `transfer.idempotent`. `@test-author` builds:
 
 | Criterion | Probes |
 |---|---|
@@ -142,4 +142,4 @@ The dispatcher (DIV resolution phase) iterates each unresolved row, picks Path A
 | transfer.emits_event | (1) http_probe POST → 201; (2) db_state SELECT FROM event_log WHERE topic='transfer'; **boundary**: zero-amount transfer → still emit? (per contract: yes) |
 | transfer.idempotent | (1) **adversarial replay**: POST twice with same key, expect second is no-op; (2) db_state SELECT count(*) FROM ledger WHERE key='k1' = 1 |
 
-Write `docs/<feature-id>/<feature-id>-TSR.md` `S-TEST-001` with all rows laid out per the column shape above; `status` + `evidence` cells empty; section `status: in_progress`. `@test-runner` runs the suite, fills those cells in place, flips to `status: locked`; `@evaluator` then writes `S-EVAL-001` as `| id | verdict | reason |` keyed on these row ids.
+Write `docs/<service_name>/<feature-id>/<feature-id>-TSR.md` `S-TEST-001` with all rows laid out per the column shape above; `status` + `evidence` cells empty; section `status: in_progress`. `@test-runner` runs the suite, fills those cells in place, flips to `status: locked`; `@evaluator` then writes `S-EVAL-001` as `| id | verdict | reason |` keyed on these row ids.

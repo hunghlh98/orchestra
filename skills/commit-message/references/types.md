@@ -44,7 +44,7 @@ Spec MUST/MAY language preserved. Skim before composing:
 ```
 docs: correct spelling of CHANGELOG
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Code
 ```
 
 **Scope-only** (no breaking change, no body):
@@ -52,7 +52,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 ```
 feat(lang): add Polish language
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Code
 ```
 
 **Feature with body + footers**:
@@ -67,7 +67,7 @@ in ADR-0003).
 
 Closes: #142
 Refs: ADR-0003-idempotency-key
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Code
 ```
 
 **`!` indicator alone (no BREAKING CHANGE footer)** — description carries the break:
@@ -75,7 +75,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 ```
 feat(api)!: drop support for Node 6
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Code
 ```
 
 **Both `!` and BREAKING CHANGE footer** (preferred for non-trivial breaks):
@@ -89,7 +89,7 @@ Existing v1 callers will receive 404 starting on the next deploy.
 BREAKING CHANGE: /v1/orders is removed. Migrate callers to /v2/orders
 per docs/<feature-id>/<feature-id>-openapi.yaml.
 Refs: ADR-0007-v2-cutover
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Code
 ```
 
 **Multi-paragraph body + multiple footers** (per spec rule 8, footer values may contain newlines):
@@ -105,7 +105,7 @@ obsolete now.
 
 Reviewed-by: Z
 Refs: #123
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Code
 ```
 
 ## Why this convention
@@ -118,4 +118,4 @@ Conventional Commits 1.0.0 makes commit history machine-readable:
 - **Stakeholder communication** — `<type>(<scope>): <description>` summary informative at a glance.
 - **Lower contributor friction** — same convention across thousands of repos.
 
-The orchestra `Co-Authored-By:` trailer extension preserves attribution for AI-assisted commits and lets the user audit AI-driven changes via `git log --grep` on the model identifier.
+The orchestra `Co-Authored-By: Claude Code` trailer extension preserves attribution for AI-assisted commits — `git log --grep="Co-Authored-By: Claude Code"` enumerates every AI-touched commit without coupling to a model version.

@@ -1,7 +1,7 @@
 ---
 name: commit-message
-description: "Author a git commit message conforming to Conventional Commits 1.0.0 (type(scope): description + body + footer) with the mandatory `Co-Authored-By: Claude Code` trailer on AI-authored commits. Use when about to commit chain artifacts + source after TSR locks, when CHANGELOG derivation depends on machine-readable commit shape, or when a release-prep SemVer bump needs deterministic projection from commit log between two tags."
-allowed-tools: Read, Write, Edit, Glob, Grep, Skill
+description: "Author a git commit message conforming to Conventional Commits 1.0.0 (type(scope): description + body + footer) with the mandatory `Co-Authored-By: Claude Code` trailer on AI-authored commits. Use when about to commit chain artifacts + source after TSR locks."
+allowed-tools: Read, Bash, Skill
 origin: orchestra
 ---
 
@@ -27,21 +27,20 @@ Constructs a Conventional Commits 1.0.0 compliant message (https://www.conventio
 [optional body]
 
 [optional footer(s)]
-Co-Authored-By: <model-name> <noreply@anthropic.com>
+Co-Authored-By: Claude Code
 ```
 
 Type table (SemVer mapping), full normative spec rules (11), and worked examples: `references/types.md`.
 
 ## AI Co-Authored-By trailer (mandatory; orchestra extension)
 
-Every message MUST include a `Co-Authored-By:` trailer naming the active model — the AI did the spec/code/test authoring, so commit-history attribution must reflect that.
+Every AI-authored message MUST include the literal trailer:
 
 ```
-Co-Authored-By: <model-name> <noreply@anthropic.com>
+Co-Authored-By: Claude Code
 ```
 
-- `<model-name>` is the active Claude model identifier (e.g., `Claude Opus 4.7 (1M context)`, `Claude Sonnet 4.6`, `Claude Haiku 4.5`). The dispatcher reads from runtime environment.
-- When model identifier unavailable, fall back to `Co-Authored-By: Claude <noreply@anthropic.com>`.
+- Always exactly this form. No model name, no version, no email — Anthropic guidance.
 - This trailer is the LAST line — after any spec-mandated footers (`BREAKING CHANGE:`, `Closes:`, `Refs:`, `Reviewed-by:`).
 - One blank line separates the AI trailer from preceding footers ONLY if other footers exist; otherwise the trailer sits one blank line after body (or description).
 

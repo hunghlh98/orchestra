@@ -6,7 +6,7 @@ Extended scans for Spring `@Transactional` boundary auditing. Loaded when `@back
 
 ```bash
 # Methods annotated @Transactional (boundary owners)
-rg -n -t java '@Transactional(?:\([^)]*\))?\s*$\n(?:\s*public|\s*private|\s*protected)' src/ -A 1
+rg -nU --multiline-dotall -t java '@Transactional(?:\([^)]*\))?\s*$\n(?:\s*public|\s*private|\s*protected)' src/ -A 1
 
 # Inner calls from @Transactional methods to other @Transactional methods
 # (Spring default propagation REQUIRED reuses the outer transaction; REQUIRES_NEW starts a new one)
