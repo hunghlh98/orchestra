@@ -156,15 +156,7 @@ Example: `hnote over ORD #Salmon : Redis SET ORDER_CACHE_{orderId}\nTTL=30d | �
 
 **Block conventions.** `group ... end` for ≥3-step sub-flows. `opt ... end` for conditional branches keyed off a single boolean. `alt ... else ... end` for mutually exclusive paths (success branch first; every failure branch label cites the governing `AC-NNN` row). `par ... end` for parallel event-consumer fan-out.
 
-**Tail — Data Store Operations Summary.** Single `note over <first>, <last>` block at end of diagram enumerating every persistence operation reached:
-
-- **Redis Keys** table: `Key Pattern | Purpose | TTL | Marker`
-- **Kafka Topics** table: `Topic | Producer | Consumer(s)`
-- **<RDBMS> Tables** table: `Table | Operations | Marker`
-- **Lock Patterns** table: `Lock Key | TTL | Used By | Purpose`
-- **State Lifecycle**: arrow-chain (`CREATED → PENDING_PAYMENT → PAID → DELIVERED`) against the `★SoT` store
-
-Omit any sub-table whose store the diagram does not touch.
+**Tail — Data Store Operations Summary.** Single `note over <first>, <last>` block at end of diagram enumerating every persistence operation reached. Table list + column shapes are canonical in `skills/plantuml/SKILL.md > ## Sequence diagrams — Operations Summary tables`. When the diagram ships an `hnote`-marked persistence row, mirror the `★SoT` / `◇Best-effort` Marker in the corresponding tail-block row. Omit any sub-table whose store the diagram does not touch.
 
 **Tail — Legend.** Bottom `legend bottom` block carrying:
 

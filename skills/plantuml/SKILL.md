@@ -98,18 +98,25 @@ Two content rules apply to every sequence diagram (`*-sd-*.puml`, `sequence-intr
 
 ### Operations Summary tables
 
-Every sequence diagram ships a markdown sibling `<id>-ops.md` listing the six tables below when the flow touches the resource. The tables answer "what side-effects does this flow have on infrastructure?" so reviewers can audit cache TTLs, lock blast-radius, DB writes, and producer/consumer topology without re-reading the diagram syntax.
+Every sequence diagram ships an Operations Summary listing the six tables below when the flow touches the resource. The tables answer "what side-effects does this flow have on infrastructure?" so reviewers can audit cache TTLs, lock blast-radius, DB writes, and producer/consumer topology without re-reading the diagram syntax.
 
 | Table | Columns |
 |---|---|
-| Redis Keys | Key pattern · Purpose · TTL |
+| Redis Keys | Key pattern · Purpose · TTL · Marker |
 | Kafka Topics | Topic · Producer · Consumer |
-| Database Tables | Database · Table · Operation · Key Fields |
+| Database Tables | Database · Table · Operation · Key Fields · Marker |
 | Lock Patterns | Lock Key · Type · TTL · On Failure |
 | State machine | States · Workflow |
 | API endpoint Index | #ID · Caller · Callee · Method + Path · Contract File |
 
-Placement: `docs/<service_name>/<feature-id>/<feature-id>-sd-<seq>.puml` ships next to `<feature-id>-sd-<seq>-ops.md`. Empty tables omitted; an absent table means "this flow does not touch that surface" — explicit not-applicable, not silent omission. When a table applies but is empty (e.g., feature touches Kafka but only as a consumer, no producer row), keep the header and write `_(none)_` in the body so readers know it was considered.
+The `Marker` column (Redis Keys, Database Tables) carries `★SoT` for write-failure-blocks-flow stores and `◇Best-effort` for failure-logged-not-blocking stores; omit the column when the diagram doesn't ship SoT-marked `hnote`s.
+
+Placement — two surfaces:
+
+- **Sibling markdown** — `docs/<service_name>/<feature-id>/<feature-id>-sd-<seq>.puml` ships next to `<feature-id>-sd-<seq>-ops.md` carrying the six tables. Reviewers read this.
+- **In-diagram tail** — same six tables encoded inline as a `note over <first>, <last>` block at end of the `.puml`. Readers viewing the rendered `.svg` see them without leaving the diagram. Either surface satisfies the discipline; ship both when the audience splits between code reviewers (md) and stakeholder readers (svg).
+
+Empty tables omitted; an absent table means "this flow does not touch that surface" — explicit not-applicable, not silent omission. When a table applies but is empty (e.g., feature touches Kafka but only as a consumer, no producer row), keep the header and write `_(none)_` in the body so readers know it was considered.
 
 Worked example for a "transfer" sequence diagram:
 
