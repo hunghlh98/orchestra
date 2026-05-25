@@ -3,20 +3,39 @@ id: SAD
 type: SAD
 created: {{CREATED}}
 revision: 1
+status: draft
 project_mode: greenfield
 c4_levels_present: [1, 2]
+diagrams:
+  - sad-c4-context
+  - sad-c4-container
+readers:
+  - "@product"
+  - "@analyst"
+  - "@architect"
+  - "@backend"
+  - "@frontend"
+  - "@test-author"
+  - "@test-runner"
+  - "@evaluator"
+  - "@reviewer"
+sections:
+  S-VISION-001:
+    writer: "@architect"
+    status: in_progress
+  S-CONTEXT-001:
+    writer: "@architect"
+    status: in_progress
+  S-CONTAINERS-001:
+    writer: "@architect"
+    status: in_progress
 ---
 
-<!--
-Link discipline: this document is part of the sealed `docs/` narrative tree.
-MUST NOT link to codebase paths (src/...), external URLs, .orchestra/ siblings,
-or project-root files. MAY link only to other `docs/*` artifacts by relative
-path and cite ADRs by ID in plain prose ("per ADR-0007-use-postgres, ...").
-ADR index lives at .orchestra/inventory/adr/index.md, NOT in this document.
-Full rule: schemas/pipeline-artifact.schema.md#link-discipline.
--->
-
 # Software Architecture Document
+
+## Changelog
+
+- {{CREATED}} | created by @architect | {{REASON}}
 
 ## Vision <a id="S-VISION-001"></a>
 

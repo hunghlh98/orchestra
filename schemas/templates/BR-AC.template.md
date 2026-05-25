@@ -8,6 +8,17 @@ service_name: {{SERVICE_NAME}}
 br_count: 0
 ac_count: 0
 invariant_count: 0
+reverse_authoring_mode: re-author
+readers:
+  - "@product"
+  - "@analyst"
+  - "@architect"
+  - "@backend"
+  - "@frontend"
+  - "@test-author"
+  - "@test-runner"
+  - "@evaluator"
+  - "@reviewer"
 sections:
   S-BR-001:
     writer: "@architect"
@@ -21,6 +32,10 @@ sections:
 ---
 
 # {{SERVICE_NAME}} — Business Rules + Acceptance Criteria
+
+## Changelog
+
+- {{CREATED}} | created by @architect | {{REASON}}
 
 ## Business rules <a id="S-BR-001"></a>
 

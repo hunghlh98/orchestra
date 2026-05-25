@@ -53,8 +53,6 @@ const EXPECTED_ANCHORS = {
   TDD: ["S-COMPONENTS-001", "S-SEQUENCE-001", "S-DATA-MODEL-001", "S-STATE-001", "S-ERROR-HANDLING-001", "S-CONFIG-001", "S-RISKS-001"],
   TASKS: ["S-DAG-001", "S-TASKS-001"],
   TSR: ["S-TEST-001", "S-EVAL-001", "S-REVIEW-001"],
-  RELEASE: ["S-WHATSNEW-001", "S-ENDPOINTS-001", "S-CONFIG-001", "S-BREAKING-001", "S-GATES-001", "S-KNOWN-001", "S-ANNOUNCEMENT-001"],
-  RUNBOOK: ["S-OVERVIEW-001", "S-LIFECYCLE-001", "S-DEPLOY-001", "S-ROLLBACK-001", "S-HEALTH-001", "S-FAILURE-001", "S-LOGS-001", "S-ENVVARS-001"],
   ADR: ["S-STATUS-001", "S-CONTEXT-001", "S-DECISION-001", "S-CONSEQUENCES-001", "S-ALTERNATIVES-001"],
 };
 
@@ -65,8 +63,6 @@ const EXPECTED_DIAGRAM_KINDS = {
   TDD: ["c4-component", "sequence", "er", "state"],
   TASKS: ["dag"],
   TSR: [],
-  RELEASE: [],
-  RUNBOOK: ["deploy", "rollback"],
   ADR: ["adr-status"],
 };
 
@@ -148,27 +144,6 @@ withTmp("m3", (tmp) => {
   check(JSON.stringify(kinds) === JSON.stringify(EXPECTED_DIAGRAM_KINDS.SAD), `SAD diagrams: c4-context + c4-container`);
 });
 
-// ---------- M4: RELEASE / RUNBOOK version singletons ----------
-console.log("M4 version singletons:");
-withTmp("m4-release", (tmp) => {
-  const r = runScaffold(["RELEASE", "--version=v0.1.0"], tmp);
-  check(r.status === 0, `RELEASE: exits 0 (stderr: ${r.stderr})`);
-  const file = join(tmp, ".claude/.orchestra/releases/RELEASE-v0.1.0.md");
-  check(existsSync(file), `RELEASE-v0.1.0.md present`);
-  const body = readFileSync(file, "utf8");
-  check(JSON.stringify(bodyAnchors(body)) === JSON.stringify(EXPECTED_ANCHORS.RELEASE), `RELEASE anchors`);
-  // S-ANNOUNCEMENT-001 is present (fold-correctness invariant)
-  check(body.includes('<a id="S-ANNOUNCEMENT-001"></a>'), `RELEASE: §Announcement section exists (fold proof)`);
-});
-withTmp("m4-runbook", (tmp) => {
-  const r = runScaffold(["RUNBOOK", "--version=v0.1.0"], tmp);
-  check(r.status === 0, `RUNBOOK: exits 0`);
-  const lockPath = join(tmp, ".claude/.orchestra/runbooks/RUNBOOK-v0.1.0.lock.yaml");
-  const lock = parse(readFileSync(lockPath, "utf8"));
-  const kinds = (lock.diagrams || []).map(d => d.kind);
-  check(JSON.stringify(kinds) === JSON.stringify(EXPECTED_DIAGRAM_KINDS.RUNBOOK), `RUNBOOK: deploy + rollback diagrams seeded`);
-});
-
 // ---------- M5: ADR global numbering ----------
 console.log("M5 ADR global numbering:");
 withTmp("m5", (tmp) => {
@@ -224,10 +199,6 @@ withTmp("m8", (tmp) => {
   check(r2.status === 4, `missing feature-id: exit 4 (got ${r2.status})`);
   const r3 = runScaffold(["PRD", "BadFeatureId", "x"], tmp);
   check(r3.status === 4, `bad feature-id: exit 4`);
-  const r4 = runScaffold(["RELEASE"], tmp); // missing --version
-  check(r4.status === 6, `RELEASE missing --version: exit 6`);
-  const r5 = runScaffold(["RELEASE", "--version=not-semver"], tmp);
-  check(r5.status === 4, `RELEASE bad version: exit 4`);
 });
 
 // ---------- M9: anchor parity (lockfile.sections keys === body anchors) ----------

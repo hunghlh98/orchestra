@@ -4,13 +4,47 @@ type: ADR
 created: {{CREATED}}
 revision: 1
 status: proposed
+verdict: PENDING
+scope: global
 superseded_by: null
 triggered_by: ""
 review_round: 1
 option_count: 0
+diagrams:
+  - adr-status
+readers:
+  - "@product"
+  - "@analyst"
+  - "@architect"
+  - "@backend"
+  - "@frontend"
+  - "@test-author"
+  - "@test-runner"
+  - "@evaluator"
+  - "@reviewer"
+sections:
+  S-STATUS-001:
+    writer: "@architect"
+    status: in_progress
+  S-CONTEXT-001:
+    writer: "@architect"
+    status: in_progress
+  S-DECISION-001:
+    writer: "@architect"
+    status: in_progress
+  S-CONSEQUENCES-001:
+    writer: "@architect"
+    status: in_progress
+  S-ALTERNATIVES-001:
+    writer: "@architect"
+    status: in_progress
 ---
 
 # {{ID}} — {{SLUG}}
+
+## Changelog
+
+- {{CREATED}} | created by @architect | {{REASON}}
 
 ## Status <a id="S-STATUS-001"></a>
 

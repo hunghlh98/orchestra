@@ -85,25 +85,6 @@ export const TYPE_SPEC = {
     diagrams: [],
     ext: "md",
   },
-  RELEASE: {
-    classification: "version-singleton",
-    folder: "releases",
-    template: "RELEASE.template.md",
-    anchors: ["S-WHATSNEW-001", "S-ENDPOINTS-001", "S-CONFIG-001", "S-BREAKING-001", "S-GATES-001", "S-KNOWN-001", "S-ANNOUNCEMENT-001"],
-    diagrams: [],
-    ext: "md",
-  },
-  RUNBOOK: {
-    classification: "version-singleton",
-    folder: "runbooks",
-    template: "RUNBOOK.template.md",
-    anchors: ["S-OVERVIEW-001", "S-LIFECYCLE-001", "S-DEPLOY-001", "S-ROLLBACK-001", "S-HEALTH-001", "S-FAILURE-001", "S-LOGS-001", "S-ENVVARS-001"],
-    diagrams: [
-      { kind: "deploy", source: "diagrams/runbook-deploy.puml", rendered: "diagrams/runbook-deploy.svg" },
-      { kind: "rollback", source: "diagrams/runbook-rollback.puml", rendered: "diagrams/runbook-rollback.svg" },
-    ],
-    ext: "md",
-  },
   ADR: {
     classification: "global",
     folder: "architecture/decisions",

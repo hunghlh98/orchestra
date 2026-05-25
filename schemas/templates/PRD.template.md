@@ -3,11 +3,44 @@ id: {{ID}}
 type: PRD
 created: {{CREATED}}
 revision: 1
-status: planned
+status: draft
 version: 1.0.0
+readers:
+  - "@product"
+  - "@analyst"
+  - "@architect"
+  - "@backend"
+  - "@frontend"
+  - "@test-author"
+  - "@test-runner"
+  - "@evaluator"
+  - "@reviewer"
+sections:
+  S-PROBLEM-001:
+    writer: "@product"
+    status: in_progress
+  S-USERS-001:
+    writer: "@product"
+    status: in_progress
+  S-GOALS-001:
+    writer: "@product"
+    status: in_progress
+  S-NON-GOALS-001:
+    writer: "@product"
+    status: in_progress
+  S-METRICS-001:
+    writer: "@product"
+    status: in_progress
+  S-OPEN-001:
+    writer: "@product"
+    status: in_progress
 ---
 
 # {{SLUG}} — PRD
+
+## Changelog
+
+- {{CREATED}} | created by @product | {{REASON}}
 
 ## Problem <a id="S-PROBLEM-001"></a>
 

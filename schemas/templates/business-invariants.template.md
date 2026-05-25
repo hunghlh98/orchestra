@@ -5,6 +5,17 @@ created: {{CREATED}}
 revision: 1
 status: draft
 invariant_count: 0
+reverse_authoring_mode: re-author
+readers:
+  - "@product"
+  - "@analyst"
+  - "@architect"
+  - "@backend"
+  - "@frontend"
+  - "@test-author"
+  - "@test-runner"
+  - "@evaluator"
+  - "@reviewer"
 sections:
   S-INVARIANTS-001:
     writer: "@architect"
@@ -12,6 +23,10 @@ sections:
 ---
 
 # Workspace Business Invariants
+
+## Changelog
+
+- {{CREATED}} | created by @architect | {{REASON}}
 
 ## Cross-service invariants <a id="S-INVARIANTS-001"></a>
 

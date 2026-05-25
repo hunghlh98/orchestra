@@ -9,9 +9,33 @@ eval_verdict: PENDING
 eval_score: 0
 rev_verdict: PENDING
 rev_round: 1
+readers:
+  - "@product"
+  - "@analyst"
+  - "@architect"
+  - "@backend"
+  - "@frontend"
+  - "@test-author"
+  - "@test-runner"
+  - "@evaluator"
+  - "@reviewer"
+sections:
+  S-TEST-001:
+    writer: "@test-author"
+    status: in_progress
+  S-EVAL-001:
+    writer: "@evaluator"
+    status: pending
+  S-REVIEW-001:
+    writer: "@reviewer"
+    status: pending
 ---
 
 # {{SLUG}} — Test Summary Report
+
+## Changelog
+
+- {{CREATED}} | created by @test-author | {{REASON}}
 
 > Sequential dual-writer for `S-TEST-001`: `@test-author` lays the plan rows (status+evidence cells empty); `@test-runner` fills those cells in place and locks. `@evaluator` owns `S-EVAL-001` (`| id | verdict | reason |` keyed on S-TEST-001 row ids — no column duplication); `@reviewer` owns `S-REVIEW-001` (code review + optional ADR-review subsection).
 

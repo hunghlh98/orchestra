@@ -18,8 +18,6 @@ export const REQUIRED_ANCHORS = {
   TASKS: ["S-DAG-001", "S-TASKS-001"],
   TEST: ["S-COVERAGE-001"],
   TSR: ["S-TEST-001", "S-EVAL-001", "S-REVIEW-001"],
-  RELEASE: ["S-WHATSNEW-001", "S-ENDPOINTS-001", "S-CONFIG-001", "S-BREAKING-001", "S-GATES-001", "S-KNOWN-001", "S-ANNOUNCEMENT-001"],
-  RUNBOOK: ["S-OVERVIEW-001", "S-LIFECYCLE-001", "S-DEPLOY-001", "S-ROLLBACK-001", "S-HEALTH-001", "S-FAILURE-001", "S-LOGS-001", "S-ENVVARS-001"],
   ADR: ["S-STATUS-001", "S-CONTEXT-001", "S-DECISION-001", "S-CONSEQUENCES-001", "S-ALTERNATIVES-001"],
   INVENTORY: ["S-SCAN-001", "S-CLASSIFICATION-001", "S-DECISIONS-001", "S-REGEN-PLAN-001", "S-WARNINGS-001"],
   "RUN-PLAN": ["S-FEATURES-001", "S-AGENT-ASSIGNMENTS-001", "S-RISKS-001"],
@@ -30,7 +28,7 @@ export const REQUIRED_ANCHORS = {
 
 export const SOFT_CAPS = {
   PRD: 120, FRS: 100, SAD: 200, TDD: 250,
-  TASKS: 60, TEST: 200, TSR: 150, RELEASE: 120, RUNBOOK: 180, ADR: 100,
+  TASKS: 60, TEST: 200, TSR: 150, ADR: 100,
   INVENTORY: 250,
   "RUN-PLAN": 250,
   "BR-AC": 200,
@@ -52,7 +50,6 @@ export const ORPHAN_PATTERNS = [
 // Fold-correctness: types must carry specific anchor combos.
 export const FOLD_REQUIREMENTS = {
   TSR: ["S-TEST-001", "S-EVAL-001", "S-REVIEW-001"],
-  RELEASE: ["S-ANNOUNCEMENT-001"],
 };
 
 const ANCHOR_RE_GLOBAL = /<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/g;
@@ -75,8 +72,6 @@ export function typeFromFilename(filePath) {
   if (base === "business-invariants.md") return "BUSINESS-INVARIANTS";
   if (/-BR-AC\.md$/.test(base)) return "BR-AC";
   if (/^ADR-\d{4}/.test(base)) return "ADR";
-  if (/^RELEASE-v/.test(base)) return "RELEASE";
-  if (/^RUNBOOK-v/.test(base)) return "RUNBOOK";
   let m;
   if ((m = base.match(/^\d+-([A-Z]+)\.md$/))) {
     return Object.hasOwn(REQUIRED_ANCHORS, m[1]) ? m[1] : null;

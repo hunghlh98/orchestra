@@ -3,19 +3,55 @@ id: {{ID}}
 type: TDD
 created: {{CREATED}}
 revision: 1
-sad-touched: false
-c4_levels_present: [3]
+status: draft
+sad_touched: false
+service_singletons_touched: []
 sequence_diagram_count: 1
-state_machine_count: 0
+diagrams:
+  - tdd-sequence-primary
+readers:
+  - "@product"
+  - "@analyst"
+  - "@architect"
+  - "@backend"
+  - "@frontend"
+  - "@test-author"
+  - "@test-runner"
+  - "@evaluator"
+  - "@reviewer"
+sections:
+  S-COMPONENTS-001:
+    writer: "@architect"
+    status: in_progress
+  S-SEQUENCE-001:
+    writer: "@architect"
+    status: in_progress
+  S-DATA-MODEL-001:
+    writer: "@architect"
+    status: in_progress
+  S-STATE-001:
+    writer: "@architect"
+    status: in_progress
+  S-ERROR-HANDLING-001:
+    writer: "@architect"
+    status: in_progress
+  S-CONFIG-001:
+    writer: "@architect"
+    status: in_progress
+  S-RISKS-001:
+    writer: "@architect"
+    status: in_progress
 ---
 
 # {{SLUG}} — TDD
 
+## Changelog
+
+- {{CREATED}} | created by @architect | {{REASON}}
+
 ## Components <a id="S-COMPONENTS-001"></a>
 
 <!-- FILL: Internal modules and their responsibilities. C4 Level 3. -->
-
-![C4 Level 3 — Components](diagrams/tdd-c4-component.svg)
 
 ## Sequence — primary flow <a id="S-SEQUENCE-001"></a>
 
@@ -27,13 +63,9 @@ state_machine_count: 0
 
 <!-- FILL: Table or DDL for persistent shapes. Index choices and uniqueness constraints called out. -->
 
-![Data model — ER](diagrams/tdd-er.svg)
-
 ## State Machine <a id="S-STATE-001"></a>
 
-<!-- FILL: When the design has a lifecycle (draft → live → archived, etc.), describe states + transitions. Else write `<!-- OMIT: no lifecycle states -->` and set frontmatter state_machine_count: 0. -->
-
-![State machine](diagrams/tdd-state.svg)
+<!-- FILL: When the design has a lifecycle (draft → live → archived, etc.), describe states + transitions. Else write `<!-- OMIT: no lifecycle states -->`. -->
 
 ## Error Handling <a id="S-ERROR-HANDLING-001"></a>
 

@@ -12,7 +12,6 @@
 //   M12 extra-anchor               (structural-diff)
 //   M17 orphan-VERDICT             (orphan-types)
 //   M18 TSR-missing-rev-anchor     (fold-correctness)
-//   M19 RELEASE-missing-announcement (fold-correctness)
 //   M-inverse: clean fixtures pass
 // Plus: soft-cap warn + --strict upgrade.
 
@@ -52,8 +51,6 @@ check(typeFromFilename("path/SAD.md") === "SAD", `SAD.md → SAD`);
 check(typeFromFilename("path/001-PRD.md") === "PRD", `001-PRD.md → PRD`);
 check(typeFromFilename("path/001-API.openapi.yaml") === "API", `001-API.openapi.yaml → API`);
 check(typeFromFilename("path/ADR-0001-use-sqlite.md") === "ADR", `ADR-0001-use-sqlite.md → ADR`);
-check(typeFromFilename("path/RELEASE-v0.1.0.md") === "RELEASE", `RELEASE-v0.1.0.md → RELEASE`);
-check(typeFromFilename("path/RUNBOOK-v0.1.0.md") === "RUNBOOK", `RUNBOOK-v0.1.0.md → RUNBOOK`);
 check(typeFromFilename("path/001-NOPE.md") === null, `unknown type → null`);
 check(typeFromFilename("path/random.txt") === null, `unrelated file → null`);
 check(typeFromFilename("project/.orchestra/plans/s-abc/run-plan.md") === "RUN-PLAN", `plans/<session>/run-plan.md → RUN-PLAN`);
@@ -121,21 +118,10 @@ console.log("M18 TSR-fold:");
   check(/missing S-REVIEW-001/.test(errs[0] || ""), `M18: names missing review anchor`);
 }
 
-// ---------- M19: RELEASE-missing-announcement (fold-correctness) ----------
-console.log("M19 RELEASE-fold:");
-{
-  const body = bodyWith(["S-WHATSNEW-001", "S-ENDPOINTS-001"]);
-  const errs = validateFoldCorrectness("RELEASE-v0.1.0.md", body, "RELEASE");
-  check(errs.length === 1, `M19: exactly 1 err`);
-  check(/missing S-ANNOUNCEMENT-001/.test(errs[0] || ""), `M19: names missing announcement anchor`);
-}
-
 // M-inverse fold-correctness
 {
   const tsrBody = bodyWith(REQUIRED_ANCHORS.TSR);
   check(validateFoldCorrectness("001-TSR.md", tsrBody, "TSR").length === 0, `inverse: TSR with both halves passes`);
-  const relBody = bodyWith(REQUIRED_ANCHORS.RELEASE);
-  check(validateFoldCorrectness("RELEASE-v0.1.0.md", relBody, "RELEASE").length === 0, `inverse: RELEASE with announcement passes`);
 }
 
 // ---------- RUN-PLAN structural-diff (v5.3 unified plan body) ----------

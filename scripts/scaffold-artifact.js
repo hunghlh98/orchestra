@@ -107,6 +107,7 @@ function main() {
     SLUG: paths.slug || "",
     NNNN: paths.nnnn || "",
     MODE: opts.mode || "",
+    REASON: "initial scaffold",
   };
   const artifactContent = substitute(tpl.content, vars);
   const lockfileText = serialize(buildLockfile(spec, paths, opts)) + "\n";

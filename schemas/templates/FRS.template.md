@@ -3,12 +3,40 @@ id: {{ID}}
 type: FRS
 created: {{CREATED}}
 revision: 1
+status: draft
 prd: {{FEATURE_ID}}-PRD
 acceptance_criteria_count: 0
 usecase_count: 0
+readers:
+  - "@product"
+  - "@analyst"
+  - "@architect"
+  - "@backend"
+  - "@frontend"
+  - "@test-author"
+  - "@test-runner"
+  - "@evaluator"
+  - "@reviewer"
+sections:
+  S-FRS-001:
+    writer: "@analyst"
+    status: in_progress
+  S-ACCEPTANCE-001:
+    writer: "@analyst"
+    status: in_progress
+  S-ERRORS-001:
+    writer: "@analyst"
+    status: in_progress
+  S-USECASE-001:
+    writer: "@analyst"
+    status: in_progress
 ---
 
 # {{SLUG}} — FRS
+
+## Changelog
+
+- {{CREATED}} | created by @analyst | {{REASON}}
 
 ## Functional Requirements <a id="S-FRS-001"></a>
 
@@ -25,5 +53,3 @@ usecase_count: 0
 ## Use Cases <a id="S-USECASE-001"></a>
 
 <!-- FILL: One short sentence per actor → use case. Update frontmatter usecase_count to match the diagram. -->
-
-![Use case diagram](diagrams/frs-usecase.svg)

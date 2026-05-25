@@ -1,3 +1,9 @@
+<!--
+Body-grammar + changelog exempt per schemas/pipeline-artifact.schema.md#carve-outs.
+TASKS lives at .orchestra/<service_name>/pipeline/<feature-id>/ (not docs/), and
+S-TASKS-001 rows are mutable by design — implementer-tier owners flip
+pending → in_progress → done. No `## Changelog` block; no sections frontmatter.
+-->
 ---
 id: {{ID}}
 type: TASKS

@@ -1,11 +1,20 @@
+# orchestra:
+#   id: {{ID}}
+#   type: API
+#   created: {{CREATED}}
+#   revision: 1
+#   status: draft
+#   feature_id: {{FEATURE_ID}}
+# Changelog:
+# - {{CREATED}} | created by @architect | {{REASON}}
 openapi: 3.0.3
 info:
   title: "{{SLUG}} API"
   version: "1.0.0"
   description: |
-    HTTP interface for {{ID}}. The CONTRACT.md service-contract section
-    references this document for endpoint shapes; per-criterion probes in
-    CONTRACT.md drive evaluator runs.
+    HTTP interface for {{ID}}. Endpoint shapes are referenced by TDD
+    `S-SEQUENCE-001` (primary flow) and traced from FRS `S-AC-001`
+    acceptance rows; per-row probes drive TSR `S-TEST-001` evaluator runs.
 servers:
   - url: http://127.0.0.1:8000
     description: Local
