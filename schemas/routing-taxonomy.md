@@ -2,6 +2,8 @@
 
 > Normative consumer-surface document mapping `intent.yaml.intent` to authorized agents and the artifact whitelist for each intent. The dispatcher's spawn prompts (per `commands/orchestra.md`) reference this file by intent anchor (`#feature`, `#hotfix`, etc.); agents Read the relevant section on demand to verify their authorized outputs. Each spawn prompt also carries a 1-line backstop summary inline so agents do not need to Read this file for the common path.
 
+> **`dispatcher` in the agent listings below = the main-thread orchestra agent (not a spawned subagent).** `@product` / `@architect` / `@backend` / `@frontend` / `@test-author` / `@test-runner` / `@evaluator` / `@reviewer` are subagents spawned via `Agent({ subagent_type, ... })`.
+
 ## How agents use this file
 
 - **Spawn prompt mandate**: every `Agent({ subagent_type, prompt })` call from the dispatcher embeds `Routed intent: <intent>. Authorized artifacts: see schemas/routing-taxonomy.md#<intent>` plus a 1-line summary. Agents may Read this file when the inline summary is insufficient.

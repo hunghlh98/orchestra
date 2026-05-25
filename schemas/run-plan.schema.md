@@ -44,7 +44,7 @@ revision_cycle: <integer ≥ 0>
 Invariants:
 - `run_plan_status: approved` ⇒ `status: locked`.
 - `auto_mode: true` ⇒ `run_plan_status: approved`.
-- `revision_cycle ≤ 3`; exceeding the cap escalates to `<context_path>/.orchestra/plans/<session_id>/run-plan-ESCALATE.md`.
+- `revision_cycle ≤ 3`; exceeding the cap escalates to `<context_path>/.orchestra/plans/<session_id>/run-plan-DEADLOCK.md`.
 - `direction: reverse` ⇒ body's `## Agent assignments` MAY carry a top-level `discovery:` section listing `@explorer` reports; `direction: forward` ⇒ `discovery:` section absent.
 - `reverse_authoring_mode` field permitted on `## Agent assignments` rows only when `direction: reverse` AND target path is narrative (`.md`) or contract (`.yaml`). Diagrams (`.puml`) reject the field — reverse-pass always re-derives diagrams from source archaeology.
 

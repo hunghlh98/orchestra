@@ -27,7 +27,7 @@
         "status":     { "enum": ["active", "deprecated"] },
         "depends_on": { "type": "array", "items": { "$ref": "#/$defs/feature_id" } },
         "supersedes": { "type": "array", "items": { "$ref": "#/$defs/feature_id" } },
-        "artifacts":  { "type": "array", "items": { "enum": ["PRD", "FRS", "TDD", "openapi", "asyncapi", "TSR"] } }
+        "artifacts":  { "type": "array", "items": { "enum": ["PRD", "FRS", "TDD", "openapi", "asyncapi", "clientapi", "TSR"] } }
       }
     }
   }

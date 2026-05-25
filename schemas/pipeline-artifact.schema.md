@@ -140,7 +140,7 @@ Type → folder map:
 ```yaml
 ---
 id: <basename-without-extension>
-type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|AGENT-TASKS|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT>
+type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|AGENT-TASKS|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT|INTENT|INVENTORY>
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                       # draft | locked
@@ -223,7 +223,7 @@ Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segm
 
 **Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in the body, and every `<a id>` in the body MUST have a matching key in `sections:`. `validate.js` flags either direction as a violation.
 
-**Carve-outs** (no `sections:` block, body-grammar exempt): `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md` (provenance marker), session-level `agent-tasks.md` (hook-projected ledger), and `EXPLORER-REPORT` files under `.orchestra/plans/<session_id>/discovery/`.
+**Carve-outs** (no `sections:` block, body-grammar exempt) <a id="carve-outs"></a>: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md` (provenance marker), session-level `agent-tasks.md` (hook-projected ledger), and `EXPLORER-REPORT` files under `.orchestra/plans/<session_id>/discovery/`.
 
 ### `## Changelog` (mandatory) <a id="changelog-block"></a>
 
@@ -257,11 +257,11 @@ Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section
 | fix-source closure | dispatcher | `fix-source` |
 | Full regenerate (rare; user-driven) | dispatcher | `regenerated` |
 
-**Carve-outs.** Same exemption set as the `sections:` block-grammar above: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md`, session-level `agent-tasks.md`, and `EXPLORER-REPORT` files. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
+**Carve-outs.** Exemption set defined at [#carve-outs](#carve-outs) above. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
 
-## Body discipline — no storytelling, no yapping <a id="body-discipline"></a>
+## Body discipline <a id="body-discipline"></a>
 
-Artifacts under `docs/` deliver decisions and contracts, not narrative. Two universal rules: **bullets over prose** (reserve paragraphs for reasoning that needs them) and **no orchestra plumbing in stakeholder bodies** (the chain is invisible — do not name `@product` / `@analyst` / `@architect` / `@test-author` / `@test-runner` / `@evaluator` / `@reviewer` in PRD / FRS / SAD / TDD / ADR / TSR bodies; cross-references between consumer artifacts ARE fine). Per-agent writing-style rules (assertions vs descriptions, no preambles, no hedging, no restatements, persona naming) live in each authoring agent's `## Writing style` section — `agents/product.md`, `agents/analyst.md`, `agents/architect.md`.
+Per-agent writing-style rules live in each authoring agent's `## Writing style` section (e.g., `agents/architect.md`, and equivalents on the other authoring agents).
 
 ## Diagram bindings via `diagrams: [...]` relations array <a id="diagrams"></a>
 
@@ -559,13 +559,7 @@ Body-grammar carve-out applies (no `sections:` block).
 
 Enforced by `hooks/scripts/pre-write-check.js`. Both directions reject the write on hit.
 
-**`chain-cite-reject` (src/** ← docs/-anchor cite)** — writes to `<context_path>/services/<service_name>/src/**` (and language equivalents) rejecting chain-artifact §-anchor cites:
-
-```
-/(?:PRD|FRS|TDD|CONTRACT|TSR)\s*§\s*\d+|ADR-\d{4}\s*§\s*\d+|\b(?:FR|AC|C|NFR)-\d+\b|\bS-[A-Z]+(?:-[A-Z]+)*-\d{3}\b|openapi\.yaml#\/paths\//
-```
-
-Token classes: `PRD §N` / `FRS §N` / `TDD §N` / `CONTRACT §N` / `TSR §N` / `ADR-NNNN §N` / `FR-N` / `AC-N` / `C-N` / `NFR-N` / `S-<UPPER>-NNN` / `openapi.yaml#/paths/`.
+**`chain-cite-reject` (src/** ← docs/-anchor cite)** — writes to `<context_path>/services/<service_name>/src/**` (and language equivalents) rejecting chain-artifact section-anchor cites. Token classes: PRD / FRS / TDD / CONTRACT / TSR section-anchor; ADR-NNNN section-anchor; FR-N / AC-N / C-N / NFR-N; S-`<UPPER>`-NNN; openapi-path-fragments. Canonical regex source: `hooks/lib/cite-patterns.js > CITE_DENYLIST_RE`.
 
 **`codebase-token-reject` (docs/** ← codebase token)** — writes to chain-artifact `.md` files under `<context_path>/docs/<service_name>/**` (filenames: `PRD`, `FRS`, `SAD`, `ADR-NNNN`, `TDD`, `TSR`, `BR-AC`, `business-invariants`) reject codebase path tokens (`src/`, `services/<…>/src/`, `app/`, `cmd/`, `pkg/`, `internal/`, `lib/`), codebase-specific identifiers (commit SHAs `\b[0-9a-f]{7,40}\b`, branch patterns `feature/<…>`/`release/<…>`, repo URLs `github.com/…`/`gitlab.com/…`), and — PRD/FRS only — fenced code blocks.
 

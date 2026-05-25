@@ -9,7 +9,6 @@
   "properties": {
     "$schema": { "type": "string" },
     "workspace_kind": { "enum": ["single-repo", "multi-repo"] },
-    "context_path": { "type": "string", "minLength": 1 },
-    "status": { "enum": ["draft", "locked"] }
+    "context_path": { "type": "string", "minLength": 1 }
   }
 }
