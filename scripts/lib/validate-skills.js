@@ -3,7 +3,8 @@
 //   - frontmatter present + parseable
 //   - frontmatter has `name`, `description`, `origin`
 //   - frontmatter `name` === parent folder name
-//   - description ≤200 chars
+//   - description ≤500 chars (descriptions are the auto-discovery surface;
+//     trigger keywords + "Use when X" phrasings need room to land)
 //   - body (post-frontmatter) ≤400 lines
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -38,8 +39,8 @@ export function walkSkills(root, errs) {
     if (fm?.name && fm.name !== folder) {
       errs.push(`skills/${folder}/SKILL.md: frontmatter name '${fm.name}' ≠ folder '${folder}'`);
     }
-    if (typeof fm?.description === "string" && fm.description.length > 200) {
-      errs.push(`skills/${folder}/SKILL.md: description ${fm.description.length} chars > 200 cap`);
+    if (typeof fm?.description === "string" && fm.description.length > 500) {
+      errs.push(`skills/${folder}/SKILL.md: description ${fm.description.length} chars > 500 cap`);
     }
     const bodyLines = fmMatch[2].split("\n").length;
     if (bodyLines > 400) {

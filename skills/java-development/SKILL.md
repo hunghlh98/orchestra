@@ -1,6 +1,7 @@
 ---
 name: java-development
-description: "Java/Spring read-side intel (caller graphs, @Transactional, JPA impact) and write-side conventions (style/patterns/security/testing). Invoked by @backend on Java projects."
+description: "Java + Spring code intelligence with two surfaces: read-side (caller graphs, @Transactional propagation, JPA entity blast radius, Spring injection sites, persistence-shape priority for reverse-pass) and write-side (coding style, JPA write conventions, security, testing). Use when @backend changes Java code on a Spring project, or when @architect populates TDD S-CONFIG-001 stack-shape rows and runs reverse-pass spec-correctness matching against openapi / asyncapi / clientapi call sites."
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 origin: orchestra
 ---
 

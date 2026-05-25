@@ -1,6 +1,7 @@
 ---
 name: c4-architecture
-description: Generates C4-model architecture diagrams (Context / Container / Component / Deployment / Dynamic) using PlantUML C4-PlantUML stdlib. Use when an orchestra agent authors C4 diagrams in SAD or TDD.
+description: "C4-model architecture diagrams (Context L1 / Container L2 / Component L3 / Code L4 / Dynamic / Deployment) authored via the PlantUML C4-PlantUML stdlib with zoom-continuity enforcement and SAD-scope routing (workspace vs service). Use when @architect authors SAD c4-context.puml / c4-container.puml, service-level c4-component.puml / c4-code.puml singletons, or per-feature highlighted L1+L2 copies. Bundles ADR-worthiness gates."
+allowed-tools: Read, Glob, Grep, Skill
 origin: orchestra-internal (structure adapted from .agents/skills/c4-architecture; output rewritten Mermaid → C4-PlantUML stdlib)
 ---
 

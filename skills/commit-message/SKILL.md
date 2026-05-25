@@ -1,6 +1,7 @@
 ---
 name: commit-message
-description: "Authors a git commit message per Conventional Commits 1.0.0 with a mandatory AI Co-Authored-By trailer."
+description: "Author a git commit message conforming to Conventional Commits 1.0.0 (type(scope): description + body + footer) with the mandatory `Co-Authored-By: Claude Code` trailer on AI-authored commits. Use when about to commit chain artifacts + source after TSR locks, when CHANGELOG derivation depends on machine-readable commit shape, or when a release-prep SemVer bump needs deterministic projection from commit log between two tags."
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill
 origin: orchestra
 ---
 

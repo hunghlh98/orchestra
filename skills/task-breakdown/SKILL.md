@@ -1,6 +1,7 @@
 ---
 name: task-breakdown
-description: "Decomposes intent into a task graph with story-point estimates and agent assignments. Used by the dispatcher in Phase 2 Plan body authoring."
+description: "Decompose an intent (PRD / FRS / freeform request) into a directed acyclic task graph where every node carries an owner agent, a story-point estimate, blocking dependencies, and exit criteria. Use when the dispatcher composes the Phase 2 Plan body, when a feature needs decomposing into TDD-bound tasks, when a sprint pull needs N issues converted, or when @product sizes a brownfield migration before user negotiation."
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill
 origin: orchestra
 ---
 

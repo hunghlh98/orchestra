@@ -1,6 +1,7 @@
 ---
 name: qa-test-planner
-description: "Builds test plans with coverage strategy and adversarial fuzz inputs. Use when @test-author designs the TSR S-TEST-001 section from a locked openapi."
+description: "Test-plan authoring with 7-axis coverage strategy (happy / boundary / error / idempotency / adversarial / cross-process-boundary / manual) plus an 8-pattern adversarial fuzz-input catalog (replay, malformed JSON, SQL injection, oversized body, race, wrong content-type, auth bypass, timeout). Use when @test-author writes TSR S-TEST-001 rows from a locked openapi, or when @test-runner fills status + evidence cells in place."
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill
 origin: orchestra
 ---
 
@@ -18,12 +19,12 @@ Designs the TSR test section (S-TEST-001): which black-box tests to author, what
 
 ### Step 1 — Map criteria → probes
 
-Every CONTRACT criterion gets at least one probe. Use the orchestra-probe MCP tools:
+Every openapi `description:` criterion (and asyncapi / clientapi equivalent) gets at least one probe. Use the orchestra-probe MCP tools:
 
 - `http_probe` — HTTP-facing behavior (status, headers, body shape, redirects, timeouts).
 - `db_state` — persistence verification (rows present/absent, field values, redaction-aware).
 
-Probe shape (lives in CONTRACT under `criteria.<id>.probes`):
+Probe shape (lives next to the openapi criterion under `criteria.<id>.probes`):
 
 ```yaml
 probes:
@@ -60,7 +61,7 @@ Cover 7 canonical axes for every feature (matches `agents/test-author.md` canoni
 | **cross-process-boundary** | Real-contract probe against every cross-process boundary the feature touches: outbound HTTP fixture against the upstream's published contract (Pact / recorded WireMock from upstream openapi); Kafka publish round-trip asserting consumers receive the canonical topic + payload shape; Kafka consume round-trip asserting the listener handles the publisher's full event shape (`@JsonIgnoreProperties(ignoreUnknown=true)` verified); JPA read against a row whose `@OneToMany` child collection is non-empty (lazy-init + invalid-`mappedBy` detection). One row per boundary; skip only when `<feature-id>-clientapi.yaml` AND `<feature-id>-asyncapi.yaml` are both absent. |
 | **manual** | Reserved for criteria flagged `manual_evaluation: true` in openapi `description:` — `@evaluator` grades by inspection (latency p95, third-party SLA, OS-level state). |
 
-Skip an axis only if CONTRACT explicitly says so (e.g., a read-only GET has no idempotency axis to probe; a service with no upstream callsites and no Kafka surface has no cross-process-boundary axis to probe).
+Skip an axis only when the openapi / asyncapi / clientapi explicitly says so (e.g., a read-only GET has no idempotency axis to probe; a service with no upstream callsites and no Kafka surface has no cross-process-boundary axis to probe).
 
 ### Step 3 — Adversarial fuzz inputs
 
@@ -124,7 +125,7 @@ The dispatcher (DIV resolution phase) iterates each unresolved row, picks Path A
 
 - A criterion is too vague to write a probe for → ask the dispatcher to re-spec the criterion (Pattern B). Don't invent a probe and call it the test.
 - An adversarial input is impossible in the current environment (e.g., requires production data) → document the gap, flag for `@reviewer`.
-- A CONTRACT has fewer than 3 criteria total → likely under-specified; surface to the dispatcher before writing the plan.
+- An openapi / asyncapi / clientapi has fewer than 3 criteria total → likely under-specified; surface to the dispatcher before writing the plan.
 
 ## References
 

@@ -1,6 +1,7 @@
 ---
 name: code-review
-description: "Reviews code with severity-graded checklists for correctness, idioms, performance, security. Use when @reviewer grades a diff."
+description: "Severity-graded code review (Critical / Major / Minor / Nit) with closed-set checklists for correctness, surgical-change discipline (Karpathy rules), performance shapes, security boundaries, and a 14-row structural-failure taxonomy that auto-flips rev_verdict to REQUEST_CHANGES bypassing auto_mode. Use when @reviewer grades a staged diff after @evaluator's S-EVAL-001 sections reach PASS."
+allowed-tools: Read, Glob, Grep, Skill
 origin: orchestra
 ---
 

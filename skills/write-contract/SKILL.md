@@ -1,6 +1,7 @@
 ---
 name: write-contract
-description: "Lifts PRD/FRS criteria into <feature-id>-openapi.yaml (producer endpoints) and <feature-id>-clientapi.yaml (consumer contracts on upstream). Use when @architect binds spec to grading."
+description: "Lift PRD/FRS criteria into <feature-id>-openapi.yaml (producer endpoints with description: criteria + inline CRITICAL: / manual_evaluation: tokens) and <feature-id>-clientapi.yaml (consumer contracts on upstream services this feature calls). Use when @architect binds spec to grading after PRD/FRS lock; ships an <feature-id>-asyncapi.yaml when messaging endpoints exist. The contract IS the openapi document — no separate CONTRACT.md."
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill
 origin: orchestra
 ---
 
