@@ -37,7 +37,7 @@ export function initPlan(ctx) {
 
 export function readPlan(path) {
   const content = readFileSync(path, "utf8");
-  const m = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!m) return { frontmatter: {}, rows: [] };
   let frontmatter;
   try { frontmatter = parseYaml(m[1]) || {}; } catch { frontmatter = {}; }

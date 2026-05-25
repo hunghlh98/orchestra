@@ -110,8 +110,9 @@ export function checkCodebaseTokenReject(filePath, content) {
 
 const WORKSPACE_CONTAINER_FLOOR = 2;
 
-function readWorkspaceKind() {
-  const candidate = join(process.cwd(), ".orchestra", "system.yaml");
+function readWorkspaceKind(cwd) {
+  const root = cwd || process.cwd();
+  const candidate = join(root, ".orchestra", "system.yaml");
   if (!existsSync(candidate)) return null;
   try {
     const text = readFileSync(candidate, "utf8");
@@ -145,7 +146,7 @@ function countPumlContainersInBoundary(content) {
   return matches ? matches.length : 0;
 }
 
-export function checkWorkspaceSadContainerFloor(filePath, content) {
+export function checkWorkspaceSadContainerFloor(filePath, content, cwd) {
   if (!filePath) return null;
   const base = filePath.split("/").pop();
   const isWorkspaceSad = base === "SAD.md" && /(^|\/)docs\/SAD\.md$/.test(filePath);
@@ -153,7 +154,7 @@ export function checkWorkspaceSadContainerFloor(filePath, content) {
     base === "c4-container.puml" && /(^|\/)docs\/diagrams\/c4-container\.puml$/.test(filePath);
   if (!isWorkspaceSad && !isWorkspaceContainerPuml) return null;
 
-  const workspaceKind = readWorkspaceKind();
+  const workspaceKind = readWorkspaceKind(cwd);
   if (workspaceKind !== "multi-repo") return null;
 
   if (isWorkspaceSad) {

@@ -22,6 +22,10 @@ import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_STOP_PLAN_VERIFY";
 
+if (process.env[NAME] === "off") {
+  process.exit(0);
+}
+
 main();
 
 async function main() {
@@ -32,8 +36,6 @@ async function main() {
       process.exit(0);
     }
     const stdin = r.text;
-
-    if (process.env[NAME] === "off") process.exit(0);
 
     const input = stdin.trim() ? JSON.parse(stdin) : {};
     if (input.hook_event_name !== "Stop") process.exit(0);

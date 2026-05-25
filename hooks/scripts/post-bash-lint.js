@@ -16,7 +16,9 @@ const SOURCE_MODIFYING_PATTERNS = [
   { name: "yarn-install",  re: /\byarn\s+(install|add|upgrade)\b/ },
   { name: "pnpm-install",  re: /\bpnpm\s+(install|i|add|update)\b/ },
   { name: "sed-inplace",   re: /\bsed\s+-i\b/ },
-  { name: "tee",           re: /\btee\b/ },
+  // tee piped into a source-extension target (script-overwrite shape);
+  // bare `tee /tmp/log.txt` doesn't trip this and shouldn't.
+  { name: "tee-src",       re: /\btee\s+(?:-[ai]\s+)*\S+\.(?:js|ts|tsx|jsx|java|py|kt|go|rs)\b/ },
   { name: "redirect-src",  re: />\s*\S+\.(?:js|ts|tsx|jsx|java|py|kt|go|rs)\b/ },
 ];
 

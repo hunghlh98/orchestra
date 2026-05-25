@@ -144,7 +144,7 @@ function renderPuml(filePath) {
       encoding: "utf8",
       timeout: 30_000,
     });
-    if (r.status === 0) return { ok: true, via: "jar" };
+    if (r.status === 0) return { ok: true };
     return { ok: false, reason: `java -jar ${jarPath} exit ${r.status}: ${r.stderr || r.stdout || "no output"}` };
   }
 
@@ -156,6 +156,6 @@ function renderPuml(filePath) {
   if (r.error?.code === "ENOENT") {
     return { ok: false, reason: "no plantuml.jar (PLANTUML_JAR or ~/plantuml.jar) and `plantuml` not on PATH" };
   }
-  if (r.status === 0) return { ok: true, via: "path" };
+  if (r.status === 0) return { ok: true };
   return { ok: false, reason: `plantuml exit ${r.status}: ${r.stderr || r.stdout || "no output"}` };
 }

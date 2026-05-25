@@ -70,7 +70,7 @@ async function main() {
       checkSecrets(content),
       checkChainCiteReject(filePath, content),
       checkCodebaseTokenReject(filePath, content),
-      checkWorkspaceSadContainerFloor(filePath, content),
+      checkWorkspaceSadContainerFloor(filePath, content, input.cwd),
       checkChangelogAppendOnly(filePath, content, input.tool_name),
     ]) {
       if (result) {
