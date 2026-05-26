@@ -1,4 +1,4 @@
-1. IT TOOK ME 3 WEEKS TO REALIZE I PARTITIONED THE CODEBASE INCORRECTLY
+# 1. IT TOOK ME 3 WEEKS TO REALIZE I PARTITIONED THE CODEBASE INCORRECTLY
 ```
 Project: Extract specifications from 4 repositories (web, mobile, backend, admin) to create a unified spec document, feeding it into an agentic coding loop.
 
@@ -143,4 +143,74 @@ These insights derive from a multi-repo spec extraction case study, but the prin
 If you answer "no" to any of these, you are positioned where I was 3 weeks ago. Larger models will not save you. Larger context windows will not save you. The point of failure is your CODEBASE PARTITIONING STRATEGY, not the LLM.
 
 The most effective agent is not the smartest agent. It is the agent provided with context structured by business logic, delivered at the right time, in the correct format.
+```
+
+# 2. Useful Hook
+
+How to make Claude Code reuse exist code without create new one
+
+When it tries to create that file, however, our hook is going to run. ​It's going to launch that separate copy of Claude code, which is going to do some research ​and find that there is in fact an existing query that can be reused. ​It's going to provide some advice and say, hey, you could probably go and update this ​other existing query to suit your purposes perfectly. ​And we'll see some feedback from Claude, our primary instance that we are interacting with ​saying, ah, yes, there is this existing query. ​Let's just modify that existing query rather than attempting to write out a brand new one. ​Now the downside to this hook is that it's going to take some additional time and expense ​to run every single time that I want to edit something inside the queries directory. ​But the upside is that I'm going to end up with a lot less duplicate code inside my queries ​directory. 
+
+To make Claude Code reuse existing queries rather than creating new ones, you can implement a hook that:
+
+Watches for changes made inside the queries directory.
+When a change is detected, launches a separate instance of Claude Code to review the new or modified query.
+This review instance compares the new query against existing queries in the directory.
+If it finds a similar existing query, it sends feedback to the original Claude Code instance.
+The original instance then removes the duplicate query and modifies the existing one to suit the new requirements.
+This approach helps keep the queries directory clean and avoids code duplication by enforcing reuse.
+
+The hook typically:
+
+Checks if the change is inside the queries directory.
+Runs a prompt to ask Claude Code to review the change and existing queries.
+Uses the Claude Code SDK programmatically to run this review.
+Based on the review, it either accepts the change or signals Claude Code to fix it.
+
+Example: 
+Here's a simplified outline and example of how you might implement a query hook using the Claude Code SDK to encourage reuse of existing queries:
+
+Key steps in the hook:
+
+Detect if the change is inside the src/queries directory.
+If yes, launch a separate Claude Code instance to review the new or modified query.
+Provide the new query code and existing queries as context to the reviewer instance.
+Ask the reviewer if a similar query already exists.
+If yes, signal the main Claude Code instance to remove the duplicate and reuse the existing query.
+
+```node
+const { ClaudeCode } = require('claude-code-sdk'); // hypothetical SDK import
+
+async function queryHook(changedFilePath, changedFileContent) {
+  // Only run hook for files in src/queries
+  if (!changedFilePath.startsWith('src/queries')) {
+    return;
+  }
+
+  // Initialize a new Claude Code instance for review
+  const reviewer = new ClaudeCode({ /* your API key and config */ });
+
+  // Prepare prompt for reviewer
+  const prompt = `
+    You are reviewing a new or modified SQL query function added to the project.
+    Here is the new query code:
+    ${changedFileContent}
+
+    Here are existing queries in the src/queries directory:
+    [Provide summaries or code snippets of existing queries]
+
+    Does a similar query already exist? If yes, please suggest reusing it instead of adding a duplicate.
+  `;
+
+  // Run the review
+  const reviewResponse = await reviewer.run(prompt);
+
+  if (reviewResponse.includes('reuse existing query')) {
+    // Signal main Claude Code instance to fix duplication
+    // This could be done by exiting with a special code or sending feedback
+    process.exit(2); // example exit code to indicate duplication found
+  }
+}
+
+module.exports = queryHook;
 ```
