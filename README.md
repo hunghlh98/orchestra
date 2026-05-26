@@ -221,7 +221,7 @@ All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setti
 | `ORCHESTRA_HOOK_PREFLIGHT` | **Do not disable** — dispatcher halts without it. |
 | `ORCHESTRA_MCP_ORCHESTRA_UTILS` | **Do not disable** — dispatcher persists system.yaml / local.yaml / CLAUDE.md bootstrap and uses tree through this MCP. |
 | `ORCHESTRA_MCP_ORCHESTRA_PROBE` | Disable runtime probes. |
-| `ORCHESTRA_SKILL_<NAME>` | Per-skill opt-out (11 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`, `ORCHESTRA_SKILL_BUSINESS_ANALYSIS`). |
+| `ORCHESTRA_SKILL_<NAME>` | Per-skill opt-out (10 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`, `ORCHESTRA_SKILL_BUSINESS_ANALYSIS`). |
 
 Agents and the dispatcher command have no env-var opt-out. Plugin manifest declares no per-component arrays (Claude Code auto-discovers from convention directories); to remove an agent or command, delete its file from `agents/` or `commands/` directly.
 
