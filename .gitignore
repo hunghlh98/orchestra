@@ -30,6 +30,16 @@ docs/aggregated-metrics.html
 .claude/audit/
 .claude/temp/
 
+# Reuse-check hook cache — sha256-keyed reviewer verdicts (1h TTL).
+# Dev-only; never ships. Runtime creates the dir on first miss.
+.claude/.cache/
+
+# Reuse-check hook deps — @anthropic-ai/claude-agent-sdk lives under
+# .claude/hooks/ to keep the SDK out of the plugin's shipping surface.
+# Dev-only; never ships.
+.claude/hooks/node_modules/
+.claude/hooks/package-lock.json
+
 # mcp-servers/ allow-list. Only the two shipped MCP servers are tracked;
 # anything else under mcp-servers/ is accidental and must not be packaged.
 mcp-servers/*

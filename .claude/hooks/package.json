@@ -1,0 +1,13 @@
+{
+  "name": "orchestra-dev-hooks",
+  "version": "0.0.0",
+  "description": "Maintainer-only PreToolUse hooks (reuse-check). Never ships with orchestra plugin.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.0"
+  }
+}
