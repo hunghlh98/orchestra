@@ -4,6 +4,21 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.6] — 2026-05-27
+
+Patch release. Adds a deterministic Java code-graph layer that grounds the brownfield `code-to-spec` reverse chain in parsed AST facts instead of LLM source-walking.
+
+### Added
+
+- **`skills/java-development/scripts/extract-java-graph.mjs` — deterministic Java code-graph extractor.** Native `tree-sitter` + `tree-sitter-java` (node-gyp), provisioned on-demand by the skill preflight (`npm install --prefix <skill-dir>`). Emits classes / methods / endpoints / entities / `injects` / `calls` / `@Transactional` boundaries with stable ids (`class:<fqcn>`, `method:<fqcn>#m`, `endpoint:<METHOD> <route>`, `table:<name>`); validated against new `schemas/code-graph.schema.json`. `@explorer` runs it first and classifies features from graph facts; `@architect` reverse-pass derives openapi `paths`, entity/table inventory, and `S-CONFIG-001` wiring from the graph instead of re-reading `src/**`. Sole structural path — no regex fallback.
+- **Batching + merge-recover for large services.** `compute-graph-batches.mjs` (dependency-free import-neighborhood partition via union-find + same-package cohesion) and `merge-java-graph.mjs` (promotes cross-batch `unresolved` refs to edges against the union node set, dedups, drops dangling, stderr report). Intra-`@explorer` (single-writer report preserved); batch+merge is provably equal to the single-pass graph.
+- **Fingerprint-based incremental reverse pass.** `build-graph-fingerprints.mjs` + `classify-graph-diff.mjs` classify changed files `structural` vs cosmetic (line ranges excluded from the hash, so comment/whitespace edits don't flip it). Baseline persists at `.orchestra/<service>/code-graph/{graph,fingerprints,meta}.json`; the dispatcher pins Phase-3 re-derivation to `structural` + `added` features.
+- **`hooks/scripts/code-graph-stale.js` — staleness notice hook.** `SessionStart` (additionalContext) + post-commit `PostToolUse(Bash)` (stderr): flags when a persisted code-graph's commit ≠ HEAD. Silent when no graph / not a git repo; never blocks. Toggle `ORCHESTRA_HOOK_CODE_GRAPH_STALE`. README hooks 8 → 9, schemas 13 → 14.
+
+### Changed
+
+- **Consumer requirement (Java reverse chain only).** `code-to-spec` on a Java project now needs a C toolchain (node-gyp / python3 / compiler) + npm for the native parser, surfaced as a hard preflight STOP. Greenfield, non-Java, and all other entry shapes are unaffected. `node_modules` is gitignored; only `package.json` + `scripts/*.mjs` ship.
+
 ## [5.2.5] — 2026-05-25
 
 Patch release. Follow-on audit pass — eliminates an invented YAML extension (`context_mode`) and its schema/test/manifest ecosystem, drops a consumer-opinion-leak skill, dedupes a known "mirror" maintenance hazard between MCP server and dev scripts, and tightens skill auto-trigger behavior. No new behavior.
