@@ -111,6 +111,45 @@ Each ghost / orphan opens its OWN `DIV-NNN` (do not bundle).
 
 ---
 
+## Code-graph extractor (reverse-pass structural floor)
+
+`scripts/extract-java-graph.mjs` is the **sole** structural-extraction path for the reverse chain. Run it FIRST, then read source only for semantics the graph does not carry. Never hand-walk `src/**` to re-derive structure a graph already holds, and never write a regex fallback parser — a parse failure is recorded per-file, not worked around.
+
+**Preflight (run once per session, before the extractor).** The extractor uses native `tree-sitter` bindings provisioned on demand into this skill dir. Gate:
+
+```bash
+SKILL_DIR=${CLAUDE_PLUGIN_ROOT}/skills/java-development
+if ! node -e "require('$SKILL_DIR/node_modules/tree-sitter-java')" 2>/dev/null; then
+  npm install --prefix "$SKILL_DIR" || { echo "STOP: tree-sitter install failed. Requires Node ≥18, npm, and a C toolchain (node-gyp / python3 / compiler). Install build tools and re-run."; exit 1; }
+fi
+```
+
+If the install fails (no compiler / no npm / no network), STOP and surface the message — do NOT fall back to LLM source-walking for structure. The graph is the floor; without it the reverse chain has no deterministic grounding.
+
+```bash
+# input.json: { "projectRoot": "<abs>", "files": [{ "path": "<rel .java>" }, ...] }
+node ${CLAUDE_PLUGIN_ROOT}/skills/java-development/scripts/extract-java-graph.mjs <input.json> <out.json>
+```
+
+Output validates against `schemas/code-graph.schema.json`: `{ nodes, edges, unresolved, parseErrors }`. Stable ids: `class:<fqcn>`, `method:<fqcn>#<name>`, `endpoint:<METHOD> <route>`, `table:<name>`.
+
+What the graph already decides deterministically — do NOT re-infer:
+
+| Reverse-pass need | Graph source |
+|---|---|
+| openapi `paths` | `exposes` edges → `endpoint` nodes (`httpMethod` + `route`) |
+| openapi request/response wiring | `endpoint.handler` → method `signature` |
+| entity / table inventory | `persists` edges → `table` nodes; `stereotype: entity` |
+| `S-CONFIG-001` DI wiring + callsite liveness | `injects` + `calls` edges |
+| `@Transactional` boundaries | method node `transactional: true` |
+| call graph (blast radius) | `calls` edges (receiver resolved through injected field type) |
+
+`unresolved` holds external/framework imports and cross-batch targets (Tier-2 merge resolves the latter). `calls` carries `confidence: "field-type"` — receiver resolution is field-type granularity, not full overload resolution. Native `tree-sitter` + `tree-sitter-java` (node-gyp); installed on demand by the preflight above, not committed.
+
+Bundled-script-first applies equally to forward-chain `S-CONFIG-001` authoring: extract once, read the graph, then write rows.
+
+---
+
 ## Write-side: conventions
 
 Full write-side conventions (style / patterns / security / testing with Good/Bad examples) at `references/jpa-write-conventions.md`. Apply when authoring or modifying Java sources.

@@ -58,6 +58,13 @@
       "stability": "stable"
     },
     {
+      "name": "hook.code-graph-stale",
+      "kind": "hook",
+      "path": "hooks/scripts/code-graph-stale.js",
+      "defaultEnabled": true,
+      "stability": "stable"
+    },
+    {
       "name": "mcp.orchestra-utils",
       "kind": "mcp",
       "path": "mcp-servers/orchestra-utils.js",

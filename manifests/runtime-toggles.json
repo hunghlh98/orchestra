@@ -50,6 +50,12 @@
       "description": "On SubagentStop, reads the finished subagent's transcript and projects every TaskCreate/TaskUpdate event into the session-level ledger at <cwd>/.orchestra/plans/<session-id>/agent-tasks.md — rows keyed on (agent, feature_id, task_id). Single writer; subagents never author this file. Disable to skip ledger projection."
     },
     {
+      "module": "hook.code-graph-stale",
+      "envVar": "ORCHESTRA_HOOK_CODE_GRAPH_STALE",
+      "default": "on",
+      "description": "On SessionStart and after git commit/merge/rebase (PostToolUse Bash), checks whether a persisted Java code-graph baseline at <cwd>/.orchestra/<service>/code-graph/meta.json was built at a commit other than HEAD; if so, surfaces a one-line staleness notice (SessionStart: additionalContext; PostToolUse: stderr). Silent when no code-graph exists or not a git repo. Never blocks. Disable to suppress the notice."
+    },
+    {
       "module": "mcp.orchestra-utils",
       "envVar": "ORCHESTRA_MCP_ORCHESTRA_UTILS",
       "default": "on",

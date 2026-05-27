@@ -167,7 +167,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | --- | --- |
 | `/orchestra` | Dispatcher. 4 entry shapes: `spec-to-code`, `code-to-spec`, `<intent>` router, empty→usage. |
 
-## Hooks (8)
+## Hooks (9)
 
 | Hook script | Event | Purpose |
 | --- | --- | --- |
@@ -179,6 +179,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `agent-plan-sync.js` | SubagentStop | Projects each finished subagent's `TaskCreate` / `TaskUpdate` activity from its transcript into the session-level ledger at `.orchestra/plans/<session-id>/agent-tasks.md`. Single writer; subagents never author the file. |
 | `post-bash-lint.js` | PostToolUse (Bash) | Observe Bash output; surface lint issues. |
 | `post-write-puml.js` | PostToolUse (Write / Edit / MultiEdit) | Render-on-write for `.puml` files. |
+| `code-graph-stale.js` | SessionStart + PostToolUse (Bash) | Notice hook: when a persisted Java code-graph baseline (`.orchestra/<service>/code-graph/meta.json`) was built at a commit other than HEAD, surface a one-line staleness notice (SessionStart → additionalContext; post-commit → stderr). Silent when no graph exists or not a git repo. Never blocks. |
 
 ## MCP Servers (2)
 
@@ -187,7 +188,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `orchestra-utils` | `tree`, `write_system_yaml`, `upsert_local_yaml`, `claude_md`, `docs_readme`, `upsert_features_yaml` | Read-only directory listing via `tree`; closed-allowlist schema-validated writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, the consumer `CLAUDE.md` orchestra section, the `docs/README.md` provenance marker, and the `.orchestra/<service>/features.yaml` intra-service feature DAG manifest. |
 | `orchestra-probe` | `http_probe`, `db_state` | Auditable runtime probes for `@evaluator` (SELECT-only DB, redacted HTTP). |
 
-## Schemas (13)
+## Schemas (14)
 
 | Schema | Purpose |
 | --- | --- |
@@ -204,6 +205,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | `install-modules.schema.json` | Manifest module registry (CI-validated). |
 | `runtime-toggles.schema.json` | Env-var opt-out registry (CI-validated). |
 | `known-models.schema.json` | Recognized model IDs (CI-validated). |
+| `code-graph.schema.json` | Java code-graph shape emitted by `skills/java-development/scripts/extract-java-graph.mjs` (reverse-chain structural floor). |
 
 ## Environment Variables (opt-out)
 
@@ -218,6 +220,7 @@ All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setti
 | `ORCHESTRA_HOOK_STOP_PLAN_VERIFY` | Disable silent-approval gate. Safe to bypass when approval IS confirmed via PlanMode UI; never disable as a default — leaves you exposed to anthropics/claude-code#50110. |
 | `ORCHESTRA_HOOK_POST_BASH_LINT` | Disable Bash lint observer. |
 | `ORCHESTRA_HOOK_POST_WRITE_PUML` | Disable `.puml` render-on-write. |
+| `ORCHESTRA_HOOK_CODE_GRAPH_STALE` | Disable the Java code-graph staleness notice (SessionStart + post-commit). Observer; never blocks. |
 | `ORCHESTRA_HOOK_PREFLIGHT` | **Do not disable** — dispatcher halts without it. |
 | `ORCHESTRA_MCP_ORCHESTRA_UTILS` | **Do not disable** — dispatcher persists system.yaml / local.yaml / CLAUDE.md bootstrap and uses tree through this MCP. |
 | `ORCHESTRA_MCP_ORCHESTRA_PROBE` | Disable runtime probes. |
@@ -235,6 +238,7 @@ Agents and the dispatcher command have no env-var opt-out. Plugin manifest decla
 ### Optional
 
 - PlantUML CLI on `$PATH` — for `post-write-puml` render-on-write (`.puml` → `.svg`)
+- C toolchain (node-gyp / python3 / compiler) + npm — required ONLY for the Java reverse chain (`code-to-spec` on a Java project). The `java-development` skill preflight runs `npm install` to provision native `tree-sitter` bindings for the code-graph extractor; absent a toolchain the extractor STOPs with an explicit message. Not needed for greenfield, non-Java, or any other entry shape.
 
 ## Versioning
 

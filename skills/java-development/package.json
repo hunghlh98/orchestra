@@ -1,0 +1,11 @@
+{
+  "name": "@orchestra/java-development",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Runtime deps for the Java code-graph extractor. Installed on-demand by the skill preflight (npm install --prefix this dir). Native node-gyp bindings — requires a C toolchain.",
+  "type": "module",
+  "dependencies": {
+    "tree-sitter": "0.21.1",
+    "tree-sitter-java": "0.23.5"
+  }
+}

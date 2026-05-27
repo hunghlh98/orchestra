@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "code-graph.schema.json",
+  "title": "Java code-graph",
+  "description": "Deterministic structural graph emitted by skills/java-development/scripts/extract-java-graph.mjs. Shape only.",
+  "type": "object",
+  "required": ["version", "nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string" },
+    "project": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "root": { "type": "string" },
+        "fileCount": { "type": "integer" }
+      }
+    },
+    "nodes": { "type": "array", "items": { "$ref": "#/definitions/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/definitions/edge" } },
+    "unresolved": { "type": "array", "items": { "$ref": "#/definitions/edge" } },
+    "parseErrors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "error"],
+        "additionalProperties": false,
+        "properties": { "file": { "type": "string" }, "error": { "type": "string" } }
+      }
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "required": ["id", "kind", "name"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["file", "class", "interface", "enum", "method", "field", "endpoint", "table"] },
+        "name": { "type": "string" },
+        "fqcn": { "type": "string" },
+        "file": { "type": "string" },
+        "range": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
+        "stereotype": {
+          "type": ["string", "null"],
+          "enum": ["rest-controller", "service", "repository", "entity", "component", "config", "kafka-listener", "scheduled", null]
+        },
+        "annotations": { "type": "array", "items": { "type": "string" } },
+        "modifiers": { "type": "array", "items": { "type": "string" } },
+        "signature": { "type": "string" },
+        "transactional": { "type": "boolean" },
+        "httpMethod": { "type": "string" },
+        "route": { "type": "string" },
+        "handler": { "type": "string" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["source", "target", "type"],
+      "additionalProperties": true,
+      "properties": {
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "type": { "enum": ["contains", "imports", "injects", "exposes", "persists", "extends", "implements", "listens", "calls"] },
+        "evidence": { "type": "string" },
+        "confidence": { "type": "string" }
+      }
+    }
+  }
+}

@@ -97,6 +97,7 @@ e. On `accepted`: append row to `<context_path>/.orchestra/inventory/adr/index.m
 
 `phase: discovery` with `direction: reverse` produces SAD + per-service singletons + per-feature TDD from source observation. NO code, NO tests, NO TSR.
 
+- **Code-graph first (Java)** — Reuse `@explorer`'s graph JSON under `.orchestra/plans/<session_id>/discovery/graph/` (re-run `skills/java-development/scripts/extract-java-graph.mjs` if absent or stale). Derive openapi `paths` from `exposes`→`endpoint` nodes, entities from `persists`→`table`, `S-CONFIG-001` DI + callsite liveness from `injects`/`calls`, `@Transactional` boundaries from method `transactional` flags. The graph is the canonical structural input; read `src/**` only for semantics it does not carry (intent, naming rationale). Per `skills/java-development > Code-graph extractor`.
 - **Provenance check** — Read `<context_path>/docs/README.md`. Absent → call `mcp__orchestra-utils__docs_readme(context_path)` FIRST.
 - **Per-artifact classify** — absent / no provenance → `re-author`. Present + `generated_by: orchestra` AND `status: locked` → `cite-as-is`. Present + draft → `copy-and-modify`. Frontmatter `reverse_authoring_mode:` REQUIRED on `.md` + contract `.yaml`. Diagrams (`.puml`) OMIT.
 - **Authored set by scope** — `single-repo`: per-service singletons + per-feature TDD + openapi. `multi-repo + system-wide`: full set. `multi-repo + per-service`: per-service + per-feature only.
@@ -104,6 +105,7 @@ e. On `accepted`: append row to `<context_path>/.orchestra/inventory/adr/index.m
 - **Persistence shape priority** — Java/Spring: `skills/java-development > ## Read-side > Persistence shape priority`. Other stacks: language skill's equivalent section.
 - **ADRs only for visible-in-source platform decisions** passing all three worthiness gates. Half-implementations + accidental shapes fail gate 1 → route to BR-AC `S-INVARIANTS-001` via `ratify-spec`.
 - **Project-rule cross-check** — Read `<context_path>/CLAUDE.md`. Grep walked source for rule violations. Each confirmed violation → ONE `INV-NNN` row, Notes pointing at source role/name (no `file:line`).
+- **Persist code-graph baseline (Java, reverse-chain close)** — After the per-service reverse pass completes, persist the merged graph + a fingerprint baseline to `<context_path>/.orchestra/<service>/code-graph/`: copy the merged graph to `graph.json`, run `scripts/build-graph-fingerprints.mjs graph.json fingerprints.json $(git rev-parse HEAD)`, write `meta.json` `{ commit, builtAt }`. The `code-graph-stale` hook reads this; a later re-run feeds it to `scripts/classify-graph-diff.mjs` to re-derive only `structural` + `added` files. Skip on non-Java services.
 
 **Ratify-spec amendment procedure** (`task: ratify-spec-amend` after `mcp__orchestra-utils__amend_locked_artifact` has flipped target to `status: revision_requested`):
 

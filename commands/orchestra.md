@@ -183,6 +183,8 @@ Main agent has full tool access post-approval. Same turn as Phase 2b.
 
 **Post-pass deliverable check.** Main agent walks each spawn's owned paths (lifted from the locked plan's `## Agent assignments`) after the subagent returns. Absent paths → `Write(<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/MISSING-DELIVERABLES-<service>.md)` listing the absent paths; re-spawn the same `subagent_type` with `task: deliverable-gap-fill` and the absent-path list. Cycles until coverage closes or the gap-fill spawn returns ESCALATE.
 
+**Incremental reverse-pass (Java).** If `<context_path>/.orchestra/<service_name>/code-graph/fingerprints.json` exists from a prior run, narrow scope before spawning: re-extract the service graph (`skills/java-development/scripts/extract-java-graph.mjs`), run `classify-graph-diff.mjs fingerprints.json <new-graph> diff.json`, and pin Phase-3 reverse-pass authoring to features touching `diff.structural` + `diff.added` files only — `unchanged` features keep their locked artifacts. The `code-graph-stale` hook surfaces when a refresh is due. Absent baseline → full reverse pass. `@architect` rebuilds the baseline at close.
+
 ## Phase 4 — Convergence (forward chain only)
 
 Reverse-pass produces no source impl; no convergence in reverse mode. Phase 4 trivially completes when last `@product` returns. Forward-chain `spec-to-code` follow-up against the locked reverse-derived baseline carries the full convergence.
