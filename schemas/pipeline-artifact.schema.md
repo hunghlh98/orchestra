@@ -94,6 +94,7 @@ Workspace-global state at the `.orchestra/` root; per-service execution state pa
 ```
 <project>/.orchestra/
 ├── system.yaml                         ← workspace config (workspace_kind, context_path)
+├── cross-features.yaml                 ← workspace-grain cross-service feature DAG manifest (append-only)
 ├── manifest.json                       ← idempotency registry
 ├── plans/                              ← per-session workspace plans
 │   └── <session_id>/                   ← = Claude Code session-id from preflight
@@ -129,6 +130,7 @@ Type → folder map:
 | `ADR` (service) | `docs/<service_name>/adr/` | `ADR-order-001-use-outbox.md` | affects exactly one service; per-service 3-digit numbering |
 | `README` | `docs/` | `README.md` | provenance marker (`generated_by: orchestra`) |
 | `RUN-PLAN` | `.orchestra/plans/<session_id>/` | `run-plan.md` | one per Claude Code session; workspace-level unified plan |
+| `CROSS-FEATURES` | `.orchestra/` | `cross-features.yaml` | workspace-grain cross-service feature DAG manifest; append-only; binds one logical feature across ≥2 services; closed-allowlist write via `mcp__orchestra-utils__upsert_cross_features_yaml` |
 | `EXPLORER-REPORT` | `.orchestra/plans/<session_id>/discovery/` | `order.md` | per-service discovery summary; brownfield only; filename = `<service>.md` |
 | `TASKS` | `.orchestra/<service_name>/pipeline/<feature-id>/` | `order-001-placement-TASKS.md` | agent-internal |
 | `AGENT-TASKS` | `.orchestra/plans/<session_id>/` | `agent-tasks.md` | session-level ledger; rows-per-(agent × feature-id × task) projected by `agent-plan-sync` hook on `SubagentStop` from subagent transcripts |
@@ -140,7 +142,7 @@ Type → folder map:
 ```yaml
 ---
 id: <basename-without-extension>
-type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|AGENT-TASKS|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT|INTENT|INVENTORY>
+type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|AGENT-TASKS|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT|CROSS-FEATURES|INTENT|INVENTORY>
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                       # draft | locked

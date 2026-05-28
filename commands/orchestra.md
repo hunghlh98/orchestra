@@ -115,7 +115,7 @@ Phase 2 spans a turn boundary because `ExitPlanMode` is async — the tool submi
 ### Phase 2a — Author (Turn 1, ends with ExitPlanMode)
 
 6. Main agent calls `EnterPlanMode`. Tool returns; plan-mode UI engages. Read-only research tools remain available (`Read`, `Grep`, `Glob`, read-only `Bash`); `Write` / `Edit` / `Task` blocked while plan mode active.
-7. Main agent composes the run-plan body INLINE in conversation context (cannot `Write` to disk while in plan mode). Reads required inputs: preflight block, `<service>/features.yaml`, discovery reports (brownfield), `<service>/local.yaml`. Invokes `skills/task-breakdown` for assignment decomposition.
+7. Main agent composes the run-plan body INLINE in conversation context (cannot `Write` to disk while in plan mode). Reads required inputs: preflight block, `<service>/features.yaml`, `.orchestra/cross-features.yaml` (workspace-grain cross-service feature DAG; emit `cross_feature` cell on features whose `<service_name>:<feature-id>` pair appears in any `cross_features[].members` entry), discovery reports (brownfield), `<service>/local.yaml`. Invokes `skills/task-breakdown` for assignment decomposition.
 
 The composed body MUST carry three sections per `schemas/run-plan.schema.md`:
 
@@ -291,6 +291,7 @@ orchestra agents are filesystem-coupled. Handoff: main agent writes `Agent(...)`
 - `.orchestra/system.yaml` via `mcp__orchestra-utils__write_system_yaml`
 - `.orchestra/<service_name>/local.yaml` via `mcp__orchestra-utils__upsert_local_yaml`
 - `.orchestra/<service_name>/features.yaml` via `mcp__orchestra-utils__upsert_features_yaml`
+- `.orchestra/cross-features.yaml` via `mcp__orchestra-utils__upsert_cross_features_yaml`
 - `<context_path>/CLAUDE.md` orchestra section via `mcp__orchestra-utils__claude_md`
 - `<context_path>/docs/README.md` provenance marker via `mcp__orchestra-utils__docs_readme`
 - `.orchestra/plans/<session-id>/run-plan.md` (Phase 2b Lock + Phase 2c recompose) via `Write`
@@ -315,7 +316,7 @@ Tool surface splits by call-readiness:
 - **Immediate** (callable without `ToolSearch`): `Read`, `Write`, `Edit`, `Bash`, `Agent`, `AskUserQuestion`.
 - **Deferred** (require `ToolSearch select:<name>` before first call): `EnterPlanMode`, `ExitPlanMode`, `TaskCreate`, `TaskUpdate`, `TaskList`, all `mcp__orchestra-utils__*`, all `mcp__orchestra-probe__*`.
 - Load PlanMode + task tools in one batch at the top of Phase 2a: `ToolSearch query: "select:EnterPlanMode,ExitPlanMode,TaskCreate,TaskUpdate,TaskList"`.
-- Load orchestra MCP tools at bootstrap: `ToolSearch query: "select:tree,write_system_yaml,upsert_local_yaml,upsert_features_yaml,claude_md,docs_readme"`.
+- Load orchestra MCP tools at bootstrap: `ToolSearch query: "select:tree,write_system_yaml,upsert_local_yaml,upsert_features_yaml,upsert_cross_features_yaml,claude_md,docs_readme"`.
 
 ## Runtime hooks
 

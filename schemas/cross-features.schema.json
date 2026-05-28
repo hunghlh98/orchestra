@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orchestra:cross-features",
+  "title": "orchestra workspace cross-features.yaml",
+  "description": "Closed allowlist for <context_path>/.orchestra/cross-features.yaml — workspace-grain cross-service feature DAG manifest. Each entry binds one logical feature across >=2 services. Member existence (each (service_name, feature_id) resolves in that service's features.yaml), acyclicity, edge-existence, self-edge, member uniqueness, and id uniqueness are enforced imperatively by the orchestra-utils MCP tool, not by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cross_features"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "cross_features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/cross_feature" }
+    }
+  },
+  "$defs": {
+    "cross_feature_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "feature_id_ref": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "service_name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "minLength": 1
+    },
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service_name", "feature_id"],
+      "properties": {
+        "service_name": { "$ref": "#/$defs/service_name" },
+        "feature_id":   { "$ref": "#/$defs/feature_id_ref" }
+      }
+    },
+    "cross_feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "members", "depends_on"],
+      "properties": {
+        "id":         { "$ref": "#/$defs/cross_feature_id" },
+        "status":     { "enum": ["active", "deprecated"] },
+        "members":    {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/member" }
+        },
+        "depends_on": { "type": "array", "items": { "$ref": "#/$defs/cross_feature_id" } },
+        "supersedes": { "type": "array", "items": { "$ref": "#/$defs/cross_feature_id" } }
+      }
+    }
+  }
+}

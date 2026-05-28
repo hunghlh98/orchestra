@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // mcp-servers/orchestra-utils.js
-// MCP server: orchestra utilities. Eight tools.
+// MCP server: orchestra utilities. Nine tools.
 //
 //   tree                          read-only directory listing
 //   write_system_yaml             closed-allowlist write to <ctx>/.orchestra/system.yaml
 //   upsert_local_yaml             closed-allowlist create+patch to <ctx>/.orchestra/<svc>/local.yaml
 //   upsert_features_yaml          closed-allowlist upsert to <ctx>/.orchestra/<svc>/features.yaml with DAG enforcement
+//   upsert_cross_features_yaml    closed-allowlist upsert to <ctx>/.orchestra/cross-features.yaml; member-existence + DAG enforcement
 //   claude_md                     idempotent splice of orchestra section into <ctx>/CLAUDE.md
 //   docs_readme                   idempotent author of <ctx>/docs/README.md provenance marker
 //   amend_locked_artifact         flip locked → revision_requested; append `unlocked` changelog row (Path-A)
@@ -64,13 +65,17 @@ const LOCAL_FIELDS = [
 const ALLOWED_WRITE_SYSTEM_ARGS = new Set(["context_path", "workspace_kind", "status"]);
 const ALLOWED_UPSERT_LOCAL_ARGS = new Set(["context_path", ...LOCAL_FIELDS]);
 const ALLOWED_UPSERT_FEATURES_ARGS = new Set(["context_path", "service_name", "feature"]);
+const ALLOWED_UPSERT_CROSS_FEATURES_ARGS = new Set(["context_path", "cross_feature"]);
 const ALLOWED_AMEND_ARGS = new Set(["context_path", "target_path", "revision_notes"]);
 const ALLOWED_RELOCK_ARGS = new Set(["context_path", "target_path", "amendment_summary"]);
 
 const FEATURE_ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$/;
+const SERVICE_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const VALID_FEATURE_STATUSES = ["active", "deprecated"];
 const VALID_ARTIFACTS = ["PRD", "FRS", "TDD", "openapi", "asyncapi", "TSR"];
 const FEATURE_FIELDS = new Set(["id", "status", "depends_on", "supersedes", "artifacts"]);
+const CROSS_FEATURE_FIELDS = new Set(["id", "status", "members", "depends_on", "supersedes"]);
+const CROSS_FEATURE_MEMBER_FIELDS = new Set(["service_name", "feature_id"]);
 
 function rejectUnknownArgs(args, allowed, toolName) {
   for (const k of Object.keys(args)) {
@@ -193,6 +198,149 @@ function detectFeaturesCycle(features) {
   return null;
 }
 
+function validateCrossFeatureMemberShape(m) {
+  const errs = [];
+  if (!m || typeof m !== "object" || Array.isArray(m)) { errs.push("member must be an object"); return errs; }
+  for (const k of Object.keys(m)) {
+    if (!CROSS_FEATURE_MEMBER_FIELDS.has(k)) errs.push(`unknown member field '${k}'`);
+  }
+  if (typeof m.service_name !== "string" || !SERVICE_NAME_PATTERN.test(m.service_name)) {
+    errs.push(`service_name '${m.service_name}' does not match pattern ^<kebab>$`);
+  }
+  if (typeof m.feature_id !== "string" || !FEATURE_ID_PATTERN.test(m.feature_id)) {
+    errs.push(`feature_id '${m.feature_id}' does not match pattern ^<service>-<NNN>-<slug>$`);
+  }
+  return errs;
+}
+
+function validateCrossFeatureShape(cf) {
+  const errs = [];
+  if (!cf || typeof cf !== "object" || Array.isArray(cf)) { errs.push("cross_feature must be an object"); return errs; }
+  for (const k of Object.keys(cf)) {
+    if (!CROSS_FEATURE_FIELDS.has(k)) errs.push(`unknown field '${k}'`);
+  }
+  if (typeof cf.id !== "string" || !FEATURE_ID_PATTERN.test(cf.id)) {
+    errs.push(`id '${cf.id}' does not match pattern ^<kebab>-<NNN>-<slug>$`);
+  }
+  if (!VALID_FEATURE_STATUSES.includes(cf.status)) {
+    errs.push(`status '${cf.status}' not in ${VALID_FEATURE_STATUSES.join("|")}`);
+  }
+  if (!Array.isArray(cf.members)) {
+    errs.push("members must be an array");
+  } else if (cf.members.length < 2) {
+    errs.push(`members must contain at least 2 entries (cross-feature requires >=2 services); got ${cf.members.length}`);
+  } else {
+    const pairSeen = new Set();
+    for (let i = 0; i < cf.members.length; i++) {
+      const memberErrs = validateCrossFeatureMemberShape(cf.members[i]);
+      for (const e of memberErrs) errs.push(`members[${i}]: ${e}`);
+      const m = cf.members[i];
+      if (m && typeof m.service_name === "string") {
+        const key = `${m.service_name}:${m.feature_id}`;
+        if (pairSeen.has(key)) errs.push(`members duplicate (service_name, feature_id) pair: ${key}`);
+        pairSeen.add(key);
+      }
+    }
+  }
+  if (cf.depends_on === null) {
+    // yaml-mini round-trip: empty array → null on serialize; tolerate as empty
+  } else if (!Array.isArray(cf.depends_on)) {
+    errs.push("depends_on must be an array");
+  } else {
+    for (const id of cf.depends_on) {
+      if (typeof id !== "string" || !FEATURE_ID_PATTERN.test(id)) errs.push(`depends_on contains malformed id '${id}'`);
+    }
+  }
+  if (cf.supersedes !== undefined && cf.supersedes !== null) {
+    if (!Array.isArray(cf.supersedes)) errs.push("supersedes must be an array");
+    else for (const id of cf.supersedes) {
+      if (typeof id !== "string" || !FEATURE_ID_PATTERN.test(id)) errs.push(`supersedes contains malformed id '${id}'`);
+    }
+  }
+  return errs;
+}
+
+function validateCrossFeaturesFileContent(relPath, raw) {
+  const errs = [];
+  let parsed;
+  try { parsed = parseYaml(raw); }
+  catch (e) { errs.push(`${relPath}: parse error: ${e.message}`); return errs; }
+  if (!parsed || typeof parsed !== "object") return errs;
+  for (const k of Object.keys(parsed)) {
+    if (k !== "cross_features") errs.push(`${relPath}: unknown top-level field '${k}'`);
+  }
+  if (parsed.cross_features === undefined) return errs;
+  if (!Array.isArray(parsed.cross_features)) {
+    errs.push(`${relPath}: cross_features must be an array`);
+    return errs;
+  }
+  const seen = new Set();
+  for (let i = 0; i < parsed.cross_features.length; i++) {
+    const cf = parsed.cross_features[i];
+    const cfErrs = validateCrossFeatureShape(cf);
+    for (const e of cfErrs) errs.push(`${relPath}: cross_features[${i}]: ${e}`);
+    if (cf && typeof cf.id === "string") {
+      if (seen.has(cf.id)) errs.push(`${relPath}: duplicate cross_feature id '${cf.id}'`);
+      seen.add(cf.id);
+    }
+  }
+  return errs;
+}
+
+function detectCrossFeaturesCycle(crossFeatures) {
+  const adj = new Map();
+  for (const cf of crossFeatures) adj.set(cf.id, Array.isArray(cf.depends_on) ? cf.depends_on : []);
+  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const color = new Map([...adj.keys()].map(k => [k, WHITE]));
+
+  function dfs(node, path) {
+    color.set(node, GRAY);
+    path.push(node);
+    for (const next of adj.get(node) || []) {
+      if (!adj.has(next)) continue;
+      const c = color.get(next);
+      if (c === GRAY) {
+        const startIdx = path.indexOf(next);
+        return path.slice(startIdx).concat([next]);
+      }
+      if (c === WHITE) {
+        const found = dfs(next, path);
+        if (found) return found;
+      }
+    }
+    path.pop();
+    color.set(node, BLACK);
+    return null;
+  }
+
+  for (const node of adj.keys()) {
+    if (color.get(node) === WHITE) {
+      const found = dfs(node, []);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function loadServiceFeatureIds(resolvedCtxDir, serviceName) {
+  const target = join(resolvedCtxDir, ".orchestra", serviceName, "features.yaml");
+  if (!existsSync(target)) return null;
+  const buf = safeRead(target);
+  if (buf === null) {
+    throw new Error(`cannot read ${target} (symlink or non-file)`);
+  }
+  const raw = buf.toString("utf8");
+  let parsed;
+  try { parsed = parseYaml(raw); }
+  catch (e) { throw new Error(`existing ${relative(process.cwd(), target)} is malformed (${e.message})`); }
+  if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.features)) return new Set();
+  const ids = new Set();
+  for (const f of parsed.features) {
+    if (f && typeof f.id === "string") ids.add(f.id);
+  }
+  return ids;
+}
+
 // === Tool schemas ===
 
 export const TOOLS = [
@@ -278,6 +426,42 @@ export const TOOLS = [
             depends_on: { type: "array", items: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
             supersedes: { type: "array", items: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
             artifacts:  { type: "array", items: { enum: ["PRD", "FRS", "TDD", "openapi", "asyncapi", "TSR"] } },
+          },
+        },
+      },
+    },
+  },
+  {
+    name: "upsert_cross_features_yaml",
+    description: "Insert or update one cross_feature entry in <context_path>/.orchestra/cross-features.yaml against the closed allowlist in schemas/cross-features.schema.json. Enforces DAG acyclicity over cross_feature_id, edge existence, self-edge prohibition, id uniqueness, member-pair uniqueness, member minimum of 2, AND member existence (each (service_name, feature_id) MUST resolve in that service's features.yaml). Append-only graph — cross_features never deleted; status transitions are user-controlled.",
+    inputSchema: {
+      type: "object",
+      required: ["context_path", "cross_feature"],
+      additionalProperties: false,
+      properties: {
+        context_path: { type: "string", minLength: 1 },
+        cross_feature: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "status", "members", "depends_on"],
+          properties: {
+            id:         { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" },
+            status:     { enum: ["active", "deprecated"] },
+            members: {
+              type: "array",
+              minItems: 2,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["service_name", "feature_id"],
+                properties: {
+                  service_name: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$", minLength: 1 },
+                  feature_id:   { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" },
+                },
+              },
+            },
+            depends_on: { type: "array", items: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
+            supersedes: { type: "array", items: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } },
           },
         },
       },
@@ -596,6 +780,132 @@ export function upsertFeaturesYamlImpl(args = {}) {
   }
 
   const result = { path: target, mode, id: feature.id };
+  if (warnings.length > 0) result.warnings = warnings;
+  return result;
+}
+
+// === upsert_cross_features_yaml impl ===
+
+export function upsertCrossFeaturesYamlImpl(args = {}) {
+  rejectUnknownArgs(args, ALLOWED_UPSERT_CROSS_FEATURES_ARGS, "upsert_cross_features_yaml");
+  const { context_path, cross_feature } = args;
+  const resolvedDir = assertSafeContextPath(context_path);
+
+  const shapeErrs = validateCrossFeatureShape(cross_feature);
+  if (shapeErrs.length > 0) {
+    throw new Error(`upsert_cross_features_yaml: SCHEMA_VIOLATION: ${shapeErrs.join("; ")}`);
+  }
+
+  const target = join(resolvedDir, ".orchestra", "cross-features.yaml");
+  let existing = { cross_features: [] };
+  let mode = "created";
+
+  if (existsSync(target)) {
+    const buf = safeRead(target);
+    if (buf === null) {
+      throw new Error(`upsert_cross_features_yaml: cannot read ${target} (symlink or non-file)`);
+    }
+    const raw = buf.toString("utf8");
+    try {
+      const parsed = parseYaml(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        existing = parsed;
+        mode = "patched";
+      }
+    } catch (e) {
+      throw new Error(
+        `upsert_cross_features_yaml: existing ${relative(process.cwd(), target)} is malformed ` +
+        `(${e.message}); refusing to overwrite`
+      );
+    }
+    const relPath = relative(process.cwd(), target) || "cross-features.yaml";
+    const loadErrs = validateCrossFeaturesFileContent(relPath, raw);
+    if (loadErrs.length > 0) {
+      throw new Error(`upsert_cross_features_yaml: EXISTING_FILE_INVALID: ${loadErrs.join("; ")}`);
+    }
+  }
+
+  if (!Array.isArray(existing.cross_features)) existing.cross_features = [];
+
+  const seenIds = new Map();
+  for (const cf of existing.cross_features) {
+    if (cf && typeof cf.id === "string" && !seenIds.has(cf.id)) seenIds.set(cf.id, cf);
+  }
+  existing.cross_features = Array.from(seenIds.values());
+
+  const idx = existing.cross_features.findIndex(cf => cf && cf.id === cross_feature.id);
+  const cfCopy = pickDefined(cross_feature, ["id", "status", "members", "depends_on", "supersedes"]);
+  if (idx >= 0) existing.cross_features[idx] = cfCopy;
+  else existing.cross_features.push(cfCopy);
+
+  const allIds = new Set(existing.cross_features.map(cf => cf.id));
+  for (const ref of cross_feature.depends_on) {
+    if (!allIds.has(ref)) {
+      throw new Error(`upsert_cross_features_yaml: UNKNOWN_REF: depends_on references missing cross_feature id '${ref}'`);
+    }
+  }
+  for (const ref of (cross_feature.supersedes || [])) {
+    if (!allIds.has(ref)) {
+      throw new Error(`upsert_cross_features_yaml: UNKNOWN_REF: supersedes references missing cross_feature id '${ref}'`);
+    }
+  }
+  if (cross_feature.depends_on.includes(cross_feature.id) || (cross_feature.supersedes || []).includes(cross_feature.id)) {
+    throw new Error(`upsert_cross_features_yaml: SELF_EDGE: id '${cross_feature.id}' appears in its own depends_on or supersedes`);
+  }
+
+  const memberCache = new Map();
+  for (const m of cross_feature.members) {
+    let serviceIds = memberCache.get(m.service_name);
+    if (serviceIds === undefined) {
+      try {
+        serviceIds = loadServiceFeatureIds(resolvedDir, m.service_name);
+      } catch (e) {
+        throw new Error(`upsert_cross_features_yaml: MEMBER_LOOKUP_FAILED: service '${m.service_name}': ${e.message}`);
+      }
+      memberCache.set(m.service_name, serviceIds);
+    }
+    if (serviceIds === null) {
+      throw new Error(
+        `upsert_cross_features_yaml: MEMBER_NOT_FOUND: service '${m.service_name}' has no features.yaml ` +
+        `at .orchestra/${m.service_name}/features.yaml`
+      );
+    }
+    if (!serviceIds.has(m.feature_id)) {
+      throw new Error(
+        `upsert_cross_features_yaml: MEMBER_NOT_FOUND: feature_id '${m.feature_id}' not present in ` +
+        `service '${m.service_name}' features.yaml`
+      );
+    }
+  }
+
+  const cycle = detectCrossFeaturesCycle(existing.cross_features);
+  if (cycle) {
+    throw new Error(`upsert_cross_features_yaml: CYCLE: ${cycle.join(" -> ")}`);
+  }
+
+  const warnings = [];
+  for (const ref of cross_feature.depends_on) {
+    const tgt = existing.cross_features.find(cf => cf.id === ref);
+    if (tgt && tgt.status === "deprecated" && tgt.id !== cross_feature.id) {
+      warnings.push(`depends_on references deprecated cross_feature '${ref}'`);
+    }
+  }
+
+  const yamlText = serializeYaml(existing) + "\n";
+  const relPath = relative(process.cwd(), target) || "cross-features.yaml";
+  const finalErrs = validateCrossFeaturesFileContent(relPath, yamlText);
+  if (finalErrs.length > 0) {
+    throw new Error(`upsert_cross_features_yaml: SCHEMA_VIOLATION: ${finalErrs.join("; ")}`);
+  }
+
+  try {
+    mkdirSync(dirname(target), { recursive: true });
+    safeWrite(target, yamlText);
+  } catch (e) {
+    throw new Error(`upsert_cross_features_yaml: WRITE_FAILED: ${e.message}`);
+  }
+
+  const result = { path: target, mode, id: cross_feature.id };
   if (warnings.length > 0) result.warnings = warnings;
   return result;
 }
@@ -939,6 +1249,7 @@ function handleMessage(line) {
       else if (name === "write_system_yaml") out = writeSystemYamlImpl(args);
       else if (name === "upsert_local_yaml") out = upsertLocalYamlImpl(args);
       else if (name === "upsert_features_yaml") out = upsertFeaturesYamlImpl(args);
+      else if (name === "upsert_cross_features_yaml") out = upsertCrossFeaturesYamlImpl(args);
       else if (name === "claude_md") out = claudeMdImpl(args);
       else if (name === "docs_readme") out = docsReadmeImpl(args);
       else if (name === "amend_locked_artifact") out = amendLockedArtifactImpl(args);

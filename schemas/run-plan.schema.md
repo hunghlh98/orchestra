@@ -57,6 +57,7 @@ Required anchors (3):
   - `classifier` — `business` | `tech`. Output of intent classification; informs which artifact slots populate.
   - `depends_on` — list of feature-ids that must reach `verdict: PASS` before this feature spawns.
   - `supersedes` — list of feature-ids being replaced (predecessor `status:` user-controlled).
+  - `cross_feature` (OPTIONAL) — `<cross_feature_id>` from `<context_path>/.orchestra/cross-features.yaml` declaring this feature is one member of a cross-service feature bound to ≥2 services. Multiple per-service features sharing the same `cross_feature` value MUST appear together in `members:` of the referenced `cross_features[]` entry. Omit on intra-service features.
   - `artifact_slots` — for `business` features: per-feature `PRD`, `FRS`, `TDD` plus per-service single-writer touches (`<service>-openapi.yaml` / `asyncapi.yaml` / `clientapi.yaml`, `diagrams/c4-component.puml`, `diagrams/erd-logical.puml`, `diagrams/state-machine.puml`, `diagrams/usecase.puml` — only the singletons the feature mutates). Per-feature diagram surface = `sd-<journey>.puml` only. For `tech` features: implementation target only.
 
 - `S-AGENT-ASSIGNMENTS-001` — `## Agent assignments` — YAML block mapping output paths to authoring subagents. Top-level keys:
