@@ -1,6 +1,6 @@
 ---
 name: clean-code
-description: "Clean Code principles — meaningful names, small focused functions, exception-based error handling, F.I.R.S.T. tests (Fast / Independent / Repeatable / Self-validating / Timely), and 22 code-smell heuristics — for authoring and grading source. Use when @backend / @frontend write or modify source under src/main/** or src/test/**, when @reviewer scores S-REVIEW-001 craft, or when the dispatcher sizes TASKS row complexity from function-shape signals."
+description: "Clean Code principles — meaningful names, small functions, exception-based error handling, F.I.R.S.T. tests, 22 code-smell heuristics — for source authoring and grading. Use when @backend / @frontend write src/main/** or src/test/**, @reviewer grades S-REVIEW-001 craft, or dispatcher sizes TASKS complexity."
 allowed-tools: Read, Glob, Grep, Skill
 disable-model-invocation: true
 origin: vendored from github.com/wondelai/skills@1.1.0 (MIT, Wondel.ai sp. z o.o.) — frontmatter trimmed for orchestra schema; body trimmed for orchestra surface; references/* unchanged.
@@ -12,7 +12,7 @@ metadata:
 
 # Clean Code Framework
 
-A disciplined approach to writing code that communicates intent, minimizes surprises, and welcomes change. Apply when writing new code, reviewing PRs, refactoring legacy systems, or advising on code quality.
+Authoring + review discipline for `src/main/**` and `src/test/**`. Code is read 10× more than written; optimize for the reader.
 
 ## When to use
 
@@ -24,9 +24,7 @@ Skip when reviewing pure config (`.yml`, `.json`), generated code, or build file
 
 ## Core Principle
 
-**Code is read far more often than it is written. Optimize for the reader.** Every naming choice, function boundary, and formatting decision either adds clarity or adds cost. The ratio of time spent reading code to writing code is well over 10:1.
-
-Clean code is not about following rules mechanically — it is about caring for the craft. A clean codebase reads like well-written prose: names reveal intent, functions tell a story one step at a time, no surprises in dark corners. The Boy Scout Rule applies: always leave the code cleaner than you found it.
+**Code is read far more often than it is written. Optimize for the reader.**
 
 ## Scoring
 
@@ -39,8 +37,6 @@ Clean code is not about following rules mechanically — it is about caring for 
 - **1-2:** Code works but is nearly unreadable — magic numbers, cryptic abbreviations, no structure, no tests.
 
 ## The Clean Code Framework
-
-Six disciplines for writing code that communicates clearly and adapts to change.
 
 ### 1. Meaningful Names
 

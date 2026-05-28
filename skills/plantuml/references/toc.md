@@ -36,7 +36,7 @@ This directory contains comprehensive syntax guides for all PlantUML diagram typ
 - **[Styling Guide](styling_guide.md)** - Modern `<style>` syntax and visual customization
 - **[Advanced Features](advanced_features.md)** - Skinparam, preprocessing, themes
 - **[Common Syntax Errors](common_syntax_errors.md)** - Diagram-specific syntax errors and fixes
-- **[Troubleshooting Guides](troubleshooting/toc.md)** - Comprehensive error solutions (200+ common issues)
+- **[Troubleshooting Guides](troubleshoot-toc.md)** - Comprehensive error solutions (200+ common issues)
 
 ## Usage Guide
 
@@ -151,7 +151,7 @@ See **[styling_guide.md](styling_guide.md)** for comprehensive modern styling wi
 
 ## Getting Help
 
-- **Having errors?** Start with the [Troubleshooting Guides](troubleshooting/toc.md) - 200+ common errors with solutions
+- **Having errors?** Start with the [Troubleshooting Guides](troubleshoot-toc.md) - 200+ common errors with solutions
 - Check the specific diagram reference file for detailed syntax
 - Review [plantuml_reference.md](plantuml_reference.md) for installation and CLI commands
 - Official PlantUML site: https://plantuml.com/

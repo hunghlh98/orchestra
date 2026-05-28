@@ -1,6 +1,6 @@
 ---
 name: clean-architecture
-description: "Dependency-Rule layering — Entities / Use Cases / Interface Adapters / Frameworks & Drivers as concentric circles where source-code dependencies point inward — applied to SAD container layout, TDD component layout, persisted-entity shape rules, and architectural-fit review scoring. Use when @architect designs container topology, @backend writes adapters or gateways crossing layer boundaries, or @reviewer scores S-REVIEW-001 architectural fit."
+description: "Dependency-Rule layering — Entities / Use Cases / Adapters / Frameworks as concentric circles with source-code dependencies pointing inward. Applied to SAD container layout, TDD component layout, persisted-entity rules, S-REVIEW-001 architectural-fit scoring. Use when @architect designs containers, @backend writes adapters, or @reviewer grades architectural fit."
 allowed-tools: Read, Glob, Grep, Skill
 disable-model-invocation: true
 origin: vendored from github.com/wondelai/skills@1.1.0 (MIT, Wondel.ai sp. z o.o.) — frontmatter trimmed for orchestra schema; body trimmed for orchestra surface; references/* unchanged.
@@ -12,7 +12,7 @@ metadata:
 
 # Clean Architecture Framework
 
-A disciplined approach to structuring software so business rules remain independent of frameworks, databases, and delivery mechanisms. Apply when designing system architecture, reviewing module boundaries, or advising on dependency management.
+Layered architecture per Dependency Rule. Inner layers carry policy; outer layers carry detail.
 
 ## When to use
 
@@ -25,17 +25,13 @@ Skip on pure scripting / shell utilities / standalone analysis tools where no bu
 
 ## Core Principle
 
-**Source code dependencies must point inward — toward higher-level policies.** Nothing in an inner circle can know anything about something in an outer circle. This single rule, applied consistently, produces systems that are testable, independent of frameworks, independent of the UI, independent of the database, and independent of any external agency.
-
-Software architecture is about drawing lines — boundaries — that separate things that matter from details. Business rules are what matter. Databases, web frameworks, and delivery mechanisms are details. When details depend on policies (not the other way around), you can defer decisions, swap implementations, and test business logic in isolation.
+**Source code dependencies must point inward — toward higher-level policies.**
 
 ## Scoring
 
 **Goal: 10/10.** Rate architecture 0–10 based on adherence to the principles below. 10/10 means full alignment with all guidelines; lower scores indicate gaps to address.
 
 ## The Clean Architecture Framework
-
-Six principles for building systems that survive time.
 
 ### 1. Dependency Rule and Concentric Circles
 

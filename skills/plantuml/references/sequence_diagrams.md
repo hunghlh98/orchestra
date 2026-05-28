@@ -392,7 +392,7 @@ end
 @enduml
 ```
 
-See `references/troubleshooting/sequence_diagrams_guide.md` for common parse errors with both fragments.
+See `references/troubleshoot-sequence.md` for common parse errors with both fragments.
 
 ## Notes and Annotations
 

@@ -1,6 +1,6 @@
 ---
 name: plantuml
-description: "PlantUML diagram authoring across 19 diagram types (sequence, class, activity, state, ER, Gantt, component, use-case, mindmap, etc.) plus orchestra-specific three-scope filename conventions (system / service / per-feature) and a sequence-diagram Operations Summary discipline (Redis, Kafka, DB-tables, lock-patterns, state-machine, endpoint-index). Use when any agent writes a .puml source. C4-shaped diagrams go through c4-architecture, which wraps this skill."
+description: "PlantUML diagram authoring across 19 diagram types + orchestra three-scope filename conventions + sequence-diagram Operations Summary discipline. Use when any agent writes a .puml source. C4-shaped diagrams go through c4-architecture."
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 disable-model-invocation: true
 origin: SpillwaveSolutions/plantuml@MIT (cloned for orchestra; examples/ trimmed)
@@ -59,7 +59,7 @@ Writing a `.puml` file under any conventional path triggers the `post-write-puml
 If the hook reports render failure (`post-write-puml: render failed for <path> — <reason>`):
 
 1. Read the explicit error: `java -jar ~/plantuml.jar --check-syntax <path>.puml`.
-2. Look up the error in `references/troubleshooting/toc.md` (215+ errors across 12 category guides).
+2. Look up the error in `references/troubleshoot-toc.md` (215+ errors across 12 category guides).
 3. Cross-check `references/common_syntax_errors.md` for the diagram type.
 
 Do not invoke `convert_puml.py` / `process_markdown_puml.py` manually unless the hook is intentionally disabled.
@@ -91,8 +91,6 @@ java -jar ~/plantuml.jar "**/*.puml" --svg                        # batch
 
 `process_markdown_puml.py` outputs `<source>_with_images.md` + `images/`. Run before uploading to Confluence / Notion.
 
-PNG = web publishing, smaller files, fixed resolution. SVG = documentation, scalable, supports hyperlinks.
-
 ## When to escalate
 
 - `plantuml.jar` not found → user installs (`PLANTUML_JAR` env var or `~/plantuml.jar`).
@@ -115,10 +113,10 @@ PNG = web publishing, smaller files, fixed resolution. SVG = documentation, scal
 
 | Resource | Coverage |
 |---|---|
-| `references/troubleshooting/toc.md` | Error decision tree (entry point) |
-| `references/troubleshooting/installation_setup_guide.md` | Setup problems |
-| `references/troubleshooting/general_syntax_guide.md` | Syntax errors |
-| `references/troubleshooting/<diagram_type>_guide.md` | Diagram-specific errors (12 guides) |
+| `references/troubleshoot-toc.md` | Error decision tree (entry point) |
+| `references/troubleshoot-installation.md` | Setup problems |
+| `references/troubleshoot-general-syntax.md` | Syntax errors |
+| `references/troubleshoot-<diagram>.md` | Diagram-specific errors (12 guides) |
 
 ### Diagram-type files
 
