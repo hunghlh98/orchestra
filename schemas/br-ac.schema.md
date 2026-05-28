@@ -13,7 +13,7 @@ Per-service singleton holding the service's business rules, acceptance criteria,
 
 In the C4 mental model: system-level SAD covers C1+C2 (project-wide containers); per-feature TDDs cover C3 components. BR-AC carries the cross-feature business contract for one service.
 
-## Placement
+## Placement <a id="singleton-rule"></a>
 
 ```
 <context_path>/docs/<service_name>/<service_name>-BR-AC.md

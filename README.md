@@ -8,7 +8,7 @@ Multi-agent SDLC pipeline behind `/orchestra`. One developer, generator/evaluato
 
 The forward chain (PRD → FRS → SAD → ADR → TDD → openapi → code → TSR) is published methodology — BABOK for PRD / FRS, TOGAF / IEEE 1471 for SAD, Nygard's ADR practice, the OpenAPI Initiative for the contract layer. Any LLM can explain each artifact type on demand and draft a generic template.
 
-What orchestra ships is the *harness* that runs on top: 8 hooks intercept `Write` / `Edit` / `Bash` / `Task` / `Stop` events at tool-call time; 2 MCP servers — `orchestra-utils` (tree + closed-allowlist writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, and consumer `CLAUDE.md` orchestra section) and `orchestra-probe` (auditable runtime probes via `@evaluator`); schema-pinned frontmatter blocks malformed artifacts before they reach disk; `tools:` allowlists enforce generator/evaluator separation by capability, not convention. These are runtime behaviors — they execute during a Claude Code session, not on a documentation site you can paste prompts into.
+What orchestra ships is the *harness* that runs on top: hooks intercept `Write` / `Edit` / `Bash` / `Task` / `Stop` events at tool-call time; 2 MCP servers — `orchestra-utils` (tree + closed-allowlist writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, and consumer `CLAUDE.md` orchestra section) and `orchestra-probe` (auditable runtime probes via `@evaluator`); schema-pinned frontmatter blocks malformed artifacts before they reach disk; `tools:` allowlists enforce generator/evaluator separation by capability, not convention. These are runtime behaviors — they execute during a Claude Code session, not on a documentation site you can paste prompts into.
 
 Pedagogy is researchable; enforcement is not. The plugin is orthogonal to "ask perplexity + generate manually" because anyone can describe the chain — only the harness can gate writes against it during a session.
 
@@ -32,11 +32,8 @@ Three load-bearing decisions:
 
 - 4 entry shapes (`spec-to-code`, `code-to-spec`, `<intent>` router, empty→usage) — one slash command, mode-detected behavior
 - Greenfield forward chain (PRD → FRS → SAD → ADR → TDD → openapi → code) + brownfield reverse chain against the same schemas
-- Generator/evaluator separation: `@evaluator` strict read-only; `@backend` / `@frontend` deny `Bash` (CI-enforced)
-- Schema-pinned artifacts — every frontmatter under `<project>/docs/` validates against `schemas/pipeline-artifact.schema.md`
-- Capability-first default models (Opus 4.7 1M for spec / review tiers, overridable per-project in `local.yaml`)
 - Versioned-migration discipline — `migration_tool` (`flyway` default on JVM, `liquibase`, `none`) + `primary_database` bootstrap fields drive forward-chain migration authoring and reverse-chain schema derivation (`ddl-auto` surfaces as DEFECT)
-- 8 runtime hooks + 2 MCP servers, env-var opt-out per component
+- Runtime hooks + MCP servers, env-var opt-out per component (see [Hooks](#hooks) / [MCP Servers](#mcp-servers-2) tables)
 
 ## Installation
 
@@ -188,43 +185,67 @@ Emits the Usage block above. No chain, no agent spawn.
 | `orchestra-utils` | `tree`, `write_system_yaml`, `upsert_local_yaml`, `claude_md`, `docs_readme`, `upsert_features_yaml` | Read-only directory listing via `tree`; closed-allowlist schema-validated writes to `.orchestra/system.yaml`, `.orchestra/<service>/local.yaml`, the consumer `CLAUDE.md` orchestra section, the `docs/README.md` provenance marker, and the `.orchestra/<service>/features.yaml` intra-service feature DAG manifest. |
 | `orchestra-probe` | `http_probe`, `db_state` | Auditable runtime probes for `@evaluator` (SELECT-only DB, redacted HTTP). |
 
-## Schemas (14)
+## Schemas (<!-- ORCHESTRA:COUNT:schemas-table -->17<!-- ORCHESTRA:COUNT:schemas-table:END -->)
+
+<!-- ORCHESTRA:GEN:schemas-table:START -->
 
 | Schema | Purpose |
 | --- | --- |
-| `pipeline-artifact.schema.md` | Frontmatter contract for every `docs/**/*.md` artifact. |
-| `local.schema.json` | `<project>/.orchestra/<service>/local.yaml` closed allowlist. |
-| `system.schema.json` | `<project>/.orchestra/system.yaml` (`workspace_kind`, `context_path`). |
-| `features.schema.json` | `<project>/.orchestra/<service>/features.yaml` intra-service feature DAG manifest (append-only; `depends_on` / `supersedes` edges). |
-| `run-plan.schema.md` | Run-plan author / approval contract. |
-| `br-ac.schema.md` | Business-rule / acceptance-criteria layer (per-service). |
-| `business-invariants.schema.md` | System-wide invariants (multi-repo only). |
-| `inventory.schema.md` | `.orchestra/inventory/` index shape. |
-| `inventory.adr-index.schema.md` | ADR-INDEX shape under inventory. |
-| `routing-taxonomy.md` | Intent → authorized-agents and per-intent artifact whitelist; referenced by the dispatcher's spawn prompts. |
-| `install-modules.schema.json` | Manifest module registry (CI-validated). |
-| `runtime-toggles.schema.json` | Env-var opt-out registry (CI-validated). |
-| `known-models.schema.json` | Recognized model IDs (CI-validated). |
-| `code-graph.schema.json` | Java code-graph shape emitted by `skills/java-development/scripts/extract-java-graph.mjs` (reverse-chain structural floor). |
+| `br-ac.schema.md` | shape of `<context_path>/docs/<service_name>/<service_name>-BR-AC.md` (per-service singleton). |
+| `business-invariants.schema.md` | shape of `<context_path>/docs/business-invariants.md` (workspace singleton). |
+| `canonical.schema.json` | Closed registry of canonical content blocks. Each entry declares where a rule body lives (file + anchor) and what purpose it serves. Consumed by scripts/canonical-sync.js --check to flag restate-without-pointer drift across the consumer surface. |
+| `code-graph.schema.json` | Deterministic structural graph emitted by skills/java-development/scripts/extract-java-graph.mjs. Shape only. |
+| `cross-features.schema.json` | Closed allowlist for <context_path>/.orchestra/cross-features.yaml — workspace-grain cross-service feature DAG manifest. Each entry binds one logical feature across >=2 services. Member existence (each (service_name, feature_id) resolves in that service's features.yaml), acyclicity, edge-existence, self-edge, member uniqueness, and id uniqueness are enforced imperatively by the orchestra-utils MCP tool, not by this schema. |
+| `features.schema.json` | Closed allowlist for <context_path>/.orchestra/<service_name>/features.yaml — intra-service feature DAG manifest. Acyclicity, edge-existence, self-edge, and uniqueness-by-id are enforced imperatively by the orchestra-utils MCP tool, not by this schema. |
+| `glossary.schema.md` | shape of `<context_path>/docs/glossary.md` (workspace singleton). |
+| `install-modules.schema.json` | Inventory of plugin components grouped by module with installation defaults. |
+| `inventory.adr-index.schema.md` | shape of `<context_path>/.orchestra/inventory/adr/index.md` (workspace-global ADR index). |
+| `inventory.schema.md` | shape of `<context_path>/.orchestra/inventory.md` (workspace-global). |
+| `known-models.schema.json` | Closed list of short canonical model names that agent frontmatter may reference. Short names (opus/sonnet/haiku) are canonical; the fully-qualified Anthropic id lives in model_id for API routing. |
+| `local.schema.json` | Closed allowlist for <context_path>/.orchestra/<service_name>/local.yaml — per-service bootstrap fields surfaced by the orchestra-preflight hook. |
+| `pipeline-artifact.schema.md` | type-specific frontmatter shapes for every artifact authored by the orchestra agents. |
+| `routing-taxonomy.md` | Intent to authorized-agents map + per-intent artifact whitelist; referenced by /orchestra dispatcher spawn prompts. |
+| `run-plan.schema.md` | shape of `<context_path>/.orchestra/plans/<session_id>/run-plan.md`. |
+| `runtime-toggles.schema.json` | Env-var opt-out registry. Every install-modules entry of kind hook\|skill\|mcp must have exactly one toggle entry. The config.* namespace is reserved for dispatcher-side display toggles with no install-modules counterpart (e.g., config.metrics-cost-banner). |
+| `system.schema.json` | Closed allowlist for <context_path>/.orchestra/system.yaml — workspace-wide facts shared across all services. |
+
+<!-- ORCHESTRA:GEN:schemas-table:END -->
 
 ## Environment Variables (opt-out)
 
 All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setting any of these to `off`:
 
+<!-- ORCHESTRA:GEN:env-vars-table:START -->
+
 | Variable | Effect |
 | --- | --- |
-| `ORCHESTRA_HOOK_PRE_WRITE_CHECK` | Disable secret detection + cite-reject / codebase-token / workspace-SAD-floor / iid-pairing / graph-backing / changelog-append-only / status-lock gates. |
-| `ORCHESTRA_HOOK_METRICS_COLLECTOR` | Disable `events.jsonl` append. |
-| `ORCHESTRA_HOOK_VAL_CALIBRATION` | Disable confidence-tier injection. |
-| `ORCHESTRA_HOOK_AGENT_PLAN_SYNC` | Disable PLAN-file single-writer. |
-| `ORCHESTRA_HOOK_STOP_PLAN_VERIFY` | Disable silent-approval gate. Safe to bypass when approval IS confirmed via PlanMode UI; never disable as a default — leaves you exposed to anthropics/claude-code#50110. |
-| `ORCHESTRA_HOOK_POST_BASH_LINT` | Disable Bash lint observer. |
-| `ORCHESTRA_HOOK_POST_WRITE_PUML` | Disable `.puml` render-on-write. |
-| `ORCHESTRA_HOOK_CODE_GRAPH_STALE` | Disable the Java code-graph staleness notice (SessionStart + post-commit). Observer; never blocks. |
-| `ORCHESTRA_HOOK_PREFLIGHT` | **Do not disable** — dispatcher halts without it. |
-| `ORCHESTRA_MCP_ORCHESTRA_UTILS` | **Do not disable** — dispatcher persists system.yaml / local.yaml / CLAUDE.md bootstrap and uses tree through this MCP. |
-| `ORCHESTRA_MCP_ORCHESTRA_PROBE` | Disable runtime probes. |
-| `ORCHESTRA_SKILL_<NAME>` | Per-skill opt-out (10 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`, `ORCHESTRA_SKILL_BUSINESS_ANALYSIS`). |
+| `ORCHESTRA_HOOK_AGENT_PLAN_SYNC` | On SubagentStop, reads the finished subagent's transcript and projects every TaskCreate/TaskUpdate event into the session-level ledger at <cwd>/.orchestra/plans/<session-id>/agent-tasks.md — rows keyed on (agent, feature_id, task_id). Single writer; subagents never author this file. Disable to skip ledger projection. |
+| `ORCHESTRA_HOOK_CODE_GRAPH_STALE` | On SessionStart and after git commit/merge/rebase (PostToolUse Bash), checks whether a persisted Java code-graph baseline at <cwd>/.orchestra/<service>/code-graph/meta.json was built at a commit other than HEAD; if so, surfaces a one-line staleness notice (SessionStart: additionalContext; PostToolUse: stderr). Silent when no code-graph exists or not a git repo. Never blocks. Disable to suppress the notice. |
+| `ORCHESTRA_HOOK_METRICS_COLLECTOR` | Local-only JSONL telemetry to <project>/.claude/.orchestra/metrics/events.jsonl. Disable for fully air-gapped runs. |
+| `ORCHESTRA_HOOK_POST_BASH_LINT` | Surfaces source-modifying Bash commands (npm install, sed -i, etc.) to stderr. Observer; never blocks. |
+| `ORCHESTRA_HOOK_POST_WRITE_PUML` | Renders .puml → .svg via plantuml CLI on PostToolUse(Write\|Edit\|MultiEdit). Non-blocking; warns to stderr when the puml id is not declared in any sibling SAD/TDD frontmatter `diagrams: [...]` array. |
+| `ORCHESTRA_HOOK_PRE_WRITE_CHECK` | Blocks Write/Edit/MultiEdit containing detectable secrets and enforces the locked-status-reject / all-sections-locked-reject / readers-scope-warning / chain-cite-reject / codebase-token-reject / workspace-sad-container-floor / changelog-append-only gates. Disable for fixtures that must contain secret-shaped values (rare). |
+| `ORCHESTRA_HOOK_PREFLIGHT` | On UserPromptSubmit, when the prompt starts with `/orchestra`, emits an <orchestra-preflight> YAML block to additional context: mode (greenfield/brownfield), workspace_kind, service_name, scope_level, cached fields, missing_fields, docs provenance, CLAUDE.md state. The dispatcher reads it to skip already-resolved bootstrap prompts. |
+| `ORCHESTRA_HOOK_STOP_PLAN_VERIFY` | On Stop event, scans the just-ended main-agent turn for ExitPlanMode followed by Task spawn in the SAME turn — the silent-approval pattern from anthropics/claude-code#50110. On detection, emits `decision: block` to halt the turn so the user can verify the plan was actually approved via the PlanMode UI before any subagent dispatch. Disable when an upstream Claude Code fix lands. |
+| `ORCHESTRA_HOOK_VAL_CALIBRATION` | Injects calibration anchor into @evaluator Task prompts. Reads hooks/calibration/calibration-examples.md. |
+| `ORCHESTRA_MCP_ORCHESTRA_PROBE` | Runtime probes MCP (http_probe + db_state). Disable when network/database access is undesirable. |
+| `ORCHESTRA_MCP_ORCHESTRA_UTILS` | Utilities MCP exposing tree (directory listing) + write_system_yaml / upsert_local_yaml / claude_md / docs_readme / upsert_features_yaml (schema-validated closed-allowlist writes). Dispatcher persists system.yaml / local.yaml / CLAUDE.md splice / docs/README.md provenance / features.yaml manifest exclusively through these tools — disabling halts /orchestra bootstrap and feature-manifest writes. |
+| `ORCHESTRA_METRICS_COST_BANNER` | Emit a one-line token + USD cost banner at the end of every /orchestra run (Step 7 closure). Reads cost_usd persisted by the metrics-collector hook from runs/<id>.json. config.* namespace has no install-modules counterpart — it's a dispatcher-side display toggle only. |
+| `ORCHESTRA_SKILL_BUSINESS_ANALYSIS` | BR/AC discipline + pseudocode shaping consumed by @analyst when authoring <feature-id>-FRS.md from a locked PRD. |
+| `ORCHESTRA_SKILL_C4_ARCHITECTURE` | C4 L1 (workspace context) + L2 (workspace container) + L3 (per-service component) + Logical ERD + per-service state-machine + cross-service/per-feature sequence diagram authoring guide consumed by @architect. |
+| `ORCHESTRA_SKILL_CLEAN_ARCHITECTURE` | Dependency-Rule layering (Entities / Use Cases / Adapters / Frameworks) consumed by @architect for SAD container + TDD component layout, @backend for write-side conventions, @reviewer for layering-violation scoring. |
+| `ORCHESTRA_SKILL_CLEAN_CODE` | Meaningful names + small functions + F.I.R.S.T. tests + code-smell heuristics consumed by @backend (authoring) and @reviewer (S-REVIEW-001 scoring). |
+| `ORCHESTRA_SKILL_CODE_REVIEW` | Severity-graded review checklist consumed by @reviewer. |
+| `ORCHESTRA_SKILL_COMMIT_MESSAGE` | Conventional Commits 1.0.0 message authoring with mandatory AI Co-Authored-By trailer; consumed by the dispatcher at chain closure to draft the commit message. |
+| `ORCHESTRA_SKILL_JAVA_DEVELOPMENT` | Java/Spring read-side intel + write-side conventions consumed by @backend on Java/Spring projects. |
+| `ORCHESTRA_SKILL_PLANTUML` | PlantUML grammar + render-target authoring guide consumed by @architect (workspace + per-service diagrams + per-feature sd) and @analyst (per-service usecase.puml singleton). |
+| `ORCHESTRA_SKILL_QA_TEST_PLANNER` | Test plan + coverage + adversarial fuzz inputs consumed by @test. |
+| `ORCHESTRA_SKILL_TASK_BREAKDOWN` | Decomposition + SP estimation for the main agent's Phase 2 — Plan body authoring (task graph + per-spawn assignments). |
+| `ORCHESTRA_SKILL_WRITE_CONTRACT` | openapi/asyncapi/clientapi description: schema + Probe DSL authoring guide consumed by @architect for per-service contract singletons + per-feature endpoint append-mode. |
+
+<!-- ORCHESTRA:GEN:env-vars-table:END -->
+
+`ORCHESTRA_SKILL_<NAME>` exposes per-skill opt-out (10 skills, e.g. `ORCHESTRA_SKILL_JAVA_DEVELOPMENT`, `ORCHESTRA_SKILL_BUSINESS_ANALYSIS`). The table above is auto-rendered from `manifests/runtime-toggles.json`.
 
 Agents and the dispatcher command have no env-var opt-out. Plugin manifest declares no per-component arrays (Claude Code auto-discovers from convention directories); to remove an agent or command, delete its file from `agents/` or `commands/` directly.
 

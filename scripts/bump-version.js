@@ -23,6 +23,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -89,6 +90,12 @@ for (const t of TARGETS) {
   }
   reads.push({ ...t, content });
 }
+
+// Phase 1.5: re-render canonical-sync targets so the release commit
+// ships a synchronized README + component rosters. Fail loud if render
+// fails — never bump version on top of stale rendered content.
+const renderResult = spawnSync("node", [resolve(ROOT, "scripts/canonical-sync.js"), "--render"], { cwd: ROOT, stdio: "inherit" });
+if (renderResult.status !== 0) fail(`canonical-sync --render failed (exit ${renderResult.status})`);
 
 // Phase 2: write all (filesystem has no transaction; this is best-effort).
 for (const r of reads) {

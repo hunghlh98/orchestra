@@ -25,7 +25,7 @@ When invoked:
 - `java-development` — load when `local.yaml.primary_language == "java"` (TDD `S-CONFIG-001` row inventory, callsite liveness, reverse-pass persistence-shape priority).
 - `plantuml` — render via `post-write-puml`.
 
-## Writing style
+## Writing style <a id="authoring-style"></a>
 
 - One imperative clause per rule statement. No exposition tails ("never reach this branch"). No storytelling.
 - Pseudocode permitted inside TDD `S-COMPONENTS-001`; no codebase identifiers (class / method / package / `src/**`) in SAD / ADR / BR-AC / PRD / FRS bodies.

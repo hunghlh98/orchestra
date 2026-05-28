@@ -1,0 +1,19 @@
+{
+  "generators": [
+    {
+      "id": "schemas-table",
+      "target": "README.md",
+      "source_glob": "schemas/*.schema.*",
+      "shape": "schemas-table",
+      "header": ["Schema", "Purpose"],
+      "extra_files": ["schemas/routing-taxonomy.md"]
+    },
+    {
+      "id": "env-vars-table",
+      "target": "README.md",
+      "source": "manifests/runtime-toggles.json",
+      "shape": "env-table",
+      "header": ["Variable", "Effect"]
+    }
+  ]
+}

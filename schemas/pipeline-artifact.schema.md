@@ -352,6 +352,7 @@ paths:
 
 `pre-write-check.js` reads the comment block as if it were YAML frontmatter for status/sections enforcement.
 
+<a id="iid-pairing"></a>
 **Integration-point identity (`x-orchestra-iid`).** Every `paths.<route>.<method>` MUST carry an `x-orchestra-iid: <kebab>-<NNN>-<kebab>` extension as a sibling of `summary:` / `description:`. The id pairs a producer (`<service>-openapi.yaml` / `-asyncapi.yaml`) with its consumer (`<service>-clientapi.yaml`): a clientapi entry referencing iid `ord-001-place` MUST resolve to a producer with the same iid under `<workspace>/docs/**/*-{openapi,asyncapi}.yaml`. OpenAPI `x-*` vendor extensions support the field natively — no spec fork. Enforced by `pre-write-check.js` `iid-pairing-reject` gate; reverse-pass writes carrying `reverse_authoring_mode:` skip the gate (brownfield clientapi may reference producers not yet iid-tagged). Example sibling block:
 
 ```yaml
@@ -375,7 +376,7 @@ paths:
 #     - "/admin/diagnostics"
 ```
 
-### `<feature-id>-TSR.md` (multi-writer)
+### `<feature-id>-TSR.md` (multi-writer) <a id="tsr-grammar"></a>
 
 ```yaml
 status: draft                                 # draft | locked
@@ -489,7 +490,7 @@ Authored on first `code-to-spec` run as classification beacon for future reverse
 
 **Authoring is owned by `mcp__orchestra-utils__docs_readme(context_path)`** — the tool pins the four-field frontmatter shape above and writes a canonical body from `hooks/references/docs-readme.template.md`. `@architect` MUST NOT author this file via `Write`; the MCP tool guarantees a uniform body across consumer installs and removes the improvisation surface that produced earlier defects (phantom anchors, wrong layout trees, non-enum `type:` values).
 
-### `<feature-id>-TASKS.md` (`.orchestra/<service_name>/pipeline/<feature-id>/`)
+### `<feature-id>-TASKS.md` (`.orchestra/<service_name>/pipeline/<feature-id>/`) <a id="tasks-frontmatter"></a>
 
 ```yaml
 status: draft | locked

@@ -638,6 +638,27 @@ Load nothing you don't need.
   Conventional Commits type (`feat` → Added, `fix` → Fixed, `refactor`
   → Changed, `!` / `BREAKING CHANGE:` → Breaking).
 
+### R15 — Canonical registry (single-source enforcement)
+
+- `manifests/canonical.json` declares every canonical content block
+  (file + anchor + purpose). CI-gated by
+  `schemas/canonical.schema.json`. Add new canonicals to the registry;
+  do not paraphrase across files.
+- Cross-file restate of a registered canonical is prohibited. Cite via
+  markdown link to `<file>#<anchor>`. Exemplary pattern:
+  `agents/analyst.md:64` ("Apply the canonical writing style from
+  `agents/product.md`").
+- Structural sections that drift with the filesystem (heading counts,
+  component rosters) wrap content in
+  `<!-- ORCHESTRA:GEN:<id>:START --> ... <!-- ORCHESTRA:GEN:<id>:END -->`
+  markers; `scripts/canonical-sync.js --render` rewrites between the
+  markers from filesystem truth. `manifests/render.json` declares each
+  generator.
+- `--render` runs from `scripts/bump-version.js` (release commits ship
+  fresh README). `--check --strict` runs under `npm test` once all
+  registered restates land their pointer conversion; until then,
+  `--check` (informational) is the test-suite gate.
+
 ---
 
 ## Component interaction (typical comprehensive plugin)

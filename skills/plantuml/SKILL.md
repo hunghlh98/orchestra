@@ -68,7 +68,7 @@ Do not invoke `convert_puml.py` / `process_markdown_puml.py` manually unless the
 
 After the hook produces the `.svg`, the owning markdown must contain `![<alt>](diagrams/<filename>.svg)`. The hook scans sibling `.md` files for this reference and emits a non-blocking warning when missing — fix by adding the link to the owning artifact's body. Keep both `.puml` source and `.svg` render committed.
 
-## Sequence diagrams — authoring discipline
+## Sequence diagrams — authoring discipline <a id="sequence-diagram-styling"></a>
 
 Apply two content rules when authoring an orchestra sequence diagram: a six-table **Operations Summary** (Redis Keys · Kafka Topics · Database Tables · Lock Patterns · State machine · API endpoint Index) listing infrastructure side-effects of the flow, and **`ref` block reuse** with canonical `SD-<id>` naming for sub-flows that recur across diagrams.
 

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orchestra.dev/schemas/canonical.schema.json",
+  "description": "Closed registry of canonical content blocks. Each entry declares where a rule body lives (file + anchor) and what purpose it serves. Consumed by scripts/canonical-sync.js --check to flag restate-without-pointer drift across the consumer surface.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["canonicals"],
+  "properties": {
+    "canonicals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "file", "anchor", "purpose"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^[^/].*\\.(md|json|yaml|yml)$"
+          },
+          "anchor": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*$"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 200
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,3 +1,9 @@
+---
+id: ROUTING-TAXONOMY
+title: orchestra Routing Taxonomy
+description: Intent to authorized-agents map + per-intent artifact whitelist; referenced by /orchestra dispatcher spawn prompts.
+---
+
 # Routing Taxonomy (consumer-surface schema)
 
 > Normative consumer-surface document mapping `intent.yaml.intent` to authorized agents and the artifact whitelist for each intent. The dispatcher's spawn prompts (per `commands/orchestra.md`) reference this file by intent anchor (`#feature`, `#hotfix`, etc.); agents Read the relevant section on demand to verify their authorized outputs. Each spawn prompt also carries a 1-line backstop summary inline so agents do not need to Read this file for the common path.

@@ -185,7 +185,7 @@ Main agent has full tool access post-approval. Same turn as Phase 2b.
 
 **Incremental reverse-pass (Java).** If `<context_path>/.orchestra/<service_name>/code-graph/fingerprints.json` exists from a prior run, narrow scope before spawning: re-extract the service graph (`skills/java-development/scripts/extract-java-graph.mjs`), run `classify-graph-diff.mjs fingerprints.json <new-graph> diff.json`, and pin Phase-3 reverse-pass authoring to features touching `diff.structural` + `diff.added` files only — `unchanged` features keep their locked artifacts. The `code-graph-stale` hook surfaces when a refresh is due. Absent baseline → full reverse pass. `@architect` rebuilds the baseline at close.
 
-## Phase 4 — Convergence (forward chain only)
+## Phase 4 — Convergence (forward chain only) <a id="phase-3-to-4-handoff"></a>
 
 Reverse-pass produces no source impl; no convergence in reverse mode. Phase 4 trivially completes when last `@product` returns. Forward-chain `spec-to-code` follow-up against the locked reverse-derived baseline carries the full convergence.
 

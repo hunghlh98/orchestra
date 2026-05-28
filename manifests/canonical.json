@@ -1,0 +1,58 @@
+{
+  "canonicals": [
+    {
+      "id": "changelog-block",
+      "file": "schemas/pipeline-artifact.schema.md",
+      "anchor": "changelog-block",
+      "purpose": "audit-trail body grammar + row format + action enum"
+    },
+    {
+      "id": "iid-pairing",
+      "file": "schemas/pipeline-artifact.schema.md",
+      "anchor": "iid-pairing",
+      "purpose": "x-orchestra-iid producer<->consumer pairing rule"
+    },
+    {
+      "id": "tsr-grammar",
+      "file": "schemas/pipeline-artifact.schema.md",
+      "anchor": "tsr-grammar",
+      "purpose": "TSR single-writer + S-TEST-001/S-EVAL-001/S-REVIEW-001 row grammar"
+    },
+    {
+      "id": "tasks-frontmatter",
+      "file": "schemas/pipeline-artifact.schema.md",
+      "anchor": "tasks-frontmatter",
+      "purpose": "TASKS-typed artifact frontmatter shape"
+    },
+    {
+      "id": "classify-enum",
+      "file": "schemas/pipeline-artifact.schema.md",
+      "anchor": "S-REVERSE-MODE-001",
+      "purpose": "reverse_authoring_mode re-author / cite-as-is / copy-and-modify enum"
+    },
+    {
+      "id": "br-ac-singleton",
+      "file": "schemas/br-ac.schema.md",
+      "anchor": "singleton-rule",
+      "purpose": "per-service BR-AC singleton invariant"
+    },
+    {
+      "id": "sequence-diagram-styling",
+      "file": "skills/plantuml/SKILL.md",
+      "anchor": "sequence-diagram-styling",
+      "purpose": "PlantUML sequence-diagram authoring conventions"
+    },
+    {
+      "id": "phase-3-to-4-handoff",
+      "file": "commands/orchestra.md",
+      "anchor": "phase-3-to-4-handoff",
+      "purpose": "Swarm to Convergence phase handoff scaffolding"
+    },
+    {
+      "id": "architect-authoring-discipline",
+      "file": "agents/architect.md",
+      "anchor": "authoring-style",
+      "purpose": "schema Writing style + Authoring lifecycle canonical home"
+    }
+  ]
+}
