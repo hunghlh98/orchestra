@@ -139,6 +139,7 @@ These checks auto-flip `rev_verdict: REQUEST_CHANGES` regardless of severity tal
 - **Writing-style escalation** — ≥3 hedges OR ≥2 preambles per artifact (per `agents/architect.md > ## Writing style` and equivalents on other authoring agents).
 - **Unresolved-question in locked PRD / FRS** — body containing `## Open Question`, `S-OPEN-Q-*`, `TBD`, `pending`, `to be determined`, `???`, or `?`-suffixed declarative claim.
 - **Untraced AC** — FRS `S-AC-001` row with empty `Traces` or `Traces` not matching `BR-AC/BR-NNN` / `BR-AC/AC-NNN` / `BR-AC/INV-NNN` / `business-invariants.md/INV-NNN`. Also: `S-BR-001` row with empty `Owner` (push to `S-INVARIANTS-001`).
+- **Untraced term** — chain artifact (PRD / FRS / BR-AC) introducing a domain noun present in workspace `docs/glossary.md > S-GLOSSARY-001` without the matching `glossary.md/S-GLOSSARY-001/<Term>` cite. AC / BR / INV rows carry the cite in the `Traces` cell; PRD / FRS prose carry it inline. Per `schemas/glossary.schema.md > Citation discipline`.
 - **Feature attribution in BR-AC body** — row referencing `<feature-id>` (`#order-001-checkout`, `added by feature N`). Push to feature TDD / FRS / openapi.
 - **Tech leakage in PRD / FRS** — locked body containing implementation-only tokens per the PRD surface-discipline denylist.
 - **Unworthy ADR** — `status: proposed` failing any of the three worthiness gates per `skills/c4-architecture > Step 9 — ADR-worthiness gates`. Reverse-pass DIV rows arriving as ADR proposals are always unworthy.

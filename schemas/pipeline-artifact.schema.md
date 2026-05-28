@@ -22,7 +22,7 @@ Two project-side roots: `<project>/docs/` (durable stakeholder deliverables; PR-
 
 | Tier | Root | Contents |
 |---|---|---|
-| system | `<context_path>/docs/` | `README.md` (provenance marker), `SAD.md`, `business-invariants.md`, `adr/ADR-NNNN-<slug>.md`, `diagrams/*.puml` |
+| system | `<context_path>/docs/` | `README.md` (provenance marker), `SAD.md`, `business-invariants.md`, `glossary.md`, `adr/ADR-NNNN-<slug>.md`, `diagrams/*.puml` |
 | service | `<context_path>/docs/<service_name>/` | `<service_name>-BR-AC.md`, `<service_name>-openapi.yaml` (alt: `<service_name>-asyncapi.yaml` / `<service_name>-clientapi.yaml`), `diagrams/{c4-component,erd-logical,state-machine,usecase}.puml` |
 | feature | `<context_path>/docs/<service_name>/<feature-id>/` | `<feature-id>-PRD.md`, `<feature-id>-FRS.md`, `<feature-id>-TDD.md`, `<feature-id>-TSR.md`, `diagrams/<feature-id>-sd-<journey>.puml` |
 
@@ -63,6 +63,7 @@ The reverse pass authors `<context_path>/docs/README.md` on first run with front
 ├── README.md                            ← provenance marker (generated_by: orchestra)
 ├── SAD.md                               ← system-level singleton
 ├── business-invariants.md               ← workspace-grain BR/AC (cross-service)
+├── glossary.md                          ← workspace-grain ubiquitous-language terms (cross-service shared nouns)
 ├── adr/
 │   └── ADR-NNNN-<slug>.md               ← global flat numbering; ADRs accrete
 ├── diagrams/                            ← workspace-level (each *.puml has paired *.svg)
@@ -125,6 +126,7 @@ Type → folder map:
 | `USECASE` | `docs/<service_name>/diagrams/` | `usecase.puml` | per-service singleton; end-user use cases across all features of the service; single-writer; authored by `@analyst` |
 | `BR-AC` | `docs/<service_name>/` | `order-BR-AC.md` | per-service BR + AC singleton; single-writer |
 | `BUSINESS-INVARIANTS` | `docs/` | `business-invariants.md` | workspace-grain singleton; cross-service business rules |
+| `GLOSSARY` | `docs/` | `glossary.md` | workspace-grain singleton; ubiquitous-language terms shared across services; single-writer `@architect` |
 | `SAD` | `docs/` | `SAD.md` | workspace singleton |
 | `ADR` (global) | `docs/adr/` | `ADR-0001-use-sqlite.md` | affects ≥2 services; project-wide flat 4-digit numbering |
 | `ADR` (service) | `docs/<service_name>/adr/` | `ADR-order-001-use-outbox.md` | affects exactly one service; per-service 3-digit numbering |
@@ -142,7 +144,7 @@ Type → folder map:
 ```yaml
 ---
 id: <basename-without-extension>
-type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|AGENT-TASKS|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT|CROSS-FEATURES|INTENT|INVENTORY>
+type: <PRD|FRS|TDD|API|TSR|SAD|ADR|BR-AC|BUSINESS-INVARIANTS|GLOSSARY|C4-COMPONENT|ERD-LOGICAL|STATE-MACHINE|USECASE|README|TASKS|AGENT-TASKS|ESCALATE|DEADLOCK|INCOMPLETE|RUN-PLAN|EXPLORER-REPORT|CROSS-FEATURES|INTENT|INVENTORY>
 created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                       # draft | locked
@@ -259,7 +261,7 @@ Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section
 | fix-source closure | dispatcher | `fix-source` |
 | Full regenerate (rare; user-driven) | dispatcher | `regenerated` |
 
-**Carve-outs.** Exemption set defined at [#carve-outs](#carve-outs) above. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / openapi / asyncapi / clientapi / RUN-PLAN).
+**Carve-outs.** Exemption set defined at [#carve-outs](#carve-outs) above. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / glossary / openapi / asyncapi / clientapi / RUN-PLAN).
 
 ## Body discipline <a id="body-discipline"></a>
 

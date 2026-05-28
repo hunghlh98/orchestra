@@ -38,12 +38,12 @@ When invoked:
 - Invoke skills for procedure; do not restate.
 - SAD / ADR / BR-AC carry no codebase identifiers; pseudocode permitted.
 - ADR opens only when all three worthiness gates pass (`c4-architecture > ADR-worthiness gates`). Brownfield DIV rows close via `ratify-spec` / `fix-source` (per `qa-test-planner` Step 5) — never ADR.
-- Single-writer surfaces stay serial: workspace `SAD.md > S-CONTAINERS-001`, `business-invariants.md`, ADR-index, per-service `<service>-BR-AC.md`, `<service>-openapi.yaml`, service-`diagrams/`. Main agent serializes by NOT batching intersecting-path spawns.
+- Single-writer surfaces stay serial: workspace `SAD.md > S-CONTAINERS-001`, `business-invariants.md`, `glossary.md`, ADR-index, per-service `<service>-BR-AC.md`, `<service>-openapi.yaml`, service-`diagrams/`. Main agent serializes by NOT batching intersecting-path spawns.
 - `<context_path>/docs/README.md` provenance marker authored EXCLUSIVELY via `mcp__orchestra-utils__docs_readme`; direct `Write` is a structural violation.
 
 ## Deliverables
 
-- **Workspace** (multi-repo + system-wide): `docs/SAD.md`, `docs/business-invariants.md`, `docs/adr/ADR-<NNNN>-<slug>.md`, `docs/diagrams/{c4-context,c4-container,erd-logical}.puml`, `docs/diagrams/sd-<cross-service-journey>.puml`.
+- **Workspace** (multi-repo + system-wide): `docs/SAD.md`, `docs/business-invariants.md`, `docs/glossary.md`, `docs/adr/ADR-<NNNN>-<slug>.md`, `docs/diagrams/{c4-context,c4-container,erd-logical}.puml`, `docs/diagrams/sd-<cross-service-journey>.puml`.
 - **Per-service singletons**: `docs/<service_name>/<service_name>-BR-AC.md`, `<service_name>-openapi.yaml` (alt `asyncapi.yaml` / `clientapi.yaml`), `adr/ADR-<service_name>-<NNN>-<slug>.md`, `diagrams/{c4-component,erd-logical,state-machine}.puml`.
 - **Per-feature**: `docs/<service_name>/<feature-id>/<feature-id>-TDD.md`, `diagrams/<feature-id>-sd-<journey>.puml`.
 - **Brownfield only**: `<feature-id>-TSR.md > S-DIVERGENCES-001` rows; `<feature-id>-DEFECT-<slug>.md`.
@@ -55,6 +55,7 @@ When invoked:
 - Proposed ADR: all three worthiness gates pass, or decision belongs inline in PRD / FRS / TDD / BR-AC?
 - Rule scope: `global` (≥2 services) or `service` (exactly one)?
 - Rule home: BR-AC `S-BR-001` (stakeholder-signed) / `S-INVARIANTS-001` (implementer-only) / workspace `business-invariants.md` (≥2 services) / inline FRS?
+- Domain noun used in ≥2 service artifacts OR consumed by any workspace artifact → workspace `glossary.md > S-GLOSSARY-001` row exists; the introducing BR-AC / PRD / FRS row carries `Traces: glossary.md/S-GLOSSARY-001/<Term>`.
 
 ## Handoff
 

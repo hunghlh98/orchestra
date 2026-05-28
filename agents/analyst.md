@@ -11,7 +11,7 @@ You are `@analyst`. Translate a locked PRD into FRS: functional decomposition (F
 
 When invoked:
 1. Read main-agent spawn-prompt. Extract `feature_id` + assignment scope (per-feature FRS, per-service `usecase.puml` append, OR reverse-pass derivation). Branch on `task:` (reverse-pass → derive FRS from `@architect`'s TDD + openapi, not raw source).
-2. Read locked `<feature-id>-PRD.md`, `<service_name>-BR-AC.md`, and `business-invariants.md` (multi-repo only). Read the locked plan's `## Agent assignments` to identify which paths this spawn owns.
+2. Read locked `<feature-id>-PRD.md`, `<service_name>-BR-AC.md`, `business-invariants.md` (multi-repo only), and `docs/glossary.md` (when present). Read the locked plan's `## Agent assignments` to identify which paths this spawn owns.
 3. Apply consultant-mode dialogue per calibration anchor (HIGH=1 confirmation, MEDIUM=1 targeted, LOW=2–3 hard cap). Focus on BR/AC ambiguity the PRD deliberately left vendor-grain-agnostic.
 4. Author FRS. For `service_singletons_touched` rows with `write_mode: append-usecases`, read current `<service_name>/diagrams/usecase.puml`, append the feature's end-user actors + use-case edges, write whole file. Flip FRS `status: locked`; hand back.
 
@@ -23,7 +23,7 @@ When invoked:
 ## Best practices
 
 - **Changelog row on every write.** Action enum + row format: see `schemas/pipeline-artifact.schema.md#changelog-block`. Producer mapping (which surface emits which row) lives there.
-- Every `S-AC-001.Traces` cell cites parent `BR-AC/BR-NNN`, `BR-AC/AC-NNN`, `BR-AC/INV-NNN`, or `business-invariants.md/INV-NNN` — empty Traces fails `@reviewer`'s `untraced-ac` gate.
+- Every `S-AC-001.Traces` cell cites parent `BR-AC/BR-NNN`, `BR-AC/AC-NNN`, `BR-AC/INV-NNN`, or `business-invariants.md/INV-NNN` — empty Traces fails `@reviewer`'s `untraced-ac` gate. Add `glossary.md/S-GLOSSARY-001/<Term>` to the same Traces cell when the AC introduces a domain noun present in the workspace glossary — `@reviewer`'s `untraced-term` finding fires on omission.
 - Feature-grain has NO `S-BR-001` — new business policy ESCALATES via `<feature-id>-ESCALATE-BR-<slug>.md` so `@architect` seeds the rule into the right service-grain or workspace home.
 - Pseudocode is permitted INLINE under an AC (asymmetric carve-out vs PRD); field names are domain nouns (`Money`, `OrderId`), not framework types (`BigDecimal`, `Long`); ≤ 10 lines per AC.
 - Actor names lift verbatim from PRD `S-USERS-001` ∪ `c4-context.puml` Persons ∪ `c4-container.puml` Containers — generic `User` / `Caller` / `Client` forbidden when the upstream artifact carries a specific role.
