@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "orchestra:runtime-toggles",
   "title": "orchestra runtime-toggles manifest",
-  "description": "Env-var opt-out registry. Every install-modules entry of kind hook|skill|mcp must have exactly one toggle entry. The config.* namespace is reserved for dispatcher-side display toggles with no install-modules counterpart (e.g., config.metrics-cost-banner).",
+  "description": "Env-var opt-out registry. Each entry pairs a module-or-config-namespace identifier with an ORCHESTRA_* env var and on/off default.",
   "type": "object",
   "required": ["toggles"],
   "additionalProperties": false,
@@ -22,7 +22,7 @@
         "module": {
           "type": "string",
           "pattern": "^[a-z]+\\.[a-z][a-z0-9-]*$",
-          "description": "Either matches an install-modules entry's name (hook.* / skill.* / mcp.*) OR uses the reserved config.* prefix for dispatcher-side display toggles. test-removability.js skips bidirectional check on config.* entries."
+          "description": "Either an install-modules entry name (hook.* / skill.* / mcp.*) or the reserved config.* prefix for dispatcher-side display toggles."
         },
         "envVar": {
           "type": "string",

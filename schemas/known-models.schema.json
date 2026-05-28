@@ -21,12 +21,10 @@
       "additionalProperties": false,
       "properties": {
         "id": {
-          "enum": ["opus", "sonnet", "haiku"],
-          "description": "Short canonical name used in agent frontmatter."
+          "enum": ["opus", "sonnet", "haiku"]
         },
         "model_id": {
-          "type": "string",
-          "description": "Fully-qualified Anthropic model id accepted by the API."
+          "type": "string"
         },
         "default": { "type": "boolean" }
       }
