@@ -98,6 +98,18 @@ When `@architect` writes the per-service `<service_name>-BR-AC.md` singleton, th
 
 **Workspace business-invariants placement.** `<context_path>/docs/business-invariants.md` carries rules binding ≥2 services. Schema: `schemas/business-invariants.schema.md`. Single anchor `S-INVARIANTS-001`; `Services` column needs ≥2. A row appearing in BOTH per-service BR-AC AND workspace `business-invariants.md` = structural failure. NOT authored under `single-repo`; under `multi-repo` + `per-service` only via auto-promote.
 
+## Confidence calibration tiers <a id="calibration-tiers"></a>
+
+Consultant-mode dialogue budget before authoring. Applied by `@product` (pre-PRD) and `@analyst` (pre-FRS); the runtime `val-calibration` hook injects this anchor's tier table into every spawn.
+
+| Tier | Confidence in user-supplied intent | `AskUserQuestion` budget |
+|---|---|---|
+| HIGH | ≥80% — restate intent, no scope gaps | 1 confirmation (restate) |
+| MEDIUM | 50–80% — one ambiguous dimension | 1 targeted question |
+| LOW | <50% — multiple unknowns | 2–3 hard cap (problem-before-feature framing) |
+
+LOW cap exists to bound dialogue length; never exceed 3 rounds before authoring. Unresolved-at-3 → `ESCALATE-<slug>.md`.
+
 ## Outputs
 
 - `<feature-id>-FRS.md` rows under `S-FR-001` + `S-AC-001`.

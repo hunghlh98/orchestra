@@ -34,7 +34,7 @@ When invoked:
 
 ## Best practices
 
-- **Changelog row on every write.** Action enum + row format: see `schemas/pipeline-artifact.schema.md#changelog-block`. Producer mapping (which surface emits which row) lives there.
+- **Changelog row on every write.** Action enum + row format + producer mapping: see [changelog-block](../schemas/pipeline-artifact.schema.md#changelog-block).
 - Invoke skills for procedure; do not restate.
 - SAD / ADR / BR-AC carry no codebase identifiers; pseudocode permitted.
 - ADR opens only when all three worthiness gates pass (`c4-architecture > ADR-worthiness gates`). Brownfield DIV rows close via `ratify-spec` / `fix-source` (per `qa-test-planner` Step 5) — never ADR.
@@ -100,7 +100,7 @@ e. On `accepted`: append row to `<context_path>/.orchestra/inventory/adr/index.m
 
 - **Code-graph first (Java)** — Reuse `@explorer`'s graph JSON under `.orchestra/plans/<session_id>/discovery/graph/` (re-run `skills/java-development/scripts/extract-java-graph.mjs` if absent or stale). Derive openapi `paths` from `exposes`→`endpoint` nodes, entities from `persists`→`table`, `S-CONFIG-001` DI + callsite liveness from `injects`/`calls`, `@Transactional` boundaries from method `transactional` flags. The graph is the canonical structural input; read `src/**` only for semantics it does not carry (intent, naming rationale). Per `skills/java-development > Code-graph extractor`.
 - **Provenance check** — Read `<context_path>/docs/README.md`. Absent → call `mcp__orchestra-utils__docs_readme(context_path)` FIRST.
-- **Per-artifact classify** — absent / no provenance → `re-author`. Present + `generated_by: orchestra` AND `status: locked` → `cite-as-is`. Present + draft → `copy-and-modify`. Frontmatter `reverse_authoring_mode:` REQUIRED on `.md` + contract `.yaml`. Diagrams (`.puml`) OMIT.
+- **Per-artifact classify** — see [classify-enum](../schemas/pipeline-artifact.schema.md#S-REVERSE-MODE-001) for the three-mode discipline. Frontmatter `reverse_authoring_mode:` required on `.md` + contract `.yaml`. Diagrams (`.puml`) omit.
 - **Authored set by scope** — `single-repo`: per-service singletons + per-feature TDD + openapi. `multi-repo + system-wide`: full set. `multi-repo + per-service`: per-service + per-feature only.
 - **Per-handler error contract** — `S-COMPONENTS-001` enumerates each controller handler / consumer listener / scheduled job independently; error-code → HTTP status mappings bind to the specific handler.
 - **Persistence shape priority** — Java/Spring: `skills/java-development > ## Read-side > Persistence shape priority`. Other stacks: language skill's equivalent section.

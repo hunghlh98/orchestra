@@ -53,6 +53,12 @@
       "file": "agents/architect.md",
       "anchor": "authoring-style",
       "purpose": "schema Writing style + Authoring lifecycle canonical home"
+    },
+    {
+      "id": "calibration-tiers",
+      "file": "skills/business-analysis/SKILL.md",
+      "anchor": "calibration-tiers",
+      "purpose": "consultant-mode dialogue budget tiers HIGH/MEDIUM/LOW"
     }
   ]
 }
