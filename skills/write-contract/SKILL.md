@@ -66,6 +66,10 @@ Full YAML example: `references/contract-patterns.md` "Consumer clientapi.yaml".
 
 Every operation in `openapi.yaml` / `clientapi.yaml` / `asyncapi.yaml` (channel in asyncapi) carries `x-orchestra-stability: frozen | evolving | internal`. Full table + cross-file semantics: `references/contract-patterns.md` "Stability annotation".
 
+### Step 3d — Stamp integration-point identity (`x-orchestra-iid`)
+
+Every operation in `openapi.yaml` / `clientapi.yaml` / `asyncapi.yaml` ALSO carries `x-orchestra-iid: <kebab>-<NNN>-<kebab>` (e.g., `ord-001-place`) as a sibling of `summary:`. The id is the cross-artifact pairing token: a clientapi operation referencing iid `ord-001-place` MUST resolve to a producer operation carrying the same iid in some `<workspace>/docs/**/*-{openapi,asyncapi}.yaml`. Mint the id when authoring the producer; reuse the same string verbatim on every consumer's clientapi entry. Authoring discipline + gate behavior: `schemas/pipeline-artifact.schema.md` Integration-point identity rule. Enforcement: `pre-write-check.js` `iid-pairing-reject` gate.
+
 ### Step 4 — Author sequence diagrams for critical paths
 
 For each `CRITICAL:` criterion (and any complex multi-component flow), author a sequence diagram at `docs/<service_name>/<feature-id>/diagrams/<feature-id>-sequence-intra-<usecase>.puml`. The `post-write-puml` hook renders each `.puml` to a paired `.svg`. Embed via `![<usecase>](diagrams/<feature-id>-sequence-intra-<usecase>.svg)` in the corresponding TDD section, NOT in the openapi (YAML can't embed images).

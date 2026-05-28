@@ -6,8 +6,9 @@
 // chain-cite-reject              — src/** chain-artifact cite rejection
 // codebase-token-reject          — docs/** codebase-identifier rejection (a/b/c sub-cases)
 // workspace-sad-container-floor  — workspace SAD + workspace c4-container.puml container floor
+// iid-pairing-reject             — openapi/clientapi x-orchestra-iid presence + clientapi→producer pairing
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseYaml } from "./yaml-mini.js";
 import {
@@ -175,5 +176,151 @@ export function checkWorkspaceSadContainerFloor(filePath, content, cwd) {
       };
     }
   }
+  return null;
+}
+
+// === iid-pairing-reject: x-orchestra-iid presence + clientapi→producer pairing ===
+
+const IID_KEBAB_RE = /^[a-z0-9]+(-[a-z0-9]+)*-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$/;
+// Authoring path is docs/<service>/<feature-id>/<feature-id>-{openapi,asyncapi,clientapi}.yaml
+// per skills/write-contract/SKILL.md. Accept any depth ≥1 dir under docs/.
+const OPENAPI_FILE_RE = /(^|\/)docs\/.+\/[^/]+-openapi\.yaml$/;
+const CLIENTAPI_FILE_RE = /(^|\/)docs\/.+\/[^/]+-clientapi\.yaml$/;
+const ASYNCAPI_FILE_RE = /(^|\/)docs\/.+\/[^/]+-asyncapi\.yaml$/;
+const HTTP_METHOD_RE = /^(\s+)(get|post|put|patch|delete|options|head|trace):\s*$/;
+// Backreference forces matched opening + closing quote. Unquoted branch separate.
+const IID_LINE_RE = /^\s+x-orchestra-iid:\s*(?:(['"])([a-z0-9][a-z0-9-]*)\1|([a-z0-9][a-z0-9-]*))\s*$/;
+const REVERSE_MODE_RE = /^[#\s]*reverse_authoring_mode:\s*\S+/m;
+
+function isReverseAuthored(content) {
+  const head = content.split(/\r?\n/, 60).join("\n");
+  return REVERSE_MODE_RE.test(head);
+}
+
+function extractIids(content) {
+  const lines = content.split(/\r?\n/);
+  const iids = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(IID_LINE_RE);
+    if (m) iids.push({ value: m[2] || m[3], line: i + 1 });
+  }
+  return iids;
+}
+
+function findMethodsMissingIid(content) {
+  const lines = content.split(/\r?\n/);
+  let inPaths = false;
+  let pathsIndent = -1;
+  const missing = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^paths:\s*$/.test(line)) { inPaths = true; pathsIndent = 0; continue; }
+    if (!inPaths) continue;
+    if (/^\S/.test(line) && !/^paths:/.test(line)) { inPaths = false; continue; }
+    const mm = line.match(HTTP_METHOD_RE);
+    if (!mm) continue;
+    const methodIndent = mm[1].length;
+    let hasIid = false;
+    for (let j = i + 1; j < lines.length; j++) {
+      const next = lines[j];
+      if (!next.trim()) continue;
+      const leading = next.match(/^(\s*)/)[1].length;
+      if (leading <= methodIndent) break;
+      if (IID_LINE_RE.test(next)) { hasIid = true; break; }
+    }
+    if (!hasIid) missing.push({ method: mm[2].toLowerCase(), line: i + 1 });
+  }
+  return missing;
+}
+
+function workspaceRootFromFilePath(filePath, cwd) {
+  const root = cwd || process.cwd();
+  // lastIndexOf("/docs/") so nested workspace dirs (e.g. ~/docs/proj/docs/<svc>/...)
+  // resolve to the deepest /docs/ — the artifact's own. Workspace root = everything before it.
+  const idx = filePath.lastIndexOf("/docs/");
+  // idx <= 0 covers no-match (-1) AND root-anchored "/docs/foo.yaml" (0) where slice
+  // would yield "" → relative `docs/` lookup against cwd. Fall back to cwd in both cases.
+  if (idx <= 0) return root;
+  return filePath.slice(0, idx);
+}
+
+const PRODUCER_FILE_RE = /-(openapi|asyncapi)\.yaml$/;
+const WALK_MAX_DEPTH = 8;
+
+function walkProducerFiles(dir, depth, out) {
+  if (depth > WALK_MAX_DEPTH) return;
+  let entries;
+  try { entries = readdirSync(dir, { withFileTypes: true }); }
+  catch { return; }
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) {
+      walkProducerFiles(full, depth + 1, out);
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    if (!PRODUCER_FILE_RE.test(entry.name)) continue;
+    try {
+      const st = statSync(full);
+      if (st.isSymbolicLink()) continue;
+    } catch { continue; }
+    out.push(full);
+  }
+}
+
+function collectProducerIids(workspaceRoot) {
+  const docsRoot = join(workspaceRoot, "docs");
+  const found = new Set();
+  if (!existsSync(docsRoot)) return found;
+  const files = [];
+  walkProducerFiles(docsRoot, 0, files);
+  for (const path of files) {
+    let text;
+    try { text = readFileSync(path, "utf8"); } catch { continue; }
+    for (const { value } of extractIids(text)) found.add(value);
+  }
+  return found;
+}
+
+export function checkIidPairing(filePath, content, cwd) {
+  if (!filePath) return null;
+  const isOpenapi = OPENAPI_FILE_RE.test(filePath);
+  const isAsyncapi = ASYNCAPI_FILE_RE.test(filePath);
+  const isClientapi = CLIENTAPI_FILE_RE.test(filePath);
+  if (!isOpenapi && !isAsyncapi && !isClientapi) return null;
+  if (isReverseAuthored(content)) return null;
+
+  const missing = findMethodsMissingIid(content);
+  if (missing.length > 0) {
+    const first = missing[0];
+    return {
+      gate: "iid-pairing-reject",
+      message: `pre-write-check: iid-pairing-reject — paths.<route>.${first.method} at line ${first.line} (and ${missing.length - 1} other path operation${missing.length === 1 ? "" : "s"}) missing required \`x-orchestra-iid: <kebab-NNN-kebab>\`. Every openapi/clientapi/asyncapi path operation MUST carry x-orchestra-iid per schemas/pipeline-artifact.schema.md. Add the extension as a sibling of \`summary:\`/\`description:\`.\n`,
+    };
+  }
+
+  const iids = extractIids(content);
+  for (const { value, line } of iids) {
+    if (!IID_KEBAB_RE.test(value)) {
+      return {
+        gate: "iid-pairing-reject",
+        message: `pre-write-check: iid-pairing-reject — x-orchestra-iid '${value}' at line ${line} does not match pattern \`<kebab>-<NNN>-<kebab>\` (e.g., \`ord-001-place\`).\n`,
+      };
+    }
+  }
+
+  if (isClientapi) {
+    const workspaceRoot = workspaceRootFromFilePath(filePath, cwd);
+    const producers = collectProducerIids(workspaceRoot);
+    const unmatched = iids.find(({ value }) => !producers.has(value));
+    if (unmatched) {
+      return {
+        gate: "iid-pairing-reject",
+        message: `pre-write-check: iid-pairing-reject — clientapi x-orchestra-iid '${unmatched.value}' at line ${unmatched.line} has no matching producer openapi/asyncapi entry under <workspace>/docs/**/*-{openapi,asyncapi}.yaml. Either author the producer contract first OR declare the artifact reverse-pass via frontmatter \`reverse_authoring_mode:\`.\n`,
+      };
+    }
+  }
+
   return null;
 }

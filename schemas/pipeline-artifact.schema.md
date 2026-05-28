@@ -352,6 +352,17 @@ paths:
 
 `pre-write-check.js` reads the comment block as if it were YAML frontmatter for status/sections enforcement.
 
+**Integration-point identity (`x-orchestra-iid`).** Every `paths.<route>.<method>` MUST carry an `x-orchestra-iid: <kebab>-<NNN>-<kebab>` extension as a sibling of `summary:` / `description:`. The id pairs a producer (`<service>-openapi.yaml` / `-asyncapi.yaml`) with its consumer (`<service>-clientapi.yaml`): a clientapi entry referencing iid `ord-001-place` MUST resolve to a producer with the same iid under `<workspace>/docs/**/*-{openapi,asyncapi}.yaml`. OpenAPI `x-*` vendor extensions support the field natively — no spec fork. Enforced by `pre-write-check.js` `iid-pairing-reject` gate; reverse-pass writes carrying `reverse_authoring_mode:` skip the gate (brownfield clientapi may reference producers not yet iid-tagged). Example sibling block:
+
+```yaml
+paths:
+  /orders:
+    post:
+      x-orchestra-iid: ord-001-place
+      summary: Place an order
+      operationId: placeOrder
+```
+
 ### `<feature-id>-TSR.md` (multi-writer)
 
 ```yaml

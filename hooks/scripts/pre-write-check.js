@@ -26,7 +26,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { parse as parseYaml } from "../lib/yaml-mini.js";
 import {
-  checkSecrets, checkChainCiteReject, checkCodebaseTokenReject, checkWorkspaceSadContainerFloor,
+  checkSecrets, checkChainCiteReject, checkCodebaseTokenReject, checkWorkspaceSadContainerFloor, checkIidPairing,
 } from "../lib/gate-d.js";
 import { checkChangelogAppendOnly } from "../lib/gate-f.js";
 import { readBoundedStdin } from "../lib/stdin-bounded.js";
@@ -71,6 +71,7 @@ async function main() {
       checkChainCiteReject(filePath, content),
       checkCodebaseTokenReject(filePath, content),
       checkWorkspaceSadContainerFloor(filePath, content, input.cwd),
+      checkIidPairing(filePath, content, input.cwd),
       checkChangelogAppendOnly(filePath, content, input.tool_name),
     ]) {
       if (result) {
