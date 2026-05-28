@@ -15,7 +15,7 @@
     "bump-version": "node scripts/bump-version.js",
     "canonical:render": "node scripts/canonical-sync.js --render",
     "canonical:check": "node scripts/canonical-sync.js --check --strict",
-    "test:canonical": "node scripts/canonical-sync.js --check",
+    "test:canonical": "node scripts/canonical-sync.js --check --strict",
     "test:hooks": "node scripts/tests/hooks.test.js",
     "test:pre-write-check": "node scripts/tests/pre-write-check.test.js",
     "test:val-calibration": "node scripts/tests/val-calibration.test.js",
