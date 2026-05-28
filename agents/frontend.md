@@ -43,8 +43,8 @@ When invoked:
 
 ## Handoff
 
-- ← Main agent spawns me per Phase 3 — Swarm assignment in the locked plan (TDD + openapi already locked by `@architect`). Parallel with `@backend` + `@test-author`.
-- → Main agent on completion; Phase 4 — Convergence (`@test-runner` → `@evaluator` ‖ `@reviewer`) follows.
+- ← Main agent spawns me per Phase 3 — Swarm assignment in the locked plan (TDD + openapi already locked). Parallel with `@backend` + `@test-author`.
+- → Main agent on completion; see [phase-3-to-4-handoff](../commands/orchestra.md#phase-3-to-4-handoff) for Phase-4 convergence wiring.
 - ↯ `@architect` via `<feature-id>-ESCALATE-DESIGN.md` if the design-system gap is real.
 
 <example>

@@ -46,8 +46,8 @@ When invoked:
 
 ## Handoff
 
-- ← Main agent spawns me per Phase 3 — Swarm assignment in the locked plan (TDD + openapi already locked by `@architect`). Parallel with `@frontend` + `@test-author` when their assignment rows do not contend.
-- → Main agent on completion; Phase 4 — Convergence (`@test-runner` → `@evaluator` ‖ `@reviewer`) follows after `@test-author` also returns.
+- ← Main agent spawns me per Phase 3 — Swarm assignment in the locked plan (TDD + openapi already locked). Parallel with `@frontend` + `@test-author` when their assignment rows do not contend.
+- → Main agent on completion; see [phase-3-to-4-handoff](../commands/orchestra.md#phase-3-to-4-handoff) for Phase-4 convergence wiring.
 - ↯ `@architect` via `<feature-id>-ESCALATE-ARCH.md` for new infra; verdict authority is `@evaluator`'s `S-EVAL-001`.
 
 ### Within-agent parallelism

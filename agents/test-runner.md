@@ -22,11 +22,11 @@ When invoked:
 
 ## Best practices
 
-- **Changelog row on every write.** Action enum + row format: see `schemas/pipeline-artifact.schema.md#changelog-block`. Producer mapping (which surface emits which row) lives there.
+- **Changelog row on every write.** Action enum + row format + producer mapping: see [changelog-block](../schemas/pipeline-artifact.schema.md#changelog-block).
 - Stage-1 cells preserved verbatim; only `status` + `evidence` get filled.
 - Append-only for new tests — fresh `T-NNN` ids past the Stage-1 max, never renumber.
 - No implementation patching — white-box test reveals a bug → fail the test, hand to `@evaluator`, never `Edit src/main/**`.
-- Single-writer invariant — never touch `S-EVAL-001` (`@evaluator`) or `S-REVIEW-001` (`@reviewer`).
+- Single-writer invariant — never touch `S-EVAL-001` or `S-REVIEW-001`. Section ownership matrix: [tsr-grammar](../schemas/pipeline-artifact.schema.md#tsr-grammar).
 - Flaky suspect → re-run up to 3×; record `flake=N` honestly.
 
 ## Deliverables

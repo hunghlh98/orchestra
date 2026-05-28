@@ -23,12 +23,12 @@ When invoked:
 
 ## Best practices
 
-- **Changelog row on every write.** Action enum + row format: see `schemas/pipeline-artifact.schema.md#changelog-block`. Producer mapping (which surface emits which row) lives there.
+- **Changelog row on every write.** Action enum + row format + producer mapping: see [changelog-block](../schemas/pipeline-artifact.schema.md#changelog-block).
 - No diff patching — APPROVED requires the implementer's diff correct as-written; typo fixes are out of tier (Minor flag).
 - Severity-graded findings only — no praise; every finding cites `file:line`.
 - Structural failures bypass severity grading and are auto-REQUEST_CHANGES (even under `auto_mode: true`).
 - ADR retroactive — non-obvious system-affecting decision in diff lacking ADR → run three worthiness gates; all pass → ESCALATE-ADR + Major; any fail → Minor inline.
-- Single-writer invariant — never touch `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001`.
+- Single-writer invariant — never touch `S-TEST-001`, `S-EVAL-001`, `S-DIVERGENCES-001`. Section ownership matrix: [tsr-grammar](../schemas/pipeline-artifact.schema.md#tsr-grammar).
 
 ## Deliverables
 
