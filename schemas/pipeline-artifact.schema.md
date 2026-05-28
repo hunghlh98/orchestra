@@ -363,6 +363,18 @@ paths:
       operationId: placeOrder
 ```
 
+**Graph-backed completeness at lock (`inferred_paths`).** On `status: locked` an openapi artifact is checked against the persisted Java code-graph at `<context_path>/.orchestra/<service>/code-graph/graph.json`. Every graph endpoint MUST appear in `paths:` or in frontmatter `inferred_paths:` (string array; entries are `"METHOD /route"` or bare `"/route"`). Lock additionally requires `meta.commit == git rev-parse HEAD`. Enforced by `pre-write-check.js` `graph-backing-reject` gate; skipped when the graph is absent (greenfield, non-Java services).
+
+```yaml
+# orchestra:
+#   id: order-openapi
+#   type: API
+#   status: locked
+#   inferred_paths:
+#     - "GET /internal/health"
+#     - "/admin/diagnostics"
+```
+
 ### `<feature-id>-TSR.md` (multi-writer)
 
 ```yaml

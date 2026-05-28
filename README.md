@@ -172,7 +172,7 @@ Emits the Usage block above. No chain, no agent spawn.
 | Hook script | Event | Purpose |
 | --- | --- | --- |
 | `orchestra-preflight.js` | UserPromptSubmit (`^/orchestra`) | Emit `<orchestra-preflight>` block — mode / workspace / scope / cached fields / missing fields. Dispatcher halts without it. |
-| `pre-write-check.js` | PreToolUse (Write / Edit / MultiEdit) | Multi-gate guard: secret detection, `chain-cite-reject` (src/ cite denylist), `codebase-token-reject` (docs/ portability inverse), `workspace-sad-container-floor` (workspace SAD ≥2 containers), `changelog-append-only` (docs/ append-only `## Changelog`), `locked-status-reject` + `all-sections-locked-reject` + `readers-scope-warning` frontmatter gates. |
+| `pre-write-check.js` | PreToolUse (Write / Edit / MultiEdit) | Multi-gate guard: secret detection, `chain-cite-reject` (src/ cite denylist), `codebase-token-reject` (docs/ portability inverse), `workspace-sad-container-floor` (workspace SAD ≥2 containers), `iid-pairing-reject` (`x-orchestra-iid` presence + clientapi→producer pairing), `graph-backing-reject` (locked openapi vs Java code-graph completeness + staleness), `changelog-append-only` (docs/ append-only `## Changelog`), `locked-status-reject` + `all-sections-locked-reject` + `readers-scope-warning` frontmatter gates. |
 | `metrics-collector.js` | All major events | Append `events.jsonl` for observability joins. |
 | `val-calibration.js` | PreToolUse (Task / Agent) | Inject confidence-tier calibration into agent prompts. |
 | `stop-plan-verify.js` | Stop | Silent-approval gate. Scans the just-ended main-agent turn for `ExitPlanMode` followed by `Task`/`Agent` spawn in the SAME turn — the dangerous shape from anthropics/claude-code#50110 (model receives `"User has approved"` with no UI interaction). On detection, returns `decision: "block"` so the user can verify approval via the PlanMode UI before any swarm dispatch. |
@@ -213,7 +213,7 @@ All hooks, MCP servers, and skills ship `defaultEnabled: true`. Opt out by setti
 
 | Variable | Effect |
 | --- | --- |
-| `ORCHESTRA_HOOK_PRE_WRITE_CHECK` | Disable secret detection + cite-reject / codebase-token / workspace-SAD-floor / changelog-append-only / status-lock gates. |
+| `ORCHESTRA_HOOK_PRE_WRITE_CHECK` | Disable secret detection + cite-reject / codebase-token / workspace-SAD-floor / iid-pairing / graph-backing / changelog-append-only / status-lock gates. |
 | `ORCHESTRA_HOOK_METRICS_COLLECTOR` | Disable `events.jsonl` append. |
 | `ORCHESTRA_HOOK_VAL_CALIBRATION` | Disable confidence-tier injection. |
 | `ORCHESTRA_HOOK_AGENT_PLAN_SYNC` | Disable PLAN-file single-writer. |

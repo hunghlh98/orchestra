@@ -5,6 +5,8 @@
 //   chain-cite-reject                — src/** cite denylist; exit 2 on hit
 //   codebase-token-reject            — docs/** codebase-identifier denylist; exit 2 on hit
 //   workspace-sad-container-floor    — workspace-scope SAD/c4-container container floor
+//   iid-pairing-reject               — openapi/asyncapi/clientapi x-orchestra-iid presence + pairing
+//   graph-backing-reject             — locked openapi vs persisted Java code-graph baseline completeness + staleness
 //   changelog-append-only            — docs/**/*.md ## Changelog append-only (Write-only)
 //   locked-status-reject             — frontmatter `status: locked` rejects writes
 //   all-sections-locked-reject       — frontmatter `sections:` all-locked rejection
@@ -29,6 +31,7 @@ import {
   checkSecrets, checkChainCiteReject, checkCodebaseTokenReject, checkWorkspaceSadContainerFloor, checkIidPairing,
 } from "../lib/gate-d.js";
 import { checkChangelogAppendOnly } from "../lib/gate-f.js";
+import { checkGraphBacking } from "../lib/gate-graph.js";
 import { readBoundedStdin } from "../lib/stdin-bounded.js";
 
 const NAME = "ORCHESTRA_HOOK_PRE_WRITE_CHECK";
@@ -72,6 +75,7 @@ async function main() {
       checkCodebaseTokenReject(filePath, content),
       checkWorkspaceSadContainerFloor(filePath, content, input.cwd),
       checkIidPairing(filePath, content, input.cwd),
+      checkGraphBacking(filePath, content, input.cwd),
       checkChangelogAppendOnly(filePath, content, input.tool_name),
     ]) {
       if (result) {
