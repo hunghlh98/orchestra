@@ -30,7 +30,7 @@ Every artifact path embeds the elected `service_name`. Single-repo workspaces st
 
 ## Link discipline — `docs/` is a sealed, portable narrative tree <a id="link-discipline"></a>
 
-The `<context_path>/docs/` tree is self-contained: a reader walking it MUST NOT have to open the codebase, an external URL, or the `.orchestra/` sibling to resolve a reference. Docs authored under project A must be valid `spec-to-code` inputs in project B unchanged. Enforced at write time by `hooks/scripts/pre-write-check.js` (`codebase-token-reject` gate) — token classes in `#cite-rejects` below.
+The `<context_path>/docs/` tree is self-contained: a reader walking it must not open the codebase, an external URL, or the `.orchestra/` sibling to resolve a reference. Docs authored under project A must be valid `spec-to-code` inputs in project B unchanged. Enforced at write time by `hooks/scripts/pre-write-check.js` (`codebase-token-reject` gate) — token classes in `#cite-rejects` below.
 
 **Forbidden in `docs/*` artifact bodies:** codebase paths, external URLs, `.orchestra/` sibling paths, codebase-specific identifiers (commit SHAs, branch names, repo URLs), and — in PRD/FRS only — fenced code blocks.
 
@@ -50,7 +50,7 @@ The `<context_path>/docs/` tree is self-contained: a reader walking it MUST NOT 
 
 Examples: `order-001-checkout`, `order-002-refund`, `payment-001-reconcile`.
 
-Every per-feature artifact filename embeds the full feature-id as a prefix: `<feature-id>-<TYPE>.<ext>` (e.g., `order-001-checkout-PRD.md`, `order-001-checkout-openapi.yaml`). The frontmatter `id:` field MUST equal the basename without extension.
+Every per-feature artifact filename embeds the full feature-id as a prefix: `<feature-id>-<TYPE>.<ext>` (e.g., `order-001-checkout-PRD.md`, `order-001-checkout-openapi.yaml`). The frontmatter `id:` field equals the basename without extension.
 
 ### Doc-provenance marker <a id="S-DOC-PROVENANCE-001"></a>
 
@@ -149,7 +149,7 @@ created: <ISO-8601>
 revision: <integer ≥ 1>
 status: draft                       # draft | locked
 verdict: PENDING                    # PENDING | PASS | FAIL | APPROVED | REQUEST_CHANGES
-reverse_authoring_mode: cite-as-is  # cite-as-is | copy-and-modify | re-author — REQUIRED when authored by code-to-spec; omitted on spec-to-code
+reverse_authoring_mode: cite-as-is  # cite-as-is | copy-and-modify | re-author — required when authored by code-to-spec; omitted on spec-to-code
 readers:
   - "@architect"
   - "@analyst"
@@ -163,7 +163,7 @@ sections:
 ---
 ```
 
-**Frontmatter grammar (frozen).** Block-style only. No flow style (`{}`, `[]`), no anchors / aliases (`&`, `*`), no tags (`!!`), no in-block multi-doc separators (`---` / `...`), no block scalars (`|`, `>`). Indentation: 2 spaces per level. Keys: `[a-zA-Z][a-zA-Z0-9_-]*` only (no dots, no whitespace). Scalar types: `null` / `~`, `true` / `false`, signed integers, JSON-quoted strings — no float literals (write as quoted strings). String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) MUST be JSON-quoted. Agent handles (`@product`, `@architect`) MUST be JSON-quoted because `@` is a YAML directive marker. Callers pass the already-sliced inner block (no `---` fences). The frontmatter parser is `hooks/lib/yaml-mini.js`'s `parse()`.
+**Frontmatter grammar (frozen).** Block-style only. No flow style (`{}`, `[]`), no anchors / aliases (`&`, `*`), no tags (`!!`), no in-block multi-doc separators (`---` / `...`), no block scalars (`|`, `>`). Indentation: 2 spaces per level. Keys: `[a-zA-Z][a-zA-Z0-9_-]*` only (no dots, no whitespace). Scalar types: `null` / `~`, `true` / `false`, signed integers, JSON-quoted strings — no float literals (write as quoted strings). String values containing `:`, `#`, leading/trailing whitespace, or YAML reserved words (`null`, `true`, `false`, `~`) are JSON-quoted. Agent handles (`@product`, `@architect`) are JSON-quoted because `@` is a YAML directive marker. Callers pass the already-sliced inner block (no `---` fences). The frontmatter parser is `hooks/lib/yaml-mini.js`'s `parse()`.
 
 ### `status:` <a id="S-STATUS-001"></a>
 
@@ -211,7 +211,7 @@ Multi-writer coordination. Map of `S-<TYPE>-NNN → { writer, status }` where `s
 
 ## Body grammar <a id="body-grammar"></a>
 
-Every H2 heading in the body MUST carry an HTML anchor whose id matches a key in frontmatter `sections:`:
+Every H2 heading in the body carries an HTML anchor whose id matches a key in frontmatter `sections:`:
 
 ```markdown
 ## Vision <a id="S-VISION-001"></a>
@@ -225,7 +225,7 @@ A short URL service that …
 
 Anchor regex: `/^##\s+.*<a id="(S-[A-Z]+(?:-[A-Z]+)*-\d{3})"><\/a>/`. Multi-segment uppercase tags supported.
 
-**Bidirectional invariant**: every key in `sections:` MUST have a matching `<a id>` in the body, and every `<a id>` in the body MUST have a matching key in `sections:`. `validate.js` flags either direction as a violation.
+**Bidirectional invariant**: every key in `sections:` has a matching `<a id>` in the body, and every `<a id>` in the body has a matching key in `sections:`. `validate.js` flags either direction as a violation.
 
 **Carve-outs** (no `sections:` block, body-grammar exempt) <a id="carve-outs"></a>: `intent.yaml`, `<feature-id>-TASKS.md`, `<feature-id>-ESCALATE-*.md`, `<feature-id>-DEADLOCK-*.md`, `<run-id>-INCOMPLETE.md`, `README.md` (provenance marker), session-level `agent-tasks.md` (hook-projected ledger), and `EXPLORER-REPORT` files under `.orchestra/plans/<session_id>/discovery/`.
 
@@ -261,7 +261,7 @@ Every artifact under `docs/**/*.md` opens its body with a `## Changelog` section
 | fix-source closure | dispatcher | `fix-source` |
 | Full regenerate (rare; user-driven) | dispatcher | `regenerated` |
 
-**Carve-outs.** Exemption set defined at [#carve-outs](#carve-outs) above. The changelog block is mandatory ONLY on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / glossary / openapi / asyncapi / clientapi / RUN-PLAN).
+**Carve-outs.** Exemption set defined at [#carve-outs](#carve-outs) above. The changelog block is mandatory only on durable chain artifacts (PRD / FRS / SAD / ADR / TDD / TSR / BR-AC / business-invariants / glossary / openapi / asyncapi / clientapi / RUN-PLAN).
 
 ## Body discipline <a id="body-discipline"></a>
 
@@ -290,23 +290,23 @@ verdict: PENDING
 version: <semver>
 ```
 
-PRD body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specific identifiers (`codebase-token-reject` gate enforces).
+PRD body must not contain fenced code blocks, codebase-paths, or codebase-specific identifiers (`codebase-token-reject` gate enforces).
 
 ### `<feature-id>-FRS.md`
 
 ```yaml
 prd: <feature-id>-PRD
-acceptance_criteria_count: <int>     # MUST equal S-AC-001 row count
-usecase_count: <int>                 # MUST equal the use-case-rows this feature contributes to docs/<service_name>/diagrams/usecase.puml
+acceptance_criteria_count: <int>     # equals S-AC-001 row count
+usecase_count: <int>                 # equals the use-case-rows this feature contributes to docs/<service_name>/diagrams/usecase.puml
 ```
 
-FRS body MUST NOT contain fenced code blocks, codebase-paths, or codebase-specific identifiers (`codebase-token-reject` gate enforces).
+FRS body must not contain fenced code blocks, codebase-paths, or codebase-specific identifiers (`codebase-token-reject` gate enforces).
 
 ### `<feature-id>-TDD.md`
 
 ```yaml
 sad_touched: true | false
-sequence_diagram_count: <int>            # MUST equal per-feature sd-<journey>.puml count
+sequence_diagram_count: <int>            # equals per-feature sd-<journey>.puml count
 service_singletons_touched:              # paths the feature appends to (see schemas/run-plan.schema.md write_mode enum)
   - <service_name>-openapi.yaml          # if API endpoints added
   - c4-component                         # if new components / dependencies introduced
@@ -353,7 +353,7 @@ paths:
 `pre-write-check.js` reads the comment block as if it were YAML frontmatter for status/sections enforcement.
 
 <a id="iid-pairing"></a>
-**Integration-point identity (`x-orchestra-iid`).** Every `paths.<route>.<method>` MUST carry an `x-orchestra-iid: <kebab>-<NNN>-<kebab>` extension as a sibling of `summary:` / `description:`. The id pairs a producer (`<service>-openapi.yaml` / `-asyncapi.yaml`) with its consumer (`<service>-clientapi.yaml`): a clientapi entry referencing iid `ord-001-place` MUST resolve to a producer with the same iid under `<workspace>/docs/**/*-{openapi,asyncapi}.yaml`. OpenAPI `x-*` vendor extensions support the field natively — no spec fork. Enforced by `pre-write-check.js` `iid-pairing-reject` gate; reverse-pass writes carrying `reverse_authoring_mode:` skip the gate (brownfield clientapi may reference producers not yet iid-tagged). Example sibling block:
+**Integration-point identity (`x-orchestra-iid`).** Every `paths.<route>.<method>` carries an `x-orchestra-iid: <kebab>-<NNN>-<kebab>` extension as a sibling of `summary:` / `description:`. The id pairs a producer (`<service>-openapi.yaml` / `-asyncapi.yaml`) with its consumer (`<service>-clientapi.yaml`): a clientapi entry referencing iid `ord-001-place` resolves to a producer with the same iid under `<workspace>/docs/**/*-{openapi,asyncapi}.yaml`. OpenAPI `x-*` vendor extensions support the field natively — no spec fork. Enforced by `pre-write-check.js` `iid-pairing-reject` gate; reverse-pass writes carrying `reverse_authoring_mode:` skip the gate (brownfield clientapi may reference producers not yet iid-tagged). Example sibling block:
 
 ```yaml
 paths:
@@ -364,7 +364,7 @@ paths:
       operationId: placeOrder
 ```
 
-**Graph-backed completeness at lock (`inferred_paths`).** On `status: locked` an openapi artifact is checked against the persisted Java code-graph at `<context_path>/.orchestra/<service>/code-graph/graph.json`. Every graph endpoint MUST appear in `paths:` or in frontmatter `inferred_paths:` (string array; entries are `"METHOD /route"` or bare `"/route"`). Lock additionally requires `meta.commit == git rev-parse HEAD`. Enforced by `pre-write-check.js` `graph-backing-reject` gate; skipped when the graph is absent (greenfield, non-Java services).
+**Graph-backed completeness at lock (`inferred_paths`).** On `status: locked` an openapi artifact is checked against the persisted Java code-graph at `<context_path>/.orchestra/<service>/code-graph/graph.json`. Every graph endpoint appears in `paths:` or in frontmatter `inferred_paths:` (string array; entries are `"METHOD /route"` or bare `"/route"`). Lock additionally requires `meta.commit == git rev-parse HEAD`. Enforced by `pre-write-check.js` `graph-backing-reject` gate; skipped when the graph is absent (greenfield, non-Java services).
 
 ```yaml
 # orchestra:
@@ -413,7 +413,7 @@ sections:
 | id | verdict | reason |
 ```
 
-`id` MUST reference an existing `S-TEST-001` row id; `verdict ∈ PASS | FAIL | PENDING`; `reason` is one short sentence (≤120 chars) citing the `@test-runner` `evidence` excerpt.
+`id` references an existing `S-TEST-001` row id; `verdict ∈ PASS | FAIL | PENDING`; `reason` is one short sentence (≤120 chars) citing the `@test-runner` `evidence` excerpt.
 
 `S-REVIEW-001` (writer `@reviewer`) — per-severity findings (`Critical`, `Major`, `Minor`, `Nit`). When ADRs were touched in this feature, append a `## ADR review` subsection to `S-REVIEW-001`.
 
@@ -462,8 +462,8 @@ Required body anchors: `S-CONTEXT-001`, `S-DECISION-001`, `S-ALTERNATIVES-001`, 
 ```yaml
 status: draft | locked
 service_name: <string>
-br_count: <int>                        # MUST equal S-BR-001 row count
-ac_count: <int>                        # MUST equal S-AC-001 row count
+br_count: <int>                        # equals S-BR-001 row count
+ac_count: <int>                        # equals S-AC-001 row count
 ```
 
 Required body anchors: `S-BR-001` (Business Rules), `S-AC-001` (Acceptance Criteria), `S-INVARIANTS-001` (service-grain invariants).
@@ -472,7 +472,7 @@ Required body anchors: `S-BR-001` (Business Rules), `S-AC-001` (Acceptance Crite
 
 ```yaml
 status: draft | locked
-invariant_count: <int>                 # MUST equal S-INVARIANTS-001 row count
+invariant_count: <int>                 # equals S-INVARIANTS-001 row count
 ```
 
 Required body anchors: `S-INVARIANTS-001` (cross-service business rules + invariants).
@@ -488,7 +488,7 @@ status: locked
 
 Authored on first `code-to-spec` run as classification beacon for future reverse-pass runs (`@product` / `@architect` / `@analyst` read `generated_by: orchestra` to decide `cite-as-is` vs `re-author`). Body-grammar exempt (no `sections:` block).
 
-**Authoring is owned by `mcp__orchestra-utils__docs_readme(context_path)`** — the tool pins the four-field frontmatter shape above and writes a canonical body from `hooks/references/docs-readme.template.md`. `@architect` MUST NOT author this file via `Write`; the MCP tool guarantees a uniform body across consumer installs and removes the improvisation surface that produced earlier defects (phantom anchors, wrong layout trees, non-enum `type:` values).
+**Authoring is owned by `mcp__orchestra-utils__docs_readme(context_path)`** — the tool pins the four-field frontmatter shape above and writes a canonical body from `hooks/references/docs-readme.template.md`. `@architect` does not author this file via `Write`; the MCP tool guarantees a uniform body across consumer installs and removes the improvisation surface that produced earlier defects (phantom anchors, wrong layout trees, non-enum `type:` values).
 
 ### `<feature-id>-TASKS.md` (`.orchestra/<service_name>/pipeline/<feature-id>/`) <a id="tasks-frontmatter"></a>
 
@@ -568,7 +568,7 @@ Required body anchors:
   - `Persistence touched` — `true` | `false`. Drives `service_singletons_touched` planning for `erd-logical.puml`.
   - `Integrations touched` — `true` | `false`. Drives ADR-candidate surfacing.
 
-- `S-ADR-CANDIDATES-001` — `## ADR candidates` — `| Decision | Found at | Rationale |`. Surfaced architectural decisions found in source archaeology that warrant ADR authoring in the forward chain. Empty table allowed (no candidates surfaced) — anchor still REQUIRED.
+- `S-ADR-CANDIDATES-001` — `## ADR candidates` — `| Decision | Found at | Rationale |`. Surfaced architectural decisions found in source archaeology that warrant ADR authoring in the forward chain. Empty table allowed (no candidates surfaced) — anchor still required.
 
 Body-grammar exempt from `<a id>` ↔ `sections:` invariant (carve-out above) — anchors are conventional but `sections:` block is omitted because the report is write-once at the file level.
 

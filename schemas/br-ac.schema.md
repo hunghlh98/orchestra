@@ -89,12 +89,7 @@ A row appearing in BOTH anchors is a structural failure — pick one based on th
 
 ## Authoring lifecycle
 
-BR-AC is authored:
-
-- **code-to-spec (reverse)** — by `@architect` during the system-wide pass when `scope_level: system-wide` AND `workspace_kind: multi-repo`; otherwise by `@architect` during per-service narrowing. Per-artifact inspect+classify rule applies; `reverse_authoring_mode` logged.
-- **spec-to-code (forward)** — by `@architect` as a side-effect of the first feature in a previously-undocumented service. The BR-AC then accretes across subsequent features (rows added; never feature-attributed in body).
-
-BR-AC is **non-iterative within a run** — author once, lock, then read-only for all downstream agents in the same run.
+See [architect-authoring-discipline](../agents/architect.md#authoring-style). BR-AC is single-writer `@architect`, non-iterative within a run (author once, lock, then read-only).
 
 ## Body grammar: living service-grain state (no feature attribution in body)
 
@@ -108,12 +103,9 @@ Forbidden in body rows:
 
 ## Writing style
 
-- Assertions, not descriptions.
-- No section preambles.
-- No hedging — uncertainty belongs in an ADR.
-- No restatements — `S-INVARIANTS-001` does not re-narrate `S-BR-001`.
+See [architect-authoring-discipline](../agents/architect.md#authoring-style). Plus BR-AC-specific: `S-INVARIANTS-001` does not re-narrate `S-BR-001`.
 
-**Link discipline.** BR-AC lives under `docs/` and inherits the sealed-narrative + portability rule — no codebase paths, no external URLs, no `.orchestra/` siblings, no codebase-specific identifiers. Describe rules by name and role, not by file location. Full rule: `schemas/pipeline-artifact.schema.md#gate-d`.
+**Link discipline.** Inherits sealed-narrative + portability per [pipeline-artifact.schema.md#link-discipline](pipeline-artifact.schema.md#link-discipline).
 
 ## Validation
 

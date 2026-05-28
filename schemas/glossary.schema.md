@@ -79,21 +79,17 @@ Cites are mandatory when the term resolves to a glossary row; absent when the no
 
 ## Authoring lifecycle
 
-Single-writer `@architect`. Lifecycle motions:
-
-- **code-to-spec (reverse)** — `@architect` derives glossary rows from per-service BR-AC + per-feature PRD/FRS authored earlier in the reverse pass. Rows added for any noun appearing across ≥2 services OR consumed by cross-service chain artifacts.
-- **spec-to-code (forward)** — `@architect` extends the glossary when authoring SAD / `business-invariants.md` / cross-features / per-service BR-AC encounters a domain noun not yet listed. Append-only within a session; row removal requires `status: draft` re-author cycle.
-
-Per-artifact inspect+classify rule applies on reverse pass; `reverse_authoring_mode` logged.
+See [architect-authoring-discipline](../agents/architect.md#authoring-style). Single-writer `@architect`; append-only within a session (row removal requires `status: draft` re-author cycle).
 
 ## Writing style
 
-- One canonical noun per row.
-- `Definition` is one sentence, ≤ 200 chars, plain prose. No fenced code, no codebase-specific identifiers.
-- Use the term itself as the row's identity — no `GL-NNN` ordinal. Cites bind by exact term match.
+See [architect-authoring-discipline](../agents/architect.md#authoring-style). Plus glossary-specific:
+
+- One canonical noun per row; the term itself is the row's identity (no `GL-NNN` ordinal); cites bind by exact term match.
+- `Definition` is one sentence, ≤ 200 chars, plain prose.
 - `Services` lists `service_name` values in lexicographic order.
 
-**Link discipline.** Same sealed + portable rules as all other `docs/*` artifacts.
+**Link discipline.** Inherits per [pipeline-artifact.schema.md#link-discipline](pipeline-artifact.schema.md#link-discipline).
 
 ## Validation
 

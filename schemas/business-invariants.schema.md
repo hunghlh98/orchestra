@@ -65,20 +65,13 @@ Per-service `<service_name>-BR-AC.md` `S-INVARIANTS-001` rows hold invariants sc
 
 ## Authoring lifecycle
 
-Authored by `@architect`:
-
-- **code-to-spec (reverse)** — during `scope_level: system-wide` pass after BR-AC files per service are drafted. Cross-service invariants are surfaced by inspecting BR-AC duplications across services.
-- **spec-to-code (forward)** — when a feature touches ≥2 services AND a new cross-service rule emerges.
-
-Per-artifact inspect+classify rule applies on reverse pass; `reverse_authoring_mode` logged.
+See [architect-authoring-discipline](../agents/architect.md#authoring-style). Single-writer `@architect`; reverse-pass derives from BR-AC duplication scans; forward-pass triggers when a feature touches ≥2 services with a new cross-service rule.
 
 ## Writing style
 
-- Assertions, not descriptions.
-- One invariant per row; no multi-clause rows.
-- Describe services by `service_name` only (no codebase paths).
+See [architect-authoring-discipline](../agents/architect.md#authoring-style). Plus invariants-specific: one invariant per row (no multi-clause rows); describe services by `service_name` only.
 
-**Link discipline.** Same sealed + portable rules as all other `docs/*` artifacts.
+**Link discipline.** Inherits per [pipeline-artifact.schema.md#link-discipline](pipeline-artifact.schema.md#link-discipline).
 
 ## Validation
 
