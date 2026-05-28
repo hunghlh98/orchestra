@@ -69,7 +69,7 @@ Longest dependency chain by SP sum is the critical path. Total sprint duration �
 
 ### Step 6 — Write the task graph
 
-Author `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`. Frontmatter shape + required keys (`type: TASKS`, `task_graph_node_count`, `estimated_sp`, `tasks_pending` / `tasks_in_progress` / `tasks_done` counters) per `schemas/pipeline-artifact.schema.md` TASKS-typed frontmatter spec. Body anchors `S-DAG-001` and `S-TASKS-001`; embed the DAG via `![]()` against `diagrams/tasks-dag.svg` (the `post-write-puml` hook renders the `.svg` from a paired `.puml` source).
+Author `<context_path>/.orchestra/<service_name>/pipeline/<feature-id>/<feature-id>-TASKS.md`. Frontmatter shape + required keys: see [tasks-frontmatter](../../schemas/pipeline-artifact.schema.md#tasks-frontmatter). Body anchors `S-DAG-001` and `S-TASKS-001`; embed the DAG via `![]()` against `diagrams/tasks-dag.svg` (the `post-write-puml` hook renders the `.svg` from a paired `.puml` source).
 
 Body:
 
@@ -91,7 +91,7 @@ Body:
 
 Author the DAG `.puml` source at `diagrams/tasks-dag.puml` (PlantUML activity-diagram shape: nodes for each T-NNN, edges for dependencies, swimlanes optional per owner). Invoke `/plantuml` to render to `.svg`.
 
-Initial Status is `pending` for every row. Status-transition rules per `schemas/pipeline-artifact.schema.md` TASKS-typed frontmatter spec.
+Initial Status is `pending` for every row. Status-transition rules: see [tasks-frontmatter](../../schemas/pipeline-artifact.schema.md#tasks-frontmatter).
 
 ### Step 7 — Diagnose autonomy
 

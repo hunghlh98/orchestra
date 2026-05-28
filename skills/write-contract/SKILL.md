@@ -1,6 +1,6 @@
 ---
 name: write-contract
-description: "Lift PRD/FRS criteria into <feature-id>-openapi.yaml (producer endpoints with description: criteria + inline CRITICAL: / manual_evaluation: tokens) and <feature-id>-clientapi.yaml (consumer contracts on upstream services this feature calls). Use when @architect binds spec to grading after PRD/FRS lock; ships an <feature-id>-asyncapi.yaml when messaging endpoints exist. The contract IS the openapi document — no separate CONTRACT.md."
+description: "Lift PRD/FRS criteria into producer (<feature-id>-openapi.yaml) and consumer (<feature-id>-clientapi.yaml) contracts; ships <feature-id>-asyncapi.yaml when messaging endpoints exist. Use when @architect binds spec to grading after PRD/FRS lock."
 allowed-tools: Read, Write, Edit, Glob, Grep, Skill
 disable-model-invocation: true
 origin: orchestra
@@ -68,7 +68,7 @@ Every operation in `openapi.yaml` / `clientapi.yaml` / `asyncapi.yaml` (channel 
 
 ### Step 3d — Stamp integration-point identity (`x-orchestra-iid`)
 
-Every operation in `openapi.yaml` / `clientapi.yaml` / `asyncapi.yaml` ALSO carries `x-orchestra-iid: <kebab>-<NNN>-<kebab>` (e.g., `ord-001-place`) as a sibling of `summary:`. The id is the cross-artifact pairing token: a clientapi operation referencing iid `ord-001-place` MUST resolve to a producer operation carrying the same iid in some `<workspace>/docs/**/*-{openapi,asyncapi}.yaml`. Mint the id when authoring the producer; reuse the same string verbatim on every consumer's clientapi entry. Authoring discipline + gate behavior: `schemas/pipeline-artifact.schema.md` Integration-point identity rule. Enforcement: `pre-write-check.js` `iid-pairing-reject` gate.
+Every operation also carries `x-orchestra-iid: <kebab>-<NNN>-<kebab>` (e.g., `ord-001-place`) as a sibling of `summary:`. Mint the id when authoring the producer; reuse verbatim on every consumer's clientapi entry. Full pairing rule + gate behavior: see [iid-pairing](../../schemas/pipeline-artifact.schema.md#iid-pairing).
 
 ### Step 4 — Author sequence diagrams for critical paths
 
