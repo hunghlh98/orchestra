@@ -4,6 +4,24 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.7] — 2026-05-28
+
+Patch release. Multi-repo alignment v5.3 motion — closes four cross-cutting gaps surfaced by a real 3-week spec-extraction incident across four repos whose specs misaligned at merge. All four mechanisms are workspace-grain (operate across services, not within one) and reuse existing schema / gate / agent surfaces rather than introducing new agents.
+
+### Added
+
+- **`schemas/cross-features.schema.json` + `mcp__orchestra-utils__upsert_cross_features_yaml` — workspace-grain cross-service feature DAG.** Closed-allowlist sibling of `features.schema.json`. Top-level shape: `cross_features: [{ id: <kebab-NNN-kebab>, status: draft|locked, members: [{service_name, feature_id}], depends_on: [<cross_feature_id>] }]`. Lives at `<context_path>/.orchestra/cross-features.yaml`. The MCP upsert tool inline-validates member existence (each `(service_name, feature_id)` resolves in that service's `features.yaml`), member uniqueness per cross-feature, and acyclic `depends_on` via `detectCrossFeaturesCycle`. Dispatcher Phase 2 reads it; multi-service feature plan rows gain an optional `cross_feature` cell referencing `cross_features[].id`.
+- **`schemas/glossary.schema.md` + `docs/glossary.md` — workspace-grain ubiquitous-language singleton.** Single-writer `@architect` (workspace tier, matches SAD + business-invariants.md ownership). Body anchor `S-GLOSSARY-001`, row shape `| Term | Definition | Services |`. Authored whenever ≥2 services exist in the workspace. Enforcement is explicit-cite (no heuristic): per-service BR-AC rows introducing a domain noun MUST carry `Traces: glossary.md/S-GLOSSARY-001/<Term>`; `@reviewer` "untraced-term" finding flags violations in the structural-failures taxonomy. Read by `@analyst` / `@backend` / `@frontend` / `@test-author` / `@product`.
+- **`x-orchestra-iid` OpenAPI vendor extension + `iid-pairing-reject` pre-write gate — producer ↔ consumer integration-point identity.** Every `paths.<route>.<method>` in `<feature-id>-openapi.yaml` / `-asyncapi.yaml` / `-clientapi.yaml` carries `x-orchestra-iid: <kebab>-<NNN>-<kebab>` as a sibling of `summary:`. `hooks/lib/gate-d.js > checkIidPairing` enforces presence + kebab pattern + clientapi→producer resolution: a clientapi iid MUST resolve to a matching producer iid under `<workspace>/docs/**/*-{openapi,asyncapi}.yaml`. Reverse-chain artifacts (frontmatter `reverse_authoring_mode:`) bypass the gate — brownfield clientapi may reference producers not yet iid-tagged. Folded into `skills/write-contract > Step 3d`.
+- **`hooks/lib/gate-graph.js` + `graph-backing-reject` gate — lock-time openapi vs Java code-graph backing.** On `status: locked` openapi writes, the gate checks the artifact against the persisted Java code-graph at `<workspace>/.orchestra/<service>/code-graph/graph.json`. Two failure modes: (1) **staleness** — `meta.commit != git rev-parse HEAD`; (2) **completeness** — graph endpoint absent from `paths:` AND not declared in frontmatter `inferred_paths:` (string array; entries are `"METHOD /route"` or bare `"/route"`). Reverse direction not enforced (paths may declare planned-but-not-yet-implemented routes). Skips silently when the graph is absent (greenfield, non-Java services), git is unavailable, or any internal exception fires. Observer hook `code-graph-stale.js` UNTOUCHED — its "never blocks" contract is preserved by routing lock-time staleness through the new gate.
+
+### Changed
+
+- **`hooks/scripts/pre-write-check.js` dispatch loop gains two gates** — `iid-pairing-reject` after `workspace-sad-container-floor` and `graph-backing-reject` after `iid-pairing-reject`. Header comment enumerates all content-only gates in order; env-var line on README updated. `pre-write-check.js` umbrella variable (`ORCHESTRA_HOOK_PRE_WRITE_CHECK=off`) toggles all gates.
+- **`commands/orchestra.md` Phase 2a Read step** lists `cross-features.yaml`; main-thread carve-out exposes `upsert_cross_features_yaml`; ToolSearch bootstrap loads the new MCP tool.
+- **`schemas/pipeline-artifact.schema.md`** — adds `CROSS_FEATURES` and `GLOSSARY` to the type enum + Type→folder map; documents the integration-point identity rule + `inferred_paths` frontmatter shape under the openapi/asyncapi/clientapi section.
+- **`schemas/run-plan.schema.md`** — `## Features` row gains optional `cross_feature` cell.
+
 ## [5.2.6] — 2026-05-27
 
 Patch release. Adds a deterministic Java code-graph layer that grounds the brownfield `code-to-spec` reverse chain in parsed AST facts instead of LLM source-walking.
