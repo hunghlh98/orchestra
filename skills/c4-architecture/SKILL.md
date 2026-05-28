@@ -34,7 +34,7 @@ Generates C4-model diagrams (Context / Container / Component / Deployment / Dyna
 A C4 child diagram is a literal zoom into one element of the parent. Reader scrolling L(n-1) → L(n) must see which box opened up. Four steps:
 
 1. **Read the parent `.puml` first.** L2 → `c4-context.puml`. L3 → `c4-container.puml` (for the service zoomed) and `c4-context.puml` (for the seam-crossing actor set). L4 → matching `c4-component-<service>.puml`. Without the Read, the remaining steps cannot be verified.
-2. **Wrap the child body with the parent box's name verbatim.** L1→L2: `System_Boundary(<id>, "<L1 system name>") { ... }`. L2→L3: `Container_Boundary(<id>, "<L2 container name>") { ... }`. Label MUST equal the parent's name character-for-character.
+2. **Wrap the child body with the parent box's name verbatim.** L1→L2: `System_Boundary(<id>, "<L1 system name>") { ... }`. L2→L3: `Container_Boundary(<id>, "<L2 container name>") { ... }`. Label equals the parent's name character-for-character.
 3. **Carry every seam-crossing actor + neighbor verbatim.** Every `Person`/`System_Ext`/`ContainerDb_Ext`/sibling-container that crosses the zoom boundary in the parent appears in the child with identical id, label, description. No renaming, no dropping, no merging.
 4. **Highlight the zoom-target on the parent.** `UpdateElementStyle(<zoom-target-id>, $bgColor="#1168bd", $borderColor="#0b4884", $fontColor="white")` on the parent — permanent (not feature-scoped).
 
@@ -52,13 +52,13 @@ C4 scope is a load-bearing contract between SAD frontmatter and SAD body. Mismat
 
 **L3 (Component) shape.** Every `Component(...)` inside `Container_Boundary(...)` is an internal component of ONE zoomed-in container.
 
-- **Inbound callers.** Every upstream container that calls into the zoomed-in container MUST appear as `Container_Ext(...)` OUTSIDE the boundary, with inbound `Rel(<upstream-ext>, <component-or-boundary>, "<verb>", "<protocol>")` showing call direction + transport.
+- **Inbound callers.** Every upstream container that calls into the zoomed-in container appears as `Container_Ext(...)` outside the boundary, with inbound `Rel(<upstream-ext>, <component-or-boundary>, "<verb>", "<protocol>")` showing call direction + transport.
 - **Outbound dependencies.** Downstream containers the zoomed container calls (databases, message brokers, sibling services) appear as `Container_Ext` / `ContainerDb_Ext` / `ContainerQueue_Ext` outside the boundary, with outbound `Rel(...)` from the calling component.
 - **Completeness.** A component diagram without external callers is structurally incomplete — the reader cannot see who triggers the flow.
 
 **Workspace SAD** ("system under design" = the workspace / platform):
 
-- `c4-context.puml`: one `System("<platform name>")` box. Every service in `<context_path>/CLAUDE.md` Service Topology MUST appear as a container in L2 — NOT `System_Ext`. Only entities outside the workspace (upstream merchants, third-party payment networks, end-user personas) are `System_Ext` / `Person`.
+- `c4-context.puml`: one `System("<platform name>")` box. Every service in `<context_path>/CLAUDE.md` Service Topology appears as a container in L2 (not `System_Ext`). Only entities outside the workspace (upstream merchants, third-party payment networks, end-user personas) are `System_Ext` / `Person`.
 - `c4-container.puml`: `System_Boundary(<workspace>, ...)` encloses every Service-Topology service as `Container(...)`. Backing infrastructure the workspace operates (managed MySQL, Redis, Kafka clusters) is `ContainerDb(...)` / `ContainerQueue(...)` inside the boundary. Third-party hosted services remain `System_Ext`.
 - SAD `S-CONTAINERS-001`: ≥2 Container rows. One Container + N `System_Ext` siblings = service-scope wearing a workspace label — rewrite.
 
@@ -69,15 +69,15 @@ C4 scope is a load-bearing contract between SAD frontmatter and SAD body. Mismat
 
 **Verification.** Before locking SAD: re-read frontmatter `workspace_kind` (from `system.yaml`) and confirm `S-CONTAINERS-001` row count matches scope. Workspace scope with <2 rows → rewrite. `pre-write-check.js` `workspace-sad-container-floor` gate enforces the same minimum at write time.
 
-### Step 2 — Apply MUST / MUST-NOT (binding)
+### Step 2 — Apply binding rules
 
-Every C4 `.puml` MUST:
+Every C4 `.puml` does:
 
 - Start with `!include <C4/C4_Context|C4_Container|C4_Component|C4_Dynamic|C4_Deployment>` after `@startuml`, plus a `title` line.
 - Use stdlib macros: `Person` / `System` / `Container` / `Component` (plus `*_Ext` / `*Db` / `*Queue` / `*_Boundary` variants) for elements; `Rel(...)` for relationships.
 - Use short, business-domain `Person` labels — `Client`, `Web`, `App`, `Customer`, `Driver`, `Merchant`, `Operator`. A `Person` is a role that uses the *running system*. Inherit from PRD `S-PERSONAS-001` / SAD `S-CONTEXT-001`; do not invent meta-narrative stand-ins like `Developer-consumer` or `Reference-impl reader`.
 
-Every C4 `.puml` MUST NOT:
+Every C4 `.puml` does not:
 
 - Use raw PlantUML primitives (`rectangle` / `actor` / `component` / `package` / `node` / `database`) for body elements.
 - Use raw arrow syntax (`-->` / `->` / `..>`) or generic verbs ("Uses" / "Calls"). `Rel(...)` enforces unidirectional + labeled.
@@ -120,62 +120,11 @@ Walk this checklist; any "no" → fix the source, do not render:
 - [ ] **L1 Context**: no transport protocols on relationships. **L3 Component**: no framework internals; every upstream container that calls in appears as `Container_Ext(...)` outside `Container_Boundary`, with inbound `Rel(...)` showing direction + protocol.
 - [ ] **Every `Rel(...)`**: label, technology arg at Container/Component level, action verb, unidirectional.
 - [ ] **Stand-alone test**: a stranger reading the rendered `.svg` (no narration) can tell what the system does, who uses it, how it's built.
-- [ ] **Two-folder rule**: project singleton at `docs/diagrams/c4-<noun>.puml` is unstyled; per-feature copy under `docs/<service_name>/<feature-id>/diagrams/` differs ONLY in `UpdateElementStyle()` highlights — never in element identity.
+- [ ] **Two-folder rule**: project singleton at `docs/diagrams/c4-<noun>.puml` is unstyled; per-feature copy under `docs/<service_name>/<feature-id>/diagrams/` differs only in `UpdateElementStyle()` highlights — never in element identity.
 
 ### Step 6b — Sequence diagram style (SD)
 
-For sequence-diagram authoring discipline (Operations Summary tables + `ref over` reuse pattern for shared sub-flows), see `skills/plantuml/SKILL.md > ## Sequence diagrams — authoring discipline`. The styling rules below cover render-side formatting only.
-
-Per-feature sequence (`<feature-id>-seq-<journey>.puml`) and workspace inter-service sequence (`sequence-inter-<flow>.puml`) carry richer style than C4 levels. Apply this discipline before render:
-
-**Header.** `@startuml <SD-id> <title>` → `!theme plain` → three skinparams (`sequenceArrowThickness 1.5`, `maxMessageSize 300`, `responseMessageBelowArrow true`) → `title <SD-id>: <flow name>\n(<journey> step range → <PRD or HLD anchor>)`.
-
-**Participants.** One `actor` for the human originator (when the flow crosses the customer seam). `participant` / `database` / `queue` for systems. Background-colour every system by category:
-
-| Hex | Category |
-| --- | --- |
-| `#Orange` | Core (Order, Payment Engine, Fulfillment) |
-| `#LightYellow` | Commerce (Cashier, Promotion, Inventory) |
-| `#Plum` | Financial (Wallet, Invoice) |
-| `#LightGreen` | Platform (Identity, Configuration, Risk, Payment Gateway) |
-| `#LightBlue` | Channel (BFF / WebShop) |
-| `#Gray` | External (Game Store API, Game API, third-party REST) |
-| `#Pink` | External PSP |
-| `#LightCoral` | Event Bus / Kafka |
-
-Re-use the same hex for the same service across every SD in the workspace.
-
-**Step numbering.** Tag every action with `[N]` matching the parent journey's narrative numbering (PRD `S-USE-CASES-001` step list or HLD anchor). Sub-steps `[N.a]` / `[N.b]`. Numbers stay stable across diagram revisions — never renumber.
-
-**Inline cites on governed steps.** When a step is governed by `BR-NNN`, `AC-NNN`, `INV-NNN`, `ADR-NNNN`, or a Journey-gate anchor, append the cite to the step label (`[12] Validate payment params (BR-V002)`). Inline cites permitted here — diagram is design surface.
-
-**Source-of-truth markers.** Every persistence / messaging operation carries an `hnote over <participant> #<colour>` block stating the operation + the marker tag. Two markers only:
-
-- `★SoT` — write-failure BLOCKS the flow (e.g., Redis cache that is the order's authoritative state)
-- `◇Best-effort` — failure logged, does NOT block (e.g., MySQL mirror, audit-trail row, metrics emit)
-
-Example: `hnote over ORD #Salmon : Redis SET ORDER_CACHE_{orderId}\nTTL=30d | ★SoT`. Salmon hex (`#Salmon`) reserved for `★SoT`; light-tint hex (`#LightBlue`, `#LightGreen`) reserved for `◇Best-effort`.
-
-**Block conventions.** `group ... end` for ≥3-step sub-flows. `opt ... end` for conditional branches keyed off a single boolean. `alt ... else ... end` for mutually exclusive paths (success branch first; every failure branch label cites the governing `AC-NNN` row). `par ... end` for parallel event-consumer fan-out.
-
-**Tail — Data Store Operations Summary.** Single `note over <first>, <last>` block at end of diagram enumerating every persistence operation reached. Table list + column shapes are canonical in `skills/plantuml/SKILL.md > ## Sequence diagrams — authoring discipline`. When the diagram ships an `hnote`-marked persistence row, mirror the `★SoT` / `◇Best-effort` Marker in the corresponding tail-block row. Omit any sub-table whose store the diagram does not touch.
-
-**Tail — Legend.** Bottom `legend bottom` block carrying:
-
-1. Colour → category table (subset of the palette actually used in this diagram)
-2. Marker glossary: `[N]` = parent-journey step, `★SoT` = source of truth (blocks flow), `◇Best-effort` = non-blocking
-3. (optional) Cross-cutting design notes (HARD RULE / ADR-driven flow changes from the prior system)
-
-**Self-check.** Walk the row before rendering:
-
-- [ ] Header carries theme + 3 skinparams + title with journey anchor
-- [ ] Every system participant carries a category hex
-- [ ] Every action carries a `[N]` step number
-- [ ] Every persistence / messaging op carries an `hnote` SoT marker
-- [ ] Failure paths sit inside `alt ... else` with `AC-NNN` cites
-- [ ] Tail Data Store Summary + Legend present
-
-Missing any row = SD-style defect; `@reviewer` returns a `sd-style` structural finding.
+Per-feature `<feature-id>-seq-<journey>.puml` + workspace `sequence-inter-<flow>.puml` styling: see [sequence-diagram-styling](../plantuml/SKILL.md#sequence-diagram-styling) for header / participants / hex palette / step numbering / SoT markers / block conventions / tail Operations Summary / legend / self-check. Missing any row = SD-style defect; `@reviewer` returns a `sd-style` structural finding.
 
 ### Step 7 — Logical ERD authoring
 
@@ -191,14 +140,14 @@ Each `<feature-id>-c4-context.puml` and `<feature-id>-c4-container.puml` is a **
 
 - Same `System(...)` / `Container(...)` boxes, same ids + labels + descriptions
 - Same `Person(...)` / `System_Ext(...)` set verbatim
-- NEVER introduce `Container(...)` in `c4-context.puml` (layer-mismatch defect) — those belong in `c4-container.puml`
-- NEVER drop, rename, or merge upstream actors
+- Never introduce `Container(...)` in `c4-context.puml` (layer-mismatch defect) — those belong in `c4-container.puml`
+- Never drop, rename, or merge upstream actors
 
 Layer mismatch (containers inside context) is a structural defect — re-author at the L1 abstraction. The two-folder rule is symmetric for `c4-container.puml`.
 
 ### Step 8c — Arrow evidence (workspace `c4-container.puml`)
 
-Every `Rel(...)` between containers in a workspace-scope `c4-container.puml` MUST cite source evidence:
+Every `Rel(...)` between containers in a workspace-scope `c4-container.puml` cites source evidence:
 
 - REST controller path, OR
 - Kafka topic + producer/consumer class pair, OR
@@ -240,4 +189,4 @@ Output paths (system-level / service-level / per-feature) are owned by `@archite
 
 ## Worked example
 
-For a single feature in a fresh service, `@architect` authors `docs/diagrams/{c4-context,c4-container}.puml` (system singletons). `@architect` authors `docs/<service_name>/diagrams/{c4-component,c4-code}.puml` (service singletons) plus per-feature highlighted L1+L2 copies and `<feature-id>-seq-<usecase>.puml` / `<feature-id>-erd-physical.puml` under the feature's `diagrams/` folder. `post-write-puml` renders every `.svg`. Walk Step 6's checklist on each source; per-feature L1+L2 copies must differ from singletons ONLY in `UpdateElementStyle()` highlights.
+For a single feature in a fresh service, `@architect` authors `docs/diagrams/{c4-context,c4-container}.puml` (system singletons). `@architect` authors `docs/<service_name>/diagrams/{c4-component,c4-code}.puml` (service singletons) plus per-feature highlighted L1+L2 copies and `<feature-id>-seq-<usecase>.puml` / `<feature-id>-erd-physical.puml` under the feature's `diagrams/` folder. `post-write-puml` renders every `.svg`. Walk Step 6's checklist on each source; per-feature L1+L2 copies differ from singletons only in `UpdateElementStyle()` highlights.

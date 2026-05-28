@@ -171,7 +171,7 @@ Required rows:
 - Cache layer: client lib, every non-default connection key.
 - Messaging (Kafka/AMQP): client lib + every non-default consumer/producer key (`auto-offset-reset`, etc.).
 - Serialization (Jackson/etc.): every explicit override affecting wire format.
-- Resilience patterns: per instance — name, retry config, circuit-breaker config, **Java callsite check (REQUIRED)**: for each instance in `application.yml`, grep source for `@Retry(name = "<x>")`, `@CircuitBreaker(name = "<x>")`, programmatic `Registry.get("<x>")`. Zero callsites → tag row `(latent — no callsite)` AND open a `DIV-NNN` row in TSR (forward-chain) or surface in reverse-pass run report. Same liveness check applies to any other instance-keyed config.
+- Resilience patterns: per instance — name, retry config, circuit-breaker config, **Java callsite check (required)**: for each instance in `application.yml`, grep source for `@Retry(name = "<x>")`, `@CircuitBreaker(name = "<x>")`, programmatic `Registry.get("<x>")`. Zero callsites → tag row `(latent — no callsite)` and open a `DIV-NNN` row in TSR (forward-chain) or surface in reverse-pass run report. Same liveness check applies to any other instance-keyed config.
 - Application identity: `spring.application.name` / equivalent.
 - Test-scope dependencies: explicit row distinguishing test-only libs (H2, Testcontainers) from production driver.
 
@@ -183,19 +183,19 @@ Invoked by `@architect`'s post-pass spec-correctness audit after `task: feature-
 
 **openapi.yaml** — sampled endpoints:
 
-- `paths.<route>.<method>.requestBody.content.application/json.schema` MUST match the controller's `@RequestBody <Type>` source class shape (field names + nullability).
-- `parameters` MUST match `@PathVariable` / `@RequestParam` annotations on the controller method signature.
-- `responses` MUST cover the controller's return-type AND every `@ExceptionHandler` mapped error code-path. Missing `responses.<status>` for an emitted `@ExceptionHandler` is a `DIV-NNN` candidate.
+- `paths.<route>.<method>.requestBody.content.application/json.schema` matches the controller's `@RequestBody <Type>` source class shape (field names + nullability).
+- `parameters` matches `@PathVariable` / `@RequestParam` annotations on the controller method signature.
+- `responses` covers the controller's return-type and every `@ExceptionHandler` mapped error code-path. Missing `responses.<status>` for an emitted `@ExceptionHandler` is a `DIV-NNN` candidate.
 
 **asyncapi.yaml** — sampled channels:
 
-- `channels.<topic>.publish.message.payload` MUST match the Kafka producer's `KafkaTemplate.send(<topic>, <key>, <value>)` value-type.
-- `channels.<topic>.subscribe.message.payload` MUST match the `@KafkaListener(topics = "<topic>")` argument-type (or `ConsumerRecord<K,V>` `V`).
+- `channels.<topic>.publish.message.payload` matches the Kafka producer's `KafkaTemplate.send(<topic>, <key>, <value>)` value-type.
+- `channels.<topic>.subscribe.message.payload` matches the `@KafkaListener(topics = "<topic>")` argument-type (or `ConsumerRecord<K,V>` `V`).
 
 **clientapi.yaml** — sampled outbound operations:
 
-- Each operation MUST match the adapter's `RestTemplate.exchange(<url>, <method>, <HttpEntity>, <responseType>)` call site OR `WebClient.<method>().uri(<url>).bodyValue(<req>).retrieve().bodyToMono(<resp>)`.
-- Path template MUST match the call site's URL template; request body type MUST match `bodyValue` arg; expected response type MUST match `bodyToMono` arg.
+- Each operation matches the adapter's `RestTemplate.exchange(<url>, <method>, <HttpEntity>, <responseType>)` call site or `WebClient.<method>().uri(<url>).bodyValue(<req>).retrieve().bodyToMono(<resp>)`.
+- Path template matches the call site's URL template; request body type matches `bodyValue` arg; expected response type matches `bodyToMono` arg.
 
 **Mismatch resolution.** `@architect` appends one `DIV-NNN` row per mismatch to feature TDD `S-DIVERGENCES-001`: `source file:line | spec field | drift type | resolution-path-hint`. Hint = `ratify-spec` (lift source shape into the spec) OR `fix-source` (correct the Spring code). Dispatcher routes the chosen path.
 
