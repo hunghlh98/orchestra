@@ -11,10 +11,10 @@
       "source": {
         "source": "github",
         "repo": "hunghlh98/orchestra",
-        "ref": "v5.2.8"
+        "ref": "v5.2.9"
       },
       "description": "Multi-agent SDLC pipeline behind /orchestra. One developer, generator/evaluator separation, document-driven gates.",
-      "version": "5.2.8",
+      "version": "5.2.9",
       "author": { "name": "hunghlh98" },
       "homepage": "https://github.com/hunghlh98/orchestra",
       "repository": "https://github.com/hunghlh98/orchestra.git",

@@ -4,6 +4,14 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.9] — 2026-05-29
+
+Patch release. Fixes a plugin-manifest field shape that blocked install under Claude Code's manifest validator.
+
+### Fixed
+
+- **`.claude-plugin/plugin.json` `repository` field — object → string.** Claude Code's manifest schema expects `repository` as a string URL; the npm-style `{type, url}` object failed install validation (`repository: Invalid input: expected string, received object`). Latent since the field was introduced — surfaced once a clone reached the validator.
+
 ## [5.2.8] — 2026-05-29
 
 Patch release. Phase 3 swarm gains a native dynamic-workflow dispatch path, with full fallback to the existing `Agent` fan-out.
