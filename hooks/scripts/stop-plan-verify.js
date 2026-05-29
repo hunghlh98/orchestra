@@ -3,12 +3,15 @@
 // Mitigates anthropics/claude-code#50110 (ExitPlanMode silent-approval).
 //
 // On Stop event, scans the just-ended main-agent turn for the dangerous
-// pattern: an ExitPlanMode tool_use FOLLOWED BY a Task/Agent spawn in the
-// SAME turn. Under normal Claude Code semantics, ExitPlanMode is the last
+// pattern: an ExitPlanMode tool_use FOLLOWED BY a Task/Agent/Workflow spawn
+// in the SAME turn. Under normal Claude Code semantics, ExitPlanMode is the last
 // tool_use of its turn — the assistant turn ends, the approval UI arrives
 // async, and approval lands in the NEXT user message. A Task spawn that
 // fires AFTER ExitPlanMode in the same turn indicates the silent-approval
 // bug fired (model received `"User has approved"` with no UI interaction).
+// Workflow is included alongside Task/Agent because the Phase 3 swarm
+// dispatches as ONE Workflow call when native workflows are available —
+// same silent-approval exposure as a Task spawn.
 //
 // On detection: emit decision:block via stdout. Claude Code halts the
 // turn and surfaces the structured reason. User verifies the plan was
@@ -107,14 +110,14 @@ export function scanCurrentTurn(transcriptPath) {
     return { silentApproval: false, reason: "" };
   }
 
-  // Look for a Task/Agent spawn AFTER the ExitPlanMode call.
+  // Look for a Task/Agent/Workflow spawn AFTER the ExitPlanMode call.
   for (let j = exitPlanIdx + 1; j < toolUses.length; j++) {
     const name = toolUses[j].name;
-    if (name === "Task" || name === "Agent") {
+    if (name === "Task" || name === "Agent" || name === "Workflow") {
       return {
         silentApproval: true,
         reason:
-          "stop-plan-verify: detected ExitPlanMode followed by a Task spawn in the SAME assistant turn — likely silent-approval bug (anthropics/claude-code#50110). " +
+          `stop-plan-verify: detected ExitPlanMode followed by a ${name} spawn in the SAME assistant turn — likely silent-approval bug (anthropics/claude-code#50110). ` +
           "Under normal PlanMode semantics, ExitPlanMode submits the plan and ends the turn; approval lands in the NEXT user message. " +
           "Verify the plan was actually approved via the PlanMode UI panel before re-running /orchestra. " +
           "To bypass this gate when approval IS confirmed via UI, set ORCHESTRA_HOOK_STOP_PLAN_VERIFY=off.",

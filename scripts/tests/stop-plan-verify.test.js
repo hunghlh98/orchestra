@@ -214,6 +214,32 @@ console.log("stop-plan-verify — ExitPlanMode + Agent same turn → block:");
   } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
 }
 
+// ---------- DANGER: ExitPlanMode → Workflow (swarm dispatch) → BLOCK ----------
+// Mechanism-A: the Phase 3 swarm dispatches as ONE Workflow call when native
+// workflows are available. A Workflow launched in the SAME turn as ExitPlanMode
+// is the same silent-approval exposure as a Task spawn and must block.
+console.log("stop-plan-verify — ExitPlanMode + Workflow same turn → block:");
+{
+  const sb = setupSandbox("silent-workflow");
+  try {
+    seedOrchestra(sb.cwdDir);
+    const transcriptPath = join(sb.tmp, "transcript.jsonl");
+    writeTranscript(transcriptPath, [{
+      toolNames: ["ExitPlanMode", "Workflow"],
+    }]);
+    const r = runHook({
+      hook_event_name: "Stop",
+      session_id: "x",
+      cwd: sb.cwdDir,
+      transcript_path: transcriptPath,
+    });
+    let payload;
+    try { payload = JSON.parse(r.stdout); } catch { payload = null; }
+    check(payload && payload.decision === "block", `Workflow swarm-dispatch after ExitPlanMode triggers block`);
+    check(payload && /Workflow/.test(payload.reason || ""), `reason names the offending Workflow spawn`);
+  } finally { rmSync(sb.tmp, { recursive: true, force: true }); }
+}
+
 // ---------- Cross-turn safe: ExitPlanMode prior turn, Task this turn → no block ----------
 // "Current turn" = tail from most recent type:user line. A Task in this turn
 // when ExitPlanMode lived in a prior turn (approved between turns) is the
