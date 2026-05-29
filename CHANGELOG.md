@@ -4,6 +4,19 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.8] — 2026-05-29
+
+Patch release. Phase 3 swarm gains a native dynamic-workflow dispatch path, with full fallback to the existing `Agent` fan-out.
+
+### Added
+
+- **Native-workflow Phase 3 swarm dispatch (`commands/orchestra.md`).** When native dynamic workflows are available, the swarm dispatches as ONE `Workflow` call: a task-DAG scheduler built from the locked run-plan's `## Agent assignments` + `S-FEATURES-001` — promise-memoized run-once nodes (diamond-dep safe), `blockedBy` gating, verdict-gated subtree skip (`@evaluator` / `@reviewer` non-PASS drops dependents), per-path single-writer mutex, schema-validated structured returns. Phase 4 convergence folds in as verdict-tail nodes. Absent workflows, falls back to the unchanged N × `Agent` fan-out; CC floor stays 2.1.85 (native workflows listed as an Optional requirement). `Workflow` added to the dispatcher `allowed-tools`.
+
+### Changed
+
+- **`hooks/scripts/stop-plan-verify.js` #50110 silent-approval guard extended to catch `Workflow`.** The Stop-event scan now treats a `Workflow` spawn after `ExitPlanMode` in the same turn as the silent-approval shape, alongside `Task` / `Agent` — the workflow swarm-dispatch primitive must not bypass the gate. Reason string interpolates the offending tool name. Matching regression test added (`scripts/tests/stop-plan-verify.test.js`).
+- **Single-writer and brownfield author-ordering invariants (`commands/orchestra.md` Phase 3)** annotated for the Workflow path: enforced by the emitted script's per-path write-mutex and `blockedBy` edges rather than main-agent spawn-batching.
+
 ## [5.2.7] — 2026-05-28
 
 Patch release. Multi-repo alignment v5.3 motion — closes four cross-cutting gaps surfaced by a real 3-week spec-extraction incident across four repos whose specs misaligned at merge. All four mechanisms are workspace-grain (operate across services, not within one) and reuse existing schema / gate / agent surfaces rather than introducing new agents.
