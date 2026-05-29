@@ -2,7 +2,7 @@
 name: orchestra
 description: 4-phase pipeline. Discovery → Plan (PlanMode) → Swarm → Convergence. Greenfield forward, brownfield reverse-then-forward, freeform intent router.
 argument-hint: [spec-to-code|code-to-spec [system|service:<name> --source=<path>]|<intent>] [tail]
-allowed-tools: ["Read", "Write", "Edit", "Bash", "Agent", "AskUserQuestion", "Workflow"]
+allowed-tools: ["Read", "Glob", "Grep", "Write", "Edit", "Bash", "Agent", "AskUserQuestion", "Workflow"]
 ---
 
 # /orchestra
@@ -304,7 +304,7 @@ A **journey** = one **terminal-state outcome category** of an aggregate root. Mu
 
 Tool surface splits by call-readiness:
 
-- **Immediate** (callable without `ToolSearch`): `Read`, `Write`, `Edit`, `Bash`, `Agent`, `AskUserQuestion`.
+- **Immediate** (callable without `ToolSearch`): `Read`, `Glob`, `Grep`, `Write`, `Edit`, `Bash`, `Agent`, `AskUserQuestion`.
 - **`Workflow`** (immediate when native workflows are enabled): the Phase 3 swarm-dispatch preferred path. Probe availability at Phase 3; absent → Agent-fallback path. Never required — the fallback covers every case.
 - **Deferred** (require `ToolSearch select:<name>` before first call): `EnterPlanMode`, `ExitPlanMode`, `TaskCreate`, `TaskUpdate`, `TaskList`, all `mcp__orchestra-utils__*`, all `mcp__orchestra-probe__*`.
 - Load PlanMode + task tools in one batch at the top of Phase 2a: `ToolSearch query: "select:EnterPlanMode,ExitPlanMode,TaskCreate,TaskUpdate,TaskList"`.
