@@ -4,6 +4,14 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.10] — 2026-05-29
+
+Patch release. Closes a dispatcher prompt ↔ allowlist mismatch that forced a silent Bash-grep fallback during read-only research.
+
+### Fixed
+
+- **`commands/orchestra.md` `allowed-tools` grants `Grep` + `Glob`.** The dispatcher body directs read-only research through `Read` / `Grep` / `Glob` (Phase 2a research tools, Phase 2c self-explore), but the frontmatter allowlist omitted `Grep` and `Glob` — the main thread fell back to `grep` via `Bash` ("Grep isn't in this session's toolset"). Both granted so the prompt's own contract holds; the Immediate-tools prerequisite list is aligned to match.
+
 ## [5.2.9] — 2026-05-29
 
 Patch release. Fixes a plugin-manifest field shape that blocked install under Claude Code's manifest validator.
