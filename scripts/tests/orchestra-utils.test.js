@@ -548,14 +548,17 @@ console.log("MCP JSON-RPC smoke:");
   try { toolsParsed = JSON.parse(r1lines[0] || "{}"); }
   catch { toolsParsed = {}; }
   check(Array.isArray(toolsParsed?.result?.tools), "tools/list returns array");
-  check(toolsParsed?.result?.tools?.length === 8, `tools/list returns 8 tools (got ${toolsParsed?.result?.tools?.length})`);
+  check(toolsParsed?.result?.tools?.length === 9, `tools/list returns 9 tools (got ${toolsParsed?.result?.tools?.length})`);
   const names = (toolsParsed?.result?.tools || []).map(t => t.name);
   check(names.includes("tree"), "tools/list includes tree");
   check(names.includes("write_system_yaml"), "tools/list includes write_system_yaml");
   check(names.includes("upsert_local_yaml"), "tools/list includes upsert_local_yaml");
   check(names.includes("upsert_features_yaml"), "tools/list includes upsert_features_yaml");
+  check(names.includes("upsert_cross_features_yaml"), "tools/list includes upsert_cross_features_yaml");
   check(names.includes("claude_md"), "tools/list includes claude_md");
   check(names.includes("docs_readme"), "tools/list includes docs_readme");
+  check(names.includes("amend_locked_artifact"), "tools/list includes amend_locked_artifact");
+  check(names.includes("relock_artifact"), "tools/list includes relock_artifact");
 
   // initialize
   const r2 = spawnSync("node", [server], {
