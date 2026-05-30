@@ -899,6 +899,84 @@ console.log("metrics-collector cost-by-phase aggregator:");
   }
 }
 
+// --- 4i. Workflow-path swarm: classify + phase interval + token harvest ---
+console.log("metrics-collector workflow-path swarm:");
+{
+  const tmp = mkdtempSync(join(tmpdir(), "orchestra-wf-"));
+  const homeBase = join(tmp, "home");
+  const project = join(tmp, "proj");
+  mkdirSync(project, { recursive: true });
+  const realProj = realpathSync(project);
+  const encoded = realProj.replace(/\//g, "-");
+  const parentSid = "parent-wf";
+
+  // Seed manifest (no redaction) so prompt_summary stays readable.
+  const metricsDir = join(realProj, ".orchestra/metrics");
+  mkdirSync(metricsDir, { recursive: true });
+  writeFileSync(join(metricsDir, "manifest.json"),
+    JSON.stringify({ schema_version: 1, redact_prompts: false, telemetry_optin: "explicit" }, null, 2));
+
+  try {
+    // Part A — Workflow spawn classifies as task.subagent.invoked(tool:Workflow)
+    // AND opens the spec-draft phase interval (so harvested tokens attribute).
+    const script = "export const meta = { name: 'cashier-reverse-spec-wave1', phases: [{ title: 'spec-draft' }] };\nphase('spec-draft');\nawait agent('x', { agentType: 'orchestra:architect' });";
+    runHook({ session_id: parentSid, cwd: realProj, hook_event_name: "PreToolUse", tool_name: "Workflow", tool_input: { script } }, { HOME: homeBase });
+    const events = readFileSync(join(metricsDir, "events.jsonl"), "utf8").split("\n").filter(Boolean).map(l => JSON.parse(l));
+    const inv = events.find(e => e.event === "task.subagent.invoked" && e.tool === "Workflow");
+    check(!!inv, `Workflow spawn emits task.subagent.invoked`);
+    check(inv?.agent_role === "workflow", `workflow event agent_role=workflow (got ${inv?.agent_role})`);
+    check(inv?.phase === "spec-draft", `phase parsed from script phase('...') (got ${inv?.phase})`);
+    check(inv?.agent_name === "cashier-reverse-spec-wave1", `agent_name parsed from meta.name (got ${inv?.agent_name})`);
+    check(events.some(e => e.event === "pipeline.phase.start" && e.phase === "spec-draft"), `Workflow spawn opens spec-draft phase interval`);
+
+    // Workflow-agent transcripts appear AFTER the spawn (mtime inside the open
+    // interval) — subagents/workflows/<wf>/agent-*.jsonl + .meta.json.
+    const wfDir = join(homeBase, ".claude/projects", encoded, parentSid, "subagents", "workflows", "wf_test1");
+    mkdirSync(wfDir, { recursive: true });
+    const usage = { input_tokens: 10, output_tokens: 100, cache_read_input_tokens: 1000, cache_creation_input_tokens: 50 };
+    const txn = (id) => [
+      JSON.stringify({ type: "user", message: { role: "user", content: "go" }}),
+      JSON.stringify({ type: "assistant", message: { id: `${id}-m1`, role: "assistant", content: [{ type: "text", text: "x" }], usage }}),
+    ].join("\n") + "\n";
+    const future = Date.now() / 1000 + 5;
+    for (const [aid, role] of [["agent-aaa111", "orchestra:architect"], ["agent-bbb222", "orchestra:analyst"]]) {
+      const p = join(wfDir, `${aid}.jsonl`);
+      writeFileSync(p, txn(aid));
+      writeFileSync(join(wfDir, `${aid}.meta.json`), JSON.stringify({ agentType: role }));
+      utimesSync(p, future, future);
+    }
+
+    // Part B — Stop harvests workflow-agent tokens into tokens.jsonl.
+    runHook({ session_id: parentSid, cwd: realProj, hook_event_name: "Stop" }, { HOME: homeBase });
+    const tokensPath = join(metricsDir, "tokens.jsonl");
+    check(existsSync(tokensPath), `tokens.jsonl created by harvest`);
+    let rows = existsSync(tokensPath) ? readFileSync(tokensPath, "utf8").split("\n").filter(Boolean).map(JSON.parse) : [];
+    check(rows.length === 2, `2 workflow-agent token rows harvested (got ${rows.length})`);
+    const arch = rows.find(r => r.agent_role === "architect");
+    check(!!arch, `architect row present (role lifted from .meta.json)`);
+    check(arch?.subagent_session_id === "agent-aaa111", `subagent_session_id = agent filename (got ${arch?.subagent_session_id})`);
+    check(arch?.workflow_id === "wf_test1", `workflow_id tagged (got ${arch?.workflow_id})`);
+    check(arch?.tokens?.input === 10 && arch?.tokens?.output === 100, `tokens summed from transcript`);
+    check(arch?.run_id === parentSid, `run_id = parent session`);
+    check(typeof arch?.usd === "number", `usd computed`);
+
+    // Idempotency — repeat Stop must not duplicate rows.
+    runHook({ session_id: parentSid, cwd: realProj, hook_event_name: "Stop" }, { HOME: homeBase });
+    rows = readFileSync(tokensPath, "utf8").split("\n").filter(Boolean).map(JSON.parse);
+    check(rows.length === 2, `harvest idempotent across repeat Stop (got ${rows.length})`);
+
+    // cost-by-phase attributes the harvested tokens to spec-draft (open interval).
+    const cbpPath = join(metricsDir, "cost-by-phase.json");
+    check(existsSync(cbpPath), `cost-by-phase.json created`);
+    if (existsSync(cbpPath)) {
+      const cbp = JSON.parse(readFileSync(cbpPath, "utf8"));
+      check(cbp.by_phase?.["spec-draft"]?.tokens?.input === 20, `spec-draft cost attributed from harvested workflow tokens (got ${cbp.by_phase?.["spec-draft"]?.tokens?.input})`);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // --- 5. Env-var opt-out ---
 console.log("metrics-collector opt-out:");
 {

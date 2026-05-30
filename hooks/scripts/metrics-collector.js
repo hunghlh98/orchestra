@@ -5,11 +5,12 @@
 // (ORCHESTRA_METRICS_ROTATE_BYTES overrides for tests), and on SubagentStop /
 // parent Stop emits derived artifacts via hooks/lib/metrics-aggregators.js.
 //
-// Subscribed: UserPromptSubmit, PreToolUse(Task|TeamCreate|TeamDelete|Skill|
-// TaskCreate|TaskUpdate|mcp__orchestra-*|Write|Edit|MultiEdit), SubagentStop,
-// Stop. Write/Edit/MultiEdit is filtered to local.yaml + pipeline artifacts —
-// the dispatcher uses Write to place computed YAML, this hook observes-and-
-// emits. Agents do NOT emit events.
+// Subscribed: UserPromptSubmit, PreToolUse(Task|Agent|Workflow|TeamCreate|
+// TeamDelete|Skill|TaskCreate|TaskUpdate|mcp__orchestra-*|Write|Edit|MultiEdit),
+// SubagentStop, Stop. Write/Edit/MultiEdit is filtered to local.yaml + pipeline
+// artifacts — the dispatcher uses Write to place computed YAML, this hook
+// observes-and-emits. On Stop, Workflow-path swarm-agent tokens are harvested
+// from subagents/workflows/. Agents do NOT emit events.
 
 import { existsSync, mkdirSync, statSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -24,7 +25,7 @@ import {
   isDuplicateSubagentStop,
 } from "../lib/jsonl-emit.js";
 import {
-  emitSubagentTokens, emitInsightsForSession,
+  emitSubagentTokens, emitWorkflowSwarmTokens, emitInsightsForSession,
   emitRunSummary, emitCostByPhase,
 } from "../lib/metrics-aggregators.js";
 import { readBoundedStdin } from "../lib/stdin-bounded.js";
@@ -144,6 +145,9 @@ async function main() {
           const parentPath = join(getProjectSessionsDir(cwd), `${sid}.jsonl`);
           if (existsSync(parentPath)) emitInsightsForSession(input, parentPath, sid, "dispatcher");
         }
+        // Harvest Workflow-path swarm agent tokens BEFORE the aggregators so
+        // emitRunSummary totals + emitCostByPhase attribution see them.
+        emitWorkflowSwarmTokens(input);
         emitRunSummary(input);
         emitCostByPhase(input);
       } catch (e) {

@@ -4,13 +4,14 @@
 // <cwd>/.orchestra/metrics/. Pure-ish: filesystem writes are the only side
 // effect; no stdout/stderr from this module.
 //
-// Three aggregators:
-//   emitSubagentTokens   — tokens.jsonl row on SubagentStop
-//   emitInsightsForSession — insights.jsonl rows (per ★ Insight)
-//   emitRunSummary       — runs/<run-id>.json on parent Stop
-//   emitCostByPhase      — cost-by-phase.json on parent Stop
+// Aggregators:
+//   emitSubagentTokens       — tokens.jsonl row on SubagentStop
+//   emitWorkflowSwarmTokens  — tokens.jsonl rows for Workflow-path agents on Stop
+//   emitInsightsForSession   — insights.jsonl rows (per ★ Insight)
+//   emitRunSummary           — runs/<run-id>.json on parent Stop
+//   emitCostByPhase          — cost-by-phase.json on parent Stop
 
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { safeAppend, safeWrite } from "./safe-fs.js";
 import { computeUsd } from "./rate-card.js";
@@ -46,6 +47,77 @@ export function emitSubagentTokens(input, sub) {
   safeAppend(path, JSON.stringify(row));
 
   return { sid: sub.sid, path: sub.path, role: sub.role };
+}
+
+// === workflow-agent tokens.jsonl rows on parent Stop ===
+// The Phase-3 preferred path dispatches the swarm as ONE native Workflow; its
+// agent() spawns run in the workflow runtime and fire no SubagentStop, so
+// emitSubagentTokens never sees them and the spec-draft swarm cost goes
+// unrecorded. Harvest their transcripts —
+// <sessionsDir>/<sid>/subagents/workflows/<wf-id>/agent-*.jsonl — and emit one
+// subagent.tokens row each. Idempotent: parent Stop fires once per turn, so
+// skip any agent sid already in tokens.jsonl.
+export function emitWorkflowSwarmTokens(input) {
+  const cwd = input.cwd || process.cwd();
+  const sid = input.session_id || "";
+  if (!sid) return;
+  const wfRoot = join(getProjectSessionsDir(cwd), sid, "subagents", "workflows");
+  if (!existsSync(wfRoot)) return;
+
+  const metricsDir = join(cwd, ".orchestra/metrics");
+  const tokensPath = join(metricsDir, "tokens.jsonl");
+  const seen = new Set();
+  if (existsSync(tokensPath)) {
+    for (const r of readJsonl(tokensPath)) {
+      if (r.subagent_session_id) seen.add(r.subagent_session_id);
+    }
+  }
+
+  let wfDirs;
+  try { wfDirs = readdirSync(wfRoot).filter(f => /^wf_/.test(f)); }
+  catch { return; }
+
+  const rows = [];
+  for (const wf of wfDirs) {
+    const wfDir = join(wfRoot, wf);
+    let files;
+    try { files = readdirSync(wfDir).filter(f => /^agent-[a-f0-9]+\.jsonl$/i.test(f)); }
+    catch { continue; }
+    for (const f of files) {
+      const agentSid = f.replace(/\.jsonl$/, "");
+      if (seen.has(agentSid)) continue;
+      seen.add(agentSid);
+      const path = join(wfDir, f);
+      const tokens = sumTokensInJsonl(path);
+      if (tokens.turns === 0) continue;
+
+      let role = "workflow";
+      try {
+        const meta = JSON.parse(readFileSync(join(wfDir, `${agentSid}.meta.json`), "utf8"));
+        if (typeof meta.agentType === "string" && meta.agentType.length) {
+          role = meta.agentType.replace(/^orchestra:/, "") || "workflow";
+        }
+      } catch {}
+
+      let ts;
+      try { ts = new Date(statSync(path).mtimeMs).toISOString(); }
+      catch { ts = new Date().toISOString(); }
+
+      rows.push({
+        ts, event: "subagent.tokens",
+        run_id: sid,
+        subagent_session_id: agentSid,
+        agent_role: role,
+        agent_turn: null,
+        workflow_id: wf,
+        tokens,
+        usd: computeUsd(tokens),
+      });
+    }
+  }
+  if (rows.length === 0) return;
+  if (!existsSync(metricsDir)) mkdirSync(metricsDir, { recursive: true });
+  for (const row of rows) safeAppend(tokensPath, JSON.stringify(row));
 }
 
 // === insights.jsonl rows for one session ===

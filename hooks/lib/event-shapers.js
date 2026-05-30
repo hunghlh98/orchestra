@@ -37,6 +37,28 @@ export function classify(input) {
       run_id,
     };
   }
+  if (hookEvent === "PreToolUse" && toolName === "Workflow") {
+    // Phase-3 preferred-path swarm dispatch. The workflow's agent() spawns fire
+    // no SubagentStop, so this event opens the phase interval (via the
+    // pipeline.phase.start auto-emit in metrics-collector) that emitCostByPhase
+    // needs to attribute the harvested workflow-agent tokens. phase parsed from
+    // the script's first phase('...') call.
+    const ti = input?.tool_input || {};
+    const script = typeof ti.script === "string" ? ti.script : "";
+    const phaseMatch = script.match(/phase\(\s*['"]([\w-]+)['"]\s*\)/);
+    const nameMatch = script.match(/name:\s*['"]([^'"]+)['"]/);
+    return {
+      ts, event: "task.subagent.invoked",
+      subagent_type: "workflow",
+      agent_role: "workflow",
+      phase: phaseMatch ? phaseMatch[1] : null,
+      agent_name: nameMatch ? nameMatch[1] : ti.name || null,
+      team_name: null,
+      tool: "Workflow",
+      prompt_summary: (nameMatch ? nameMatch[1] : script || ti.scriptPath || "").slice(0, 200),
+      run_id,
+    };
+  }
   if (hookEvent === "PreToolUse" && toolName === "TeamCreate") {
     const ti = input?.tool_input || {};
     return {

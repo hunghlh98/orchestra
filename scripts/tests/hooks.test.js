@@ -425,7 +425,7 @@ console.log("hooks.json matcher validation:");
     "Bash", "Read", "Write", "Edit", "MultiEdit",
     "Glob", "Grep", "NotebookEdit",
     "WebFetch", "WebSearch",
-    "Agent", "Task",
+    "Agent", "Task", "Workflow",
     "TodoWrite", "TeamCreate", "TeamDelete",
     "Skill",
     "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskOutput", "TaskStop",
