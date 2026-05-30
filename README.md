@@ -255,6 +255,7 @@ Agents and the dispatcher command have no env-var opt-out. Plugin manifest decla
 
 - Claude Code ≥ 2.1.85 (orchestra relies on prompt-based hooks, MCP slash commands, schema-pinned frontmatter, and native `PlanMode` enforcement at the tool-permission layer; regression range `2.1.83` – `2.1.84` enforced `PlanMode` via `<system-reminder>` only and is known-unsafe — see [#39713](https://github.com/anthropics/claude-code/issues/39713))
 - Node.js 18+ on `$PATH` (Claude Code launches hook scripts and MCP servers with `node`; ESM imports under `mcp-servers/*.js` fail silently on older runtimes)
+- Opus-class model with a **1M context window** for multi-feature runs. The Phase 3 swarm accumulates the locked plan plus every feature's structured return on the main thread — a five-feature reverse run peaks around 270K tokens. On a 200K window such a run will auto-compact mid-swarm; compaction is lossy and can degrade in-flight orchestration state (the locked `run-plan.md` and `agent-tasks.md` ledger survive on disk, but working context is summarized), so prefer the 1M window. Single- or few-feature runs fit 200K.
 
 ### Optional
 
