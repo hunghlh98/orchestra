@@ -6,7 +6,7 @@ Canonical references:
 
 - Plugin-authoring rule set (R1-R14): `docs/plugin-authoring.md`.
 - Orchestra `/orchestra` dispatch contract (S1-S9): `docs/dispatch-strategy.md`.
-- Consumer-CLAUDE.md template (spliced via `mcp__orchestra-utils__claude_md`): `hooks/references/consumer-claude-md.template.md`.
+- Consumer orchestra-rules template (written to `<ctx>/.orchestra/claude-md/orchestra.md` and `@`-imported from `<ctx>/CLAUDE.md` via `mcp__orchestra-utils__claude_md`): `hooks/references/consumer-claude-md.template.md`.
 - Audit-trail body grammar + row format + action enum: `schemas/pipeline-artifact.schema.md#changelog-block`.
 
 ## Two surfaces

@@ -72,7 +72,7 @@ Walk `missing_fields` in declaration order. Before each prompt, re-evaluate per-
 | `migration_tool` | `flyway` \| `liquibase` \| `none` | Only when `mode: greenfield` AND null. Default `flyway` when `primary_language` ∈ `{java, kotlin}`; `none` otherwise. `ddl-auto` is invalid. CLI: `--migration-tool=<value>`. |
 | `primary_database` | `postgresql` \| `mysql` \| `mariadb` \| `sqlite` \| `mssql` \| Other | Only when `mode: greenfield` AND `migration_tool != none` AND null. Drives SQL dialect. |
 
-Persist via `mcp__orchestra-utils__upsert_local_yaml`. Workspace identity via `mcp__orchestra-utils__write_system_yaml`. After both succeed, call `mcp__orchestra-utils__claude_md(context_path)` — splices orchestra section into consumer's `CLAUDE.md`.
+Persist via `mcp__orchestra-utils__upsert_local_yaml`. Workspace identity via `mcp__orchestra-utils__write_system_yaml`. After both succeed, call `mcp__orchestra-utils__claude_md(context_path)` — writes orchestra rules to `<context_path>/.orchestra/claude-md/orchestra.md` and adds an `@.orchestra/claude-md/orchestra.md` import line to consumer's `CLAUDE.md`.
 
 **Branch isolation.** Last bootstrap action, after fields resolve and before the Phase 1 explorer spawn (the first write) — runs in the default tool frame, before `EnterPlanMode` (plan mode blocks state-mutating Bash). If `git rev-parse --is-inside-work-tree` succeeds, switch to `orchestra/<entry-shape>-<service_name>` (`<entry-shape>` = `spec-to-code` \| `code-to-spec` \| router intent slug; `<service_name>`, or `workspace` when `scope_level: system-wide`). Existence-gate first — `git show-ref --quiet refs/heads/<branch>`: exists → `git checkout <branch>` (resume / multi-`/orchestra`); else → `git checkout -b <branch>`. Never bare `git checkout -b` on a possibly-existing branch — it hard-errors. Not a git repo → skip with a one-line notice; never `git init`. Main thread only — subagents never branch. The `orchestra/` prefix stays clear of the `codebase-token-reject` branch pattern, so the name is safe to record in the `run-plan.md` header.
 
@@ -285,7 +285,7 @@ orchestra agents are filesystem-coupled. Handoff: main agent writes `Agent(...)`
 - `.orchestra/<service_name>/local.yaml` via `mcp__orchestra-utils__upsert_local_yaml`
 - `.orchestra/<service_name>/features.yaml` via `mcp__orchestra-utils__upsert_features_yaml`
 - `.orchestra/cross-features.yaml` via `mcp__orchestra-utils__upsert_cross_features_yaml`
-- `<context_path>/CLAUDE.md` orchestra section via `mcp__orchestra-utils__claude_md`
+- `<context_path>/.orchestra/claude-md/orchestra.md` rules + `@`-import line in `<context_path>/CLAUDE.md` via `mcp__orchestra-utils__claude_md`
 - `<context_path>/docs/README.md` provenance marker via `mcp__orchestra-utils__docs_readme`
 - `.orchestra/plans/<session-id>/run-plan.md` (Phase 2b Lock + Phase 2c recompose) via `Write`
 - `.orchestra/plans/<session-id>/discovery/supplemental-cycle-<N>.md` (Phase 2c) via `Write`
