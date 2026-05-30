@@ -73,5 +73,5 @@ Smoke is post-release-commit, user-driven. Not a pre-commit gate.
 
 ## Version bumps
 
-- `node scripts/bump-version.js <major|minor|patch>` atomically updates `VERSION` + `package.json` + `.claude-plugin/plugin.json`. Never hand-edit these three.
+- `node scripts/bump-version.js <semver>` (explicit version, e.g. `5.2.12` — keywords like `patch` are rejected) atomically updates `VERSION` + `package.json` + `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` and re-renders the README canonical tables. Never hand-edit those four.
 - Default to **PATCH** unless explicitly told otherwise.
