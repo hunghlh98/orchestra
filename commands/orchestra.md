@@ -74,6 +74,8 @@ Walk `missing_fields` in declaration order. Before each prompt, re-evaluate per-
 
 Persist via `mcp__orchestra-utils__upsert_local_yaml`. Workspace identity via `mcp__orchestra-utils__write_system_yaml`. After both succeed, call `mcp__orchestra-utils__claude_md(context_path)` — splices orchestra section into consumer's `CLAUDE.md`.
 
+**Branch isolation.** Last bootstrap action, after fields resolve and before the Phase 1 explorer spawn (the first write) — runs in the default tool frame, before `EnterPlanMode` (plan mode blocks state-mutating Bash). If `git rev-parse --is-inside-work-tree` succeeds, switch to `orchestra/<entry-shape>-<service_name>` (`<entry-shape>` = `spec-to-code` \| `code-to-spec` \| router intent slug; `<service_name>`, or `workspace` when `scope_level: system-wide`). Existence-gate first — `git show-ref --quiet refs/heads/<branch>`: exists → `git checkout <branch>` (resume / multi-`/orchestra`); else → `git checkout -b <branch>`. Never bare `git checkout -b` on a possibly-existing branch — it hard-errors. Not a git repo → skip with a one-line notice; never `git init`. Main thread only — subagents never branch. The `orchestra/` prefix stays clear of the `codebase-token-reject` branch pattern, so the name is safe to record in the `run-plan.md` header.
+
 ## Phase 1 — Discovery
 
 Main agent in default tool frame (NOT plan mode). Full tools available.
