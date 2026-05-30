@@ -4,6 +4,21 @@ All notable changes to orchestra are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.11] — 2026-05-30
+
+Patch release. Tightens the Phase 3 Workflow swarm — control-plane dedup, lean node returns, swarm-agent token harvest — isolates each run on its own branch at bootstrap, and corrects brownfield feature carving.
+
+### Added
+
+- **Per-run branch isolation at dispatcher bootstrap (`commands/orchestra.md`).** In a git repo the dispatcher now switches to `orchestra/<entry-shape>-<service_name>` before the Phase 1 explorer spawn (the first write) and before `EnterPlanMode` (plan mode blocks state-mutating Bash), so every artifact lands on a run-scoped branch instead of whatever branch the user was on. Existence-gated (`show-ref` → `checkout` vs `checkout -b`) so resume / repeated `/orchestra` never hard-errors; non-repo skips with a notice (never `git init`). Main thread only. The `orchestra/` prefix stays clear of the `codebase-token-reject` branch pattern, so the name is safe in the `run-plan.md` header.
+
+### Fixed
+
+- **Phase 3 swarm control-plane dedup — `TaskCreate` scoped to the Agent-fallback path (`commands/orchestra.md`).** The swarm carried two competing ledgers: `TaskCreate` was emitted unconditionally even on the Workflow path, whose `args.tasks` DAG plus structured return already track the swarm. `TaskCreate` now fires only on the Agent-fallback path, with the Agent spawns at Phase-3 dispatch (never at lock); the Workflow path's structured return is its sole ledger. Appended-feature waves re-enter Phase 2a and re-lock via `ExitPlanMode` before dispatch; Workflow is the preferred path only under `spawn_mode: subagent`.
+- **Workflow-path node return capped to `{ artifact_path, status, note }` with `note` ≤ ~200 chars (`commands/orchestra.md`).** Nodes previously returned multi-paragraph rationale that folded into the main thread wholesale (~13.6K tokens for a five-feature wave). The lean schema folds back a pointer, not the work — full rationale and artifact bodies stay in the on-disk artifact and are re-read on demand. Still satisfies the step-14 Workflow-path verify (one row per node, path + status present).
+- **Workflow-path swarm-agent tokens harvested into metrics (`hooks/scripts/metrics-collector.js`).** Workflow-internal `agent()` spawns fire no `SubagentStop`, so their tokens never reached telemetry. Workflow `PreToolUse` is now classified as `task.subagent.invoked` (phase parsed from the script's `phase()` call, name from `meta.name`) via a new Workflow `PreToolUse` matcher; on `Stop`, `subagents/workflows/wf_*/agent-*.jsonl` is harvested into `tokens.jsonl` idempotently, role lifted from each sibling `.meta.json` `agentType`. Harvested tokens flow into the run summary and cost-by-phase attribution.
+- **Brownfield discovery carves features by business capability, not HTTP handler (`@explorer`).** Discovery split one feature per endpoint, fragmenting single business capabilities into per-handler code-slices. A binding Feature-boundary test replaces the advisory decision framework: endpoints sharing one use-case/pipeline merge into ONE feature, no-endpoint internal code (rule chains, caches, plumbing) demotes to a component of its caller, and boundary signals order lifecycle-aggregate > use-case > package > route-prefix.
+
 ## [5.2.10] — 2026-05-29
 
 Patch release. Closes a dispatcher prompt ↔ allowlist mismatch that forced a silent Bash-grep fallback during read-only research.
