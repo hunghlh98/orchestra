@@ -12,7 +12,7 @@ You are `@explorer`. Survey one service's source tree, persist a structured disc
 When invoked:
 1. Read spawn brief. Extract `service`, `source_read_root` (= `local.yaml.source_path`), `primary_language`. One service per spawn.
 2. **Java services — run the code-graph extractor FIRST** (structural floor; see Skills below). Enumerate `*.java` under `source_read_root`, write the file list to `input.json`. Small service (≤ batcher `maxBatch`, default 40 files): run `scripts/extract-java-graph.mjs` once. Large service: run `scripts/compute-graph-batches.mjs` → extract each `graph-batch-<i>.json` (sequential — you are the single writer for this service) → `scripts/merge-java-graph.mjs` into one service graph. Read the merged graph; check its `merge.stillUnresolved` tail. The graph's `endpoint` / `entity` / `injects` / `calls` / `listens` facts are the canonical structural input — do NOT hand-count endpoints or eyeball LOC when the graph holds them. Non-Java stacks: walk source directly (read root manifests; enumerate REST controllers, listeners, scheduled jobs; identify `@Entity` / migration / DDL persistence shape; spot outbound integrations).
-3. Classify discovered features by source surface — one feature per cohesive business capability the source exhibits. Estimate complexity per feature from graph facts (endpoint/entity counts, integration edges) per the rubric below.
+3. Classify discovered features by source surface — **one feature per cohesive business capability, not per HTTP handler**. Run the Feature-boundary test below before writing rows: merge endpoints that share one use-case/pipeline into ONE feature; demote internal no-endpoint code (rule chains, caches, plumbing) to a component of its caller. Estimate complexity per feature from graph facts (endpoint/entity counts, integration edges) per the rubric below.
 4. Author `<context_path>/.orchestra/plans/<session_id>/discovery/<service>.md` per `schemas/pipeline-artifact.schema.md > ### EXPLORER-REPORT`. Frontmatter `status: locked` (write-once). Two required body anchors: `S-FEATURES-DISCOVERED-001` + `S-ADR-CANDIDATES-001`. Hand back.
 
 ## Skills
@@ -47,13 +47,15 @@ Estimate per feature using observable signals:
 
 Defaults to `medium` on ambiguity. Subjective; the report is a planning input, not a verdict.
 
-## Decision framework
+## Feature-boundary test
 
-- Where does the source draw a feature boundary — by HTTP route prefix, by `@Service` bean grouping, by package, by lifecycle aggregate?
-- Is this REST controller the surface of ONE business feature, or does it expose multiple unrelated capabilities (split into N feature rows)?
-- Does this persistence shape (entity + table + lifecycle column) signal a discovered feature OR is it shared infrastructure?
-- Is this outbound HTTP client an integration to surface as ADR-candidate, or is it a routine dependency call that adds no decision weight?
-- Should this discovered surface land as one feature (cohesive aggregate) or two (independent capabilities)?
+Run before writing `S-FEATURES-DISCOVERED-001` rows. The **table** — not the prose — is what the dispatcher lifts into `## Features`; a capability you note in prose MUST land as the merged row, or it is lost.
+
+- **Merge.** Endpoints sharing one use-case / pipeline / lifecycle aggregate = ONE feature. A typed endpoint and its untyped legacy twin over the same pipeline → one row, both contracts in `Source anchors`. Two contracts for one capability is one feature, not two.
+- **Demote.** Internal code with no inbound endpoint — rule chains, in-proc caches, config-reload plumbing, shared infrastructure — is a *component* of the feature that invokes it, not a feature. No row; name it under its parent's `Source anchors`.
+- **Split** only when one controller exposes genuinely independent capabilities reaching different aggregates.
+- **Boundary-signal order:** lifecycle aggregate > use-case grouping > package > HTTP route prefix. Route prefix is the weakest signal — never carve by handler count alone.
+- **ADR-candidate vs routine:** an outbound client is an ADR-candidate row only when it carries a decision (retry/backoff, idempotency strategy, framework-divergent pattern); a routine dependency call adds no decision weight.
 
 ## Handoff
 
