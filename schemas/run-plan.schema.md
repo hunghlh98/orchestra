@@ -17,7 +17,7 @@ scope: shape of `<context_path>/.orchestra/plans/<session_id>/run-plan.md`.
 
 One run-plan per Claude Code session. `<session_id>` = Claude Code session-id, sourced from the `orchestra-preflight.js` hook's `<orchestra-preflight>` additional-context block (hook reads `input.session_id` from stdin). Plan scope is workspace-level — one plan covers all services + features in the session.
 
-Multi-`/orchestra`-per-session: same `<session_id>` reuses the dir; second invocation re-authors the plan with features appended. Hard escape to start a fresh run: `claude --fork-session`.
+Multi-`/orchestra`-per-session: same `<session_id>` reuses the dir; second invocation re-authors the plan with features appended and re-locks via PlanMode before dispatch. Hard escape to start a fresh run: `claude --fork-session`.
 
 ## Frontmatter
 

@@ -105,7 +105,7 @@ Phase 2 spans a turn boundary because `ExitPlanMode` is async — the tool submi
 
 The composed body MUST carry three sections per `schemas/run-plan.schema.md`:
 
-- **`## Features`** — DAG of features to author. Per-feature: `<feature-id>`, `classifier` (`business` | `tech`), `depends_on`, `supersedes`, per-feature artifact slots + per-service singleton touches.
+- **`## Features`** — DAG of features to author. Per-feature: `<feature-id>`, `classifier` (`business` | `tech`), `depends_on`, `supersedes`, per-feature artifact slots + per-service singleton touches. Apply the `@explorer` Feature-boundary test to discovery rows before lifting them: merge shared-pipeline endpoints into one feature, demote no-endpoint internal code to a component of its caller. The discovery table is an input, not a verdict; the user confirms the resulting boundaries at the PlanMode gate.
 - **`## Agent assignments`** — per-artifact mapping of output path to authoring subagent. Plan author (main agent) lifts the relevant subset from the canonical ownership matrix per scope + chain direction + classifier. Author lines REFERENCE the agent by handle (`"@product"`); never inline agent prompts.
 - **`## Risks + decisions`** — ADR-worthy decisions surfaced upfront, preflight constraints (autonomy / spawn-mode / language), revision cycle cap (3, per Phase 2c), auto-mode behavior on approval, known unknowns.
 
@@ -123,7 +123,7 @@ Approval-signal routing on next user message:
 ### Phase 2b — Lock (Turn 2, default mode restored on approval)
 
 9. Main agent Writes `.orchestra/plans/<session-id>/run-plan.md` with `status: locked`, `run_plan_status: approved`, plus full plan body lifted from the approved `ExitPlanMode` submission.
-10. Main agent emits one `TaskCreate` per `## Agent assignments` row in the locked plan. Each `TaskCreate` carries: `agent` (e.g., `@architect`), `feature_id`, `artifact_path`, initial `status: pending`. All `TaskCreate` calls go in ONE message — independent operations.
+10. **Task ledger — select the path's ledger; no `TaskCreate` emitted at lock.** The Agent-fallback path uses a `TaskCreate` ledger: one row per `## Agent assignments` entry — `agent` (e.g., `@architect`), `feature_id`, `artifact_path`, `status: pending` — emitted at Phase-3 dispatch (step 11), batched in the SAME message as the `Agent` spawns, never here at lock. The Workflow path carries its ledger in the workflow's `args.tasks` DAG and structured return; it emits no `TaskCreate`.
 
 ### Phase 2c — Revision (reject path, ≤3 cycles)
 
@@ -152,13 +152,13 @@ Main agent has full tool access post-approval. Same turn as Phase 2b.
 
 11. **Swarm dispatch — two execution paths, picked by `Workflow`-tool availability.**
 
-**Workflow path (preferred — native workflows available).** Main agent emits ONE `Workflow({...})` call. The script is a task-DAG scheduler built from the locked plan's `## Agent assignments` + `S-FEATURES-001`. `args.tasks` carries one node per swarm participant per feature: `{ id: task_id, owner, blockedBy (feature `depends_on` ∪ intra-feature edges), writes (`service_singletons_touched` ∪ owned paths), exit, status, is_verdict }`. The script promise-memoizes each node (run-once even under diamond deps), gates a node on its `blockedBy` parents, drops a node's subtree to `skipped` when a verdict parent (`@evaluator` / `@reviewer`) returns non-PASS, and serializes nodes with intersecting `writes` via a per-path mutex. Each node spawns its owner via `agent({ agentType, schema })`; structured returns replace prose re-parsing. Phase 4 convergence folds in as verdict-tail nodes. On return, the main agent runs the Post-pass deliverable check against the structured `artifacts_written` summary, then reads `TaskList` for ledger reconciliation.
+**Workflow path (preferred — native workflows available).** Main agent emits ONE `Workflow({...})` call. The script is a task-DAG scheduler built from the locked plan's `## Agent assignments` + `S-FEATURES-001`. `args.tasks` carries one node per swarm participant per feature: `{ id: task_id, owner, blockedBy (feature `depends_on` ∪ intra-feature edges), writes (`service_singletons_touched` ∪ owned paths), exit, status, is_verdict }`. The script promise-memoizes each node (run-once even under diamond deps), gates a node on its `blockedBy` parents, drops a node's subtree to `skipped` when a verdict parent (`@evaluator` / `@reviewer`) returns non-PASS, and serializes nodes with intersecting `writes` via a per-path mutex. Each node spawns its owner via `agent({ agentType, schema })`; structured returns replace prose re-parsing. Phase 4 convergence folds in as verdict-tail nodes. On return, the main agent runs the Post-pass deliverable check against the structured `artifacts_written` summary — the structured return is the Workflow path's ledger of record (no `TaskCreate` / `TaskList` on this path).
 
-**Agent-fallback path (workflows unavailable).** Main agent emits ONE message with N × `Agent({...})` calls — one per swarm participant per feature per `## Agent assignments`. Each spawn prompt carries: `phase: spec-draft` (or `discovery` / `verification` / `gap-resolution` per intent), `feature_id`, `task_id` (from Phase 2b `TaskCreate` emission), owned-path list. Steps 12-14 govern this path.
+**Agent-fallback path (workflows unavailable).** Main agent emits ONE message with N × `Agent({...})` calls — one per swarm participant per feature per `## Agent assignments`. Each spawn prompt carries: `phase: spec-draft` (or `discovery` / `verification` / `gap-resolution` per intent), `feature_id`, `task_id` (matching the `TaskCreate` ledger row emitted in this same message, per step 10), owned-path list. Steps 12-14 govern this path.
 
 12. Subagents execute in parallel. Each opens with `TaskUpdate(task_id, status: in_progress)`; authors assigned artifact(s); closes with `TaskUpdate(task_id, status: completed)` on success or `status: cancelled` on ESCALATE escape.
 13. `SubagentStop` hook fires per subagent termination, projecting the subagent's `TaskCreate` / `TaskUpdate` activity into the session-level ledger at `.orchestra/plans/<session-id>/agent-tasks.md`.
-14. Main agent reads `TaskList` to verify Phase 3 completion (all Phase-3 tasks in `completed` status) before advancing to Phase 4.
+14. Main agent verifies Phase 3 completion before advancing to Phase 4 — Agent-fallback path reads `TaskList` (all Phase-3 tasks in `completed` status); Workflow path checks the structured return covers every `## Agent assignments` row.
 
 **Single-writer surfaces stay serial.** Concurrent features touching the same per-service singleton (`<service>-openapi.yaml` / `c4-component.puml` / `erd-logical.puml` / `state-machine.puml` / `usecase.puml` / `<service>-BR-AC.md`) or workspace singleton (`SAD.md` / `business-invariants.md` / `c4-context.puml` / `c4-container.puml` / `erd-logical.puml`) serialize at the authoring agent's spawn level. Agent-fallback path: main agent enforces by NOT batching parallel spawns when their `service_singletons_touched` paths intersect. Workflow path: the emitted script's per-path write-mutex enforces the same serialization (intersecting `writes` → mutual exclusion).
 
@@ -217,7 +217,7 @@ Two resolutions for verification-phase divergence:
 
 **Two scopes:** per-session (`.orchestra/plans/<session-id>/`) and workspace-persistent (`.orchestra/system.yaml`, `.orchestra/<service>/`). Filesystem state IS chain state; no separate state file.
 
-Multi-`/orchestra`-per-session: same `<session-id>` reuses the dir. Second invocation = partial-resume against the existing plan (re-author with feature appended). Hard escape: `claude --fork-session` for a new run-id.
+Multi-`/orchestra`-per-session: same `<session-id>` reuses the dir. Second invocation = partial-resume against the existing plan (re-author with feature appended) — appended features re-enter Phase 2a and re-lock via `ExitPlanMode` before any Phase 3 dispatch. Hard escape: `claude --fork-session` for a new run-id.
 
 ## Shared rules
 
@@ -228,7 +228,7 @@ Every `Agent({...})` call MUST prepend `phase: <name>` on its own line. Canonica
 ### Parallel-spawn discipline
 
 - Cohort of N agents at the same `phase:` with no read-dependency emit ONE assistant message with N `Agent({...})` blocks. Staggered emission warns as `cohort.spawn.staggered` in `metrics-collector`.
-- Same rule for `TaskCreate` at Phase 2b: N independent calls = ONE message.
+- Same rule for `TaskCreate` on the Agent-fallback path: N independent calls = ONE message.
 
 ### Spawn brief discipline
 
@@ -305,7 +305,7 @@ A **journey** = one **terminal-state outcome category** of an aggregate root. Mu
 Tool surface splits by call-readiness:
 
 - **Immediate** (callable without `ToolSearch`): `Read`, `Glob`, `Grep`, `Write`, `Edit`, `Bash`, `Agent`, `AskUserQuestion`.
-- **`Workflow`** (immediate when native workflows are enabled): the Phase 3 swarm-dispatch preferred path. Probe availability at Phase 3; absent → Agent-fallback path. Never required — the fallback covers every case.
+- **`Workflow`** (immediate when native workflows are enabled): the Phase 3 swarm-dispatch preferred path under `spawn_mode: subagent` (workflow `agent()` calls are subagents). Probe availability at Phase 3; absent → Agent-fallback path. Under `spawn_mode: teams`, skip the Workflow path. Never required — the fallback covers every case.
 - **Deferred** (require `ToolSearch select:<name>` before first call): `EnterPlanMode`, `ExitPlanMode`, `TaskCreate`, `TaskUpdate`, `TaskList`, all `mcp__orchestra-utils__*`, all `mcp__orchestra-probe__*`.
 - Load PlanMode + task tools in one batch at the top of Phase 2a: `ToolSearch query: "select:EnterPlanMode,ExitPlanMode,TaskCreate,TaskUpdate,TaskList"`.
 - Load orchestra MCP tools at bootstrap: `ToolSearch query: "select:tree,write_system_yaml,upsert_local_yaml,upsert_features_yaml,upsert_cross_features_yaml,claude_md,docs_readme"`.
@@ -317,7 +317,7 @@ Tool surface splits by call-readiness:
 | Hook | Events (matchers) | Side effect |
 |---|---|---|
 | `orchestra-preflight` | UserPromptSubmit (`^/orchestra(?::orchestra)?(\s|$)`) | Detects mode, loads cached `system.yaml` + `local.yaml`, derives `workspace_kind` + `scope_level`, reads `docs/README.md` provenance, includes `session_id`. Emits `<orchestra-preflight>` block. |
-| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-*\|TaskCreate\|TaskUpdate / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl`. Groups by `session_id`. |
+| `metrics-collector` | UserPromptSubmit / PreToolUse:Task\|Agent\|Workflow\|TeamCreate\|TeamDelete\|Skill\|Write\|Edit\|MultiEdit\|mcp__orchestra-*\|TaskCreate\|TaskUpdate / SubagentStop / Stop | Emits lifecycle events to `<cwd>/.orchestra/metrics/events.jsonl`. Groups by `session_id`. On Stop, harvests Workflow-path swarm-agent tokens from `subagents/workflows/`. |
 | `pre-write-check` | PreToolUse:Write\|Edit\|MultiEdit | Secrets matcher + `locked-status-reject` + `all-sections-locked-reject` + `readers-scope-warning` + `chain-cite-reject` + `codebase-token-reject` + `workspace-sad-container-floor` + `changelog-append-only`. |
 | `val-calibration` | PreToolUse:Task\|Agent | Injects `<calibration-anchor>` block into `@evaluator` spawn prompts. |
 | `stop-plan-verify` | Stop | Silent-approval gate per Invariants. Returns `decision: "block"` when `ExitPlanMode` is followed by `Task` / `Agent` / `Workflow` in the same turn. |
@@ -346,8 +346,8 @@ sequenceDiagram
   Main->>StopVerify: Stop (turn ends after ExitPlanMode)
   StopVerify-->>Main: pass (no Task in same turn)
   User-->>Main: approval signal (PlanMode UI)
-  Note over Main: Phase 2b — Write run-plan.md (locked) + TaskCreate × N (ONE message)
-  Note over Main: Phase 3 — ONE Workflow({...}) (preferred) or N × Agent({...}) fallback, in ONE message
+  Note over Main: Phase 2b — Write run-plan.md (locked)
+  Note over Main: Phase 3 — ONE Workflow({...}) (preferred) or N × Agent({...}) + TaskCreate × N (fallback), in ONE message
   Main->>Metrics: PreToolUse:Agent
   Main->>Agent: spawn
   Agent->>PreWrite: PreToolUse:Write
@@ -382,7 +382,7 @@ Per-strategy traces live as siblings under `references/walkthroughs/`. Read the 
 
 **Main thread owns orchestration.** All `AskUserQuestion`, `EnterPlanMode`, `ExitPlanMode`, `TaskCreate` calls run in the main agent thread. Spawned subagents cannot call them — subagent tool frame is frozen at spawn time and these tools are stripped from the subagent registry.
 
-**One plan covers the entire pipeline.** Native PlanMode submission via `ExitPlanMode` is the single user-facing approval gate. No per-feature review gates, no per-layer approval prompts. Approval routes Phase 2a → 2b → 3; rejection routes 2a → 2c → (loop ≤3) → 2b → 3; fourth rejection halts.
+**One plan covers the entire pipeline.** Native PlanMode submission via `ExitPlanMode` is the single user-facing approval gate. No per-feature review gates, no per-layer approval prompts. Approval routes Phase 2a → 2b → 3; rejection routes 2a → 2c → (loop ≤3) → 2b → 3; fourth rejection halts. Phase 3 dispatches ONLY features enumerated in the locked `## Features` — adding a wave (features not in the locked plan) re-enters Phase 2a (`EnterPlanMode` → recompose `## Features` → `ExitPlanMode`) and re-locks before any spawn. A bare `AskUserQuestion` never authorizes a new feature set.
 
 **Approval-signal routing.** Trust the native PlanMode UI as the canonical signal. Conditional clarify only when the next user message after `ExitPlanMode` carries mixed approve+reject tokens (e.g. "approved but change X" / "looks good, change X"); in that case fire ONE `AskUserQuestion` to disambiguate. Never preemptively ask after a clear approve or clear reject.
 
